@@ -1,6 +1,7 @@
-import Timer from './Timer.jsx'
+import TimerControls from './Timer.jsx'
+import ActionAnimation from '../animations/index.jsx'
+import { useCountdown } from '../hooks/useCountdown.js'
 import {
-  PHASE_LABEL,
   hasAlternatives,
   selectAlternative,
   resolveConditionals,
@@ -10,6 +11,10 @@ import {
   isCriticalHazard,
   timerSeconds,
   humanDuration,
+  stepText,
+  stepHazards,
+  reagentName,
+  extractTemperature,
 } from '../lib/runtime.js'
 
 const KIND_ICON = {
@@ -22,9 +27,10 @@ const KIND_ICON = {
   storage: '❄',
 }
 
-// The current instruction, front and center, with every structural feature the
-// parse gives us made visible: resolved conditionals, either/or choice, repeat
-// tracking, hazards (negatives in red), and a timer for wait/spin steps.
+// The current step: a big animated action visual (the hero), then the English
+// instruction and every structural feature the parse gives us — resolved
+// conditionals, either/or choice, tracked repeats, hazards (negatives red), and
+// a timer whose clock also drives the animation.
 export default function StepCard({
   step,
   answers,
@@ -33,6 +39,7 @@ export default function StepCard({
   passes,
   onPass,
   onAnswerInline,
+  lang = 'en',
 }) {
   const eff = hasAlternatives(step) ? selectAlternative(step, altIndex) : step
   const kind = eff.kind || 'action'
@@ -40,33 +47,54 @@ export default function StepCard({
   const reagents = resolveReagents(eff, answers)
   const { selected, undecided } = resolveConditionals(eff, answers)
   const timed = timerSeconds(step, altIndex)
+  const temp = extractTemperature(eff, lang)
+
+  // One clock for both the timer control and the animation ring/rotor.
+  const countdown = useCountdown(timed || 0)
+  const timer = timed
+    ? {
+        remaining: countdown.remaining,
+        fraction: timed > 0 ? countdown.remaining / timed : 1,
+        running: countdown.running,
+        done: countdown.done,
+      }
+    : null
 
   const repTarget = repeatTarget(eff)
   const openEnded = isOpenEndedRepeat(eff)
   const showRepeat = eff.repeat && (repTarget > 1 || openEnded)
+  const hazards = stepHazards(eff, lang)
 
   return (
-    <div className="step-card" key={`${step.index}-${altIndex}`}>
+    <div className="step-card" key={`${step.index}-${altIndex}-${lang}`}>
+      {/* HERO animation */}
+      <div className="hero-anim">
+        <ActionAnimation
+          action={eff.action || 'generic'}
+          reagents={reagents}
+          temp={temp}
+          spin={eff.spin}
+          timer={timer}
+          lang={lang}
+        />
+      </div>
+
       <span className="kind-badge" data-kind={kind}>
         <span>{KIND_ICON[kind] || '→'}</span>
         {kind}
         {eff.duration_seconds && !timed ? ` · ${humanDuration(eff.duration_seconds)}` : ''}
       </span>
 
-      <p className="instruction">{eff.text || step.text}</p>
+      <p className="instruction">{stepText(eff, lang) || stepText(step, lang)}</p>
 
-      {/* either / or — let the user choose the path, show only the chosen one */}
+      {/* either / or — choose the path, run only the chosen one */}
       {hasAlternatives(step) && (
         <div className="block">
           <div className="block-label">Choose your method</div>
           <div className="alt-switch" role="group" aria-label="alternatives">
             {step.alternatives.map((alt, i) => (
-              <button
-                key={i}
-                aria-pressed={i === altIndex}
-                onClick={() => onPickAlt(i)}
-              >
-                {shortLabel(alt.text)}
+              <button key={i} aria-pressed={i === altIndex} onClick={() => onPickAlt(i)}>
+                {shortLabel(stepText(alt, lang))}
               </button>
             ))}
           </div>
@@ -98,10 +126,8 @@ export default function StepCard({
           <div className="block-label">Reagents</div>
           {reagents.map((r, i) => (
             <div className={`reagent-row${r.state === 'selected' ? ' selected' : ''}`} key={i}>
-              <span className="r-name">{r.name}</span>
-              {r.condition && r.state !== 'selected' && (
-                <span className="r-cond">{r.condition}</span>
-              )}
+              <span className="r-name">{reagentName(r, lang)}</span>
+              {r.condition && r.state !== 'selected' && <span className="r-cond">{r.condition}</span>}
               {r.volume && <span className="r-vol">{r.volume}</span>}
             </div>
           ))}
@@ -131,14 +157,26 @@ export default function StepCard({
         </div>
       )}
 
-      {/* timer for wait/spin */}
-      {timed && <Timer seconds={timed} spin={eff.spin} />}
+      {/* timer control strip (clock shared with the animation) */}
+      {timed && (
+        <div className="block">
+          <TimerControls
+            remaining={countdown.remaining}
+            running={countdown.running}
+            done={countdown.done}
+            start={countdown.start}
+            pause={countdown.pause}
+            reset={countdown.reset}
+            spin={eff.spin}
+          />
+        </div>
+      )}
 
       {/* hazards — negatives rendered boldly in red */}
-      {(eff.hazards || []).length > 0 && (
+      {hazards.length > 0 && (
         <div className="block">
-          {eff.hazards.map((h, i) => {
-            const critical = isCriticalHazard(h)
+          {hazards.map((h, i) => {
+            const critical = isCriticalHazard(h) || isCriticalHazard((eff.hazards || [])[i])
             return (
               <div className={`hazard${critical ? ' critical' : ''}`} key={i}>
                 <span className="ico">{critical ? '⛔' : '⚠️'}</span>
@@ -153,11 +191,10 @@ export default function StepCard({
 }
 
 function InlineBranch({ conditionals, onAnswerInline }) {
-  // Infer which intake key this branch needs, so the inline buttons write the
-  // same answer the intake form would.
   const text = conditionals.map((c) => c.condition).join(' ').toLowerCase()
   const isKit = text.includes('mini') || text.includes('micro')
-  const isCells = text.includes('≤') || text.includes('>') || text.includes('komórek') || text.includes('cells')
+  const isCells =
+    text.includes('≤') || text.includes('>') || text.includes('komórek') || text.includes('cells')
 
   return (
     <div className="resolved ask">
@@ -190,7 +227,6 @@ function InlineBranch({ conditionals, onAnswerInline }) {
 
 function shortLabel(text) {
   if (!text) return 'Option'
-  // first few words for the toggle label
   const words = text.split(/\s+/).slice(0, 4).join(' ')
   return words.length < text.length ? words + '…' : words
 }

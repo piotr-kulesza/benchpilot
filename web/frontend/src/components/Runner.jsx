@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import StepCard from './StepCard.jsx'
 import Complete from './Complete.jsx'
-import { PHASE_LABEL, selectAlternative, hasAlternatives } from '../lib/runtime.js'
+import { PHASE_LABEL, selectAlternative, hasAlternatives, stepText } from '../lib/runtime.js'
 
 // One step at a time. Owns navigation, per-step alternative choice and repeat
 // pass counts, and a persistent look-ahead so a beginner can prep during a timer.
-export default function Runner({ protocol, answers, setAnswers, onExit, initialStep = 0 }) {
+export default function Runner({ protocol, answers, setAnswers, onExit, initialStep = 0, lang = 'en' }) {
   const steps = protocol.steps
   const [i, setI] = useState(Math.min(initialStep, steps.length - 1))
   const [altByStep, setAltByStep] = useState({})
@@ -43,8 +43,8 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
     const n = steps[i + 1]
     if (!n) return null
     const eff = hasAlternatives(n) ? selectAlternative(n, altByStep[n.index] || 0) : n
-    return eff.text || n.text
-  }, [i, steps, altByStep])
+    return stepText(eff, lang) || stepText(n, lang)
+  }, [i, steps, altByStep, lang])
 
   if (finished) {
     return <Complete protocol={protocol} answers={answers} onRestart={onExit} />
@@ -73,6 +73,7 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
 
       <div className="stage">
         <StepCard
+          key={step.index}
           step={step}
           answers={answers}
           altIndex={altIndex}
@@ -82,6 +83,7 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
             setPassByStep((m) => ({ ...m, [step.index]: (m[step.index] || 1) + 1 }))
           }
           onAnswerInline={(k, v) => setAnswers((a) => ({ ...a, [k]: v }))}
+          lang={lang}
         />
       </div>
 

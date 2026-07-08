@@ -6,11 +6,72 @@
 
 export const PHASE_ORDER = ['preparation', 'procedure', 'quality_control', 'notes']
 
+// The fixed animation vocabulary — mirrors core/schema.py ACTIONS. The frontend
+// must ship exactly one looping visual per value; unknown actions fall back to
+// 'generic'.
+export const ACTIONS = [
+  'pour_add',
+  'pipette_mix',
+  'vortex_mix',
+  'centrifuge',
+  'incubate_wait',
+  'heat',
+  'cool_ice',
+  'transfer',
+  'wash',
+  'discard',
+  'elute',
+  'measure',
+  'generic',
+]
+
 export const PHASE_LABEL = {
   preparation: 'Preparation',
   procedure: 'Procedure',
   quality_control: 'Quality control',
   notes: 'Notes',
+}
+
+// ---------------------------------------------------------------------------
+// language selection
+// ---------------------------------------------------------------------------
+//
+// The schema carries the original language verbatim (`text`, `name`, `hazards`,
+// `title`, `summary`) PLUS an English translation in parallel `_en` fields. The
+// UI defaults to English and can flip to the original. If a translation is
+// missing we always fall back to the original — nothing ever renders blank.
+
+export const LANGS = { en: 'English', orig: 'Original' }
+
+// Pick a localized string from an object given a base field name. When lang is
+// 'en' and `${base}_en` is a non-empty string, use it; otherwise the base value.
+export function localize(obj, base, lang = 'en') {
+  if (!obj) return ''
+  const orig = obj[base]
+  if (lang === 'en') {
+    const en = obj[`${base}_en`]
+    if (typeof en === 'string' && en.trim()) return en
+  }
+  return orig || ''
+}
+
+// Localized instruction text for a step.
+export function stepText(step, lang = 'en') {
+  return localize(step, 'text', lang)
+}
+
+// Localized reagent display name.
+export function reagentName(reagent, lang = 'en') {
+  return localize(reagent, 'name', lang)
+}
+
+// Localized hazards for a step, aligned by index with the original `hazards`.
+// Falls back per-item to the original when the English list is short/missing.
+export function stepHazards(step, lang = 'en') {
+  const orig = step.hazards || []
+  if (lang !== 'en') return orig
+  const en = step.hazards_en || []
+  return orig.map((h, i) => (en[i] && en[i].trim() ? en[i] : h))
 }
 
 // ---------------------------------------------------------------------------
@@ -177,6 +238,28 @@ export function timerSeconds(step, chosenIndex = 0) {
 }
 
 // ---------------------------------------------------------------------------
+// temperature extraction (for incubate_wait / heat animations)
+// ---------------------------------------------------------------------------
+
+// Best-effort temperature label pulled from a step's text (either language).
+// "inkubować 15 min w temperaturze pokojowej" -> "RT"; "42 °C" -> "42 °C";
+// "−80°C" -> "−80 °C". Returns null when no temperature is stated.
+export function extractTemperature(step, lang = 'en') {
+  const hay = `${step.text || ''} ${step.text_en || ''}`
+  const m = hay.match(/(-|−|–)?\s*\d{1,3}\s*°?\s*C\b/)
+  if (m) {
+    return m[0]
+      .replace(/\s+/g, ' ')
+      .replace(/([−–])\s*/, '−')
+      .replace(/\s*°?\s*C/, ' °C')
+      .trim()
+  }
+  const t = hay.toLowerCase()
+  if (t.includes('pokojow') || t.includes('room temp')) return 'RT'
+  return null
+}
+
+// ---------------------------------------------------------------------------
 // intake field derivation
 // ---------------------------------------------------------------------------
 //
@@ -200,10 +283,13 @@ export function deriveIntakeFields(protocol) {
 
   for (const q of questions) {
     const t = (q.text || '').toLowerCase()
+    // Known fields get a clean English question so the default UI reads well; the
+    // original phrasing is kept in `questionOrig` for the language toggle.
     if ((t.includes('mini') && t.includes('micro')) || t.includes('zestaw') || t.includes('kit')) {
       add({
         key: 'kit',
-        question: q.text,
+        question: 'Which kit — RNeasy Mini or Micro?',
+        questionOrig: q.text,
         where: q.where,
         type: 'choice',
         answerKey: 'kit',
@@ -215,7 +301,8 @@ export function deriveIntakeFields(protocol) {
     } else if (t.includes('komórek') || t.includes('komorek') || t.includes('cells') || t.includes('cell count') || t.includes('5×10')) {
       add({
         key: 'cells',
-        question: q.text,
+        question: 'How many input cells?',
+        questionOrig: q.text,
         where: q.where,
         type: 'choice',
         answerKey: 'cells',
@@ -227,7 +314,8 @@ export function deriveIntakeFields(protocol) {
     } else if (t.includes('bulk') || t.includes('single-cell') || t.includes('single cell')) {
       add({
         key: 'analysis',
-        question: q.text,
+        question: 'Bulk or single-cell analysis?',
+        questionOrig: q.text,
         where: q.where,
         type: 'choice',
         answerKey: 'analysis',
@@ -237,10 +325,18 @@ export function deriveIntakeFields(protocol) {
         ],
       })
     } else if (t.includes('rin')) {
-      add({ key: 'rin', question: q.text, where: q.where, type: 'text', answerKey: 'rin', placeholder: 'e.g. ≥ 7' })
+      add({
+        key: 'rin',
+        question: 'Target RIN acceptance threshold?',
+        questionOrig: q.text,
+        where: q.where,
+        type: 'text',
+        answerKey: 'rin',
+        placeholder: 'e.g. ≥ 7',
+      })
     } else {
       const key = 'q_' + slug(q.text)
-      add({ key, question: q.text, where: q.where, type: 'text', answerKey: key })
+      add({ key, question: q.text, questionOrig: q.text, where: q.where, type: 'text', answerKey: key })
     }
   }
   return fields

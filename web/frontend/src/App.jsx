@@ -20,6 +20,7 @@ function readUrlState() {
   return {
     phase: q.get('run') ? 'run' : 'intake',
     step: q.get('step') ? Math.max(0, parseInt(q.get('step'), 10) - 1) : 0,
+    lang: q.get('lang') === 'orig' ? 'orig' : 'en', // default English
     answers,
   }
 }
@@ -29,6 +30,7 @@ export default function App() {
   const [protocol, setProtocol] = useState(null)
   const [error, setError] = useState(null)
   const [phase, setPhase] = useState(initial.phase) // 'intake' | 'run'
+  const [lang, setLang] = useState(initial.lang) // 'en' | 'orig'
   const [answers, setAnswers] = useState(initial.answers)
 
   useEffect(() => {
@@ -74,6 +76,7 @@ export default function App() {
             <small>&nbsp;protocol player</small>
           </div>
           <span className="spacer" />
+          <LangToggle lang={lang} setLang={setLang} />
           {phase === 'run' && (
             <button className="ghost-btn" onClick={() => setPhase('intake')}>
               ← Setup
@@ -87,6 +90,7 @@ export default function App() {
             answers={answers}
             setAnswers={setAnswers}
             onStart={() => setPhase('run')}
+            lang={lang}
           />
         ) : (
           <Runner
@@ -95,9 +99,25 @@ export default function App() {
             setAnswers={setAnswers}
             initialStep={initial.step}
             onExit={() => setPhase('intake')}
+            lang={lang}
           />
         )}
       </div>
+    </div>
+  )
+}
+
+// A compact EN / original language toggle. The source language name isn't in the
+// schema, so the non-English label is simply "Original".
+function LangToggle({ lang, setLang }) {
+  return (
+    <div className="lang-toggle" role="group" aria-label="language">
+      <button aria-pressed={lang === 'en'} onClick={() => setLang('en')}>
+        EN
+      </button>
+      <button aria-pressed={lang === 'orig'} onClick={() => setLang('orig')}>
+        Original
+      </button>
     </div>
   )
 }

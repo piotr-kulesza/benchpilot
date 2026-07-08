@@ -1,49 +1,60 @@
 {
   "title": "Ekstrakcja całkowitego RNA z neutrofili",
+  "title_en": "Total RNA extraction from neutrophils",
   "summary": "Izolacja całkowitego RNA z neutrofili na potrzeby analiz transkryptomicznych. Neutrofile mają wysoką aktywność rybonukleaz i niską zawartość RNA na komórkę, dlatego istotne są szybka liza w buforze guanidynowym oraz praca w niskiej temperaturze. Podane objętości odpowiadają zestawowi kolumnowemu; przy małej liczbie komórek zaleca się wariant do niskich ilości (RNeasy Micro).",
-  "source": "Protokol_ekstrakcji_RNA_neutrofile.docx",
+  "summary_en": "Isolation of total RNA from neutrophils for transcriptomic analyses. Neutrophils have high ribonuclease activity and low RNA content per cell, so rapid lysis in guanidinium buffer and working at low temperature are important. The stated volumes correspond to the column kit; for low cell numbers the low-input variant (RNeasy Micro) is recommended.",
+  "source": "Na podstawie instrukcji zestawu Qiagen RNeasy.",
   "materials": [
     {
       "name": "Zestaw do izolacji RNA na kolumnach krzemionkowych (Qiagen RNeasy Mini lub Micro)",
-      "note": "wybór zestawu Mini vs Micro zależy od liczby komórek"
+      "note": "Silica-column RNA isolation kit (Qiagen RNeasy Mini or Micro)"
     },
     {
       "name": "Bufor lizujący RLT z dodatkiem 1% 2-merkaptoetanolu",
-      "note": "przygotować świeżo"
+      "note": "przygotować świeżo / RLT lysis buffer with 1% 2-mercaptoethanol; prepare fresh"
     },
     {
       "name": "Zestaw DNazy I do trawienia na kolumnie oraz bufor RDD",
-      "note": null
+      "note": "DNase I set for on-column digestion and RDD buffer"
     },
     {
       "name": "Etanol 70% oraz 96–100%, woda wolna od rybonukleaz",
-      "note": null
+      "note": "70% and 96–100% ethanol, RNase-free water"
     },
     {
       "name": "Kolumny homogenizujące QIAshredder lub igła 20–21 G",
-      "note": "dwie alternatywne metody homogenizacji"
+      "note": "QIAshredder homogenizer columns or 20–21 G needle"
     },
     {
-      "name": "Odczynnik stabilizujący RNA (RNAprotect)",
-      "note": "opcjonalnie, jeśli próbki nie są lizowane od razu"
+      "name": "Opcjonalnie odczynnik stabilizujący RNA (RNAprotect)",
+      "note": "jeśli próbki nie są lizowane od razu / optional RNA stabilizing reagent if samples are not lysed immediately"
     },
     {
       "name": "Wirówka stołowa, pipety i końcówki z filtrem, lód",
-      "note": null
+      "note": "Benchtop centrifuge, pipettes and filter tips, ice"
     }
   ],
   "steps": [
     {
       "index": 1,
       "phase": "preparation",
-      "text": "Przygotować bufor lizujący: dodać 10 µl 2-merkaptoetanolu na 1 ml RLT. Przygotować pod wyciągiem, zużyć w ciągu 24 h.",
+      "text": "Bufor lizujący: dodać 10 µl 2-merkaptoetanolu na 1 ml RLT; przygotować pod wyciągiem, zużyć w ciągu 24 h.",
+      "text_en": "Lysis buffer: add 10 µl 2-mercaptoethanol per 1 ml RLT; prepare in a fume hood, use within 24 h.",
       "kind": "prepare",
-      "duration_seconds": 86400,
+      "action": "pour_add",
+      "duration_seconds": null,
       "spin": null,
       "reagents": [
         {
           "name": "2-merkaptoetanol",
+          "name_en": "2-mercaptoethanol",
           "volume": "10 µl na 1 ml RLT",
+          "condition": null
+        },
+        {
+          "name": "RLT",
+          "name_en": "RLT",
+          "volume": "1 ml",
           "condition": null
         }
       ],
@@ -51,8 +62,12 @@
       "repeat": null,
       "alternatives": [],
       "hazards": [
-        "2-merkaptoetanol — przygotować pod wyciągiem",
-        "Bufor lizujący zużyć w ciągu 24 h (świeżość)"
+        "przygotować pod wyciągiem",
+        "zużyć w ciągu 24 h"
+      ],
+      "hazards_en": [
+        "prepare in a fume hood",
+        "use within 24 h"
       ],
       "prep_ahead": true,
       "gaps": [],
@@ -61,13 +76,22 @@
     {
       "index": 2,
       "phase": "preparation",
-      "text": "Do buforu RPE dodać etanol zgodnie z instrukcją zestawu, jeśli nie zostało to jeszcze wykonane.",
+      "text": "Do buforu RPE dodać etanol zgodnie z instrukcją zestawu, jeśli nie zostało to wykonane.",
+      "text_en": "Add ethanol to the RPE buffer according to the kit instructions, if not already done.",
       "kind": "prepare",
+      "action": "pour_add",
       "duration_seconds": null,
       "spin": null,
       "reagents": [
         {
-          "name": "etanol (do buforu RPE)",
+          "name": "RPE",
+          "name_en": "RPE",
+          "volume": null,
+          "condition": null
+        },
+        {
+          "name": "etanol",
+          "name_en": "ethanol",
           "volume": "zgodnie z instrukcją zestawu",
           "condition": null
         }
@@ -76,38 +100,39 @@
       "repeat": null,
       "alternatives": [],
       "hazards": [],
+      "hazards_en": [],
       "prep_ahead": true,
-      "gaps": [
-        {
-          "parameter": "objętość etanolu do RPE",
-          "question": "Ile etanolu dodać do buforu RPE? (określone w instrukcji konkretnego zestawu)"
-        }
-      ],
+      "gaps": [],
       "verbatim": "Do buforu RPE dodać etanol zgodnie z instrukcją zestawu, jeśli nie zostało to wykonane."
     },
     {
       "index": 3,
       "phase": "preparation",
       "text": "Przygotować mieszaninę DNazy I z buforem RDD (10 µl DNazy I + 70 µl RDD na próbkę).",
+      "text_en": "Prepare a mixture of DNase I with RDD buffer (10 µl DNase I + 70 µl RDD per sample).",
       "kind": "prepare",
+      "action": "pipette_mix",
       "duration_seconds": null,
       "spin": null,
       "reagents": [
         {
           "name": "DNaza I",
-          "volume": "10 µl na próbkę",
-          "condition": null
+          "name_en": "DNase I",
+          "volume": "10 µl",
+          "condition": "na próbkę"
         },
         {
-          "name": "bufor RDD",
-          "volume": "70 µl na próbkę",
-          "condition": null
+          "name": "RDD",
+          "name_en": "RDD",
+          "volume": "70 µl",
+          "condition": "na próbkę"
         }
       ],
       "conditionals": [],
       "repeat": null,
       "alternatives": [],
       "hazards": [],
+      "hazards_en": [],
       "prep_ahead": true,
       "gaps": [],
       "verbatim": "Przygotować mieszaninę DNazy I z buforem RDD (10 µl DNazy I + 70 µl RDD na próbkę)."
@@ -116,7 +141,9 @@
       "index": 4,
       "phase": "preparation",
       "text": "Powierzchnię i pipety przetrzeć środkiem usuwającym rybonukleazy. Do momentu lizy trzymać próbki na lodzie.",
-      "kind": "caution",
+      "text_en": "Wipe the work surface and pipettes with an RNase-removing agent. Keep samples on ice until lysis.",
+      "kind": "prepare",
+      "action": "cool_ice",
       "duration_seconds": null,
       "spin": null,
       "reagents": [],
@@ -126,6 +153,9 @@
       "hazards": [
         "Do momentu lizy trzymać próbki na lodzie"
       ],
+      "hazards_en": [
+        "Keep samples on ice until lysis"
+      ],
       "prep_ahead": true,
       "gaps": [],
       "verbatim": "Powierzchnię i pipety przetrzeć środkiem usuwającym rybonukleazy. Do momentu lizy trzymać próbki na lodzie."
@@ -133,40 +163,45 @@
     {
       "index": 5,
       "phase": "procedure",
-      "text": "Osad neutrofili zlizować bezpośrednio w buforze RLT z 2-merkaptoetanolem; wymieszać do całkowitej lizy.",
+      "text": "Osad neutrofili zlizować bezpośrednio w buforze RLT z 2-merkaptoetanolem: 350 µl dla ≤ 5×10⁶ komórek, 600 µl dla większej liczby. Wymieszać do całkowitej lizy.",
+      "text_en": "Lyse the neutrophil pellet directly in RLT buffer with 2-mercaptoethanol: 350 µl for ≤ 5×10⁶ cells, 600 µl for larger numbers. Mix until complete lysis.",
       "kind": "action",
+      "action": "pipette_mix",
       "duration_seconds": null,
       "spin": null,
       "reagents": [
         {
-          "name": "bufor RLT z 2-merkaptoetanolem",
+          "name": "RLT z 2-merkaptoetanolem",
+          "name_en": "RLT with 2-mercaptoethanol",
           "volume": "350 µl",
-          "condition": "dla ≤ 5×10⁶ komórek"
+          "condition": "≤ 5×10⁶ komórek"
         },
         {
-          "name": "bufor RLT z 2-merkaptoetanolem",
+          "name": "RLT z 2-merkaptoetanolem",
+          "name_en": "RLT with 2-mercaptoethanol",
           "volume": "600 µl",
-          "condition": "dla większej liczby komórek"
+          "condition": "większa liczba komórek"
         }
       ],
       "conditionals": [
         {
           "condition": "≤ 5×10⁶ komórek",
-          "then": "użyć 350 µl buforu RLT"
+          "then": "użyć 350 µl RLT"
         },
         {
-          "condition": "> 5×10⁶ komórek",
-          "then": "użyć 600 µl buforu RLT"
+          "condition": "większa liczba komórek",
+          "then": "użyć 600 µl RLT"
         }
       ],
       "repeat": null,
       "alternatives": [],
       "hazards": [],
+      "hazards_en": [],
       "prep_ahead": false,
       "gaps": [
         {
-          "parameter": "liczba komórek wejściowych",
-          "question": "Ile komórek wejściowych? Decyduje o objętości lizy (350 vs 600 µl)."
+          "parameter": "cell input",
+          "question": "How many input cells (≤ 5×10⁶ or more) determines the RLT lysis volume?"
         }
       ],
       "verbatim": "Osad neutrofili zlizować bezpośrednio w buforze RLT z 2-merkaptoetanolem: 350 µl dla ≤ 5×10⁶ komórek, 600 µl dla większej liczby. Wymieszać do całkowitej lizy."
@@ -174,55 +209,45 @@
     {
       "index": 6,
       "phase": "procedure",
-      "text": "Zhomogenizować lizat jedną z dwóch metod.",
-      "kind": "action",
-      "duration_seconds": null,
-      "spin": null,
+      "text": "Zhomogenizować lizat na kolumnie QIAshredder (2 min, maksymalne obroty) lub przepuścić 5-krotnie przez igłę 20–21 G.",
+      "text_en": "Homogenize the lysate on a QIAshredder column (2 min, maximum speed) or pass 5 times through a 20–21 G needle.",
+      "kind": "spin",
+      "action": "centrifuge",
+      "duration_seconds": 120,
+      "spin": {
+        "duration_seconds": 120,
+        "rcf_min": null,
+        "note": "maximum speed"
+      },
       "reagents": [],
       "conditionals": [],
       "repeat": null,
       "alternatives": [
         {
-          "index": 0,
-          "phase": "procedure",
-          "text": "Zhomogenizować na kolumnie QIAshredder (2 min, maksymalne obroty).",
-          "kind": "spin",
-          "duration_seconds": 120,
-          "spin": {
-            "duration_seconds": 120,
-            "rcf_min": null,
-            "note": "maksymalne obroty"
-          },
-          "reagents": [],
-          "conditionals": [],
-          "repeat": null,
-          "alternatives": [],
-          "hazards": [],
-          "prep_ahead": false,
-          "gaps": [],
-          "verbatim": ""
-        },
-        {
           "index": 1,
           "phase": "procedure",
           "text": "Przepuścić lizat 5-krotnie przez igłę 20–21 G.",
+          "text_en": "Pass the lysate 5 times through a 20–21 G needle.",
           "kind": "action",
+          "action": "pipette_mix",
           "duration_seconds": null,
           "spin": null,
           "reagents": [],
           "conditionals": [],
           "repeat": {
             "count": 5,
-            "reason": null
+            "reason": "homogenizacja lizatu"
           },
           "alternatives": [],
           "hazards": [],
+          "hazards_en": [],
           "prep_ahead": false,
           "gaps": [],
-          "verbatim": ""
+          "verbatim": "lub przepuścić 5-krotnie przez igłę 20–21 G"
         }
       ],
       "hazards": [],
+      "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
       "verbatim": "Zhomogenizować lizat na kolumnie QIAshredder (2 min, maksymalne obroty) lub przepuścić 5-krotnie przez igłę 20–21 G."
@@ -231,13 +256,16 @@
       "index": 7,
       "phase": "procedure",
       "text": "Dodać jedną objętość 70% etanolu i wymieszać pipetą. Nie wirować.",
+      "text_en": "Add one volume of 70% ethanol and mix by pipetting. Do NOT centrifuge.",
       "kind": "action",
+      "action": "pour_add",
       "duration_seconds": null,
       "spin": null,
       "reagents": [
         {
-          "name": "etanol 70%",
-          "volume": "jedna objętość (równa objętości lizatu)",
+          "name": "70% etanol",
+          "name_en": "70% ethanol",
+          "volume": "jedna objętość",
           "condition": null
         }
       ],
@@ -247,6 +275,9 @@
       "hazards": [
         "Nie wirować"
       ],
+      "hazards_en": [
+        "Do NOT centrifuge"
+      ],
       "prep_ahead": false,
       "gaps": [],
       "verbatim": "Dodać jedną objętość 70% etanolu i wymieszać pipetą. Nie wirować."
@@ -254,22 +285,29 @@
     {
       "index": 8,
       "phase": "procedure",
-      "text": "Przenieść próbkę na kolumnę RNeasy, wirować 15 s, odrzucić przesącz. Powtórzyć dla pozostałej objętości.",
+      "text": "Przenieść próbkę na kolumnę RNeasy, wirować 15 s przy ≥ 8000 × g, odrzucić przesącz. Powtórzyć dla pozostałej objętości.",
+      "text_en": "Transfer the sample to an RNeasy column, centrifuge 15 s at ≥ 8000 × g, discard the flow-through. Repeat for the remaining volume.",
       "kind": "spin",
-      "duration_seconds": null,
+      "action": "transfer",
+      "duration_seconds": 15,
       "spin": {
         "duration_seconds": 15,
         "rcf_min": 8000,
-        "note": "≥ 8000 × g, odrzucić przesącz"
+        "note": "discard flow-through"
       },
       "reagents": [],
       "conditionals": [],
       "repeat": {
         "count": null,
-        "reason": "dla pozostałej objętości (gdy lizat nie mieści się w jednym nałożeniu)"
+        "reason": "dla pozostałej objętości"
       },
       "alternatives": [],
-      "hazards": [],
+      "hazards": [
+        "odrzucić przesącz"
+      ],
+      "hazards_en": [
+        "discard the flow-through"
+      ],
       "prep_ahead": false,
       "gaps": [],
       "verbatim": "Przenieść próbkę na kolumnę RNeasy, wirować 15 s przy ≥ 8000 × g, odrzucić przesącz. Powtórzyć dla pozostałej objętości."
@@ -278,16 +316,19 @@
       "index": 9,
       "phase": "procedure",
       "text": "Dodać 350 µl buforu RW1, wirować 15 s, odrzucić przesącz.",
+      "text_en": "Add 350 µl RW1 buffer, centrifuge 15 s, discard the flow-through.",
       "kind": "spin",
-      "duration_seconds": null,
+      "action": "wash",
+      "duration_seconds": 15,
       "spin": {
         "duration_seconds": 15,
         "rcf_min": null,
-        "note": "odrzucić przesącz"
+        "note": "discard flow-through"
       },
       "reagents": [
         {
-          "name": "bufor RW1",
+          "name": "RW1",
+          "name_en": "RW1",
           "volume": "350 µl",
           "condition": null
         }
@@ -295,7 +336,12 @@
       "conditionals": [],
       "repeat": null,
       "alternatives": [],
-      "hazards": [],
+      "hazards": [
+        "odrzucić przesącz"
+      ],
+      "hazards_en": [
+        "discard the flow-through"
+      ],
       "prep_ahead": false,
       "gaps": [],
       "verbatim": "Dodać 350 µl buforu RW1, wirować 15 s, odrzucić przesącz."
@@ -304,12 +350,15 @@
       "index": 10,
       "phase": "procedure",
       "text": "Nanieść 80 µl mieszaniny DNazy I na membranę kolumny, inkubować 15 min w temperaturze pokojowej.",
+      "text_en": "Apply 80 µl of the DNase I mixture onto the column membrane, incubate 15 min at room temperature.",
       "kind": "wait",
+      "action": "incubate_wait",
       "duration_seconds": 900,
       "spin": null,
       "reagents": [
         {
-          "name": "mieszanina DNazy I + RDD",
+          "name": "mieszanina DNazy I",
+          "name_en": "DNase I mixture",
           "volume": "80 µl",
           "condition": null
         }
@@ -318,6 +367,7 @@
       "repeat": null,
       "alternatives": [],
       "hazards": [],
+      "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
       "verbatim": "Nanieść 80 µl mieszaniny DNazy I na membranę kolumny, inkubować 15 min w temperaturze pokojowej."
@@ -326,16 +376,19 @@
       "index": 11,
       "phase": "procedure",
       "text": "Dodać 350 µl RW1, wirować 15 s, odrzucić przesącz.",
+      "text_en": "Add 350 µl RW1, centrifuge 15 s, discard the flow-through.",
       "kind": "spin",
-      "duration_seconds": null,
+      "action": "wash",
+      "duration_seconds": 15,
       "spin": {
         "duration_seconds": 15,
         "rcf_min": null,
-        "note": "odrzucić przesącz"
+        "note": "discard flow-through"
       },
       "reagents": [
         {
-          "name": "bufor RW1",
+          "name": "RW1",
+          "name_en": "RW1",
           "volume": "350 µl",
           "condition": null
         }
@@ -343,7 +396,12 @@
       "conditionals": [],
       "repeat": null,
       "alternatives": [],
-      "hazards": [],
+      "hazards": [
+        "odrzucić przesącz"
+      ],
+      "hazards_en": [
+        "discard the flow-through"
+      ],
       "prep_ahead": false,
       "gaps": [],
       "verbatim": "Dodać 350 µl RW1, wirować 15 s, odrzucić przesącz."
@@ -351,125 +409,96 @@
     {
       "index": 12,
       "phase": "procedure",
-      "text": "Płukać 500 µl buforu RPE, wirować 15 s.",
-      "kind": "spin",
-      "duration_seconds": null,
+      "text": "Płukać 500 µl buforu RPE (wirować 15 s), następnie ponownie 500 µl RPE (wirować 2 min). Przenieść kolumnę na czystą probówkę i wirować 1 min bez dodawania buforu.",
+      "text_en": "Wash with 500 µl RPE buffer (centrifuge 15 s), then again 500 µl RPE (centrifuge 2 min). Transfer the column to a clean tube and centrifuge 1 min without adding buffer.",
+      "kind": "wash",
+      "action": "wash",
+      "duration_seconds": 120,
       "spin": {
-        "duration_seconds": 15,
+        "duration_seconds": 120,
         "rcf_min": null,
-        "note": "pierwsze płukanie RPE"
+        "note": "first RPE wash 15 s, second RPE wash 2 min, then dry spin 1 min on a clean tube"
       },
       "reagents": [
         {
-          "name": "bufor RPE",
+          "name": "RPE",
+          "name_en": "RPE",
           "volume": "500 µl",
-          "condition": null
+          "condition": "pierwsze płukanie"
+        },
+        {
+          "name": "RPE",
+          "name_en": "RPE",
+          "volume": "500 µl",
+          "condition": "drugie płukanie"
         }
       ],
       "conditionals": [],
       "repeat": null,
       "alternatives": [],
       "hazards": [],
+      "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Płukać 500 µl buforu RPE (wirować 15 s), następnie ponownie 500 µl RPE (wirować 2 min)."
+      "verbatim": "Płukać 500 µl buforu RPE (wirować 15 s), następnie ponownie 500 µl RPE (wirować 2 min). Przenieść kolumnę na czystą probówkę i wirować 1 min bez dodawania buforu."
     },
     {
       "index": 13,
       "phase": "procedure",
-      "text": "Ponownie płukać 500 µl buforu RPE, wirować 2 min.",
-      "kind": "spin",
-      "duration_seconds": null,
-      "spin": {
-        "duration_seconds": 120,
-        "rcf_min": null,
-        "note": "drugie płukanie RPE"
-      },
-      "reagents": [
-        {
-          "name": "bufor RPE",
-          "volume": "500 µl",
-          "condition": null
-        }
-      ],
-      "conditionals": [],
-      "repeat": null,
-      "alternatives": [],
-      "hazards": [],
-      "prep_ahead": false,
-      "gaps": [],
-      "verbatim": "następnie ponownie 500 µl RPE (wirować 2 min)."
-    },
-    {
-      "index": 14,
-      "phase": "procedure",
-      "text": "Przenieść kolumnę na czystą probówkę i wirować 1 min bez dodawania buforu (suszenie membrany).",
-      "kind": "spin",
-      "duration_seconds": null,
-      "spin": {
-        "duration_seconds": 60,
-        "rcf_min": null,
-        "note": "wirowanie na sucho, bez buforu"
-      },
-      "reagents": [],
-      "conditionals": [],
-      "repeat": null,
-      "alternatives": [],
-      "hazards": [],
-      "prep_ahead": false,
-      "gaps": [],
-      "verbatim": "Przenieść kolumnę na czystą probówkę i wirować 1 min bez dodawania buforu."
-    },
-    {
-      "index": 15,
-      "phase": "procedure",
-      "text": "Eluować w wodzie wolnej od rybonukleaz; odczekać 1 min, wirować 1 min przy ≥ 8000 × g.",
+      "text": "Eluować w 30–50 µl wody wolnej od rybonukleaz (Micro: 14 µl); odczekać 1 min, wirować 1 min przy ≥ 8000 × g.",
+      "text_en": "Elute in 30–50 µl RNase-free water (Micro: 14 µl); wait 1 min, centrifuge 1 min at ≥ 8000 × g.",
       "kind": "action",
+      "action": "elute",
       "duration_seconds": 60,
       "spin": {
         "duration_seconds": 60,
         "rcf_min": 8000,
-        "note": "po 1 min odczekania"
+        "note": "elution spin; wait 1 min before spinning"
       },
       "reagents": [
         {
           "name": "woda wolna od rybonukleaz",
+          "name_en": "RNase-free water",
           "volume": "30–50 µl",
-          "condition": "zestaw Mini"
+          "condition": "RNeasy Mini"
         },
         {
           "name": "woda wolna od rybonukleaz",
+          "name_en": "RNase-free water",
           "volume": "14 µl",
-          "condition": "zestaw Micro"
+          "condition": "RNeasy Micro"
         }
       ],
       "conditionals": [
         {
-          "condition": "zestaw RNeasy Mini",
-          "then": "eluować w 30–50 µl wody"
+          "condition": "RNeasy Micro",
+          "then": "eluować w 14 µl wody"
         },
         {
-          "condition": "zestaw RNeasy Micro",
-          "then": "eluować w 14 µl wody"
+          "condition": "RNeasy Mini",
+          "then": "eluować w 30–50 µl wody"
         }
       ],
       "repeat": null,
       "alternatives": [],
       "hazards": [],
+      "hazards_en": [],
       "prep_ahead": false,
       "gaps": [
         {
-          "parameter": "objętość elucji",
-          "question": "Jaka objętość elucji? Zależy od zestawu (Mini 30–50 µl vs Micro 14 µl)."
+          "parameter": "elution volume",
+          "question": "Which elution volume to use (30–50 µl Mini vs 14 µl Micro), depending on kit choice?"
         }
       ],
       "verbatim": "Eluować w 30–50 µl wody wolnej od rybonukleaz (Micro: 14 µl); odczekać 1 min, wirować 1 min przy ≥ 8000 × g."
     },
     {
-      "index": 16,
+      "index": 14,
       "phase": "procedure",
       "text": "RNA trzymać na lodzie do pomiaru, przechowywać w −80°C. Unikać wielokrotnego zamrażania i rozmrażania.",
+      "text_en": "Keep RNA on ice until measurement, store at −80°C. Avoid repeated freeze-thaw cycles.",
       "kind": "storage",
+      "action": "cool_ice",
       "duration_seconds": null,
       "spin": null,
       "reagents": [],
@@ -477,18 +506,24 @@
       "repeat": null,
       "alternatives": [],
       "hazards": [
-        "Trzymać RNA na lodzie do pomiaru",
+        "RNA trzymać na lodzie do pomiaru",
         "Unikać wielokrotnego zamrażania i rozmrażania"
+      ],
+      "hazards_en": [
+        "Keep RNA on ice until measurement",
+        "Avoid repeated freeze-thaw cycles"
       ],
       "prep_ahead": false,
       "gaps": [],
       "verbatim": "RNA trzymać na lodzie do pomiaru, przechowywać w −80°C. Unikać wielokrotnego zamrażania i rozmrażania."
     },
     {
-      "index": 17,
+      "index": 15,
       "phase": "quality_control",
       "text": "NanoDrop: A260/280 około 2,0; A260/230 w zakresie 2,0–2,2. Niskie A260/230 wskazuje na resztki buforów.",
+      "text_en": "NanoDrop: A260/280 about 2.0; A260/230 in the range 2.0–2.2. Low A260/230 indicates residual buffers.",
       "kind": "measure",
+      "action": "measure",
       "duration_seconds": null,
       "spin": null,
       "reagents": [],
@@ -496,15 +531,18 @@
       "repeat": null,
       "alternatives": [],
       "hazards": [],
+      "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
       "verbatim": "NanoDrop: A260/280 około 2,0; A260/230 w zakresie 2,0–2,2. Niskie A260/230 wskazuje na resztki buforów."
     },
     {
-      "index": 18,
+      "index": 16,
       "phase": "quality_control",
       "text": "Integralność RNA: Bioanalyzer lub TapeStation (RIN). U neutrofili RIN bywa niższy niż u limfocytów; próg akceptacji ustalić z laboratorium.",
+      "text_en": "RNA integrity: Bioanalyzer or TapeStation (RIN). In neutrophils the RIN is often lower than in lymphocytes; set the acceptance threshold with the laboratory.",
       "kind": "measure",
+      "action": "measure",
       "duration_seconds": null,
       "spin": null,
       "reagents": [],
@@ -512,20 +550,23 @@
       "repeat": null,
       "alternatives": [],
       "hazards": [],
+      "hazards_en": [],
       "prep_ahead": false,
       "gaps": [
         {
-          "parameter": "docelowy RIN",
-          "question": "Jaki próg akceptacji RIN? U neutrofili RIN bywa niższy — ustalić z laboratorium."
+          "parameter": "target RIN",
+          "question": "What is the acceptance RIN threshold, to be agreed with the laboratory?"
         }
       ],
       "verbatim": "Integralność RNA: Bioanalyzer lub TapeStation (RIN). U neutrofili RIN bywa niższy niż u limfocytów; próg akceptacji ustalić z laboratorium."
     },
     {
-      "index": 19,
+      "index": 17,
       "phase": "quality_control",
       "text": "Odnotować liczbę komórek wejściowych oraz uzyskaną wydajność.",
+      "text_en": "Record the number of input cells and the obtained yield.",
       "kind": "measure",
+      "action": "measure",
       "duration_seconds": null,
       "spin": null,
       "reagents": [],
@@ -533,15 +574,18 @@
       "repeat": null,
       "alternatives": [],
       "hazards": [],
+      "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
       "verbatim": "Odnotować liczbę komórek wejściowych oraz uzyskaną wydajność."
     },
     {
-      "index": 20,
+      "index": 18,
       "phase": "notes",
       "text": "RNA neutrofili szybko ulega degradacji, a komórki łatwo się aktywują. Lizować możliwie zaraz po izolacji, pracować szybko i na lodzie.",
+      "text_en": "Neutrophil RNA degrades quickly and the cells are easily activated. Lyse as soon as possible after isolation, work fast and on ice.",
       "kind": "caution",
+      "action": "cool_ice",
       "duration_seconds": null,
       "spin": null,
       "reagents": [],
@@ -550,33 +594,47 @@
       "alternatives": [],
       "hazards": [
         "Lizować możliwie zaraz po izolacji",
-        "Pracować szybko i na lodzie"
+        "pracować szybko i na lodzie"
+      ],
+      "hazards_en": [
+        "Lyse as soon as possible after isolation",
+        "work fast and on ice"
       ],
       "prep_ahead": false,
       "gaps": [],
       "verbatim": "RNA neutrofili szybko ulega degradacji, a komórki łatwo się aktywują. Lizować możliwie zaraz po izolacji, pracować szybko i na lodzie."
     },
     {
-      "index": 21,
+      "index": 19,
       "phase": "notes",
       "text": "Częstym problemem jest zanieczyszczenie genomowym DNA. W razie potrzeby wydłużyć lub powtórzyć trawienie DNazą, ewentualnie zastosować wariant z eliminacją gDNA (RNeasy Plus).",
-      "kind": "action",
+      "text_en": "A common problem is genomic DNA contamination. If needed, extend or repeat the DNase digestion, or use the gDNA-elimination variant (RNeasy Plus).",
+      "kind": "caution",
+      "action": "generic",
       "duration_seconds": null,
       "spin": null,
       "reagents": [],
-      "conditionals": [],
+      "conditionals": [
+        {
+          "condition": "zanieczyszczenie genomowym DNA",
+          "then": "wydłużyć lub powtórzyć trawienie DNazą, ewentualnie użyć RNeasy Plus"
+        }
+      ],
       "repeat": null,
       "alternatives": [],
       "hazards": [],
+      "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
       "verbatim": "Częstym problemem jest zanieczyszczenie genomowym DNA. W razie potrzeby wydłużyć lub powtórzyć trawienie DNazą, ewentualnie zastosować wariant z eliminacją gDNA (RNeasy Plus)."
     },
     {
-      "index": 22,
+      "index": 20,
       "phase": "notes",
       "text": "Do ustalenia na miejscu: zestaw, liczba komórek wejściowych, objętości lizy i elucji, docelowy RIN oraz typ analizy (bulk lub single-cell).",
-      "kind": "action",
+      "text_en": "To be decided on site: kit, number of input cells, lysis and elution volumes, target RIN, and type of analysis (bulk or single-cell).",
+      "kind": "notes",
+      "action": "generic",
       "duration_seconds": null,
       "spin": null,
       "reagents": [],
@@ -584,27 +642,28 @@
       "repeat": null,
       "alternatives": [],
       "hazards": [],
+      "hazards_en": [],
       "prep_ahead": false,
       "gaps": [
         {
-          "parameter": "zestaw",
-          "question": "Który zestaw — RNeasy Mini czy Micro?"
+          "parameter": "kit",
+          "question": "Which kit (RNeasy Mini or Micro) will be used?"
         },
         {
-          "parameter": "liczba komórek wejściowych",
-          "question": "Ile komórek wejściowych?"
+          "parameter": "input cell number",
+          "question": "How many input cells?"
         },
         {
-          "parameter": "objętości lizy i elucji",
-          "question": "Jakie objętości lizy i elucji?"
+          "parameter": "lysis/elution volumes",
+          "question": "Which lysis and elution volumes?"
         },
         {
-          "parameter": "docelowy RIN",
-          "question": "Jaki docelowy RIN?"
+          "parameter": "target RIN",
+          "question": "What is the target RIN?"
         },
         {
-          "parameter": "typ analizy",
-          "question": "Analiza bulk czy single-cell?"
+          "parameter": "analysis type",
+          "question": "Bulk or single-cell analysis?"
         }
       ],
       "verbatim": "Do ustalenia na miejscu: zestaw, liczba komórek wejściowych, objętości lizy i elucji, docelowy RIN oraz typ analizy (bulk lub single-cell)."
@@ -612,25 +671,25 @@
   ],
   "open_parameters": [
     {
-      "question": "Który zestaw izolacyjny — RNeasy Mini czy Micro?",
-      "where": "materiały / objętość elucji (krok 15)"
+      "question": "Which kit will be used: RNeasy Mini or Micro (low-input variant)?",
+      "where": "Uwagi / summary"
     },
     {
-      "question": "Ile komórek wejściowych?",
-      "where": "liza (krok 5): decyduje o 350 vs 600 µl"
+      "question": "Number of input cells (≤ 5×10⁶ or more), determining lysis volume?",
+      "where": "Procedura step 5 / Uwagi"
     },
     {
-      "question": "Jakie objętości lizy i elucji?",
-      "where": "krok 5 (liza) i krok 15 (elucja)"
+      "question": "Lysis volume (350 µl vs 600 µl) and elution volume (30–50 µl vs 14 µl)?",
+      "where": "Procedura steps 5 & 13 / Uwagi"
     },
     {
-      "question": "Jaki jest docelowy próg RIN akceptacji?",
-      "where": "kontrola jakości (krok 18)"
+      "question": "Target/acceptance RIN threshold, to be agreed with the laboratory?",
+      "where": "Kontrola jakości / Uwagi"
     },
     {
-      "question": "Analiza bulk czy single-cell?",
-      "where": "ogólny projekt eksperymentu / dobór metody"
+      "question": "Analysis type: bulk or single-cell?",
+      "where": "Uwagi"
     }
   ],
-  "reference": "MATERIAŁ POGLĄDOWY — WYŁĄCZONY Z KROKÓW WYKONAWCZYCH.\n\nPorównanie z innymi protokołami bulk RNA-seq (zestawienie dwóch opublikowanych protokołów bulk RNA-seq z fizycznie wyizolowanych neutrofili; metoda docelowa stażu nie jest jeszcze znana):\n\n• Gonye/STAR — materiał: krew pełna (500 µl), EDTA; liza erytrocytów: bufor ACK; izolacja: selekcja negatywna magnetyczna (EasySep Direct Human Neutrophil Kit); ekstrakcja RNA: liza wprost w TCL + 1% 2-merkaptoetanolu (1000 kom./µl), lizat mrożony, czyszczenie kuleczkami SPRI (RNAClean XP) — bez kolumny; trawienie DNazą: opcjonalnie (niskie wejście); przechowywanie: aliquoty lizatu na suchym lodzie → −80°C; QC: Qubit (dsDNA HS), Bioanalyzer HS, ocena czystości bioinformatycznie.\n• RZS — Fresneda Alarcon 2024 — materiał: krew obwodowa, heparyna; liza erytrocytów: bufor chlorku amonu; izolacja: gradient gęstości HetaSep + Ficoll-Paque (czystość >97%, żywotność >98%); ekstrakcja RNA: TRIzol-chloroform, precypitacja izopropanolem, oczyszczanie na kolumnie QIAGEN RNeasy (mRNA) lub miRNeasy (miRNA); trawienie DNazą: tak, na kolumnie; przechowywanie: RNA mrożone w ciekłym azocie → −80°C; QC: Bioanalyzer RNA Nano/Pico, RIN ≥ 7,0.\nNajważniejsze różnice: metoda izolacji (selekcja negatywna magnetyczna vs gradient gęstości), ekstrakcja RNA (liza w TCL + kuleczki SPRI vs TRIzol + kolumna), przygotowanie biblioteki (Smart-Seq2 vs selekcja poli-A). Wspólne: liza erytrocytów na starcie, szybka praca, mrożenie, docelowy RIN ~7.\n\nŹródła:\n• Gonye A.L.K. i wsp. Protocol for bulk RNA sequencing of enriched human neutrophils from whole blood and estimation of sample purity. STAR Protocols 4:102125, 2023. DOI: 10.1016/j.xpro.2023.102125.\n• Fresneda Alarcon M. i wsp. Complexity of the neutrophil transcriptome in early and severe rheumatoid arthritis: a role for microRNAs? J Leukoc Biol, 2024. DOI: 10.1093/jleuko/qiaf090 (PMC12210129).\n• Instrukcja zestawu Qiagen RNeasy — chemia buforów (RLT/RPE), wiązanie i elucja RNA na kolumnie. Niniejszy protokół opracowano na podstawie instrukcji zestawu Qiagen RNeasy."
+  "reference": "Porównanie z innymi protokołami bulk RNA-seq (materiał poglądowy — zestawienie dwóch opublikowanych protokołów bulk RNA-seq z fizycznie wyizolowanych neutrofili; metoda docelowa stażu nie jest jeszcze znana). Najważniejsze różnice: metoda izolacji (selekcja negatywna magnetyczna vs gradient gęstości), sposób ekstrakcji RNA (liza w TCL + kuleczki SPRI vs TRIzol + kolumna), przygotowanie biblioteki (Smart-Seq2 pod niskie wejście vs selekcja poli-A). Wspólne: liza erytrocytów na starcie, szybka praca, mrożenie, docelowy RIN około 7.\n\nTabela porównawcza:\n- Materiał wyjściowy: Gonye/STAR — krew pełna (500 µl), EDTA; Fresneda Alarcon 2024 (RZS) — krew obwodowa, heparyna.\n- Liza erytrocytów: Gonye — bufor ACK; Fresneda — bufor chlorku amonu.\n- Izolacja neutrofili: Gonye — selekcja negatywna magnetyczna (EasySep Direct Human Neutrophil Kit); Fresneda — gradient gęstości HetaSep + Ficoll-Paque (czystość >97%, żywotność >98%).\n- Liza / ekstrakcja RNA: Gonye — liza wprost w buforze TCL + 1% 2-merkaptoetanolu (1000 kom./µl), lizat mrożony, później czyszczenie kuleczkami SPRI (RNAClean XP), bez kolumny; Fresneda — TRIzol-chloroform (zoptymalizowany), precypitacja izopropanolem, oczyszczanie na kolumnie QIAGEN RNeasy (mRNA) lub miRNeasy (miRNA).\n- Trawienie DNazą: Gonye — opcjonalnie (praca na niskim wejściu); Fresneda — tak, na kolumnie podczas oczyszczania.\n- Przechowywanie: Gonye — aliquoty lizatu na suchym lodzie → −80°C; Fresneda — RNA mrożone w ciekłym azocie → −80°C.\n- Kontrola jakości: Gonye — Qubit (dsDNA HS), Bioanalyzer HS, ocena czystości bioinformatycznie; Fresneda — Bioanalyzer RNA Nano/Pico, RIN ≥ 7,0.\n\nŹródła: Gonye A.L.K. i wsp. Protocol for bulk RNA sequencing of enriched human neutrophils from whole blood and estimation of sample purity. STAR Protocols 4:102125, 2023. DOI: 10.1016/j.xpro.2023.102125. Fresneda Alarcon M. i wsp. Complexity of the neutrophil transcriptome in early and severe rheumatoid arthritis: a role for microRNAs? J Leukoc Biol, 2024. DOI: 10.1093/jleuko/qiaf090 (PMC12210129). Instrukcja zestawu Qiagen RNeasy — chemia buforów (RLT/RPE), wiązanie i elucja RNA na kolumnie."
 }

@@ -13,6 +13,11 @@ import {
   isCriticalHazard,
   timerSeconds,
   deriveIntakeFields,
+  localize,
+  stepText,
+  reagentName,
+  stepHazards,
+  extractTemperature,
 } from './runtime.js'
 
 describe('formatDuration -> m:ss / h:mm:ss', () => {
@@ -161,6 +166,56 @@ describe('critical (negative) hazards', () => {
   it('does not flag ordinary cautions', () => {
     expect(isCriticalHazard('Trzymać na lodzie')).toBe(false)
     expect(isCriticalHazard('Praca pod wyciągiem')).toBe(false)
+  })
+})
+
+describe('language selection (English default, original on toggle / fallback)', () => {
+  const step = {
+    text: 'Wirować 15 s przy ≥ 8000 × g.',
+    text_en: 'Centrifuge for 15 s at ≥ 8000 × g.',
+    hazards: ['Nie wirować', 'Trzymać na lodzie'],
+    hazards_en: ['Do NOT centrifuge', 'Keep on ice'],
+  }
+
+  it('returns English by default and the original when toggled', () => {
+    expect(stepText(step, 'en')).toBe('Centrifuge for 15 s at ≥ 8000 × g.')
+    expect(stepText(step, 'orig')).toBe('Wirować 15 s przy ≥ 8000 × g.')
+  })
+
+  it('falls back to the original when the translation is missing', () => {
+    const noEn = { text: 'Dodać bufor.' }
+    expect(stepText(noEn, 'en')).toBe('Dodać bufor.')
+    expect(localize({ title: 'Tytuł' }, 'title', 'en')).toBe('Tytuł')
+    // empty-string translation is treated as missing
+    expect(stepText({ text: 'X', text_en: '   ' }, 'en')).toBe('X')
+  })
+
+  it('localizes reagent names with per-field fallback', () => {
+    expect(reagentName({ name: 'bufor RLT', name_en: 'RLT buffer' }, 'en')).toBe('RLT buffer')
+    expect(reagentName({ name: 'bufor RLT', name_en: 'RLT buffer' }, 'orig')).toBe('bufor RLT')
+    expect(reagentName({ name: 'RPE' }, 'en')).toBe('RPE')
+  })
+
+  it('localizes hazards aligned by index, falling back per item', () => {
+    expect(stepHazards(step, 'en')).toEqual(['Do NOT centrifuge', 'Keep on ice'])
+    expect(stepHazards(step, 'orig')).toEqual(['Nie wirować', 'Trzymać na lodzie'])
+    // short English list -> original kept for the untranslated tail
+    const partial = { hazards: ['a', 'b'], hazards_en: ['A'] }
+    expect(stepHazards(partial, 'en')).toEqual(['A', 'b'])
+  })
+})
+
+describe('extractTemperature', () => {
+  it('pulls an explicit temperature', () => {
+    expect(extractTemperature({ text: 'inkubować 15 min w 42 °C' })).toBe('42 °C')
+    expect(extractTemperature({ text: 'store at −80°C' })).toBe('−80 °C')
+  })
+  it('recognizes room temperature', () => {
+    expect(extractTemperature({ text: '', text_en: 'incubate at room temperature' })).toBe('RT')
+    expect(extractTemperature({ text: 'w temperaturze pokojowej' })).toBe('RT')
+  })
+  it('returns null when no temperature is stated', () => {
+    expect(extractTemperature({ text: 'add 350 µl buffer' })).toBe(null)
   })
 })
 

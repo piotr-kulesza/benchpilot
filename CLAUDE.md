@@ -19,6 +19,11 @@ question you answer before running.
    one-step-at-a-time runner with timers, resolved conditionals, either/or
    choices, tracked repeats, and prominent hazards (negatives in red). See
    `docs/media/walkthrough.gif`.
+3. **Animated + English-first — BUILT.** Every step shows a big looping SVG
+   action animation (pour, spin, incubate…) as the hero above the instruction,
+   and the UI defaults to English (`text_en`) with an EN / Original toggle. The
+   schema now carries a fixed `action` vocabulary + parallel `_en` fields; the
+   original language is always kept verbatim.
 
 Demo protocol: `examples/Protokol_ekstrakcji_RNA_neutrofile.docx` (Polish RNA
 extraction; do NOT translate — parse in place).
@@ -32,10 +37,29 @@ extraction; do NOT translate — parse in place).
   conditional resolution from intake answers, alternative selection, repeat
   counting, hazard classification) — unit-tested offline with Vitest, no DOM /
   network / real timers. Wall-clock lives only in `src/hooks/useCountdown.js`.
-- Deep-link a run for demos: `?run=1&step=5&kit=micro&cells=le`.
+- Deep-link a run for demos: `?run=1&step=5&kit=micro&cells=le` (add `&lang=orig`
+  to open in the original language).
+- **Animations** live in `src/animations/` — one looping SVG per `action` in the
+  fixed vocabulary (`ANIMATIONS` registry; unknown → `generic`, never blank).
+  `<ActionAnimation>` dispatches. Timed scenes (incubate/heat/centrifuge) share
+  the runner's countdown clock — the ring IS the timer.
+- **Language**: helpers in `src/lib/runtime.js` (`localize`, `stepText`,
+  `reagentName`, `stepHazards`) pick `_en` by default and fall back to the
+  original when a translation is missing.
 - Optional live-parse stretch: `web/api.py` (FastAPI) exposes `POST /api/parse`
   over the real `core` pipeline. Guarded — its absence never breaks the bundled
   demo or the tests. Point the UI at it with `VITE_API_BASE`.
+
+### Regenerating the bundled data
+
+The player renders `public/parsed.json`. To refresh it after a parse change
+(e.g. to pick up new `action` / `text_en` fields) do a live re-parse and copy:
+
+```bash
+# ANTHROPIC_API_KEY in .env; clear the cache to force a fresh call
+rm -rf .cache && python scripts/parse_check.py
+cp outputs/parsed.json web/frontend/public/parsed.json
+```
 
 ```bash
 cd web/frontend && npm install

@@ -546,42 +546,98 @@ button { font-family: inherit; cursor: pointer; }
   box-shadow: 0 0 0 4px rgba(192, 39, 24, 0.06);
 }
 
-/* timer */
-.timer-wrap {
+/* hero action animation — the differentiator, large and centered above the text */
+.hero-anim {
+  display: flex;
+  justify-content: center;
+  margin: -6px 0 20px;
+}
+.action-anim {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.anim-stage {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  max-height: 240px;
+  background: radial-gradient(120% 120% at 50% 15%, #ffffff 0%, var(--panel-2) 70%);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 14px;
+  box-shadow: inset 0 1px 0 #fff, var(--shadow-sm);
+}
+.anim-caption {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 7px 16px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-tint);
+  max-width: 100%;
+}
+.anim-caption .anim-reagent { font-weight: 650; color: var(--accent-strong); font-size: 15.5px; }
+.anim-caption .anim-vol {
+  font-weight: 800;
+  color: var(--accent-strong);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* language toggle (masthead) */
+.lang-toggle {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  background: var(--panel-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  margin-right: 10px;
+}
+.lang-toggle button {
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 6px 13px;
+  border-radius: 999px;
+  transition: all 0.13s var(--step);
+}
+.lang-toggle button[aria-pressed='true'] {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 1px 4px rgba(15, 118, 110, 0.3);
+}
+
+/* timer control strip (clock lives in the animation ring above) */
+.timer-bar {
   display: flex;
   align-items: center;
-  gap: 26px;
-  padding: 26px 28px;
-  border-radius: 18px;
-  background: linear-gradient(135deg, #101b26, #1c2b3a);
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: #101b26;
   color: #fff;
-  margin-top: 24px;
 }
-.timer-dial {
-  position: relative;
-  width: 128px;
-  height: 128px;
-  flex: none;
-}
-.timer-dial svg { transform: rotate(-90deg); }
-.timer-dial .ring-bg { stroke: rgba(255, 255, 255, 0.14); }
-.timer-dial .ring-fg { stroke: #35d0be; transition: stroke-dashoffset 0.95s linear; }
-.timer-dial .num {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  font-size: 30px;
+.timer-bar.done { background: linear-gradient(135deg, #0c3b34, #12564c); }
+.timer-readout { display: flex; flex-direction: column; }
+.timer-digits { font-size: 26px; font-weight: 750; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.timer-state { font-size: 12px; color: rgba(255, 255, 255, 0.6); letter-spacing: 0.04em; text-transform: uppercase; }
+.timer-flag {
+  font-size: 12.5px;
   font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.01em;
+  color: #6ff0dd;
+  animation: pulse 1.1s ease-in-out infinite;
 }
-.timer-dial.done .num { color: #35d0be; }
-.timer-side { flex: 1; }
-.timer-caption { font-size: 14px; color: rgba(255, 255, 255, 0.66); margin-bottom: 4px; letter-spacing: 0.03em; }
-.timer-params { font-size: 19px; font-weight: 650; margin-bottom: 16px; }
-.timer-params .spin-icon { display: inline-block; margin-right: 6px; }
-.timer-controls { display: flex; gap: 10px; }
+.timer-bar .timer-params { font-size: 15px; font-weight: 600; color: rgba(255, 255, 255, 0.82); }
+.timer-controls { display: flex; gap: 10px; margin-left: auto; }
 .timer-controls button {
   border: 1px solid rgba(255, 255, 255, 0.24);
   background: rgba(255, 255, 255, 0.08);
@@ -596,16 +652,6 @@ button { font-family: inherit; cursor: pointer; }
 .timer-controls button:active { transform: translateY(1px); }
 .timer-controls button.go { background: #16b8a6; border-color: #16b8a6; color: #05201d; }
 .timer-controls button.go:hover { background: #35d0be; }
-.timer-wrap.done { background: linear-gradient(135deg, #0c3b34, #12564c); }
-.timer-done-flag {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 700;
-  color: #6ff0dd;
-  margin-bottom: 8px;
-  animation: pulse 1.1s ease-in-out infinite;
-}
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 
 /* look-ahead + nav */
@@ -734,6 +780,5 @@ kbd {
 @media (max-width: 620px) {
   .materials-list { columns: 1; }
   .step-card { padding: 24px 20px; }
-  .timer-wrap { flex-direction: column; align-items: stretch; text-align: center; }
-  .timer-dial { margin: 0 auto; }
+  .timer-controls { margin-left: 0; }
 }

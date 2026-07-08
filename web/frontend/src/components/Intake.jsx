@@ -1,14 +1,22 @@
 import { useMemo, useState } from 'react'
-import { deriveIntakeFields, isCriticalHazard, humanDuration } from '../lib/runtime.js'
+import {
+  deriveIntakeFields,
+  isCriticalHazard,
+  humanDuration,
+  localize,
+  stepText,
+  reagentName,
+  stepHazards,
+} from '../lib/runtime.js'
 
 // The "before you start" screen — the Claude payoff made visible: the open
 // questions the parse surfaced, a prep-ahead checklist, materials, and hazards.
-export default function Intake({ protocol, answers, setAnswers, onStart }) {
+export default function Intake({ protocol, answers, setAnswers, onStart, lang = 'en' }) {
   const fields = useMemo(() => deriveIntakeFields(protocol), [protocol])
   const prepSteps = protocol.steps.filter((s) => s.prep_ahead)
   const [checked, setChecked] = useState({})
 
-  const globalHazards = useMemo(() => collectGlobalHazards(protocol), [protocol])
+  const globalHazards = useMemo(() => collectGlobalHazards(protocol, lang), [protocol, lang])
   const answeredCount = fields.filter((f) => answers[f.answerKey]).length
 
   const setAnswer = (key, value) =>
@@ -18,8 +26,8 @@ export default function Intake({ protocol, answers, setAnswers, onStart }) {
     <div className="intake">
       <div className="hero">
         <div className="eyebrow">Before you start</div>
-        <h1>{protocol.title}</h1>
-        <p className="summary">{protocol.summary}</p>
+        <h1>{localize(protocol, 'title', lang)}</h1>
+        <p className="summary">{localize(protocol, 'summary', lang)}</p>
       </div>
 
       {fields.length > 0 && (
@@ -34,7 +42,7 @@ export default function Intake({ protocol, answers, setAnswers, onStart }) {
               const val = answers[f.answerKey]
               return (
                 <div className={`qcard${val ? ' answered' : ''}`} key={f.key}>
-                  <div className="q">{f.question}</div>
+                  <div className="q">{lang === 'en' ? f.question : f.questionOrig || f.question}</div>
                   {f.where && <div className="where">↳ {f.where}</div>}
                   {f.type === 'choice' ? (
                     <div className="seg">
@@ -78,12 +86,12 @@ export default function Intake({ protocol, answers, setAnswers, onStart }) {
                 >
                   <div className="check-box">{done ? '✓' : ''}</div>
                   <div className="check-body">
-                    <div className="txt">{s.text}</div>
+                    <div className="txt">{stepText(s, lang)}</div>
                     {(s.reagents.length > 0 || s.duration_seconds) && (
                       <div className="meta">
                         {s.reagents.map((r, i) => (
                           <span className="pill reagent" key={i}>
-                            {r.name}
+                            {reagentName(r, lang)}
                             {r.volume ? ` · ${r.volume}` : ''}
                           </span>
                         ))}
@@ -104,9 +112,9 @@ export default function Intake({ protocol, answers, setAnswers, onStart }) {
         <section className="section">
           <h2>Keep in mind</h2>
           {globalHazards.map((h, i) => (
-            <div className={`hazard${isCriticalHazard(h) ? ' critical' : ''}`} key={i}>
-              <span className="ico">{isCriticalHazard(h) ? '⛔' : '⚠️'}</span>
-              <span>{h}</span>
+            <div className={`hazard${h.critical ? ' critical' : ''}`} key={i}>
+              <span className="ico">{h.critical ? '⛔' : '⚠️'}</span>
+              <span>{h.text}</span>
             </div>
           ))}
         </section>
@@ -139,17 +147,20 @@ export default function Intake({ protocol, answers, setAnswers, onStart }) {
   )
 }
 
-function collectGlobalHazards(protocol) {
+function collectGlobalHazards(protocol, lang = 'en') {
   // Surface hazards from the notes phase + any critical negatives, deduped.
+  // Criticality is judged on the ORIGINAL text; display uses the localized text.
   const out = []
   const seen = new Set()
   for (const s of protocol.steps) {
-    if (s.phase !== 'notes' && !(s.hazards || []).some(isCriticalHazard)) continue
-    for (const h of s.hazards || []) {
-      if (seen.has(h)) continue
+    const orig = s.hazards || []
+    if (s.phase !== 'notes' && !orig.some(isCriticalHazard)) continue
+    const shown = stepHazards(s, lang)
+    orig.forEach((h, i) => {
+      if (seen.has(h)) return
       seen.add(h)
-      out.push(h)
-    }
+      out.push({ text: shown[i] || h, critical: isCriticalHazard(h) })
+    })
   }
   return out.slice(0, 6)
 }

@@ -21,6 +21,25 @@ from typing import Any, Optional
 PHASES = ("preparation", "procedure", "quality_control", "notes")
 KINDS = ("action", "wait", "spin", "prepare", "measure", "caution", "storage")
 
+# FIXED animation vocabulary — the frontend must ship exactly one looping visual
+# per value. Anything unrecognized is coerced to "generic" so nothing renders
+# blank and no missing-case ever crashes the renderer.
+ACTIONS = (
+    "pour_add",       # add / pour a liquid into a vessel
+    "pipette_mix",    # pipette / resuspend / mix by pipetting
+    "vortex_mix",     # vortex / flick / invert
+    "centrifuge",     # spin
+    "incubate_wait",  # timed wait at a stated temperature
+    "heat",           # heat shock / water bath
+    "cool_ice",       # place on / keep on ice
+    "transfer",       # move sample to a new tube / column
+    "wash",           # add wash buffer + spin-through
+    "discard",        # discard flow-through / waste
+    "elute",          # final elution
+    "measure",        # QC / read on an instrument
+    "generic",        # fallback
+)
+
 
 # ---------------------------------------------------------------------------
 # small coercion helpers
@@ -57,6 +76,12 @@ def _list(v: Any) -> list:
     return [v]
 
 
+def _action(v: Any) -> str:
+    """Coerce to a value in the fixed ACTIONS vocabulary; unknown -> 'generic'."""
+    s = _s(v).lower()
+    return s if s in ACTIONS else "generic"
+
+
 # ---------------------------------------------------------------------------
 # nested value objects
 # ---------------------------------------------------------------------------
@@ -64,7 +89,8 @@ def _list(v: Any) -> list:
 @dataclass
 class Reagent:
     """A reagent added at a step. `volume` may be conditional (see `condition`)."""
-    name: str = ""
+    name: str = ""                    # original language (verbatim)
+    name_en: Optional[str] = None     # English rendering for comprehension
     volume: Optional[str] = None      # kept as free text: "350 µl", "10 µl/próbkę"
     condition: Optional[str] = None   # e.g. "dla ≤ 5×10⁶ komórek"
 
@@ -75,6 +101,7 @@ class Reagent:
         d = d or {}
         return cls(
             name=_s(d.get("name")),
+            name_en=_opt_s(d.get("name_en")),
             volume=_opt_s(d.get("volume")),
             condition=_opt_s(d.get("condition")),
         )
@@ -172,15 +199,18 @@ class Material:
 class Step:
     index: int = 0
     phase: str = "procedure"
-    text: str = ""                      # cleaned, human-readable instruction
+    text: str = ""                      # cleaned instruction, ORIGINAL language (verbatim-faithful)
+    text_en: Optional[str] = None       # English translation for the default UI
     kind: str = "action"
+    action: str = "generic"             # animation vocabulary (see ACTIONS)
     duration_seconds: Optional[float] = None
     spin: Optional[Spin] = None
     reagents: list[Reagent] = field(default_factory=list)
     conditionals: list[Conditional] = field(default_factory=list)
     repeat: Optional[Repeat] = None
     alternatives: list["Step"] = field(default_factory=list)  # either/or variants
-    hazards: list[str] = field(default_factory=list)          # incl. negatives
+    hazards: list[str] = field(default_factory=list)          # incl. negatives, original language
+    hazards_en: list[str] = field(default_factory=list)       # English, aligned by index with `hazards`
     prep_ahead: bool = False
     gaps: list[Gap] = field(default_factory=list)
     verbatim: str = ""                  # original source line (audit trail)
@@ -201,7 +231,9 @@ class Step:
             index=int(_opt_num(d.get("index")) or index),
             phase=phase,
             text=_s(d.get("text")),
+            text_en=_opt_s(d.get("text_en")),
             kind=kind,
+            action=_action(d.get("action")),
             duration_seconds=_opt_num(d.get("duration_seconds")),
             spin=Spin.from_dict(d.get("spin")),
             reagents=[Reagent.from_dict(r) for r in _list(d.get("reagents"))],
@@ -209,6 +241,7 @@ class Step:
             repeat=Repeat.from_dict(d.get("repeat")),
             alternatives=alternatives,
             hazards=[_s(h) for h in _list(d.get("hazards")) if _s(h)],
+            hazards_en=[_s(h) for h in _list(d.get("hazards_en")) if _s(h)],
             prep_ahead=bool(d.get("prep_ahead", False)),
             gaps=[Gap.from_dict(g) for g in _list(d.get("gaps"))],
             verbatim=_s(d.get("verbatim")),
@@ -222,7 +255,9 @@ class Step:
 @dataclass
 class Protocol:
     title: str = ""
+    title_en: Optional[str] = None      # English title for the default UI
     summary: str = ""
+    summary_en: Optional[str] = None    # English summary for the default UI
     source: str = ""                    # provenance of the input (filename, etc.)
     materials: list[Material] = field(default_factory=list)
     steps: list[Step] = field(default_factory=list)
@@ -238,7 +273,9 @@ class Protocol:
         ]
         return cls(
             title=_s(d.get("title")),
+            title_en=_opt_s(d.get("title_en")),
             summary=_s(d.get("summary")),
+            summary_en=_opt_s(d.get("summary_en")),
             source=_s(d.get("source")) or source,
             materials=[Material.from_dict(m) for m in _list(d.get("materials"))],
             steps=steps,
