@@ -8,16 +8,41 @@ either/or steps become choices, hazards (including *negatives* like "do NOT
 centrifuge") are surfaced, and every underspecified value becomes an open
 question you answer before running.
 
-## Current status: parse-fidelity spike
+## Status
 
-We are proving ONE risky thing before building anything pretty: **can Claude
-turn a real, messy protocol into a correct, structured, RUNNABLE
-representation?** Judge fidelity in `outputs/parsed_preview.html` against
-`docs/spike_targets.md`. If it holds → build the player. If not → ship the
-geo-harmonizer fallback.
+1. **Parse-fidelity spike — PROVEN.** All 14 targets in `docs/spike_targets.md`
+   parse correctly from the real Polish protocol. Judge in
+   `outputs/parsed_preview.html`.
+2. **Protocol player — BUILT** (`web/frontend/`). A beautiful, bench-usable
+   single-purpose app over the parsed schema: a "before you start" intake
+   (open questions + prep-ahead checklist + materials/hazards), then a calm
+   one-step-at-a-time runner with timers, resolved conditionals, either/or
+   choices, tracked repeats, and prominent hazards (negatives in red). See
+   `docs/media/walkthrough.gif`.
 
 Demo protocol: `examples/Protokol_ekstrakcji_RNA_neutrofile.docx` (Polish RNA
 extraction; do NOT translate — parse in place).
+
+## The player — `web/frontend/` (Vite + React 18)
+
+- Consumes the **schema only** — it does NOT depend on how `parsed.json` was
+  produced. Default data source is the bundled `public/parsed.json` (a copy of
+  `outputs/parsed.json`), so the demo runs with **zero backend**.
+- Pure runtime logic lives in `src/lib/runtime.js` (duration formatting,
+  conditional resolution from intake answers, alternative selection, repeat
+  counting, hazard classification) — unit-tested offline with Vitest, no DOM /
+  network / real timers. Wall-clock lives only in `src/hooks/useCountdown.js`.
+- Deep-link a run for demos: `?run=1&step=5&kit=micro&cells=le`.
+- Optional live-parse stretch: `web/api.py` (FastAPI) exposes `POST /api/parse`
+  over the real `core` pipeline. Guarded — its absence never breaks the bundled
+  demo or the tests. Point the UI at it with `VITE_API_BASE`.
+
+```bash
+cd web/frontend && npm install
+npm run dev      # eyeball the player (bundled example)
+npm test         # offline Vitest — pure runtime logic
+npm run build
+```
 
 ## Iron rule (non-negotiable)
 
