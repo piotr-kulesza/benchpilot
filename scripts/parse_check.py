@@ -21,12 +21,34 @@ import sys
 # make `core` importable when run as a script
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUT_DIR = os.path.join(ROOT, "outputs")
+
+
+def _load_dotenv() -> None:
+    """Load KEY=VALUE lines from a repo-root .env into os.environ (no dependency).
+
+    Existing environment variables win, so an explicit `export` still overrides.
+    """
+    path = os.path.join(ROOT, ".env")
+    if not os.path.exists(path):
+        return
+    with open(path, "r", encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key, value = key.strip(), value.strip().strip('"').strip("'")
+            if key and value and key not in os.environ:
+                os.environ[key] = value
+
+
+_load_dotenv()
+
 from core.ingest import ingest          # noqa: E402
 from core.parse import parse_protocol    # noqa: E402
 from core.schema import Protocol, Step   # noqa: E402
-
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT_DIR = os.path.join(ROOT, "outputs")
 
 
 def _default_input() -> str:

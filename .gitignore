@@ -6,6 +6,9 @@ venv/
 *.egg-info/
 .pytest_cache/
 
+# Secrets — real key lives here, never committed. Copy from .env.example.
+.env
+
 # Parse response cache (hash-keyed llm responses) — machine-local
 .cache/
 
