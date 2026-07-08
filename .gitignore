@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Parse response cache (hash-keyed llm responses) — machine-local
+.cache/
+
+# Generated outputs are reproducible from parse_check.py; keep the tree clean.
+# (parsed.json / parsed_preview.html are what we SEND for the go/no-go review,
+#  so they are committed explicitly with `git add -f` when we want to share.)
+outputs/*.html
+
+# OS
+.DS_Store

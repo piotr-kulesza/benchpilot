@@ -1,0 +1,9 @@
+# Core runtime — the only hard dependency for a live parse.
+anthropic>=0.40
+
+# Optional: nicer .docx extraction. If absent, core/ingest.py falls back to a
+# dependency-free unzip of word/document.xml, so this is not strictly required.
+python-docx>=1.1
+
+# Test runner.
+pytest>=8.0
