@@ -1,5 +1,5 @@
 import TimerControls from './Timer.jsx'
-import ActionAnimation from '../animations/index.jsx'
+import Vessel from '../vessel/index.jsx'
 import { useCountdown } from '../hooks/useCountdown.js'
 import {
   hasAlternatives,
@@ -67,9 +67,9 @@ export default function StepCard({
 
   return (
     <div className="step-card" key={`${step.index}-${altIndex}-${lang}`}>
-      {/* HERO animation */}
+      {/* HERO — one lit 3D glass vessel whose state changes per action */}
       <div className="hero-anim">
-        <ActionAnimation
+        <Vessel
           action={eff.action || 'generic'}
           reagents={reagents}
           temp={temp}

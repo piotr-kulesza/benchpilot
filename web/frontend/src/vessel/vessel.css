@@ -1,0 +1,70 @@
+/* The 3D vessel hero + its data overlay. */
+
+.vessel {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.vessel-stage {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  aspect-ratio: 5 / 4;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid var(--line, #e7e4dd);
+  box-shadow: inset 0 1px 0 #ffffff, 0 6px 20px rgba(26, 29, 36, 0.08);
+}
+
+.vessel-stage canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  touch-action: none;
+}
+
+.vessel-fallback {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* data overlay — floats over the scene, bottom-left, so the parse stays visible */
+.vessel-overlay {
+  position: absolute;
+  left: 14px;
+  bottom: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  max-width: calc(100% - 28px);
+  pointer-events: none;
+}
+.ov-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 650;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 8px rgba(26, 29, 36, 0.1);
+  color: #1a1d24;
+}
+.ov-chip.reagent .ov-name { color: #0f766e; }
+.ov-chip.reagent .ov-vol {
+  color: #0b5d56;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.ov-chip.temp { color: #b4740b; }
+.ov-chip.spin { color: #6b3fb0; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 620px) {
+  .vessel-stage { max-width: 100%; }
+}

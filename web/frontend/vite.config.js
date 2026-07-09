@@ -6,6 +6,16 @@ import react from '@vitejs/plugin-react'
 // pointed at via VITE_API_BASE without touching the bundled path.
 export default defineConfig({
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        // Split the heavy 3D stack into its own long-cached vendor chunk.
+        manualChunks: {
+          three: ['three', '@react-three/fiber', '@react-three/drei', '@react-three/postprocessing'],
+        },
+      },
+    },
+  },
   test: {
     environment: 'node',
     include: ['src/**/*.test.{js,jsx}'],

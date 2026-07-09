@@ -19,11 +19,12 @@ question you answer before running.
    one-step-at-a-time runner with timers, resolved conditionals, either/or
    choices, tracked repeats, and prominent hazards (negatives in red). See
    `docs/media/walkthrough.gif`.
-3. **Animated + English-first — BUILT.** Every step shows a big looping SVG
-   action animation (pour, spin, incubate…) as the hero above the instruction,
-   and the UI defaults to English (`text_en`) with an EN / Original toggle. The
-   schema now carries a fixed `action` vocabulary + parallel `_en` fields; the
-   original language is always kept verbatim.
+3. **Animated + English-first — BUILT.** The step hero is a single beautifully-lit
+   **3D glass vessel** (react-three-fiber) that changes STATE per action (pour,
+   spin, incubate, heat, cool…) — same glass, same studio light, only its
+   behavior changes. The UI defaults to English (`text_en`) with an EN / Original
+   toggle. The schema carries a fixed `action` vocabulary + parallel `_en` fields;
+   the original language is always kept verbatim.
 
 Demo protocol: `examples/Protokol_ekstrakcji_RNA_neutrofile.docx` (Polish RNA
 extraction; do NOT translate — parse in place).
@@ -39,10 +40,22 @@ extraction; do NOT translate — parse in place).
   network / real timers. Wall-clock lives only in `src/hooks/useCountdown.js`.
 - Deep-link a run for demos: `?run=1&step=5&kit=micro&cells=le` (add `&lang=orig`
   to open in the original language).
-- **Animations** live in `src/animations/` — one looping SVG per `action` in the
-  fixed vocabulary (`ANIMATIONS` registry; unknown → `generic`, never blank).
-  `<ActionAnimation>` dispatches. Timed scenes (incubate/heat/centrifuge) share
-  the runner's countdown clock — the ring IS the timer.
+- **The 3D vessel** lives in `src/vessel/`:
+  - `theme.js` — ALL art-direction knobs (glass, liquid, lighting, backdrop,
+    bloom, reagent colours) in one place. Tune here.
+  - `behavior.js` — pure `action → behavior` descriptor map (`resolveBehavior`;
+    unknown → `generic`). This is what the offline test covers — no GPU needed.
+  - `Scene.jsx` — the R3F scene: studio `<Environment>` lightformers + gradient
+    backdrop, `<MeshTransmissionMaterial>` glass (hollow open-top vial),
+    per-reagent liquid, `<ContactShadows>`, `<Float>`, Bloom/Vignette.
+  - `Canvas3D.jsx` — the `<Canvas>` wrapper (only module importing three).
+  - `index.jsx` — `<Vessel>`: WebGL feature-detect + error boundary → static
+    `Fallback.jsx` if unavailable (never blank, never crash). Renders the data
+    overlay (reagent · volume, temp, rcf/time) beside the glass.
+  - Timed actions (incubate/heat/centrifuge) reflect the runner's countdown via
+    `progress`; the number still comes from the timer strip.
+  - Deps: `three`, `@react-three/fiber`, `@react-three/drei`,
+    `@react-three/postprocessing` (split into a cached `three` vendor chunk).
 - **Language**: helpers in `src/lib/runtime.js` (`localize`, `stepText`,
   `reagentName`, `stepHazards`) pick `_en` by default and fall back to the
   original when a translation is missing.
