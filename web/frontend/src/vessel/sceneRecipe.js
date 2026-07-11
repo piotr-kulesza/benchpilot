@@ -42,7 +42,6 @@ const RECIPES = {
   heat:          { equipment: 'heat_block',       vessel: 'microtube',   handoff: false },
   cool_ice:      { equipment: 'ice_bucket',       vessel: 'microtube',   handoff: false },
   transfer:      { equipment: 'spin_column',      vessel: 'microtube',   handoff: true  },
-  wash:          { equipment: 'spin_column',      vessel: 'spin_column', handoff: false },
   discard:       { equipment: 'bench',            vessel: 'spin_column', handoff: false },
   elute:         { equipment: 'spin_column',      vessel: 'eluate_tube', handoff: true  },
   measure:       { equipment: 'reader',           vessel: 'microtube',   handoff: false },

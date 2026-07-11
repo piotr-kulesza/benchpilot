@@ -84,7 +84,6 @@ function stepEnd(action, prev, color, fill) {
     case 'pour_add': return { color, level: Math.max(prev.level, fill) } // added volume raises level
     case 'pipette_mix': return { color, level: prev.level }
     case 'transfer': return { color: prev.color, level: 0.9 } // loaded onto the column
-    case 'wash': return { color, level: 0.12 } // wash buffer flows through
     case 'centrifuge': return { color: prev.color, level: 0.2 } // spun down, supernatant/flow-through gone
     case 'elute': return { color, level: 0.45 } // eluate collected
     case 'discard': return { color: prev.color, level: 0.05 }
@@ -293,7 +292,7 @@ function configureStation(st, o) {
       S.tube.userData.setLevel(demo.lerp(startLevel, 0.04, f))
       if (p > 0.9) S.tube.visible = false
     }
-  } else if (equipment === 'centrifuge' || action === 'wash' || action === 'elute') {
+  } else if (equipment === 'centrifuge' || action === 'elute') {
     // benchtop centrifuge, rotor spins over p (verbatim stationSpin). The sample
     // arrives at its carried level and spins down to the chained end level.
     demo.stationSpin(st, BT, { vessel, vlabel: name || '', vsub: vol || '', color: endColor, lStart: startLevel, lEnd: endLevel, cenLabel: 'Centrifuge', cenSub: vol || '', seconds })

@@ -19,7 +19,6 @@ export const ACTIONS = [
   'heat',
   'cool_ice',
   'transfer',
-  'wash',
   'discard',
   'elute',
   'measure',

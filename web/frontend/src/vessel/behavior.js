@@ -58,7 +58,6 @@ export const BEHAVIORS = {
   heat: b({ fill: 0.55, bubbles: true, warm: true }),
   cool_ice: b({ fill: 0.55, frost: true }),
   transfer: b({ fill: 0.5, transfer: true }),
-  wash: b({ fill: 0.5, flowThrough: true }),
   discard: b({ fill: 0.2, tip: 1.15, shake: 0.02 }),
   elute: b({ fill: 0.22, drop: true }),
   measure: b({ fill: 0.55, gauge: true }),

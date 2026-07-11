@@ -48,21 +48,35 @@ CRITICAL RULES
 
 WHAT TO EXTRACT
 
-Split the procedure into steps of ONE DISTINCT PHYSICAL OPERATION each — the same
-granularity as the reference protocol (whose procedure is ~16 steps), NOT finer.
-The runner animates one action per step, so an instruction that chains genuinely
-distinct operations is split; but do NOT over-split — only separate operations
-that are physically distinct:
-  • Each CENTRIFUGATION is its OWN step (keep spins separate).
-  • Adding / pouring a reagent is ONE step. Any mixing that comes with it
-    ("mix by pipetting", "mix until complete lysis", "vortex", "invert") is PART
-    of that add step — NOT a separate step. The pipette dispenses AND mixes in one
-    motion, exactly as the reference protocol does.
-  • "Discard the flow-through" is PART of the centrifugation it follows — NOT a
-    separate step (fold it into that spin step's text).
+Split the procedure into ATOMIC steps: exactly ONE physical operation per step.
+Each step drives ONE animated station with ONE piece of equipment, so a step that
+chains distinct operations shows the WRONG equipment. Decompose STRICTLY — do NOT
+bundle operations to keep the step count low; correct decomposition matters more
+than brevity. The HARD rules (follow every one):
+  • Every CENTRIFUGATION is its OWN "centrifuge" step. NEVER put two spins in one
+    step. "spin 15 s ... then spin 2 min" is TWO centrifuge steps.
+  • Every timed WAIT / INCUBATION is its OWN "incubate_wait" step (kind "wait",
+    with duration_seconds). NEVER fold a wait into an add or a spin.
+      "apply the DNase mix, incubate 15 min at RT"
+          -> pour_add (DNase mix) ; incubate_wait (900 s)
+      "add 30 µl water, wait 1 min, centrifuge 1 min to elute"
+          -> pour_add (water) ; incubate_wait (60 s) ; elute
+  • A WASH is NOT one operation — it is "add wash buffer" + "spin it through".
+    ALWAYS decompose it into pour_add (the buffer) + centrifuge. There is NO "wash"
+    action.
+      "wash with 500 µl RPE (centrifuge 15 s), then again with 500 µl RPE
+       (centrifuge 2 min)"
+          -> pour_add (RPE) ; centrifuge (15 s) ; pour_add (RPE) ; centrifuge (120 s)
+  • A TRANSFER (move the sample/column to a new tube) is its OWN step, separate
+    from any spin. "transfer the column to a clean tube and centrifuge 1 min"
+          -> transfer ; centrifuge (60 s)
+  • Adding / pouring a reagent is ONE step. Mixing that comes WITH it ("mix by
+    pipetting", "mix until complete lysis", "vortex", "invert") is PART of that add
+    — NOT a separate step.
+  • "Discard the flow-through" is PART of the centrifugation it follows — fold it
+    into that spin step's text, NOT a separate step.
 So "Add 350 µl RW1, centrifuge 15 s, discard the flow-through" is TWO steps:
-pour_add (RW1) then centrifuge. Never split an instruction into more pieces than
-are physically distinct — aim for a ~16-step procedure, not ~26.
+pour_add (RW1) then centrifuge (the discard IS the spin).
 
 Assign each step a `phase`:
   "preparation"     - things to set up / make fresh before the procedure clock
@@ -82,14 +96,14 @@ if none fits, use "generic"):
                     through a 20-21 G needle/syringe, plunge, or dounce. This is
                     NOT a spin — a QIAshredder/spin-column homogenization is
                     "centrifuge", but the needle/plunger method is "homogenize".
-  "centrifuge"    - centrifuge / spin (wirować)
-  "incubate_wait" - a timed wait / incubation at a stated temperature
+  "centrifuge"    - centrifuge / spin (wirować). EVERY spin is its own step.
+  "incubate_wait" - a timed wait / incubation (kind "wait", set duration_seconds).
+                    EVERY timed wait is its own step.
   "heat"          - heat shock / water bath at an elevated temperature
   "cool_ice"      - place on / keep on ice
   "transfer"      - move the sample to a new tube or column
-  "wash"          - add a wash buffer then spin it through
   "discard"       - discard flow-through / waste (odrzucić przesącz)
-  "elute"         - the final elution of the product
+  "elute"         - the final elution spin (collects the product into a clean tube)
   "measure"       - QC / read on an instrument (NanoDrop, Bioanalyzer)
   "generic"       - fallback when nothing above fits
   Each step has ONE primary action. Split ONLY at distinct physical operations —

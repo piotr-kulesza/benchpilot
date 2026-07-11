@@ -34,7 +34,6 @@ ACTIONS = (
     "heat",           # heat shock / water bath
     "cool_ice",       # place on / keep on ice
     "transfer",       # move sample to a new tube / column
-    "wash",           # add wash buffer + spin-through
     "discard",        # discard flow-through / waste
     "elute",          # final elution
     "measure",        # QC / read on an instrument
