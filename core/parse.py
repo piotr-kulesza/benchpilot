@@ -48,7 +48,17 @@ CRITICAL RULES
 
 WHAT TO EXTRACT
 
-Split the protocol into `steps`. Assign each step a `phase`:
+Split the protocol into ATOMIC, single-action `steps`. Each step describes
+EXACTLY ONE physical action from the vocabulary below. A single written
+instruction that chains several actions (e.g. "Add 350 µl RW1, centrifuge 15 s,
+discard the flow-through") MUST become SEVERAL steps — one per action, in order
+(here: pour_add -> centrifuge -> discard). NEVER fold multiple actions into one
+step: the runner animates exactly one action per step, so any un-split action is
+never shown. Decompose the WHOLE procedure this way, as a bench worker performs
+it one motion at a time — the same breakdown the reference protocol uses (expect
+the procedure to EXPAND, e.g. a ~10-line procedure becomes ~16 atomic steps).
+
+Assign each step a `phase`:
   "preparation"     - things to set up / make fresh before the procedure clock
   "procedure"       - the numbered wet-lab procedure
   "quality_control" - QC / measurement / acceptance criteria
@@ -72,9 +82,18 @@ if none fits, use "generic"):
   "elute"         - the final elution of the product
   "measure"       - QC / read on an instrument (NanoDrop, Bioanalyzer)
   "generic"       - fallback when nothing above fits
-  Choose the action that best matches the PRIMARY physical motion of the step.
-  A wash step that is "add RPE, then spin" is "wash", not "centrifuge". A column
-  load "transfer sample then spin, discard flow-through" is "transfer".
+  Each step has EXACTLY ONE action — never a compound. When one instruction
+  chains actions, emit one step per action, in order, choosing the best-fit
+  action for each:
+    "add 350 µl RW1, centrifuge 15 s, discard the flow-through"
+        -> pour_add (RW1) ; centrifuge ; discard          (THREE steps)
+    "load the lysate onto the column, spin, discard the flow-through"
+        -> transfer ; centrifuge ; discard                (THREE steps)
+    "add RNase-free water and centrifuge to elute the RNA"
+        -> pour_add (water) ; elute                       (TWO steps)
+  Do NOT collapse "add buffer + spin + discard" into a single "wash". Reserve
+  "wash"/"transfer"/"elute" for a genuinely single labelled motion that the text
+  does not itself spell out as add/spin/discard.
 
 For each step extract, when present:
   - text: instruction in the ORIGINAL language. text_en: the English translation.
@@ -107,7 +126,10 @@ For each step extract, when present:
     (making fresh buffer, premixing DNase I + RDD, etc.).
   - gaps: [{parameter, question}] for any value left underspecified / "to be
     determined" AT THIS STEP. Surface it as an answerable question (English is fine).
-  - verbatim: the original source line(s) this step came from (audit trail).
+  - verbatim: the original source sentence(s) this step came from (audit trail).
+    When one instruction is split into several atomic steps, copy the SAME
+    original sentence into `verbatim` on EVERY derived step, so nothing is lost;
+    `text`/`text_en` then describe only that step's single action.
 
 PROTOCOL-LEVEL FIELDS
   - title, title_en, summary, summary_en, source.
