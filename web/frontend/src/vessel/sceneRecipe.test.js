@@ -1,0 +1,48 @@
+import { describe, it, expect } from 'vitest'
+import { SCENE_RECIPES, resolveRecipe } from './sceneRecipe.js'
+import { resolveBehavior } from './behavior.js'
+import { ACTIONS } from '../lib/runtime.js'
+
+// The 3D scene isn't unit-tested (no GPU in CI). What we DO guarantee is the
+// action → scene-recipe mapping: every action in the vocabulary resolves to a
+// valid recipe (equipment + vessel + anim + handoff), and anything unknown
+// falls back to `generic`.
+
+const EQUIPMENT = new Set([
+  'centrifuge', 'incubation_block', 'heat_block', 'ice_bucket',
+  'spin_column', 'bottle_pipette', 'reader', 'bench',
+])
+const VESSELS = new Set(['microtube', 'spin_column', 'bottle', 'eluate_tube'])
+
+describe('action → scene recipe mapping', () => {
+  it('resolves every action enum value to a valid recipe', () => {
+    for (const action of ACTIONS) {
+      const r = resolveRecipe(action)
+      expect(r, action).toBeTypeOf('object')
+      expect(r, action).toBe(SCENE_RECIPES[action])
+      expect(EQUIPMENT.has(r.equipment), `${action} equipment=${r.equipment}`).toBe(true)
+      expect(VESSELS.has(r.vessel), `${action} vessel=${r.vessel}`).toBe(true)
+      expect(r.handoff).toBeTypeOf('boolean')
+      // anim is the action's behavior descriptor, kept in lockstep with behavior.js
+      expect(r.anim).toBe(resolveBehavior(action))
+      expect(r.anim).toHaveProperty('fill')
+    }
+  })
+
+  it('has exactly one entry per vocabulary value and no extras', () => {
+    expect(Object.keys(SCENE_RECIPES).sort()).toEqual([...ACTIONS].sort())
+  })
+
+  it('marks transfer and elute as hand-offs (sample changes container)', () => {
+    expect(resolveRecipe('transfer').handoff).toBe(true)
+    expect(resolveRecipe('elute').handoff).toBe(true)
+    expect(resolveRecipe('centrifuge').handoff).toBe(false)
+  })
+
+  it('falls back to generic for unknown / missing actions', () => {
+    expect(resolveRecipe('does_not_exist')).toBe(SCENE_RECIPES.generic)
+    expect(resolveRecipe(undefined)).toBe(SCENE_RECIPES.generic)
+    expect(resolveRecipe('')).toBe(SCENE_RECIPES.generic)
+    expect(resolveRecipe(null)).toBe(SCENE_RECIPES.generic)
+  })
+})
