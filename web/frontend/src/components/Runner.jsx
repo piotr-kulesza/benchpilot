@@ -1,7 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import StepCard from './StepCard.jsx'
 import Complete from './Complete.jsx'
-import { PHASE_LABEL, selectAlternative, hasAlternatives, stepText } from '../lib/runtime.js'
+import StationView from '../vessel/StationView.jsx'
+import { useCountdown } from '../hooks/useCountdown.js'
+import {
+  PHASE_LABEL,
+  selectAlternative,
+  hasAlternatives,
+  stepText,
+  effectiveStep,
+  timerSeconds,
+  extractTemperature,
+} from '../lib/runtime.js'
 
 // One step at a time. Owns navigation, per-step alternative choice and repeat
 // pass counts, and a persistent look-ahead so a beginner can prep during a timer.
@@ -12,8 +22,26 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
   const [passByStep, setPassByStep] = useState({})
   const [finished, setFinished] = useState(false)
 
-  const atEnd = i >= steps.length
-  const step = steps[i]
+  const step = steps[Math.min(i, steps.length - 1)]
+  const altIndex = altByStep[step.index] || 0
+
+  // One clock for the whole step, shared by the 3D scene (incubation ring /
+  // reader gauge) and the step card's timer strip. useCountdown resets when the
+  // seconds change (i.e. on step or alternative change).
+  const timed = timerSeconds(step, altIndex)
+  const countdown = useCountdown(timed || 0)
+  const timer = timed
+    ? {
+        remaining: countdown.remaining,
+        fraction: timed > 0 ? countdown.remaining / timed : 1,
+        running: countdown.running,
+        done: countdown.done,
+      }
+    : null
+  // the ring/gauge fill as time ELAPSES (1 = full window remaining → 0 elapsed)
+  const elapsed = timer ? 1 - timer.fraction : 1
+  const eff = effectiveStep(step, altIndex)
+  const temp = extractTemperature(eff, lang)
 
   const next = () => {
     if (i >= steps.length - 1) setFinished(true)
@@ -50,7 +78,6 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
     return <Complete protocol={protocol} answers={answers} onRestart={onExit} />
   }
 
-  const altIndex = altByStep[step.index] || 0
   const passes = passByStep[step.index] || 0
   const progress = ((i + 1) / steps.length) * 100
 
@@ -71,12 +98,28 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
         </div>
       </div>
 
+      {/* persistent station-line hero — mounted once, so the sample and camera
+          travel as you navigate rather than the canvas remounting per step */}
+      <div className="station-hero">
+        <StationView
+          protocol={protocol}
+          activeIndex={i}
+          answers={answers}
+          lang={lang}
+          progress={elapsed}
+          running={!!timer?.running}
+          temp={temp}
+        />
+      </div>
+
       <div className="stage">
         <StepCard
           key={step.index}
           step={step}
           answers={answers}
           altIndex={altIndex}
+          countdown={countdown}
+          timer={timer}
           onPickAlt={(idx) => setAltByStep((m) => ({ ...m, [step.index]: idx }))}
           passes={Math.max(passes, 1)}
           onPass={() =>

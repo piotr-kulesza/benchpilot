@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { SCENE_RECIPES, resolveRecipe } from './sceneRecipe.js'
+import { SCENE_RECIPES, resolveRecipe, sampleContainerSequence } from './sceneRecipe.js'
 import { resolveBehavior } from './behavior.js'
 import { ACTIONS } from '../lib/runtime.js'
 
@@ -44,5 +44,32 @@ describe('action → scene recipe mapping', () => {
     expect(resolveRecipe(undefined)).toBe(SCENE_RECIPES.generic)
     expect(resolveRecipe('')).toBe(SCENE_RECIPES.generic)
     expect(resolveRecipe(null)).toBe(SCENE_RECIPES.generic)
+  })
+})
+
+describe('travelling sample container sequence', () => {
+  it('starts as a microtube and changes only at hand-offs', () => {
+    // microtube … until transfer → spin column … until elute → eluate tube
+    const actions = ['pour_add', 'pipette_mix', 'transfer', 'wash', 'incubate_wait', 'elute', 'measure', 'cool_ice']
+    expect(sampleContainerSequence(actions)).toEqual([
+      'microtube', // pour_add (as step begins)
+      'microtube', // pipette_mix
+      'microtube', // transfer — hand-off happens AT the end of this step
+      'spin_column', // wash
+      'spin_column', // incubate_wait
+      'spin_column', // elute — hand-off at the end
+      'eluate_tube', // measure
+      'eluate_tube', // cool_ice
+    ])
+  })
+
+  it('never changes container without a transfer/elute (unknown actions included)', () => {
+    const seq = sampleContainerSequence(['pour_add', 'centrifuge', 'does_not_exist', 'heat'])
+    expect(seq).toEqual(['microtube', 'microtube', 'microtube', 'microtube'])
+  })
+
+  it('handles an empty protocol', () => {
+    expect(sampleContainerSequence([])).toEqual([])
+    expect(sampleContainerSequence()).toEqual([])
   })
 })

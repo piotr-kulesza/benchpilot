@@ -68,3 +68,44 @@
 @media (max-width: 620px) {
   .vessel-stage { max-width: 100%; }
 }
+
+/* ── station line hero: a wide, persistent 3D pane above the step card ────── */
+.station-hero {
+  width: 100%;
+  margin: 4px 0 18px;
+}
+.station-hero .vessel { width: 100%; }
+.station-stage {
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 360px;
+}
+
+/* camera view toggle — cinematic dolly vs isometric pan */
+.cam-toggle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 8px rgba(26, 29, 36, 0.1);
+}
+.cam-toggle button {
+  border: 0;
+  background: transparent;
+  color: #4a5560;
+  font: 650 12.5px system-ui, sans-serif;
+  padding: 5px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.cam-toggle button[aria-pressed='true'] {
+  background: #16b8a6;
+  color: #fff;
+}

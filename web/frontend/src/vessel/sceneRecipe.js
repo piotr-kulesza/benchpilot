@@ -57,3 +57,20 @@ export const SCENE_RECIPES = Object.fromEntries(
 export function resolveRecipe(action) {
   return SCENE_RECIPES[action] || SCENE_RECIPES.generic
 }
+
+// The ONE travelling sample's container as each step BEGINS. It starts as a
+// microtube and changes ONLY at a hand-off (`transfer` → spin column, `elute` →
+// eluate tube); every other action leaves it unchanged. Pure so the invariant is
+// unit-testable. `actions` is the ordered list of each step's `action`.
+export function sampleContainerSequence(actions = []) {
+  const out = []
+  let container = 'microtube'
+  for (const action of actions) {
+    out.push(container)
+    if (resolveRecipe(action).handoff) {
+      if (action === 'transfer') container = 'spin_column'
+      else if (action === 'elute') container = 'eluate_tube'
+    }
+  }
+  return out
+}

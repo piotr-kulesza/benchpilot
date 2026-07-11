@@ -1,6 +1,4 @@
 import TimerControls from './Timer.jsx'
-import Vessel from '../vessel/index.jsx'
-import { useCountdown } from '../hooks/useCountdown.js'
 import {
   hasAlternatives,
   selectAlternative,
@@ -9,12 +7,10 @@ import {
   repeatTarget,
   isOpenEndedRepeat,
   isCriticalHazard,
-  timerSeconds,
   humanDuration,
   stepText,
   stepHazards,
   reagentName,
-  extractTemperature,
 } from '../lib/runtime.js'
 
 const KIND_ICON = {
@@ -35,6 +31,8 @@ export default function StepCard({
   step,
   answers,
   altIndex,
+  countdown,
+  timer,
   onPickAlt,
   passes,
   onPass,
@@ -46,19 +44,9 @@ export default function StepCard({
 
   const reagents = resolveReagents(eff, answers)
   const { selected, undecided } = resolveConditionals(eff, answers)
-  const timed = timerSeconds(step, altIndex)
-  const temp = extractTemperature(eff, lang)
-
-  // One clock for both the timer control and the animation ring/rotor.
-  const countdown = useCountdown(timed || 0)
-  const timer = timed
-    ? {
-        remaining: countdown.remaining,
-        fraction: timed > 0 ? countdown.remaining / timed : 1,
-        running: countdown.running,
-        done: countdown.done,
-      }
-    : null
+  // The step's clock is owned by the Runner (shared with the 3D scene). `timer`
+  // is non-null only for timed (wait/spin) steps.
+  const timed = !!timer
 
   const repTarget = repeatTarget(eff)
   const openEnded = isOpenEndedRepeat(eff)
@@ -67,18 +55,6 @@ export default function StepCard({
 
   return (
     <div className="step-card" key={`${step.index}-${altIndex}-${lang}`}>
-      {/* HERO — one lit 3D glass vessel whose state changes per action */}
-      <div className="hero-anim">
-        <Vessel
-          action={eff.action || 'generic'}
-          reagents={reagents}
-          temp={temp}
-          spin={eff.spin}
-          timer={timer}
-          lang={lang}
-        />
-      </div>
-
       <span className="kind-badge" data-kind={kind}>
         <span>{KIND_ICON[kind] || '→'}</span>
         {kind}
