@@ -16,6 +16,17 @@ import * as THREE from 'three'
 let renderer = null
 export function setRenderer(r) { renderer = r }
 
+// The demo's scene-scope singletons that its choreography (stationReagent /
+// stationSpin / SAMPLE) closes over — set by the React layer, exactly as the
+// demo's `scene` / `SAMPLE` / `SNAP_SAMPLE` globals.
+let scene = null
+let SNAP_SAMPLE = false
+let SAMPLE = null
+export function setScene(s) { scene = s }
+export function setSnap(v) { SNAP_SAMPLE = v }
+export function initSample() { SAMPLE = buildSample(); return SAMPLE }
+export function getSample() { return SAMPLE }
+
   var LOOK = {
     cinematic:{
       // BRIGHT REAL LAB under fluorescent panels: high ambient + hemi for even, fairly FLAT
@@ -1149,3 +1160,115 @@ export {
   buildEnvMap, makeCineBackdrop, makeGradientTexture,
   glassMaterial, matPlastic, matBrushed, matAnodized, matPainted, matFrosted, matRubber, matSilicone,
 }
+
+// ─── station choreography (lifted verbatim from the demo's scene scope) ───
+  function pipetteRun(st, from, to, p, opts){
+    opts=opts||{};
+    var pip=st.pip; if(!pip) return;
+    var phaseA=0.30, phaseB=0.62, hover=2.5;
+    var pos=new THREE.Vector3();
+    if(p<phaseA){
+      var q=easeInOut(p/phaseA);
+      pos.set(from.x, lerp(hover, from.y+1.1, q), from.z);
+      pip.userData.setFluid(q*(opts.fill||0.8)); pip.userData.setColor(opts.color||COL.lysis);
+    } else if(p<phaseB){
+      var q2=easeInOut((p-phaseA)/(phaseB-phaseA));
+      pos.set(lerp(from.x,to.x,q2), 0, lerp(from.z,to.z,q2));
+      pos.y = lerp(from.y+1.1, to.y+1.2, q2) + Math.sin(q2*Math.PI)*0.5 + 1.0;
+      pip.userData.setFluid(opts.fill||0.8);
+    } else {
+      var q3=easeInOut((p-phaseB)/(1-phaseB));
+      pos.set(to.x, lerp(to.y+2.2, to.y+1.25, q3), to.z);
+      pip.userData.setFluid((1-q3)*(opts.fill||0.8));
+    }
+    pip.position.copy(pos);                 // LOCAL — resident pipette stays at its station
+  }
+
+  // shared local layout anchors (per-station, in the station's local space)
+  var PIP_STAND = {x:-2.1, y:0, z:1.25};
+  var PIP_REST  = new THREE.Vector3(-2.1, 1.2, 1.25);
+
+  // a bare stand (dressing) — for stations that don't pipette
+  function addStand(st){
+    var stand = buildPipetteStand(); stand.position.set(PIP_STAND.x,PIP_STAND.y,PIP_STAND.z); st.group.add(stand);
+  }
+  // resident equipment: a stand AND its OWN pipette, both fixed to this station
+  function addPipetteRig(st){
+    addStand(st);
+    var pip = buildPipette(); pip.position.set(PIP_REST.x, PIP_REST.y, PIP_REST.z);
+    st.group.add(pip); st.pip = pip; st.updatables.push(pip);
+  }
+  // dock this station's resident pipette back in its stand (LOCAL space)
+  function pipRest(st){ if(!st.pip) return;
+    st.pip.position.set(PIP_REST.x, PIP_REST.y, PIP_REST.z);
+    st.pip.userData.setFluid(0); }
+
+  function buildSample(){
+    var tube   = buildTube({height:1.7, radius:0.32, color:COL.pellet, label:"Neutrophil pellet", sub:"", cold:true, capColor:0x3f7fd0});
+    var column = buildSpinColumn();
+    var elu    = buildTube({height:1.15, radius:0.26, color:COL.rna, label:"Eluate", sub:"RNA", capColor:0x49b26a});
+    var vessels=[tube,column,elu];
+    for(var v=0;v<vessels.length;v++){
+      vessels[v].visible=false; vessels[v].userData.tPos=vessels[v].position.clone(); scene.add(vessels[v]);
+    }
+    var S={ tube:tube, column:column, elu:elu, vessels:vessels, active:tube };
+    // show exactly one vessel (hand-off timelines may reveal a second mid-station)
+    S.only=function(name){
+      tube.visible=(name==='tube'); column.visible=(name==='column'); elu.visible=(name==='elu');
+      S.active=(name==='tube'?tube:(name==='column'?column:elu));
+    };
+    // set a vessel's travel target; snap instantly on non-sequential jumps, glide otherwise
+    S.at=function(vessel,x,y,z){ vessel.userData.tPos.set(x,y,z); if(SNAP_SAMPLE) vessel.position.set(x,y,z); };
+    S.snapTo=function(vessel,x,y,z){ vessel.userData.tPos.set(x,y,z); vessel.position.set(x,y,z); };
+    return S;
+  }
+
+  function addBottle(st, key, labelText, color, x, z){
+    var b = buildBottle(color, labelText, 1.3, color);
+    b.position.set(x, 0, z); st.group.add(b);
+    st.reagents[key] = { grp:b, pos:new THREE.Vector3(x, 0.24, z) };
+  }
+  function stationReagent(st, Y, o){
+    addPipetteRig(st);
+    addBottle(st, o.key, o.blabel, o.color, 2.0, 0.7);
+    st.enter=function(){
+      SAMPLE.only(o.vessel);
+      var v=SAMPLE[o.vessel];
+      if(o.vlabel) v.userData.setLabel(o.vlabel, o.vsub||"");
+      if(o.cStart!=null) v.userData.setColor(o.cStart);
+      v.userData.setLevel(o.lStart);
+      SAMPLE.at(v, st.x, Y, 0);
+      pipRest(st);
+    };
+    st.timeline=function(p){
+      var v=SAMPLE[o.vessel];
+      pipetteRun(st, st.reagents[o.key].pos, {x:0,y:Y,z:0}, p, {color:o.color, fill:0.8});
+      if(p>0.62){ var q=easeInOut((p-0.62)/0.38);
+        v.userData.setLevel(lerp(o.lStart,o.lEnd,q));
+        if(o.cEnd!=null) v.userData.setColor(o.cEnd);
+      }
+    };
+  }
+  function stationSpin(st, Y, o){
+    var cen=buildCentrifuge(); cen.position.set(1.4,0,-0.5); cen.scale.setScalar(0.85);
+    st.group.add(cen); st.updatables.push(cen); st.cen=cen;
+    var plate=new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.56,Y,32), matPlastic(0x2e3843));
+    plate.position.set(-1.5,Y*0.5,1.4); plate.castShadow=true; st.group.add(plate);
+    st.enter=function(){
+      SAMPLE.only(o.vessel);
+      var v=SAMPLE[o.vessel];
+      if(o.vlabel) v.userData.setLabel(o.vlabel, o.vsub||"");
+      if(o.color!=null) v.userData.setColor(o.color);
+      v.userData.setLevel(o.lStart==null?0.5:o.lStart);
+      SAMPLE.at(v, st.x-1.5, Y, 1.4);
+      cen.userData.setLabel(o.cenLabel||"Centrifuge", o.cenSub||""); cen.userData.setSpin(0);
+    };
+    if(o.seconds) st.hud={label:o.hudLabel||"Centrifuge", seconds:o.seconds};
+    st.timeline=function(p){
+      cen.userData.setSpin(p<0.08?0:(p>0.9?2:24));
+      var v=SAMPLE[o.vessel];
+      if(o.lEnd!=null) v.userData.setLevel(lerp(o.lStart==null?0.5:o.lStart, o.lEnd, easeInOut(clamp(p,0,1))));
+    };
+  }
+
+export { pipetteRun, addStand, addPipetteRig, pipRest, buildSample, addBottle, stationReagent, stationSpin, PIP_STAND, PIP_REST, easeInOut, lerp, clamp }

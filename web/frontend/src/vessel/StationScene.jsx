@@ -1,25 +1,24 @@
-// StationScene — mounts the DEMO's real THREE.Group builders (demoScene.js,
-// lifted verbatim from demos/neutrophil-rna-extraction.html) via <primitive>, and
-// runs each group's own userData.update(dt) hook. There is ZERO hand-written
-// geometry / material / animation here: every model, material, light, env,
-// background, label and decal comes from the demo's code.
+// StationScene — mounts the DEMO's real builders AND drives the DEMO's real
+// station choreography (demoScene.js, lifted verbatim). Per active step we build
+// a station via the demo's stationReagent / stationSpin / addStand + the resident
+// pipette rig, call its enter() (initial state), and drive its timeline(p) every
+// frame from a per-step animation clock — so the pipette travels bottle→vessel
+// and the fill only ramps in at p>0.62, exactly as the demo paces it.
 //
-// What stays on our side (the parts that actually generalise across protocols):
-//   • resolveRecipe(step.action) → which builder to mount for the active step
-//   • the travelling sample + container hand-offs (microtube → column → eluate)
-//   • the camera rig (cinematic / isometric) + navigation
-//   • driving each group's own setters (setSpin / setProgress / setLevel / …)
+// Ours (the parts that generalise): resolveRecipe(action) → which station kind to
+// build; the single travelling SAMPLE + container hand-offs; the camera rig
+// (cinematic/isometric) + navigation; the DOM overlay.
 
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera, OrthographicCamera } from '@react-three/drei'
-import { FogExp2, Color, Vector3 } from 'three'
+import { FogExp2, Color, Vector3, Group } from 'three'
 import { reagentColor } from './theme.js'
 import { resolveRecipe, sampleContainerSequence } from './sceneRecipe.js'
 import { reagentName, reagentVolume } from '../lib/runtime.js'
 import * as demo from '../scene/demoScene.js'
 
-// ── the demo's cinematic camera (RAIL_Y/RAIL_Z/LOOK_Y) + isometric framing
+// the demo's cinematic camera + isometric framing
 const FOV = 40
 const RAIL_Y = 3.35
 const RAIL_Z = 9.6
@@ -28,9 +27,11 @@ const ISO_DIR = new Vector3(1, 0.82, 1).normalize()
 const ISO_DIST = 90
 const ISO_LOOK_Y = 1.35
 const VIEW_SIZE = 7.6
+const STEP_DUR = 6.5 // the demo's per-step animation window (seconds)
 
-// build the demo's shared PBR texture maps ONCE, before any builder runs (its
-// materials read TEX). Called synchronously in render so children see it filled.
+const V_OF = { microtube: 'tube', spin_column: 'column', eluate_tube: 'elu' }
+
+// build the demo's shared PBR maps once, before any builder runs.
 let _maps = false
 function ensureMaps() {
   if (!_maps) {
@@ -39,7 +40,6 @@ function ensureMaps() {
   }
 }
 
-// dispose a built group's GPU resources on unmount (each step rebuilds).
 function disposeGroup(group) {
   group.traverse((o) => {
     if (o.geometry) o.geometry.dispose()
@@ -51,30 +51,12 @@ function disposeGroup(group) {
       }
       m.dispose?.()
     }
-    if (o.isSprite && o.material?.map) o.material.map.dispose()
   })
 }
 
-// ── scene-level setup from the demo: env map, background, fog, exposure.
-function DemoStage() {
-  const { gl, scene } = useThree()
-  useEffect(() => {
-    demo.setRenderer(gl)
-    ensureMaps()
-    scene.environment = demo.buildEnvMap('cinematic')
-    scene.background = demo.makeCineBackdrop()
-    const f = demo.LOOK.cinematic.fog
-    scene.fog = new FogExp2(f.color, f.density)
-    return () => {
-      scene.environment = null
-      scene.background = null
-      scene.fog = null
-    }
-  }, [gl, scene])
-  return null
-}
+const hideLabels = (root) => root.traverse((o) => o.userData?.label && (o.userData.label.visible = false))
 
-// ── the demo's LOOK.cinematic lights (verbatim values).
+// the demo's LOOK.cinematic lights (verbatim values).
 function Lights() {
   const L = demo.LOOK.cinematic
   return (
@@ -103,17 +85,15 @@ function Lights() {
   )
 }
 
-// the bench floor — the demo's cinematic bench colour/material (applyViewMode).
 function Floor() {
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
       <planeGeometry args={[80, 40]} />
       <meshStandardMaterial color={0xcbc6bd} metalness={0.12} roughness={0.5} envMapIntensity={0.62} />
     </mesh>
   )
 }
 
-// fixed cameras framing the active station (centred at world origin).
 function CameraRig({ view }) {
   const persp = useRef()
   const ortho = useRef()
@@ -126,69 +106,93 @@ function CameraRig({ view }) {
   return (
     <>
       <PerspectiveCamera ref={persp} makeDefault={view !== 'isometric'} fov={FOV} near={0.1} far={160} position={[0, RAIL_Y, RAIL_Z]} />
-      <OrthographicCamera
-        ref={ortho}
-        makeDefault={view === 'isometric'}
-        near={0.1}
-        far={400}
-        zoom={zoom}
-        position={[ISO_DIR.x * ISO_DIST, ISO_LOOK_Y + ISO_DIR.y * ISO_DIST, ISO_DIR.z * ISO_DIST]}
-      />
+      <OrthographicCamera ref={ortho} makeDefault={view === 'isometric'} near={0.1} far={400} zoom={zoom} position={[ISO_DIR.x * ISO_DIST, ISO_LOOK_Y + ISO_DIR.y * ISO_DIST, ISO_DIR.z * ISO_DIST]} />
     </>
   )
 }
 
-// Mount a demo builder group, run its update(dt), and drive its setters each frame.
-// The builders each ship their OWN floating label; we hide it and show a single
-// step-driven label instead (see <primitive object={label}> below).
-function Builder({ make, drive, position, scale }) {
-  const group = useMemo(() => {
-    const g = make()
-    if (g.userData.label) g.userData.label.visible = false
-    return g
-  }, [make])
-  useFrame((_, dt) => {
-    drive?.(group)
-    group.userData.update?.(Math.min(dt, 1 / 30))
-  })
-  useEffect(() => () => disposeGroup(group), [group])
-  return <primitive object={group} position={position || [0, 0, 0]} scale={scale ?? 1} />
-}
-
-// equipment key → demo builder (the demo has no heat-block; reuse the cold block).
+// device builders for the non-reagent / non-spin actions (bare-stand stations).
 const DEVICE = {
-  centrifuge: demo.buildCentrifuge,
   incubation_block: demo.buildColdBlock,
   heat_block: demo.buildColdBlock,
   ice_bucket: demo.buildIceBucket,
   reader: demo.buildNanoDrop,
 }
 
-// where the travelling sample sits, per equipment (demo-scale, bench = y 0).
-const SEAT = {
-  centrifuge: [0, 0.72, 0],
-  incubation_block: [0, 0.5, 0],
-  heat_block: [0, 0.5, 0],
-  ice_bucket: [0, 0.12, 0],
-  reader: [1.15, 0, 0.5],
-  bottle_pipette: [0, 0, 0],
-  bench: [0, 0, 0],
-}
+// Build a station for a step — mapping the action to the demo's station kind.
+function configureStation(st, o) {
+  const { action, equipment, container, color, name, vol, fill, seconds } = o
+  const vessel = V_OF[container] || 'tube'
+  const S = demo.getSample()
 
-// build the travelling sample group for a container (demo buildTube/buildSpinColumn).
-function makeSample(container) {
-  if (container === 'spin_column') return demo.buildSpinColumn()
-  if (container === 'eluate_tube')
-    return demo.buildTube({ height: 1.15, radius: 0.26, color: demo.COL.rna, label: 'Eluate', sub: 'RNA', capColor: 0x49b26a })
-  return demo.buildTube({ height: 1.7, radius: 0.32, color: demo.COL.pellet, label: 'Sample', sub: '', cold: true, capColor: 0x3f7fd0 })
+  if (action === 'pour_add' || action === 'pipette_mix') {
+    // reagent addition: resident pipette rig + bottle; pipette pours over p, fill
+    // ramps at p>0.62 (verbatim stationReagent).
+    demo.stationReagent(st, demo.BLOCK_TOP, {
+      key: 'r',
+      blabel: '',
+      color,
+      vessel,
+      vlabel: name || '',
+      vsub: vol || '',
+      cStart: null,
+      cEnd: color,
+      lStart: 0.1,
+      lEnd: fill,
+    })
+  } else if (equipment === 'centrifuge' || action === 'wash' || action === 'transfer' || action === 'elute') {
+    // spin: benchtop centrifuge, rotor spins over p (verbatim stationSpin).
+    demo.stationSpin(st, demo.BLOCK_TOP, {
+      vessel,
+      vlabel: name || '',
+      vsub: vol || '',
+      color,
+      lStart: 0.5,
+      lEnd: action === 'wash' ? 0.1 : 0.45,
+      cenLabel: 'Centrifuge',
+      cenSub: vol || '',
+      seconds,
+    })
+  } else {
+    // bare stand + the step's demo device (incubate/heat block, ice bucket,
+    // NanoDrop) — same enter/timeline pattern as the demo's buildStation.
+    demo.addStand(st)
+    const make = DEVICE[equipment]
+    let seatX = 0
+    let seatY = 0
+    let seatZ = 0
+    if (make) {
+      const dev = make()
+      dev.position.set(0, 0, equipment === 'ice_bucket' ? 0.3 : 0)
+      st.group.add(dev)
+      st.updatables.push(dev)
+      st.dev = dev
+      if (equipment === 'incubation_block' || equipment === 'heat_block') seatY = demo.BLOCK_TOP
+      else if (equipment === 'ice_bucket') { seatY = 0.34; seatZ = 0.3 }
+      else if (equipment === 'reader') { seatX = -1.4; seatZ = 0.8 }
+    }
+    st.enter = () => {
+      S.only(vessel)
+      const v = S[vessel]
+      if (name) v.userData.setLabel(name, vol || '')
+      v.userData.setColor(color)
+      v.userData.setLevel(fill)
+      S.at(v, st.x + seatX, seatY, seatZ)
+    }
+    st.timeline = (p) => {
+      st.dev?.userData.setProgress?.(demo.easeInOut(demo.clamp(p * 1.4, 0, 1)))
+    }
+  }
+  hideLabels(st.group)
 }
 
 function useContainers(steps) {
   return useMemo(() => sampleContainerSequence(steps.map((s) => s.action)), [steps])
 }
 
-export default function StationScene({ protocol, activeIndex = 0, answers = {}, lang = 'en', progress = 1, running = false, view = 'cinematic' }) {
+export default function StationScene({ protocol, activeIndex = 0, lang = 'en', view = 'cinematic' }) {
   ensureMaps()
+  const { gl, scene } = useThree()
   const steps = protocol?.steps || []
   const containers = useContainers(steps)
   const active = Math.max(0, Math.min(activeIndex, steps.length - 1))
@@ -196,71 +200,100 @@ export default function StationScene({ protocol, activeIndex = 0, answers = {}, 
   const { equipment } = resolveRecipe(step.action)
   const container = containers[active] || 'microtube'
 
-  // sample colour (demo COL palette via reagentColor) + fill + label text
   const primary = (step.reagents || []).find((r) => r.volume) || (step.reagents || [])[0]
   const primaryName = primary ? reagentName(primary, lang) : null
   const colorHex = useMemo(() => new Color(reagentColor(primaryName)).getHex(), [primaryName])
   const fill = resolveRecipe(step.action).anim.fill
+  const vol = (primary && reagentVolume(primary, lang)) || ''
   const labelTitle = primaryName || ACTION_LABEL[step.action] || 'Step'
-  const labelSub = (primary && reagentVolume(primary, lang)) || (step.spin?.rcf_min ? `≥ ${step.spin.rcf_min.toLocaleString()} ×g` : '')
+  const labelSub = vol || (step.spin?.rcf_min ? `≥ ${step.spin.rcf_min.toLocaleString()} ×g` : '')
 
-  // the equipment device IS the sample when it's a spin column (wash/elute)
-  const deviceIsSample = equipment === 'spin_column'
-  const deviceMake = DEVICE[equipment]
-  const seat = SEAT[equipment] || SEAT.bench
+  const stRef = useRef(null)
+  const pRef = useRef(0)
+  const restartRef = useRef(true)
 
-  const driveSample = (g) => {
-    g.userData.setColor?.(colorHex)
-    g.userData.setLevel?.(fill)
-  }
-  const driveDevice = (g) => {
-    g.userData.setSpin?.(running ? 20 : 9) // centrifuge
-    g.userData.setProgress?.(progress) // nanodrop
-  }
+  // one-time scene setup + the persistent travelling SAMPLE (added to the scene).
+  useEffect(() => {
+    demo.setRenderer(gl)
+    demo.setScene(scene)
+    ensureMaps()
+    scene.environment = demo.buildEnvMap('cinematic')
+    scene.background = demo.makeCineBackdrop()
+    const f = demo.LOOK.cinematic.fog
+    scene.fog = new FogExp2(f.color, f.density)
+    const S = demo.initSample()
+    S.vessels.forEach((v) => v.userData.label && (v.userData.label.visible = false))
+    return () => {
+      S.vessels.forEach((v) => {
+        scene.remove(v)
+        disposeGroup(v)
+      })
+      scene.environment = null
+      scene.background = null
+      scene.fog = null
+    }
+  }, [gl, scene])
 
-  // rebuild the label / decal / sample per step (keyed values)
+  // per active step: build the station, snap the sample in, run enter(), reset clock.
+  useEffect(() => {
+    if (!demo.getSample()) return undefined
+    const st = { group: new Group(), updatables: [], reagents: {}, pip: null, enter: null, timeline: null, x: 0, cen: null, dev: null }
+    configureStation(st, { action: step.action, equipment, container, color: colorHex, name: labelTitle, vol, fill, seconds: step.duration_seconds })
+    scene.add(st.group)
+    demo.setSnap(true)
+    st.enter?.()
+    demo.setSnap(false)
+    stRef.current = st
+    restartRef.current = true // reset the per-step progress on the next frame
+    return () => {
+      scene.remove(st.group)
+      disposeGroup(st.group)
+      if (stRef.current === st) stRef.current = null
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, colorHex, container])
+
+  // drive the station timeline + glide the sample, exactly like the demo's loop.
+  useFrame((state, dt) => {
+    dt = Math.min(dt, 0.05)
+    const st = stRef.current
+    if (st) {
+      // accumulate progress from CAPPED dt (the demo caps dt to 0.05) so a frame
+      // stall can never skip the animation — it plays over ~STEP_DUR of frames.
+      if (restartRef.current) {
+        pRef.current = 0
+        restartRef.current = false
+      }
+      pRef.current = Math.min(pRef.current + dt / STEP_DUR, 1)
+      st.timeline?.(pRef.current)
+      for (const u of st.updatables) u.userData?.update?.(dt)
+    }
+    const S = demo.getSample()
+    if (S) {
+      for (const v of S.vessels) {
+        v.position.lerp(v.userData.tPos, 1 - Math.pow(0.02, dt))
+        v.userData.update?.(dt)
+      }
+    }
+  })
+
+  // one step-driven floating label + the bench station number.
   const label = useMemo(() => demo.makeLabel(labelTitle, labelSub), [labelTitle, labelSub])
   useEffect(() => () => disposeGroup(label), [label])
   const decal = useMemo(() => demo.stationDecal(active + 1), [active])
   useEffect(() => () => disposeGroup(decal), [decal])
-  const sampleMake = useMemo(() => () => makeSample(container), [container])
-  const bottleColor = reagentColor(primaryName)
-  const bottleMake = useMemo(() => () => demo.buildBottle(bottleColor, '', 1.3, 0x2b7f74), [bottleColor])
 
   return (
     <>
-      <DemoStage />
       <Lights />
-      <CameraRig view={view} />
       <Floor />
-
-      {/* resident blue pipette stand + a pipette docked in its cradles (permanent
-          bench props, right side) */}
-      <Builder make={demo.buildPipetteStand} position={[3.6, 0, 0.6]} />
-      <Builder make={demo.buildPipette} drive={(g) => g.userData.setFluid?.(0.4)} position={[3.6, 0.05, 0.6]} />
-
-      {/* active equipment device */}
-      {deviceMake && <Builder make={deviceMake} drive={driveDevice} position={[0, 0, 0]} />}
-
-      {/* pour step: the reagent bottle beside the sample */}
-      {equipment === 'bottle_pipette' && <Builder make={bottleMake} position={[1.9, 0, 0.5]} />}
-
-      {/* the travelling sample (its own container). When the device IS the
-          sample (spin column), that single group is both. */}
-      {deviceIsSample ? (
-        <Builder make={demo.buildSpinColumn} drive={driveSample} position={[0, 0, 0]} />
-      ) : (
-        <Builder make={sampleMake} drive={driveSample} position={seat} />
-      )}
-
-      {/* 3D label above the hero + bench station number */}
-      <primitive object={label} position={[0, 3.0, 0]} />
-      <primitive object={decal} position={[0, 0.02, 2.0]} />
+      <CameraRig view={view} />
+      <primitive object={label} position={[0, 3.2, 0]} />
+      <primitive object={decal} position={[0, 0.02, 2.2]} />
     </>
   )
 }
 
-// English fallback title for the 3D label when a step has no reagent.
 const ACTION_LABEL = {
   pour_add: 'Add reagent',
   pipette_mix: 'Mix',
