@@ -111,7 +111,7 @@
       "text": "Przygotować mieszaninę DNazy I z buforem RDD (10 µl DNazy I + 70 µl RDD na próbkę).",
       "text_en": "Prepare the DNase I mixture with RDD buffer (10 µl DNase I + 70 µl RDD per sample).",
       "kind": "prepare",
-      "action": "pipette_mix",
+      "action": "pour_add",
       "duration_seconds": null,
       "spin": null,
       "reagents": [

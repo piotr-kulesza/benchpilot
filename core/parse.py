@@ -104,7 +104,10 @@ if none fits, use "generic"):
         -> pour_add (water) ; elute         (TWO steps)
   Use "discard" as its OWN step ONLY when a discard is not attached to a spin.
   Use "pipette_mix"/"vortex_mix" ONLY when the step is PURELY mixing/resuspending
-  with NO reagent added in that instruction (e.g. "resuspend the pellet").
+  EXISTING contents with NO reagent added in that instruction (e.g. "resuspend the
+  pellet"). A step that PREPARES / MAKES a mixture by combining reagents is ADDING
+  reagents -> "pour_add", NOT "pipette_mix":
+    "prepare the DNase I mix: 10 µl DNase I + 70 µl RDD buffer" -> pour_add
 
 For each step extract, when present:
   - text: instruction in the ORIGINAL language. text_en: the English translation.
