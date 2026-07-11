@@ -126,17 +126,22 @@ benchpilot now targets ANY wet-lab protocol, not just spin-column extractions.
   cycle) + `buildGelRig` (migrating bands + voltage). All 5 verbs mount a real station.
 - Repeats render: StepCard dots (≤12) / ×N badge (PCR), thermocycler on-block counter.
 
-**PENDING (the long pole):**
-- Bespoke SAMPLE-VESSEL geometry for the new containers (well_plate, flask, dish, gel,
-  slide, cryovial, membrane, agar_plate) each with insert/remove motions. They currently
-  fall back to the tube geometry via `V_OF[container] || 'tube'` in StationScene — NON-BLANK
-  but not their own shape. Add builders + extend `buildSample()` / V_OF (see the
-  container→3D seam: V_OF map, the `S` object's `setLevel/setColor/setLabel/update/tPos`
-  contract, `liquidProfileGeo`/`innerRadiusFn` for conforming liquid).
-- Dedicated `buildFreezer`/`buildDewar`, `buildAgarPlate`+spreader, `buildStainingTray`
-  (store/seed/stain currently reuse ice-bucket / pour-rig / flood patterns).
-- Stage 7: the 8-protocol offline coverage harness (needs the staged fixture texts —
-  ask Piotr for the fixtures bundle; generic-rate ≤5% assertion, per-verb checks).
+**DONE (Stage 7):** the 8-protocol offline coverage harness — `tests/fixtures/protocols/`
+(verbatim texts) + committed `tests/fixtures/cache/` (raw parses) + `tests/test_coverage.py`
+(re-parses offline, no key). Aggregate generic 2.7%/112 steps; per-verb guards green.
+
+**DONE (Stage 8):** real container geometry — every container mounts its OWN vessel; nothing
+falls back to the tube. `demoScene.js` gains `buildCryovial/buildWellPlate/buildFlask/
+buildDish/buildSlide/buildMembrane/buildGelSlab/buildAgarPlate` (each via `attachSampleLiquid`,
+the shared setLevel/setColor/setLabel/update state) + `buildFreezer/buildStainingTray/
+buildSpreader`. `buildSample()` builds them all; `S.only()` is generalized to any key; `V_OF`
+in StationScene maps every container token to a real vessel. Flat vessels seat on the bench;
+store glides the vial into the freezer, seed sweeps a spreader on agar, stain floods a slide
+in a tray. Still stylized — NO transmission, NO postprocessing (grep-guarded).
+
+**PENDING:** nothing structural. Optional polish only (e.g. a dedicated `buildDewar` for LN₂;
+richer plate/membrane liquid conforming). The pitch is earned: any protocol → the sample
+travels the real glassware.
 
 ---
 
