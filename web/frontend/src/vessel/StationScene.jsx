@@ -47,7 +47,9 @@ const RAIL_Y = 1.25
 const RAIL_Z = 4.8
 const LOOK_Y = 0.95
 const FOV = 38
-const HERO_BIAS_X = 1.4
+// small leftward framing bias so the compact left panel doesn't cover the hero —
+// NOT enough to shove it to the right edge (was 1.4, which did exactly that).
+const HERO_BIAS_X = 0.5
 const INTRO_SECONDS = 1.5 // one-time reveal dolly on mount
 // ── isometric (orthographic) framing — zoomed up to match the enlarged hero
 const ISO_DIR = new Vector3(1, 0.78, 1).normalize()
