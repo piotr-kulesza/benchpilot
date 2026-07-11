@@ -4,18 +4,25 @@
 
 import { MAT } from './materials.js'
 
-export default function Bench({ size = [4, 3], color = '#3a4048', ...props }) {
+export default function Bench({
+  size = [4, 3],
+  color = '#6e685f',
+  metalness = 0.14,
+  roughness = 0.48,
+  envMapIntensity = 0.55,
+  ...props
+}) {
   const [w, d] = size
   return (
     <group {...props}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[w, d]} />
-        <meshStandardMaterial color={color} metalness={0.2} roughness={0.55} envMapIntensity={0.5} />
+        <meshStandardMaterial color={color} metalness={metalness} roughness={roughness} envMapIntensity={envMapIntensity} />
       </mesh>
-      {/* a slim front edge lip so the slab reads with thickness */}
+      {/* a slim brushed-steel front edge lip so the slab reads with thickness */}
       <mesh position={[0, -0.03, d / 2 - 0.02]}>
         <boxGeometry args={[w, 0.06, 0.04]} />
-        <meshStandardMaterial {...MAT.shellDark} />
+        <meshStandardMaterial {...MAT.brushedDark} />
       </mesh>
     </group>
   )

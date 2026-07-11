@@ -12,8 +12,8 @@
 // This is the ONLY station module that pulls in three/equipment; it is wrapped by
 // StationCanvas (the <Canvas>) which is itself lazy-loaded behind a WebGL guard.
 
-import { useMemo, useRef } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useLayoutEffect, useMemo, useRef } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
 import { Environment, Lightformer, ContactShadows, PerspectiveCamera, OrthographicCamera } from '@react-three/drei'
 import { MathUtils, Vector3 } from 'three'
 import { theme, reagentColor } from './theme.js'
@@ -72,7 +72,7 @@ const SEAT = {
 // Devices the sample sits INSIDE want a smaller vessel so it fits.
 const SEATED_INSIDE = new Set(['centrifuge', 'incubation_block', 'heat_block', 'ice_bucket', 'spin_column'])
 
-// ── studio lighting (dark neutral, one key) — art direction is tuned in Stage 4
+// ── dark neutral studio IBL: one bright key softbox + dark fills
 function Studio() {
   const e = theme.env
   return (
@@ -84,6 +84,57 @@ function Studio() {
       <Lightformer form="ring" intensity={e.rim.intensity} color={e.rim.color} position={e.rim.position} scale={e.rim.scale} />
     </Environment>
   )
+}
+
+// ── explicit lights on top of the IBL: low flat ambient/hemi + one strong key
+function Lights() {
+  const l = theme.lights
+  return (
+    <>
+      <ambientLight color={l.ambient.color} intensity={l.ambient.intensity} />
+      <hemisphereLight color={l.hemi.sky} groundColor={l.hemi.ground} intensity={l.hemi.intensity} />
+      <directionalLight
+        color={l.key.color}
+        intensity={l.key.intensity}
+        position={l.key.position}
+        castShadow
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
+        shadow-bias={-0.0004}
+        shadow-normalBias={0.02}
+        shadow-camera-near={1}
+        shadow-camera-far={44}
+        shadow-camera-left={-8}
+        shadow-camera-right={8}
+        shadow-camera-top={9}
+        shadow-camera-bottom={-9}
+      />
+      <directionalLight color={l.fill.color} intensity={l.fill.intensity} position={l.fill.position} />
+      <directionalLight color={l.aux.color} intensity={l.aux.intensity} position={l.aux.position} />
+    </>
+  )
+}
+
+// One-time HSL saturation boost over object materials — coloured liquids/caps/
+// accents pop; neutrals barely move (low sat × factor stays low). Skips
+// MeshBasicMaterial (backdrops). Runs after each commit so stations that mount on
+// navigation get boosted too; a per-material flag keeps it idempotent.
+function SaturationPass({ factor = theme.saturation }) {
+  const { scene } = useThree()
+  useLayoutEffect(() => {
+    const hsl = {}
+    scene.traverse((o) => {
+      if (!o.isMesh || !o.material) return
+      const mats = Array.isArray(o.material) ? o.material : [o.material]
+      for (const m of mats) {
+        if (!m || !m.color || m.isMeshBasicMaterial || m.userData._sat) continue
+        m.userData._sat = true
+        m.color.getHSL(hsl)
+        if (hsl.s > 0.05) m.color.setHSL(hsl.h, Math.min(1, hsl.s * factor), hsl.l)
+      }
+    })
+  })
+  return null
 }
 
 // The equipment device for a station (no sample; that is placed by the caller).
@@ -200,13 +251,16 @@ export default function StationScene({ protocol, activeIndex = 0, answers = {}, 
 
   return (
     <>
+      <fogExp2 attach="fog" args={[theme.fog.color, theme.fog.density]} />
       <Studio />
+      <Lights />
+      <SaturationPass />
       <CameraRig view={view} />
 
       <MovingWorld offsetX={stationX(active)}>
         {/* the bench spanning the whole line, top at y = 0 */}
         <group position={[lineMid, 0, 0]}>
-          <Bench size={[lineWidth, 5]} />
+          <Bench size={[lineWidth, 5]} color={theme.bench.color} />
         </group>
 
         {/* per-station equipment (only the active window is mounted) */}
@@ -223,7 +277,7 @@ export default function StationScene({ protocol, activeIndex = 0, answers = {}, 
           </group>
         )}
 
-        <ContactShadows position={[stationX(active), 0.001, 0]} opacity={0.42} blur={2.4} far={3} scale={5} color={theme.shadow.color} resolution={512} />
+        <ContactShadows position={[stationX(active), 0.001, 0]} opacity={0.33} blur={2.6} far={3} scale={5} color={theme.shadow.color} resolution={512} />
       </MovingWorld>
     </>
   )

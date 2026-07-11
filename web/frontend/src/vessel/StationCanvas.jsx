@@ -13,8 +13,12 @@ export default function StationCanvas({ protocol, activeIndex, answers, lang, pr
       shadows
       gl={{ antialias: true, alpha: true, powerPreference: 'high-performance', preserveDrawingBuffer: true }}
       onCreated={({ gl }) => {
-        gl.toneMapping = THREE.ACESFilmicToneMapping
-        gl.toneMappingExposure = 1.02
+        // LINEAR, not ACES/Cineon: filmic tone maps desaturate bright surfaces
+        // toward white — the core washed-out, low-contrast bug. Linear keeps full
+        // saturation AND honours exposure, so a low exposure darkens the whole
+        // frame for real shadow-to-highlight contrast. (See the demo, verbatim.)
+        gl.toneMapping = THREE.LinearToneMapping
+        gl.toneMappingExposure = 0.78
       }}
     >
       <StationScene

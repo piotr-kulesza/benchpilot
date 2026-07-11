@@ -11,7 +11,7 @@ import { Component, useMemo, useState } from 'react'
 import './vessel.css'
 import Fallback from './Fallback.jsx'
 import StationCanvas from './StationCanvas.jsx'
-import { theme, reagentColor } from './theme.js'
+import { reagentColor } from './theme.js'
 import { resolveRecipe } from './sceneRecipe.js'
 import { reagentName } from '../lib/runtime.js'
 
@@ -64,10 +64,7 @@ export default function StationView({ protocol, activeIndex = 0, answers = {}, l
 
   return (
     <div className="vessel" data-action={step.action}>
-      <div
-        className="vessel-stage station-stage"
-        style={{ background: `radial-gradient(120% 100% at 50% 8%, ${theme.background.top} 0%, ${theme.background.bottom} 78%)` }}
-      >
+      <div className="vessel-stage station-stage">
         {use3D ? (
           <GLBoundary fallback={<Fallback liquidColor={liquidColor} fill={recipe.anim.fill} />}>
             <StationCanvas

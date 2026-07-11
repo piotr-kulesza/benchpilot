@@ -7,11 +7,13 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 export const theme = {
-  // Background behind the glass (CSS gradient on the stage; the canvas is
-  // transparent so this shows through and the scene feels grounded in the card).
+  // Background behind the scene (CSS gradient on the stage; the canvas is
+  // transparent so this shows through). A COMFORTABLE WARM MID-TONE greige —
+  // NOT a white void, NOT dark sci-fi — grading from a light warm wall down to a
+  // deeper warm-grey floor (ported from the demo's makeCineBackdrop).
   background: {
-    top: '#f2f5f6',
-    bottom: '#e4eaec',
+    top: '#b9b4ab',
+    bottom: '#6f6a61',
   },
 
   // In-scene gradient backdrop the glass refracts (top light → deeper base) so
@@ -28,21 +30,43 @@ export const theme = {
     lookAt: [0, -0.05, 0],
   },
 
-  // Studio lighting built from area lights (Lightformers) inside <Environment>,
-  // so we get real reflections with NO external HDRI file and NO network. The
-  // env base is a LIGHT studio grey so the glass reads as clean glass (a dark
-  // base makes transmission glass look like chrome).
+  // DARK NEUTRAL STUDIO IBL (Lightformers inside <Environment>): ONE bright key
+  // softbox for highlights + form, DARK fills all around so materials keep
+  // contrast and true colour. A near-white env floods every surface pale — that
+  // was the washed-out bug. (Ported from the demo's cinematic buildEnvMap.)
   env: {
     resolution: 256,
-    base: '#b3bdc2', // env cubemap base — mid studio grey
-    // key = big soft top box, fills = sides, rim = bright edge kicker.
-    // Kept moderate so the glass gets crisp highlights, not a blown-out sheen
-    // that hides the liquid.
-    key: { intensity: 1.0, position: [0, 5, 2], scale: [9, 9, 1], color: '#ffffff' },
-    fillL: { intensity: 0.8, position: [-5, 1.5, 2.5], scale: [5, 8, 1], color: '#eef4fb' },
-    fillR: { intensity: 1.15, position: [5, 0.5, 2], scale: [5, 8, 1], color: '#ffffff' },
-    rim: { intensity: 1.5, position: [0, -1, -4], scale: [8, 5, 1], color: '#dcebff' },
+    base: '#565b63', // env base — a dark neutral grey (NOT light)
+    key: { intensity: 1.6, position: [9, 13, 7], scale: [16, 9, 1], color: '#ffffff' },
+    fillL: { intensity: 0.42, position: [-11, 7, -7], scale: [12, 11, 1], color: '#9198a1' },
+    fillR: { intensity: 0.32, position: [-6, 3, 9], scale: [10, 7, 1], color: '#878d96' },
+    rim: { intensity: 0.4, position: [0, 16, -3], scale: [18, 12, 1], color: '#6a6f77' },
   },
+
+  // Explicit scene lights (on top of the IBL) — low flat ambient/hemi + ONE
+  // strong warm key → real shadow-to-highlight range and soft grounded contact
+  // shadows. Values are LOOK.cinematic from the demo, verbatim.
+  lights: {
+    ambient: { color: '#d6d9de', intensity: 0.12 },
+    hemi: { sky: '#dde4ee', ground: '#b4aea4', intensity: 0.2 },
+    key: { color: '#fff3e2', intensity: 1.32, position: [5, 11, 7] },
+    fill: { color: '#ccd4de', intensity: 0.17, position: [-8, 4, 9] },
+    aux: { color: '#e2e0d8', intensity: 0.14, position: [-3, 11, -6] },
+  },
+
+  // Warm exponential fog for depth on the receding bench (blends distant objects
+  // into the greige background). Demo: FogExp2(0xbcb7ae, 0.0028) over a longer
+  // bench; a touch denser here for the tighter hero framing.
+  fog: { color: '#bcb7ae', density: 0.02 },
+
+  // The bench slab: a warm mid-grey, a little DARKER than the background wall and
+  // GENTLY reflective (soft sheen, not a mirror).
+  bench: { color: '#6e685f', metalness: 0.14, roughness: 0.48, envMapIntensity: 0.55 },
+
+  // One-time HSL saturation boost applied to object materials after each station
+  // mounts — neutrals barely move (low sat × factor stays low), coloured
+  // liquids/caps/accents pop.
+  saturation: 1.5,
 
   // Uniform scale applied to the vessel so the full silhouette frames with
   // headroom.

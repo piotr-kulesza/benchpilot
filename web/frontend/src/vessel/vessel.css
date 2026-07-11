@@ -79,6 +79,13 @@
   max-width: 100%;
   aspect-ratio: 16 / 9;
   max-height: 360px;
+  /* Warm mid-tone greige room (ported from the demo's makeCineBackdrop): a soft
+     light pool behind the subject, over a corner vignette for depth, over a warm
+     wall→floor gradient. No white void, no dark sci-fi. */
+  background:
+    radial-gradient(90% 62% at 50% 34%, rgba(244, 238, 228, 0.32), rgba(244, 238, 228, 0) 62%),
+    radial-gradient(120% 120% at 50% 46%, rgba(42, 38, 33, 0) 42%, rgba(42, 38, 33, 0.34) 100%),
+    linear-gradient(180deg, #b9b4ab 0%, #ada89f 42%, #928c82 60%, #827d74 80%, #6f6a61 100%);
 }
 
 /* camera view toggle — cinematic dolly vs isometric pan */
