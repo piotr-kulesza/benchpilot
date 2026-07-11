@@ -40,17 +40,20 @@ const easeOut = (t) => 1 - Math.pow(1 - MathUtils.clamp(t, 0, 1), 3)
 const SPACING = 6.5
 const stationX = (i) => i * SPACING
 
-// ── cinematic (close perspective) framing — tight so the hero device fills the
-// frame (little dead space above).
-const RAIL_Y = 1.4
-const RAIL_Z = 5.8
-const LOOK_Y = 0.92
-const FOV = 36
+// ── cinematic (close perspective) framing — CLOSE, so the hero device dominates
+// ~60–70% of the frame. HERO_BIAS_X shifts the framing left so the centred hero
+// sits in the open right area, clear of the left step panel.
+const RAIL_Y = 1.25
+const RAIL_Z = 4.8
+const LOOK_Y = 0.95
+const FOV = 38
+const HERO_BIAS_X = 1.4
 const INTRO_SECONDS = 1.5 // one-time reveal dolly on mount
-// ── isometric (orthographic) framing
+// ── isometric (orthographic) framing — zoomed up to match the enlarged hero
 const ISO_DIR = new Vector3(1, 0.78, 1).normalize()
 const ISO_DIST = 40
-const ISO_LOOK_Y = 0.9
+const ISO_LOOK_Y = 0.85
+const ISO_ZOOM = 84
 
 // Per-equipment DEVICE scale (tuned so the hero device reads ~2 units tall).
 const DEVICE_SCALE = {
@@ -232,51 +235,21 @@ function CameraRig({ view }) {
   const start = useRef(null)
   useFrame((state) => {
     if (view === 'isometric') {
-      ortho.current?.lookAt(0, ISO_LOOK_Y, 0)
+      ortho.current?.lookAt(-HERO_BIAS_X, ISO_LOOK_Y, 0)
       return
     }
     if (!persp.current) return
     if (start.current === null) start.current = state.clock.elapsedTime
     const e = easeOut((state.clock.elapsedTime - start.current) / INTRO_SECONDS)
     const back = 1 - e // 1 at start → 0 settled
-    persp.current.position.set(0, RAIL_Y - back * 0.7, RAIL_Z + back * 3.4)
-    persp.current.lookAt(0, LOOK_Y - back * 0.12, 0)
+    persp.current.position.set(-HERO_BIAS_X, RAIL_Y - back * 0.6, RAIL_Z + back * 3.0)
+    persp.current.lookAt(-HERO_BIAS_X, LOOK_Y - back * 0.12, 0)
   })
   return (
     <>
-      <PerspectiveCamera ref={persp} makeDefault={view !== 'isometric'} fov={FOV} position={[0, RAIL_Y, RAIL_Z]} />
-      <OrthographicCamera ref={ortho} makeDefault={view === 'isometric'} zoom={64} near={0.1} far={200} position={[ISO_DIR.x * ISO_DIST, ISO_LOOK_Y + ISO_DIR.y * ISO_DIST, ISO_DIR.z * ISO_DIST]} />
+      <PerspectiveCamera ref={persp} makeDefault={view !== 'isometric'} fov={FOV} position={[-HERO_BIAS_X, RAIL_Y, RAIL_Z]} />
+      <OrthographicCamera ref={ortho} makeDefault={view === 'isometric'} zoom={ISO_ZOOM} near={0.1} far={200} position={[-HERO_BIAS_X + ISO_DIR.x * ISO_DIST, ISO_LOOK_Y + ISO_DIR.y * ISO_DIST, ISO_DIR.z * ISO_DIST]} />
     </>
-  )
-}
-
-// Floating dust motes for atmosphere/depth (ported from the demo's particles).
-// Lives in the fixed frame (around origin), so it fills the framed area always.
-function Dust({ count = 110 }) {
-  const ref = useRef()
-  const { positions, base } = useMemo(() => {
-    const pos = new Float32Array(count * 3)
-    for (let i = 0; i < count; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 14
-      pos[i * 3 + 1] = Math.random() * 5
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 8 - 1
-    }
-    return { positions: pos, base: pos.slice() }
-  }, [count])
-  useFrame((state) => {
-    if (!ref.current) return
-    const t = state.clock.elapsedTime
-    const arr = ref.current.geometry.attributes.position.array
-    for (let i = 0; i < count; i++) arr[i * 3 + 1] = base[i * 3 + 1] + Math.sin(t * 0.4 + i * 0.7) * 0.25
-    ref.current.geometry.attributes.position.needsUpdate = true
-  })
-  return (
-    <points ref={ref} frustumCulled={false}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} />
-      </bufferGeometry>
-      <pointsMaterial size={0.045} color="#b4bec9" transparent opacity={0.3} depthWrite={false} sizeAttenuation />
-    </points>
   )
 }
 
@@ -321,7 +294,6 @@ export default function StationScene({ protocol, activeIndex = 0, answers = {}, 
       <Lights />
       <SaturationPass />
       <CameraRig view={view} />
-      <Dust />
 
       <MovingWorld offsetX={stationX(active)}>
         {/* the bench spanning the whole line, top at y = 0 */}

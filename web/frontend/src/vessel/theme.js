@@ -81,16 +81,16 @@ export const theme = {
   glass: {
     color: '#eef4f6',
     transmission: 1,
-    roughness: 0.06,
+    roughness: 0.04, // very low → tack-sharp key highlight + clean edges
     ior: 1.45,
     thickness: 0.35,
     chromaticAberration: 0.02,
-    anisotropicBlur: 0.1,
+    anisotropicBlur: 0.06, // low so refraction stays crisp, not softened
     distortionScale: 0,
     temporalDistortion: 0,
-    samples: 6,
-    resolution: 256,
-    envMapIntensity: 1.3,
+    samples: 8,
+    resolution: 384, // crisp refraction (not so low it smears the background)
+    envMapIntensity: 1.7,
   },
 
   // Cheap physical glass for neighbour vessels — still refracts + reflects, no
@@ -98,12 +98,12 @@ export const theme = {
   glassFallback: {
     color: '#eef4f6',
     transmission: 1,
-    roughness: 0.06,
+    roughness: 0.05,
     clearcoat: 1,
-    clearcoatRoughness: 0.06,
+    clearcoatRoughness: 0.05,
     ior: 1.45,
     thickness: 0.35,
-    envMapIntensity: 1.3,
+    envMapIntensity: 1.6,
   },
 
   // Frosted polypropylene (spin-column cup) — translucent, matte-ish, still lit.
@@ -169,8 +169,12 @@ export const theme = {
   //  ao:    soft ambient occlusion darkens crevices (rotor slots, wells, contacts)
   //  vignette: subtle edge settle
   post: {
-    bloom: { intensity: 0.55, luminanceThreshold: 0.85, luminanceSmoothing: 0.25, mipmapBlur: true },
-    dof: { target: [0, 0.7, 0], focalLength: 0.02, bokehScale: 2.2, focusRange: 0.008 },
+    // bloom only on speculars/emissive (high threshold, modest intensity) — never
+    // a soft haze over the whole frame
+    bloom: { intensity: 0.34, luminanceThreshold: 0.9, luminanceSmoothing: 0.2, mipmapBlur: true },
+    // DOF focus LOCKED on the hero (active station at world origin); small bokeh
+    // so ONLY neighbours + far background blur and the hero stays razor sharp
+    dof: { target: [0, 0.95, 0], focalLength: 0.012, bokehScale: 1.3, focusRange: 0.004 },
     ao: { aoRadius: 0.5, intensity: 2.2, distanceFalloff: 0.4, color: '#0c0f13', halfRes: true },
     vignette: { offset: 0.28, darkness: 0.52 },
   },

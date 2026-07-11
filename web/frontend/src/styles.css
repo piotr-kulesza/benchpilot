@@ -879,21 +879,22 @@ kbd {
   white-space: nowrap;
 }
 
-/* step content panel — dark glass, bottom-left */
+/* step content panel — a COMPACT, secondary dark-glass overlay, docked bottom-left
+   so it frames the 3D rather than competing with it. The 3D is the star. */
 .imm-panel {
   position: absolute;
   left: 16px;
   bottom: 16px;
   z-index: 3;
-  width: min(430px, 44vw);
-  max-height: calc(100vh - 150px);
-  border-radius: 18px;
-  padding: 14px 18px 16px;
+  width: min(320px, 30vw);
+  max-height: min(56vh, calc(100vh - 170px));
+  border-radius: 16px;
+  padding: 12px 14px 13px;
   display: flex;
   flex-direction: column;
 }
 .imm-panel-head {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 .imm-panel-scroll {
   overflow-y: auto;
@@ -909,6 +910,25 @@ kbd {
   padding: 0;
   animation: none;
 }
+
+/* compact type so the panel supports rather than dominates */
+.imm-panel .instruction {
+  font-size: 15.5px;
+  line-height: 1.42;
+  font-weight: 600;
+  letter-spacing: 0;
+  margin: 0 0 10px;
+}
+.imm-panel .kind-badge {
+  font-size: 10.5px;
+  padding: 4px 9px;
+  margin-bottom: 11px;
+}
+.imm-panel .block { margin-top: 12px; }
+.imm-panel .block-label { font-size: 11px; }
+.imm-panel .reagent-row { font-size: 13px; padding: 5px 0; }
+.imm-panel .hazard { font-size: 13px; }
+.imm-panel .phase-pill { font-size: 11px; padding: 4px 10px; }
 
 /* nav footer — glass, bottom-right */
 .imm-foot {

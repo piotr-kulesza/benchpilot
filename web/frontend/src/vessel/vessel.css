@@ -69,17 +69,27 @@
   .vessel-stage { max-width: 100%; }
 }
 
-/* ── full-bleed immersive mode: the scene fills its container ─────────────── */
-.vessel-fill {
+/* ── full-bleed immersive mode: the scene fills the WHOLE viewport ─────────────
+   Absolute inset:0 (not a % height chain) so it never collapses, and the
+   compound selectors (.vessel.vessel-fill / .vessel-stage.station-stage-fill)
+   out-specify the base .vessel-stage / .station-stage rules regardless of source
+   order — otherwise the 16/9 + max-height:360px caps below win and leave a black
+   band under the bench. */
+.vessel.vessel-fill {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
+  display: block;
 }
-.station-stage-fill {
-  max-width: none;
+.vessel-stage.station-stage-fill {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  aspect-ratio: auto;
+  max-width: none;
   max-height: none;
+  aspect-ratio: auto;
   border: 0;
   border-radius: 0;
   box-shadow: none;
