@@ -412,6 +412,14 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
       const prim = (eff.reagents || []).find((r) => r.volume) || (eff.reagents || [])[0]
       const c = new Color(reagentColor(prim ? reagentName(prim, lang) : null)).getHex()
       const f = resolveRecipe(eff.action).anim.fill
+      // A preparation step that MAKES a reagent (lysis buffer, RPE, DNase mix) is a
+      // SEPARATE tube, not the travelling sample. Render it self-contained in its own
+      // reagent colour and DON'T carry into/out of the sample chain — otherwise its
+      // liquid morphs through the previous reagent's colour (blue→pink→orange).
+      if (s.phase === 'preparation' && prim) {
+        const lo = eff.action === 'pour_add' ? Math.min(0.12, f) : f
+        return { start: { color: c, level: lo }, end: { color: c, level: f } }
+      }
       const start = { color, level }
       const end = stepEnd(eff.action, start, c, f)
       color = end.color
