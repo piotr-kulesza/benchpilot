@@ -48,15 +48,21 @@ CRITICAL RULES
 
 WHAT TO EXTRACT
 
-Split the protocol into ATOMIC, single-action `steps`. Each step describes
-EXACTLY ONE physical action from the vocabulary below. A single written
-instruction that chains several actions (e.g. "Add 350 µl RW1, centrifuge 15 s,
-discard the flow-through") MUST become SEVERAL steps — one per action, in order
-(here: pour_add -> centrifuge -> discard). NEVER fold multiple actions into one
-step: the runner animates exactly one action per step, so any un-split action is
-never shown. Decompose the WHOLE procedure this way, as a bench worker performs
-it one motion at a time — the same breakdown the reference protocol uses (expect
-the procedure to EXPAND, e.g. a ~10-line procedure becomes ~16 atomic steps).
+Split the procedure into steps of ONE DISTINCT PHYSICAL OPERATION each — the same
+granularity as the reference protocol (whose procedure is ~16 steps), NOT finer.
+The runner animates one action per step, so an instruction that chains genuinely
+distinct operations is split; but do NOT over-split — only separate operations
+that are physically distinct:
+  • Each CENTRIFUGATION is its OWN step (keep spins separate).
+  • Adding / pouring a reagent is ONE step. Any mixing that comes with it
+    ("mix by pipetting", "mix until complete lysis", "vortex", "invert") is PART
+    of that add step — NOT a separate step. The pipette dispenses AND mixes in one
+    motion, exactly as the reference protocol does.
+  • "Discard the flow-through" is PART of the centrifugation it follows — NOT a
+    separate step (fold it into that spin step's text).
+So "Add 350 µl RW1, centrifuge 15 s, discard the flow-through" is TWO steps:
+pour_add (RW1) then centrifuge. Never split an instruction into more pieces than
+are physically distinct — aim for a ~16-step procedure, not ~26.
 
 Assign each step a `phase`:
   "preparation"     - things to set up / make fresh before the procedure clock
@@ -82,18 +88,19 @@ if none fits, use "generic"):
   "elute"         - the final elution of the product
   "measure"       - QC / read on an instrument (NanoDrop, Bioanalyzer)
   "generic"       - fallback when nothing above fits
-  Each step has EXACTLY ONE action — never a compound. When one instruction
-  chains actions, emit one step per action, in order, choosing the best-fit
-  action for each:
+  Each step has ONE primary action. Split ONLY at distinct physical operations —
+  fold mixing into the add, and fold the flow-through discard into the spin:
     "add 350 µl RW1, centrifuge 15 s, discard the flow-through"
-        -> pour_add (RW1) ; centrifuge ; discard          (THREE steps)
+        -> pour_add (RW1) ; centrifuge      (TWO steps; discard IS the spin)
     "load the lysate onto the column, spin, discard the flow-through"
-        -> transfer ; centrifuge ; discard                (THREE steps)
+        -> transfer ; centrifuge            (TWO steps)
+    "add RLT buffer and mix until complete lysis"
+        -> pour_add (RLT)                   (ONE step; mixing is part of the add)
     "add RNase-free water and centrifuge to elute the RNA"
-        -> pour_add (water) ; elute                       (TWO steps)
-  Do NOT collapse "add buffer + spin + discard" into a single "wash". Reserve
-  "wash"/"transfer"/"elute" for a genuinely single labelled motion that the text
-  does not itself spell out as add/spin/discard.
+        -> pour_add (water) ; elute         (TWO steps)
+  Use "discard" as its OWN step ONLY when a discard is not attached to a spin.
+  Use "pipette_mix"/"vortex_mix" ONLY when the step is PURELY mixing/resuspending
+  with NO reagent added in that instruction (e.g. "resuspend the pellet").
 
 For each step extract, when present:
   - text: instruction in the ORIGINAL language. text_en: the English translation.
