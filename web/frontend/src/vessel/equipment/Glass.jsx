@@ -25,6 +25,8 @@ export default function Glass({ hero = false }) {
         samples={g.samples}
         resolution={g.resolution}
         color={g.color}
+        clearcoat={g.clearcoat}
+        clearcoatRoughness={g.clearcoatRoughness}
         envMapIntensity={g.envMapIntensity}
         transparent
         depthWrite={false}

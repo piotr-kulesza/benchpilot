@@ -78,32 +78,37 @@ export const theme = {
   // vessel: it refracts the background AND catches a crisp key-softbox highlight.
   // Costly (renders a buffer), so only the hero uses it; neighbours fall back to
   // `glassFallback`. Resolution/samples kept modest for 60fps.
+  // Matches the demo's glassMaterial() — clear refractive glass with a clearcoat
+  // and a MODERATE envMapIntensity (~1.3), NOT a chrome mirror. roughness 0.08 +
+  // env 1.3 gives a soft key highlight, not a hard specular ball.
   glass: {
-    color: '#eef4f6',
+    color: '#dce6ec', // demo COL.glass
     transmission: 1,
-    roughness: 0.04, // very low → tack-sharp key highlight + clean edges
+    roughness: 0.08,
     ior: 1.45,
     thickness: 0.35,
     chromaticAberration: 0.02,
-    anisotropicBlur: 0.06, // low so refraction stays crisp, not softened
+    anisotropicBlur: 0.1,
     distortionScale: 0,
     temporalDistortion: 0,
-    samples: 8,
-    resolution: 384, // crisp refraction (not so low it smears the background)
-    envMapIntensity: 1.7,
+    samples: 6,
+    resolution: 256,
+    clearcoat: 1,
+    clearcoatRoughness: 0.06,
+    envMapIntensity: 1.3,
   },
 
-  // Cheap physical glass for neighbour vessels — still refracts + reflects, no
-  // per-frame buffer. Reads as clean borosilicate under the studio key.
+  // Cheap physical glass for neighbour vessels — same soft look, no per-frame
+  // buffer. Reads as clean borosilicate under the studio key.
   glassFallback: {
-    color: '#eef4f6',
+    color: '#dce6ec',
     transmission: 1,
-    roughness: 0.05,
+    roughness: 0.08,
     clearcoat: 1,
-    clearcoatRoughness: 0.05,
+    clearcoatRoughness: 0.06,
     ior: 1.45,
     thickness: 0.35,
-    envMapIntensity: 1.6,
+    envMapIntensity: 1.3,
   },
 
   // Frosted polypropylene (spin-column cup) — translucent, matte-ish, still lit.
