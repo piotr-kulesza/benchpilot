@@ -407,8 +407,8 @@ export function getSample() { return SAMPLE }
       }
       var hinge=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.05,R*0.5), capMat);
       hinge.position.set(-R*1.05,0.0,0); capGrp.add(hinge);
-      capGrp.position.y=H+0.06; capGrp.visible=false; visual.add(capGrp);
-      grp.userData.cap=capGrp;
+      capGrp.position.set(0, H+0.06, 0); visual.add(capGrp);
+      grp.userData.cap=capGrp; grp.userData.capBaseY=H+0.06;
     }
 
     // liquid conforms to the tube's INNER wall (a slightly inset copy of `prof`),
@@ -446,17 +446,28 @@ export function getSample() { return SAMPLE }
       grp.add(label);
     }
 
-    var state={ level:0,tLevel:0,builtLevel:-1,color:new THREE.Color(opts.color||COL.lysis),tColor:new THREE.Color(opts.color||COL.lysis),H:H,R:R,phase:Math.random()*6.28 };
+    var state={ level:0,tLevel:0,builtLevel:-1,color:new THREE.Color(opts.color||COL.lysis),tColor:new THREE.Color(opts.color||COL.lysis),H:H,R:R,phase:Math.random()*6.28,
+      capOpen:1,tCapOpen:1 };   // starts UNCAPPED (ready to receive); spins cap it
     grp.userData.state=state; grp.userData.liq=liq; grp.userData.label=label;
     grp.userData.setLevel=function(v){ state.tLevel=clamp(v,0,1); };
     grp.userData.setColor=function(hex){ state.tColor.set(hex); };
     grp.userData.setLabel=function(t,s){ if(label) label.userData.update(t,s||"");
       if(grp.userData.gradMat){ grp.userData.gradMat.map.dispose(); grp.userData.gradMat.map=tubeGraphicTex(t); grp.userData.gradMat.needsUpdate=true; } };
-    grp.userData.setCap=function(on){ if(grp.userData.cap) grp.userData.cap.visible=!!on; };
+    // IMPROVEMENT over the demo (setCap was ported but never used): the sample tube
+    // must be UNCAPPED to receive liquid and CAPPED before a spin. setCap(on): on=true
+    // seats the lid, on=false lifts it up and tilts it aside (hinged flip-cap).
+    grp.userData.setCap=function(on){ state.tCapOpen = on ? 0 : 1; };
     grp.userData.update=function(dt){
       var kL=1-Math.pow(0.001,dt), kC=1-Math.pow(0.004,dt);
       state.level=lerp(state.level,state.tLevel,kL);
       state.color.lerp(state.tColor,kC);
+      var cg=grp.userData.cap;
+      if(cg){
+        state.capOpen=lerp(state.capOpen,state.tCapOpen,1-Math.pow(0.0009,dt));
+        var co=state.capOpen;
+        cg.position.set(-co*0.42, grp.userData.capBaseY + co*0.5, co*0.16); // lift + slide aside
+        cg.rotation.z = co*1.15;                                            // tilt aside
+      }
       var lv=state.level;
       if(lv<0.004){ liq.visible=false; }
       else{
@@ -1084,6 +1095,21 @@ export function getSample() { return SAMPLE }
     var band=new THREE.Mesh(new THREE.CylinderGeometry(0.365,0.365,h*0.42,40,1,true),
       new THREE.MeshStandardMaterial({map:lTex,roughness:0.75,metalness:0,envMapIntensity:0.25}));
     band.position.y=h*0.4; grp.add(band);
+    // IMPROVEMENT over the demo: the bottle OPENS to be aspirated and its level
+    // DROPS as liquid is drawn (volume conserved with the receiving vessel).
+    // setCap(on): on=true seals it; on=false lifts the cap up and tilts it aside.
+    var bState={ level:1, tLevel:1, open:0, tOpen:0, capBaseY:h+0.11 };
+    grp.userData.cap=cap;
+    grp.userData.setLevel=function(v){ bState.tLevel=clamp(v,0,1); };
+    grp.userData.setCap=function(on){ bState.tOpen = on ? 0 : 1; };
+    grp.userData.update=function(dt){
+      bState.level=lerp(bState.level,bState.tLevel,1-Math.pow(0.02,dt));
+      bState.open =lerp(bState.open, bState.tOpen, 1-Math.pow(0.0009,dt));
+      liq.scale.y=Math.max(0.001,bState.level);                    // surface drops
+      var o=bState.open;
+      cap.position.set(-o*0.52, bState.capBaseY + o*0.42, o*0.14); // lift + slide aside
+      cap.rotation.z = o*1.2;                                       // tilt aside
+    };
     return grp;
   }
 
@@ -1238,20 +1264,22 @@ export {
   function pipetteRun(st, from, to, p, opts){
     opts=opts||{};
     var pip=st.pip; if(!pip) return;
-    var phaseA=0.30, phaseB=0.62, hover=2.5;
+    // IMPROVEMENT over the demo: the pipette is scaled shorter (PIP_SCALE) and the
+    // travel arc is kept low so the body never reaches up behind the top HUD bar.
+    var phaseA=0.30, phaseB=0.62, hover=1.15;
     var pos=new THREE.Vector3();
     if(p<phaseA){
       var q=easeInOut(p/phaseA);
-      pos.set(from.x, lerp(hover, from.y+1.1, q), from.z);
+      pos.set(from.x, lerp(hover, from.y+0.72, q), from.z);
       pip.userData.setFluid(q*(opts.fill||0.8)); pip.userData.setColor(opts.color||COL.lysis);
     } else if(p<phaseB){
       var q2=easeInOut((p-phaseA)/(phaseB-phaseA));
       pos.set(lerp(from.x,to.x,q2), 0, lerp(from.z,to.z,q2));
-      pos.y = lerp(from.y+1.1, to.y+1.2, q2) + Math.sin(q2*Math.PI)*0.5 + 1.0;
+      pos.y = lerp(from.y+0.72, to.y+0.86, q2) + Math.sin(q2*Math.PI)*0.16;
       pip.userData.setFluid(opts.fill||0.8);
     } else {
       var q3=easeInOut((p-phaseB)/(1-phaseB));
-      pos.set(to.x, lerp(to.y+2.2, to.y+1.25, q3), to.z);
+      pos.set(to.x, lerp(to.y+1.0, to.y+0.82, q3), to.z);
       pip.userData.setFluid((1-q3)*(opts.fill||0.8));
     }
     pip.position.copy(pos);                 // LOCAL — resident pipette stays at its station
@@ -1266,9 +1294,11 @@ export {
     var stand = buildPipetteStand(); stand.position.set(PIP_STAND.x,PIP_STAND.y,PIP_STAND.z); st.group.add(stand);
   }
   // resident equipment: a stand AND its OWN pipette, both fixed to this station
+  var PIP_SCALE = 0.72;   // IMPROVEMENT: a shorter pipette so its body never reaches
+                          // up behind the top HUD bar during the pour travel arc.
   function addPipetteRig(st){
     addStand(st);
-    var pip = buildPipette(); pip.position.set(PIP_REST.x, PIP_REST.y, PIP_REST.z);
+    var pip = buildPipette(); pip.scale.setScalar(PIP_SCALE); pip.position.set(PIP_REST.x, PIP_REST.y, PIP_REST.z);
     st.group.add(pip); st.pip = pip; st.updatables.push(pip);
   }
   // dock this station's resident pipette back in its stand (LOCAL space)
@@ -1299,6 +1329,7 @@ export {
   function addBottle(st, key, labelText, color, x, z){
     var b = buildBottle(color, labelText, 1.3, color);
     b.position.set(x, 0, z); st.group.add(b);
+    if(b.userData.update) st.updatables.push(b);   // animate its cap + level each frame
     st.reagents[key] = { grp:b, pos:new THREE.Vector3(x, 0.24, z) };
   }
   function stationReagent(st, Y, o){
@@ -1310,11 +1341,19 @@ export {
       if(o.vlabel) v.userData.setLabel(o.vlabel, o.vsub||"");
       if(o.cStart!=null) v.userData.setColor(o.cStart);
       v.userData.setLevel(o.lStart);
+      if(v.userData.setCap) v.userData.setCap(false);   // uncap to receive liquid
       SAMPLE.at(v, st.x, Y, 0);
       pipRest(st);
     };
     st.timeline=function(p){
       var v=SAMPLE[o.vessel];
+      var b=st.reagents[o.key].grp;
+      // the bottle opens BEFORE the pipette dips in (phase A), stays open while it
+      // draws, and closes once the pipette leaves; its level drops as liquid is drawn.
+      if(b && b.userData.setCap){
+        b.userData.setCap(!(p>0.03 && p<0.36));
+        b.userData.setLevel(1 - 0.22*clamp(p/0.30,0,1));
+      }
       pipetteRun(st, st.reagents[o.key].pos, {x:0,y:Y,z:0}, p, {color:o.color, fill:0.8});
       if(p>0.62){ var q=easeInOut((p-0.62)/0.38);
         v.userData.setLevel(lerp(o.lStart,o.lEnd,q));
@@ -1325,20 +1364,46 @@ export {
   function stationSpin(st, Y, o){
     var cen=buildCentrifuge(); cen.position.set(1.4,0,-0.5); cen.scale.setScalar(0.85);
     st.group.add(cen); st.updatables.push(cen); st.cen=cen;
-    // (black riser plate removed — the sample rests on the bench, not a pedestal)
+    // IMPROVEMENT over the demo (which spun an EMPTY rotor while the tube sat on the
+    // bench): the CAPPED tube is lowered into the rotor, the lid closes over it, it
+    // spins enclosed, the lid opens, and the tube lifts back out. Positions are in
+    // the station's local space; the centrifuge sits at (1.4,0,-0.5).
+    var slot={ x:1.4, y:0.12, z:0.0 };   // sunk into the rotor slot (fits under the closed dome)
+    var lift={ x:1.4, y:2.05, z:0.0 };   // raised above the open rotor
     st.enter=function(){
       SAMPLE.only(o.vessel);
       var v=SAMPLE[o.vessel];
       if(o.vlabel) v.userData.setLabel(o.vlabel, o.vsub||"");
       if(o.color!=null) v.userData.setColor(o.color);
       v.userData.setLevel(o.lStart==null?0.5:o.lStart);
-      SAMPLE.at(v, st.x-1.5, 0, 1.4);   // on the bench (plate riser removed)
+      if(v.userData.setCap) v.userData.setCap(true);   // capped — cannot spin an open tube
+      v.visible=true;
+      SAMPLE.at(v, st.x+lift.x, lift.y, lift.z);        // arrives above the open rotor
       cen.userData.setLabel(o.cenLabel||"Centrifuge", o.cenSub||""); cen.userData.setSpin(0);
     };
     if(o.seconds) st.hud={label:o.hudLabel||"Centrifuge", seconds:o.seconds};
     st.timeline=function(p){
-      cen.userData.setSpin(p<0.08?0:(p>0.9?2:24));
-      var v=SAMPLE[o.vessel];
+      var v=SAMPLE[o.vessel]; v.visible=true;
+      if(v.userData.setCap) v.userData.setCap(true);
+      if(p<0.15){                                  // 1 · lower the capped tube into the rotor
+        var q=easeInOut(p/0.15); v.rotation.y=0;
+        SAMPLE.at(v, st.x+slot.x, lerp(lift.y,slot.y,q), lerp(lift.z,slot.z,q));
+        cen.userData.setSpin(0);
+      } else if(p<0.24){                            // 2 · seated, lid closes over it
+        v.rotation.y=0; SAMPLE.at(v, st.x+slot.x, slot.y, slot.z);
+        cen.userData.setSpin(0);
+      } else if(p<0.80){                            // 3 · lid closed + SPINNING (capped tube inside)
+        v.rotation.y = p*90;                         // spins under the tinted dome
+        SAMPLE.at(v, st.x+slot.x, slot.y, slot.z);
+        cen.userData.setSpin(24);
+      } else if(p<0.90){                            // 4 · rotor stops, lid opens
+        SAMPLE.at(v, st.x+slot.x, slot.y, slot.z);
+        cen.userData.setSpin(0);
+      } else {                                      // 5 · lid open — lift the tube out
+        var q3=easeInOut((p-0.90)/0.10); v.rotation.y=0;
+        SAMPLE.at(v, st.x+slot.x, lerp(slot.y,lift.y,q3), lerp(slot.z,lift.z,q3));
+        cen.userData.setSpin(0);
+      }
       if(o.lEnd!=null) v.userData.setLevel(lerp(o.lStart==null?0.5:o.lStart, o.lEnd, easeInOut(clamp(p,0,1))));
     };
   }

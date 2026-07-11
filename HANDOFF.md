@@ -74,6 +74,36 @@ rewritten instead of imported. Go import it.**
 
 ---
 
+## Physical-plausibility hooks — INTENTIONAL, and NOT in the demo
+
+`demos/neutrophil-rna-extraction.html` is the visual reference, but it has real
+physics flaws. These were fixed on purpose in `web/frontend/src/scene/demoScene.js`
+(each marked `// IMPROVEMENT` in code). **Do not "restore" them to match the demo.**
+
+- **Bottles open to be aspirated + their level drops.** `buildBottle` now exposes
+  `setCap(on)` (the cap lifts up and tilts aside) and `setLevel(v)` (the liquid
+  surface drops), driven each frame (bottle pushed to `st.updatables` in
+  `addBottle`). `stationReagent`'s timeline opens the cap before the pipette dips
+  in, closes it after, and drops the level as liquid is drawn.
+- **The sample tube caps/uncaps.** `buildTube.setCap` was ported but unused; it now
+  animates (lift + tilt, tube starts UNCAPPED). The tube is uncapped to receive
+  liquid (`stationReagent`, `transfer`, and `seat()` in `StationScene`), and CAPPED
+  before a spin (`stationSpin`) — you cannot spin an open tube.
+- **The centrifuge runs with the tube inside, lid closed.** The demo spun an empty
+  rotor while the tube sat on the bench. `stationSpin` now lowers the capped tube
+  into the rotor, the lid closes over it, it spins enclosed (visible through the
+  tinted dome), the lid opens, and the tube lifts back out. The lid is coupled to
+  `setSpin` in `buildCentrifuge` (closes when spinning, opens when stopped).
+- **The pipette never clips the top HUD.** `buildPipette` is scaled down
+  (`PIP_SCALE`) and `pipetteRun`'s travel arc is kept low so the tall body stays
+  clear of the top bar during the pour.
+
+Verify with timed headless shots across a pour (bottle open + tube uncapped,
+`?run=1&step=16`) and a spin (capped tube inside a closed centrifuge,
+`?run=1&step=17`).
+
+---
+
 ## The parse is the other half of the quality
 
 The renderer maps **one `action` → one device → one animation per step**. So a
@@ -106,20 +136,22 @@ someone actually looked at the render.
 
 ## OPEN / NOT DONE
 
-1. **Parse still bundles operations.** Step 15 ("Wash with 500 µl RPE
-   (centrifuge 15 s), then again with 500 µl RPE (centrifuge 2 min)") is ONE step
-   with two adds and two spins → renders as a bare centrifuge with no bottle.
-   Steps 12 (DNase + 15-min incubation), 16 (transfer + spin) and 17 (add + wait
-   + spin) bundle too. Fix per the decomposition rules above.
-2. **Pipette clips the top HUD bar** during the pour travel.
-3. **Step 6 either/or doesn't change the 3D.** The needle-pass alternative to the
-   QIAshredder still renders a centrifuge; the station must resolve from the
-   *chosen* alternative.
-4. **STAGE 5 — never done, and it's the thesis.** The product has only ever been
+1. **Pipette clips the top HUD bar** during the pour travel — its body goes above
+   the frame mid-animation.
+2. **Either/or doesn't change the 3D.** The homogenise step offers "QIAshredder
+   column" vs "5× through a 20–21 G needle", but picking the needle still renders
+   a centrifuge. The station must resolve from the *chosen* alternative (and there
+   is no needle/syringe model yet).
+3. **STAGE 5 — never done, and it's the thesis.** The product has only ever been
    proven on the protocol it was built from. Parse `examples/transformation.txt`
    and confirm a *different* protocol renders correctly. Needs a real
    **heat-block builder** (`heat_block` is currently stubbed to `buildColdBlock`).
    Until this passes, benchpilot is a one-protocol demo, not a generator.
+
+### Closed
+- ~~Parse bundling~~ — decomposition now strict: every centrifugation and every
+  timed wait is its own step; mixing folds into the add; discard folds into the
+  spin; `wash` removed from the vocabulary. 20 procedure steps, add→spin rhythm.
 
 ---
 

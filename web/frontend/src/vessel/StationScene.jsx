@@ -180,6 +180,8 @@ function configureStation(st, o) {
     if (name) v.userData.setLabel(name, vol || '')
     v.userData.setColor(startColor)
     v.userData.setLevel(startLevel)
+    v.userData.setCap?.(false) // open at the bench — only spins leave it capped
+    v.visible = true
     v.rotation.set(0, 0, 0)
     S.at(v, st.x + x, y, z)
     return v
@@ -204,8 +206,8 @@ function configureStation(st, o) {
     // resuspend / mix by pipetting: the pipette bobs STRAIGHT down into the tube
     // and back, aspirating + dispensing. (Do NOT reuse pipetteRun here — that's a
     // transfer arc, and looping it in place makes the pipette leap up and teleport.)
-    const TOP = BT + 2.4 // raised, tip clear of the tube
-    const BOT = BT + 1.1 // plunged, tip in the liquid
+    const TOP = BT + 1.35 // raised, tip clear of the tube (kept low — HUD clearance)
+    const BOT = BT + 0.8 // plunged, tip in the liquid
     demo.addPipetteRig(st)
     st.enter = () => { seat(0, BT, 0); if (st.pip) { st.pip.position.set(0, TOP, 0); st.pip.userData.setFluid(0) } }
     st.timeline = (p) => {
@@ -275,6 +277,7 @@ function configureStation(st, o) {
       S.tube.userData.setLabel(name || 'Sample', 'load column')
       S.tube.userData.setColor(startColor)
       S.tube.userData.setLevel(startLevel)
+      S.tube.userData.setCap?.(false) // uncap to pour into the column
       S.tube.rotation.set(0, 0, 0)
       S.at(S.tube, st.x + tA.x, tA.y, tA.z)
       S.column.userData.setLabel('RNeasy column', 'loading')
