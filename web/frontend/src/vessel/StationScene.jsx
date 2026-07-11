@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera, OrthographicCamera } from '@react-three/drei'
-import { FogExp2, Color, Vector3, Group } from 'three'
+import { FogExp2, Color, Vector3, Group, Mesh, TorusGeometry, SphereGeometry, MeshStandardMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
 import { resolveRecipe, sampleContainerSequence } from './sceneRecipe.js'
 import { reagentName, reagentVolume } from '../lib/runtime.js'
@@ -111,77 +111,144 @@ function CameraRig({ view }) {
   )
 }
 
-// device builders for the non-reagent / non-spin actions (bare-stand stations).
-const DEVICE = {
-  incubation_block: demo.buildColdBlock,
-  heat_block: demo.buildColdBlock,
-  ice_bucket: demo.buildIceBucket,
-  reader: demo.buildNanoDrop,
-}
-
-// Build a station for a step — mapping the action to the demo's station kind.
+// Build a station for a step. Every action gets a timeline with VISIBLE motion
+// driven by the per-step progress p (0->1): so no station is ever static.
 function configureStation(st, o) {
   const { action, equipment, container, color, name, vol, fill, seconds } = o
   const vessel = V_OF[container] || 'tube'
   const S = demo.getSample()
+  const BT = demo.BLOCK_TOP
 
-  if (action === 'pour_add' || action === 'pipette_mix') {
-    // reagent addition: resident pipette rig + bottle; pipette pours over p, fill
-    // ramps at p>0.62 (verbatim stationReagent).
-    demo.stationReagent(st, demo.BLOCK_TOP, {
-      key: 'r',
-      blabel: '',
-      color,
-      vessel,
-      vlabel: name || '',
-      vsub: vol || '',
-      cStart: null,
-      cEnd: color,
-      lStart: 0.1,
-      lEnd: fill,
-    })
-  } else if (equipment === 'centrifuge' || action === 'wash' || action === 'transfer' || action === 'elute') {
-    // spin: benchtop centrifuge, rotor spins over p (verbatim stationSpin).
-    demo.stationSpin(st, demo.BLOCK_TOP, {
-      vessel,
-      vlabel: name || '',
-      vsub: vol || '',
-      color,
-      lStart: 0.5,
-      lEnd: action === 'wash' ? 0.1 : 0.45,
-      cenLabel: 'Centrifuge',
-      cenSub: vol || '',
-      seconds,
-    })
-  } else {
-    // bare stand + the step's demo device (incubate/heat block, ice bucket,
-    // NanoDrop) — same enter/timeline pattern as the demo's buildStation.
-    demo.addStand(st)
-    const make = DEVICE[equipment]
-    let seatX = 0
-    let seatY = 0
-    let seatZ = 0
-    if (make) {
-      const dev = make()
-      dev.position.set(0, 0, equipment === 'ice_bucket' ? 0.3 : 0)
-      st.group.add(dev)
-      st.updatables.push(dev)
-      st.dev = dev
-      if (equipment === 'incubation_block' || equipment === 'heat_block') seatY = demo.BLOCK_TOP
-      else if (equipment === 'ice_bucket') { seatY = 0.34; seatZ = 0.3 }
-      else if (equipment === 'reader') { seatX = -1.4; seatZ = 0.8 }
-    }
-    st.enter = () => {
-      S.only(vessel)
-      const v = S[vessel]
-      if (name) v.userData.setLabel(name, vol || '')
-      v.userData.setColor(color)
-      v.userData.setLevel(fill)
-      S.at(v, st.x + seatX, seatY, seatZ)
-    }
+  // place the travelling sample at a seat, reset any leftover spin/tip
+  const seat = (x, y, z, lvl = fill) => {
+    S.only(vessel)
+    const v = S[vessel]
+    if (name) v.userData.setLabel(name, vol || '')
+    v.userData.setColor(color)
+    v.userData.setLevel(lvl)
+    v.rotation.set(0, 0, 0)
+    S.at(v, st.x + x, y, z)
+    return v
+  }
+
+  if (action === 'pour_add') {
+    // resident pipette rig + bottle; pipette pours over p, fill ramps at p>0.62.
+    demo.stationReagent(st, BT, { key: 'r', blabel: '', color, vessel, vlabel: name || '', vsub: vol || '', cStart: null, cEnd: color, lStart: 0.1, lEnd: fill })
+  } else if (action === 'pipette_mix') {
+    // pipette aspirates + dispenses in repeated passes (reuse pipetteRun); ripple.
+    demo.addPipetteRig(st)
+    st.enter = () => { seat(0, BT, 0); demo.pipRest(st) }
     st.timeline = (p) => {
-      st.dev?.userData.setProgress?.(demo.easeInOut(demo.clamp(p * 1.4, 0, 1)))
+      const cp = (p * 3) % 1 // 3 mixing passes
+      demo.pipetteRun(st, { x: 0, y: BT, z: 0 }, { x: 0, y: BT, z: 0 }, cp, { color, fill: 0.7 })
+      S[vessel].userData.setLevel(fill + Math.sin(p * 26) * 0.02) // surface ripple
     }
+  } else if (action === 'vortex_mix') {
+    // the vessel visibly swirls + wobbles (this was the dead one).
+    demo.addStand(st)
+    st.enter = () => seat(0, BT, 0)
+    st.timeline = (p) => {
+      const v = S[vessel]
+      v.rotation.y = p * 26 // many turns (monotonic)
+      v.rotation.z = Math.sin(p * 46) * 0.14 // rapid wobble
+    }
+  } else if (action === 'discard') {
+    // the vessel tips over a waste beaker and drains the flow-through.
+    demo.addStand(st)
+    const waste = demo.buildWaste()
+    waste.position.set(1.3, 0, 0.6)
+    waste.scale.setScalar(0.9)
+    st.group.add(waste)
+    st.updatables.push(waste)
+    st.enter = () => seat(0, 0.7, 0, 0.5)
+    st.timeline = (p) => {
+      const e = demo.easeInOut(demo.clamp(p, 0, 1))
+      const v = S[vessel]
+      v.rotation.z = -e * 1.2 // tip toward the waste
+      v.userData.setLevel(demo.lerp(0.5, 0.02, e)) // drain
+    }
+  } else if (equipment === 'centrifuge' || action === 'wash' || action === 'transfer' || action === 'elute') {
+    // benchtop centrifuge, rotor spins over p (verbatim stationSpin).
+    demo.stationSpin(st, BT, { vessel, vlabel: name || '', vsub: vol || '', color, lStart: 0.5, lEnd: action === 'wash' ? 0.1 : 0.45, cenLabel: 'Centrifuge', cenSub: vol || '', seconds })
+  } else if (action === 'incubate_wait') {
+    // incubation block + a progress RING that fills with p.
+    demo.addStand(st)
+    const block = demo.buildColdBlock()
+    st.group.add(block)
+    st.updatables.push(block)
+    st.ring = new Mesh(new TorusGeometry(0.55, 0.02, 12, 64), new MeshStandardMaterial({ color: 0x5a636e, roughness: 0.6 }))
+    st.ring.position.set(0, 2.0, 0)
+    st.ring.rotation.x = Math.PI / 2
+    st.group.add(st.ring)
+    st.arc = new Mesh(new TorusGeometry(0.55, 0.05, 14, 64, 0.001), new MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.8, toneMapped: false }))
+    st.arc.position.set(0, 2.0, 0)
+    st.arc.rotation.set(Math.PI / 2, 0, Math.PI / 2)
+    st.group.add(st.arc)
+    st._arcP = -1
+    st.enter = () => seat(0, BT, 0)
+    st.timeline = (p) => {
+      if (Math.abs(p - st._arcP) > 0.02) {
+        st._arcP = p
+        st.arc.geometry.dispose()
+        st.arc.geometry = new TorusGeometry(0.55, 0.05, 14, 64, Math.max(0.001, p * Math.PI * 2))
+      }
+      S[vessel].userData.setLevel(fill + Math.sin(p * 10) * 0.02)
+    }
+  } else if (action === 'heat') {
+    // heat block + rising bubbles + a warm glow that ramps with p.
+    demo.addStand(st)
+    const block = demo.buildColdBlock()
+    st.group.add(block)
+    st.updatables.push(block)
+    st.warm = new PointLight(0xff8a3d, 0, 5)
+    st.warm.position.set(0, 1.1, 0.5)
+    st.group.add(st.warm)
+    st.bubbles = Array.from({ length: 8 }, () => {
+      const b = new Mesh(new SphereGeometry(0.05, 10, 8), new MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, roughness: 0.1 }))
+      b.userData.seed = { x: (Math.random() - 0.5) * 0.4, z: (Math.random() - 0.5) * 0.4, off: Math.random(), sp: 0.5 + Math.random() }
+      st.group.add(b)
+      return b
+    })
+    st.enter = () => seat(0, BT, 0)
+    st.timeline = (p) => {
+      st.warm.intensity = p * 3.2 // warm glow ramps up (monotonic)
+      for (const b of st.bubbles) {
+        const s = b.userData.seed
+        const yy = (p * s.sp * 3 + s.off) % 1
+        b.position.set(s.x, BT + 0.2 + yy * 1.3, s.z)
+        b.scale.setScalar(0.5 + yy)
+      }
+      S[vessel].userData.setLevel(fill + Math.sin(p * 12) * 0.02)
+    }
+  } else if (action === 'cool_ice') {
+    // ice bucket + a cold cast that deepens with p (frost creep) + a faint shiver.
+    demo.addStand(st)
+    const ice = demo.buildIceBucket()
+    ice.position.set(0, 0, 0.3)
+    st.group.add(ice)
+    st.updatables.push(ice)
+    st.cold = new PointLight(0x5fb8f0, 0, 4)
+    st.cold.position.set(0, 1, 0.7)
+    st.group.add(st.cold)
+    st.enter = () => seat(0, 0.34, 0.3)
+    st.timeline = (p) => {
+      st.cold.intensity = p * 2.6 // cold cast ramps up (monotonic)
+      S[vessel].rotation.z = Math.sin(p * 30) * 0.02 // faint cold shiver
+    }
+  } else if (equipment === 'reader') {
+    // NanoDrop reads the sample; its trace draws in with p.
+    const nano = demo.buildNanoDrop()
+    st.group.add(nano)
+    st.updatables.push(nano)
+    st.dev = nano
+    demo.addStand(st)
+    st.enter = () => seat(-1.4, 0, 0.8)
+    st.timeline = (p) => nano.userData.setProgress?.(demo.easeInOut(demo.clamp(p * 1.4, 0, 1)))
+  } else {
+    // generic actionable (rare) — a slow idle turn so it is never dead.
+    demo.addStand(st)
+    st.enter = () => seat(0, BT, 0)
+    st.timeline = (p) => { S[vessel].rotation.y = p * 3 }
   }
   hideLabels(st.group)
 }
@@ -240,6 +307,8 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
     const st = { group: new Group(), updatables: [], reagents: {}, pip: null, enter: null, timeline: null, x: 0, cen: null, dev: null }
     configureStation(st, { action: step.action, equipment, container, color: colorHex, name: labelTitle, vol, fill, seconds: step.duration_seconds })
     scene.add(st.group)
+    // clear any leftover swirl/tip from the previous step's motion timeline.
+    demo.getSample().vessels.forEach((v) => v.rotation.set(0, 0, 0))
     demo.setSnap(true)
     st.enter?.()
     demo.setSnap(false)
