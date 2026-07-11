@@ -18,16 +18,11 @@ import { resolveRecipe, sampleContainerSequence } from './sceneRecipe.js'
 import { reagentName, reagentVolume } from '../lib/runtime.js'
 import * as demo from '../scene/demoScene.js'
 
-// the demo's cinematic camera + isometric framing (pulled back a touch from the
-// demo's RAIL_Z 9.6 so the tall pipette arc stays fully in frame under the HUD).
+// the demo's cinematic camera + isometric framing
 const FOV = 40
 const RAIL_Y = 3.35
-const RAIL_Z = 13.5
-const LOOK_Y = 1.3
-// the demo's pipetteRun arc peaks ~y6.3 (off the top even in the demo); lower the
-// resident pipette along its whole path so it never crosses the top HUD bar,
-// while its tip still stays ~at the bench.
-const PIP_DROP = 1.4
+const RAIL_Z = 9.6
+const LOOK_Y = 1.05
 const ISO_DIR = new Vector3(1, 0.82, 1).normalize()
 const ISO_DIST = 90
 const ISO_LOOK_Y = 1.35
@@ -271,8 +266,6 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
       }
       pRef.current = Math.min(pRef.current + dt / STEP_DUR, 1)
       st.timeline?.(pRef.current)
-      // keep the resident pipette (whose arc pipetteRun set above) under the HUD.
-      if (st.pip) st.pip.position.y -= PIP_DROP
       for (const u of st.updatables) u.userData?.update?.(dt)
     }
     const S = demo.getSample()
