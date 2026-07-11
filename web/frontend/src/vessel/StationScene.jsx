@@ -15,10 +15,10 @@
 import { useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Environment, Lightformer, ContactShadows, PerspectiveCamera, OrthographicCamera, Float } from '@react-three/drei'
-import { MathUtils, Vector3 } from 'three'
+import { MathUtils, Vector3, CanvasTexture, SRGBColorSpace } from 'three'
 import { theme, reagentColor } from './theme.js'
 import { resolveRecipe, sampleContainerSequence } from './sceneRecipe.js'
-import { reagentName } from '../lib/runtime.js'
+import { reagentName, reagentVolume } from '../lib/runtime.js'
 
 import Bench from './equipment/Bench.jsx'
 import Centrifuge from './equipment/Centrifuge.jsx'
@@ -147,6 +147,108 @@ function SaturationPass({ factor = theme.saturation }) {
   return null
 }
 
+// English action labels for the 3D chip when a step has no reagent to name.
+const ACTION_LABEL = {
+  pour_add: 'Add reagent',
+  pipette_mix: 'Mix',
+  vortex_mix: 'Vortex',
+  centrifuge: 'Centrifuge',
+  incubate_wait: 'Incubate',
+  heat: 'Heat',
+  cool_ice: 'On ice',
+  transfer: 'Load column',
+  wash: 'Wash',
+  discard: 'Discard',
+  elute: 'Elute',
+  measure: 'Measure',
+  generic: 'Step',
+}
+
+// ── floating 3D label above the hero (the demo's makeLabel): a dark rounded card
+// with a title + teal sub, drawn to a canvas and billboarded as a sprite.
+function labelTexture(title, sub) {
+  const W = 512
+  const H = 168
+  const c = document.createElement('canvas')
+  c.width = W
+  c.height = H
+  const g = c.getContext('2d')
+  const x = 12
+  const y = 28
+  const w = W - 24
+  const h = 104
+  const r = 16
+  g.beginPath()
+  g.moveTo(x + r, y)
+  g.arcTo(x + w, y, x + w, y + h, r)
+  g.arcTo(x + w, y + h, x, y + h, r)
+  g.arcTo(x, y + h, x, y, r)
+  g.arcTo(x, y, x + w, y, r)
+  g.closePath()
+  g.fillStyle = 'rgba(20,23,27,0.82)'
+  g.fill()
+  g.lineWidth = 1.5
+  g.strokeStyle = 'rgba(150,160,175,0.3)'
+  g.stroke()
+  g.textAlign = 'center'
+  g.textBaseline = 'middle'
+  g.fillStyle = '#e9edf1'
+  g.font = "600 44px -apple-system, 'Helvetica Neue', Arial"
+  g.fillText(title, W / 2, sub ? y + 40 : y + h / 2)
+  if (sub) {
+    g.font = "500 30px -apple-system, 'Helvetica Neue', Arial"
+    g.fillStyle = '#8fcabf'
+    g.fillText(sub, W / 2, y + 78)
+  }
+  const tex = new CanvasTexture(c)
+  tex.colorSpace = SRGBColorSpace
+  tex.anisotropy = 4
+  return tex
+}
+
+function Label3D({ title, sub, position }) {
+  const tex = useMemo(() => (title ? labelTexture(title, sub) : null), [title, sub])
+  if (!tex) return null
+  return (
+    <sprite position={position} scale={[1.95, 0.64, 1]} renderOrder={999}>
+      <spriteMaterial map={tex} transparent depthTest={false} depthWrite={false} />
+    </sprite>
+  )
+}
+
+// ── bench station number embossed on the surface (the demo's stationDecal).
+function decalTexture(n) {
+  const c = document.createElement('canvas')
+  c.width = 256
+  c.height = 128
+  const g = c.getContext('2d')
+  g.fillStyle = 'rgba(150,164,180,0.5)'
+  g.font = "300 74px 'Helvetica Neue', Arial"
+  g.textAlign = 'left'
+  g.textBaseline = 'middle'
+  g.fillText(`0${n}`.slice(-2), 12, 70)
+  g.strokeStyle = 'rgba(95,179,166,0.55)'
+  g.lineWidth = 4
+  g.beginPath()
+  g.moveTo(14, 104)
+  g.lineTo(150, 104)
+  g.stroke()
+  const t = new CanvasTexture(c)
+  t.colorSpace = SRGBColorSpace
+  t.anisotropy = 4
+  return t
+}
+
+function StationDecal({ n, position }) {
+  const tex = useMemo(() => decalTexture(n), [n])
+  return (
+    <mesh position={position} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[1.7, 0.85]} />
+      <meshBasicMaterial map={tex} transparent depthWrite={false} />
+    </mesh>
+  )
+}
+
 // The equipment device for a station (no sample; that is placed by the caller).
 function Equipment({ step, progress, running }) {
   const { equipment } = resolveRecipe(step.action)
@@ -250,9 +352,16 @@ export default function StationScene({ protocol, activeIndex = 0, answers = {}, 
 
   // active-step sample colour + fill + motion descriptor
   const primary = (step.reagents || []).find((r) => r.volume) || (step.reagents || [])[0]
-  const color = reagentColor(primary ? reagentName(primary, lang) : null)
+  const primaryName = primary ? reagentName(primary, lang) : null
+  const color = reagentColor(primaryName)
   const anim = resolveRecipe(step.action).anim
   const fill = anim.fill
+
+  // 3D floating label text (title + sub), driven by the step's reagent
+  const labelTitle = primaryName || ACTION_LABEL[step.action] || 'Step'
+  const labelSub =
+    (primary && reagentVolume(primary, lang)) ||
+    (step.spin?.rcf_min ? `≥ ${step.spin.rcf_min.toLocaleString()} ×g` : '')
 
   // The travelling sample is suppressed only when the equipment device IS the
   // sample's container (a spin column showing itself — wash / elute). At a
@@ -286,6 +395,11 @@ export default function StationScene({ protocol, activeIndex = 0, answers = {}, 
 
       {/* permanent blue pipette stand — a resident bench prop beside the hero */}
       <PipetteStand position={[-2.5, 0, 0.5]} scale={0.6} />
+
+      {/* floating 3D label above the hero + bench station number (fixed frame,
+          since the active station sits at world origin) */}
+      <Label3D title={labelTitle} sub={labelSub} position={[0, 2.5, 0]} />
+      <StationDecal n={active + 1} position={[0, 0.014, 1.5]} />
 
 
       <MovingWorld offsetX={stationX(active)}>
