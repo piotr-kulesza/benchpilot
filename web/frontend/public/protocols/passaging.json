@@ -7,27 +7,39 @@
   "materials": [
     {
       "name": "Balanced salt solution without calcium and magnesium",
-      "note": "wash solution, ~2 mL per 10 cm2"
+      "name_en": null,
+      "note": "wash solution, ~2 mL per 10 cm2",
+      "note_en": null
     },
     {
       "name": "Dissociation reagent (trypsin or TrypLE)",
-      "note": "pre-warmed, ~0.5 mL per 10 cm2"
+      "name_en": null,
+      "note": "pre-warmed, ~0.5 mL per 10 cm2",
+      "note_en": null
     },
     {
       "name": "Complete growth medium",
-      "note": "pre-warmed"
+      "name_en": null,
+      "note": "pre-warmed",
+      "note_en": null
     },
     {
       "name": "Trypan blue",
-      "note": "for viability/exclusion counting"
+      "name_en": null,
+      "note": "for viability/exclusion counting",
+      "note_en": null
     },
     {
       "name": "Hemocytometer",
-      "note": "for cell counting"
+      "name_en": null,
+      "note": "for cell counting",
+      "note_en": null
     },
     {
       "name": "15 mL conical tube",
-      "note": null
+      "name_en": null,
+      "note": null,
+      "note_en": null
     }
   ],
   "steps": [
@@ -187,7 +199,9 @@
       "conditionals": [
         {
           "condition": "cells are less than 90% detached",
-          "then": "increase incubation time a few more minutes, checking every 30 seconds"
+          "condition_en": null,
+          "then": "increase incubation time a few more minutes, checking every 30 seconds",
+          "then_en": null
         }
       ],
       "repeat": null,
@@ -221,7 +235,9 @@
       "conditionals": [
         {
           "condition": ">=90% of the cells have detached",
-          "then": "add twice the volume of pre-warmed complete growth medium"
+          "condition_en": null,
+          "then": "add twice the volume of pre-warmed complete growth medium",
+          "then_en": null
         }
       ],
       "repeat": null,
@@ -393,19 +409,23 @@
   "open_parameters": [
     {
       "question": "What cell culture vessel size / surface area is used (determines wash, dissociation, and medium volumes)?",
-      "where": "steps 3, 5, 8"
+      "where": "steps 3, 5, 8",
+      "where_en": null
     },
     {
       "question": "What is the recommended seeding density for reseeding?",
-      "where": "step 12"
+      "where": "step 12",
+      "where_en": null
     },
     {
       "question": "Which dissociation reagent (trypsin or TrypLE) is used?",
-      "where": "step 5"
+      "where": "step 5",
+      "where_en": null
     },
     {
       "question": "Centrifugation duration between 5 and 10 minutes?",
-      "where": "step 9"
+      "where": "step 9",
+      "where_en": null
     }
   ],
   "reference": null

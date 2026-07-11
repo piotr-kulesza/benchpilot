@@ -7,31 +7,45 @@
   "materials": [
     {
       "name": "Template DNA",
-      "note": "X µl (variable)"
+      "name_en": null,
+      "note": "X µl (variable)",
+      "note_en": null
     },
     {
       "name": "10 µM forward primer",
-      "note": "1.5 µl"
+      "name_en": null,
+      "note": "1.5 µl",
+      "note_en": null
     },
     {
       "name": "10 µM reverse primer",
-      "note": "1.5 µl"
+      "name_en": null,
+      "note": "1.5 µl",
+      "note_en": null
     },
     {
       "name": "10x reaction buffer",
-      "note": "3 µl"
+      "name_en": null,
+      "note": "3 µl",
+      "note_en": null
     },
     {
       "name": "2 mM dNTPs",
-      "note": "3 µl"
+      "name_en": null,
+      "note": "3 µl",
+      "note_en": null
     },
     {
       "name": "5 U/µl Taq polymerase",
-      "note": "0.3 µl"
+      "name_en": null,
+      "note": "0.3 µl",
+      "note_en": null
     },
     {
       "name": "ddH2O",
-      "note": "20.7 - X µl to make up to 30 µl total"
+      "name_en": null,
+      "note": "20.7 - X µl to make up to 30 µl total",
+      "note_en": null
     }
   ],
   "steps": [
@@ -204,7 +218,8 @@
       "conditionals": [],
       "repeat": {
         "count": 30,
-        "reason": "PCR cycles"
+        "reason": "PCR cycles",
+        "reason_en": null
       },
       "alternatives": [],
       "hazards": [],
@@ -301,7 +316,9 @@
       "conditionals": [
         {
           "condition": "if not analyzing immediately",
-          "then": "store at -20°C"
+          "condition_en": null,
+          "then": "store at -20°C",
+          "then_en": null
         }
       ],
       "repeat": null,
@@ -316,11 +333,13 @@
   "open_parameters": [
     {
       "question": "What volume (X µl) of template DNA should be used, and the corresponding ddH2O volume (20.7 - X µl)?",
-      "where": "Reaction setup"
+      "where": "Reaction setup",
+      "where_en": null
     },
     {
       "question": "What is the length of the longest PCR product (bp) to set the 72°C extension time (~1 min per 1000 bp)?",
-      "where": "Thermocycler program - Extension"
+      "where": "Thermocycler program - Extension",
+      "where_en": null
     }
   ],
   "reference": "Note: the 72°C elongation step should be roughly 1 minute for every 1000 bp of the longest PCR product."

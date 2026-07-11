@@ -7,43 +7,63 @@
   "materials": [
     {
       "name": "Shaking incubator at 37 °C",
-      "note": "equipment"
+      "name_en": null,
+      "note": "equipment",
+      "note_en": null
     },
     {
       "name": "Stationary incubator at 37 °C",
-      "note": "equipment"
+      "name_en": null,
+      "note": "equipment",
+      "note_en": null
     },
     {
       "name": "Water bath at 42 °C",
-      "note": "equipment"
+      "name_en": null,
+      "note": "equipment",
+      "note_en": null
     },
     {
       "name": "Ice bucket filled with ice",
-      "note": "equipment"
+      "name_en": null,
+      "note": "equipment",
+      "note_en": null
     },
     {
       "name": "Microcentrifuge tubes",
-      "note": "equipment"
+      "name_en": null,
+      "note": "equipment",
+      "note_en": null
     },
     {
       "name": "Sterile spreading device",
-      "note": "equipment"
+      "name_en": null,
+      "note": "equipment",
+      "note_en": null
     },
     {
       "name": "LB agar plate (with appropriate antibiotic)",
-      "note": "reagent"
+      "name_en": null,
+      "note": "reagent",
+      "note_en": null
     },
     {
       "name": "LB or SOC media",
-      "note": "reagent"
+      "name_en": null,
+      "note": "reagent",
+      "note_en": null
     },
     {
       "name": "Competent cells",
-      "note": "reagent"
+      "name_en": null,
+      "note": "reagent",
+      "note_en": null
     },
     {
       "name": "DNA you'd like to transform",
-      "note": "reagent"
+      "name_en": null,
+      "note": "reagent",
+      "note_en": null
     }
   ],
   "steps": [
@@ -103,7 +123,9 @@
       "conditionals": [
         {
           "condition": "optional",
-          "then": "incubate in 37°C incubator"
+          "condition_en": null,
+          "then": "incubate in 37°C incubator",
+          "then_en": null
         }
       ],
       "repeat": null,
@@ -356,27 +378,33 @@
   "open_parameters": [
     {
       "question": "Which antibiotic is appropriate for the selection marker of the transformed plasmid?",
-      "where": "Reagents / step 8-9"
+      "where": "Reagents / step 8-9",
+      "where_en": null
     },
     {
       "question": "How much DNA (10 pg - 100 ng, 1-5 µl) should be used?",
-      "where": "Step 3"
+      "where": "Step 3",
+      "where_en": null
     },
     {
       "question": "What volume of competent cells (20-50 µL) should be used?",
-      "where": "Step 3"
+      "where": "Step 3",
+      "where_en": null
     },
     {
       "question": "Optimal heat shock duration (30-60 s) for the specific competent cells?",
-      "where": "Step 5"
+      "where": "Step 5",
+      "where_en": null
     },
     {
       "question": "Volume of recovery media (250-1,000 µl) and choice of LB vs SOC?",
-      "where": "Step 7"
+      "where": "Step 7",
+      "where_en": null
     },
     {
       "question": "What fraction of the transformation to plate?",
-      "where": "Step 8"
+      "where": "Step 8",
+      "where_en": null
     }
   ],
   "reference": null

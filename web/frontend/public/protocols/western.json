@@ -7,31 +7,45 @@
   "materials": [
     {
       "name": "1X TBS",
-      "note": null
+      "name_en": null,
+      "note": null,
+      "note_en": null
     },
     {
       "name": "1X TBST (wash buffer)",
-      "note": null
+      "name_en": null,
+      "note": null,
+      "note_en": null
     },
     {
       "name": "Blocking buffer: 1X TBST with 5% w/v nonfat dry milk",
-      "note": null
+      "name_en": null,
+      "note": null,
+      "note_en": null
     },
     {
       "name": "Primary antibody dilution buffer: 1X TBST with 5% BSA",
-      "note": null
+      "name_en": null,
+      "note": null,
+      "note_en": null
     },
     {
       "name": "Nitrocellulose membrane (0.2 µm)",
-      "note": null
+      "name_en": null,
+      "note": null,
+      "note_en": null
     },
     {
       "name": "HRP-conjugated secondary antibody",
-      "note": null
+      "name_en": null,
+      "note": null,
+      "note_en": null
     },
     {
       "name": "LumiGLO chemiluminescent reagent",
-      "note": null
+      "name_en": null,
+      "note": null,
+      "note_en": null
     }
   ],
   "steps": [
@@ -254,7 +268,8 @@
       "conditionals": [],
       "repeat": {
         "count": 3,
-        "reason": "wash three times for 5 min each"
+        "reason": "wash three times for 5 min each",
+        "reason_en": null
       },
       "alternatives": [],
       "hazards": [],
@@ -277,7 +292,8 @@
       "conditionals": [],
       "repeat": {
         "count": 3,
-        "reason": "wash three times for 5 min each"
+        "reason": "wash three times for 5 min each",
+        "reason_en": null
       },
       "alternatives": [],
       "hazards": [],
@@ -386,7 +402,8 @@
       "conditionals": [],
       "repeat": {
         "count": 3,
-        "reason": "wash three times for 5 min each"
+        "reason": "wash three times for 5 min each",
+        "reason_en": null
       },
       "alternatives": [],
       "hazards": [],
@@ -409,7 +426,8 @@
       "conditionals": [],
       "repeat": {
         "count": 3,
-        "reason": "wash three times for 5 min each"
+        "reason": "wash three times for 5 min each",
+        "reason_en": null
       },
       "alternatives": [],
       "hazards": [],
@@ -506,7 +524,8 @@
       "conditionals": [],
       "repeat": {
         "count": 3,
-        "reason": "wash three times for 5 min each"
+        "reason": "wash three times for 5 min each",
+        "reason_en": null
       },
       "alternatives": [],
       "hazards": [],
@@ -529,7 +548,8 @@
       "conditionals": [],
       "repeat": {
         "count": 3,
-        "reason": "wash three times for 5 min each"
+        "reason": "wash three times for 5 min each",
+        "reason_en": null
       },
       "alternatives": [],
       "hazards": [],
@@ -628,15 +648,18 @@
   "open_parameters": [
     {
       "question": "What is the primary antibody and its working dilution/concentration?",
-      "where": "Step 7"
+      "where": "Step 7",
+      "where_en": null
     },
     {
       "question": "How long is the 'overnight' primary antibody incubation at 4°C?",
-      "where": "Step 7"
+      "where": "Step 7",
+      "where_en": null
     },
     {
       "question": "What is the proper X-ray film exposure time after the initial 10 sec exposure?",
-      "where": "Step 12"
+      "where": "Step 12",
+      "where_en": null
     }
   ],
   "reference": null

@@ -7,31 +7,45 @@
   "materials": [
     {
       "name": "Zestaw do izolacji RNA na kolumnach krzemionkowych (Qiagen RNeasy Mini lub Micro)",
-      "note": "Silica-column RNA isolation kit (Qiagen RNeasy Mini or Micro)"
+      "note": "Silica-column RNA isolation kit (Qiagen RNeasy Mini or Micro)",
+      "name_en": "Silica-column RNA isolation kit (Qiagen RNeasy Mini or Micro)",
+      "note_en": "Silica-column RNA isolation kit (Qiagen RNeasy Mini or Micro)"
     },
     {
       "name": "Bufor lizujący RLT z dodatkiem 1% 2-merkaptoetanolu",
-      "note": "przygotować świeżo / prepare fresh"
+      "note": "przygotować świeżo / prepare fresh",
+      "name_en": "RLT lysis buffer with 1% 2-mercaptoethanol",
+      "note_en": "prepare fresh"
     },
     {
       "name": "Zestaw DNazy I do trawienia na kolumnie oraz bufor RDD",
-      "note": "DNase I kit for on-column digestion plus RDD buffer"
+      "note": "DNase I kit for on-column digestion plus RDD buffer",
+      "name_en": "DNase I kit for on-column digestion plus RDD buffer",
+      "note_en": "DNase I kit for on-column digestion plus RDD buffer"
     },
     {
       "name": "Etanol 70% oraz 96–100%, woda wolna od rybonukleaz",
-      "note": "70% and 96–100% ethanol, RNase-free water"
+      "note": "70% and 96–100% ethanol, RNase-free water",
+      "name_en": "70% and 96–100% ethanol, RNase-free water",
+      "note_en": "70% and 96–100% ethanol, RNase-free water"
     },
     {
       "name": "Kolumny homogenizujące QIAshredder lub igła 20–21 G",
-      "note": "QIAshredder homogenization columns or 20–21 G needle"
+      "note": "QIAshredder homogenization columns or 20–21 G needle",
+      "name_en": "QIAshredder homogenization columns or a 20–21 G needle",
+      "note_en": "QIAshredder homogenization columns or 20–21 G needle"
     },
     {
       "name": "Odczynnik stabilizujący RNA (RNAprotect)",
-      "note": "Opcjonalnie, jeśli próbki nie są lizowane od razu / optional, if samples are not lysed immediately"
+      "note": "Opcjonalnie, jeśli próbki nie są lizowane od razu / optional, if samples are not lysed immediately",
+      "name_en": "RNA stabilization reagent (RNAprotect)",
+      "note_en": "optional, if samples are not lysed immediately"
     },
     {
       "name": "Wirówka stołowa, pipety i końcówki z filtrem, lód",
-      "note": "Benchtop centrifuge, pipettes and filter tips, ice"
+      "note": "Benchtop centrifuge, pipettes and filter tips, ice",
+      "name_en": "Benchtop centrifuge, pipettes and filter tips, ice",
+      "note_en": "Benchtop centrifuge, pipettes and filter tips, ice"
     }
   ],
   "steps": [
@@ -186,11 +200,15 @@
       "conditionals": [
         {
           "condition": "≤ 5×10⁶ komórek",
-          "then": "użyć 350 µl RLT / use 350 µl RLT"
+          "then": "użyć 350 µl RLT / use 350 µl RLT",
+          "condition_en": "≤ 5×10⁶ cells",
+          "then_en": "use 350 µl RLT"
         },
         {
           "condition": "większa liczba komórek",
-          "then": "użyć 600 µl RLT / use 600 µl RLT"
+          "then": "użyć 600 µl RLT / use 600 µl RLT",
+          "condition_en": "more cells",
+          "then_en": "use 600 µl RLT"
         }
       ],
       "repeat": null,
@@ -315,7 +333,8 @@
       "conditionals": [],
       "repeat": {
         "count": null,
-        "reason": "dla pozostałej objętości / for the remaining volume"
+        "reason": "dla pozostałej objętości / for the remaining volume",
+        "reason_en": "for the remaining volume"
       },
       "alternatives": [],
       "hazards": [],
@@ -341,7 +360,8 @@
       "conditionals": [],
       "repeat": {
         "count": null,
-        "reason": "dla pozostałej objętości / for the remaining volume"
+        "reason": "dla pozostałej objętości / for the remaining volume",
+        "reason_en": "for the remaining volume"
       },
       "alternatives": [],
       "hazards": [],
@@ -674,7 +694,9 @@
       "conditionals": [
         {
           "condition": "wariant Micro",
-          "then": "użyć 14 µl wody / use 14 µl water"
+          "then": "użyć 14 µl wody / use 14 µl water",
+          "condition_en": "Micro variant",
+          "then_en": "use 14 µl water"
         }
       ],
       "repeat": null,
@@ -860,7 +882,9 @@
       "conditionals": [
         {
           "condition": "zanieczyszczenie gDNA",
-          "then": "wydłużyć/powtórzyć trawienie DNazą lub użyć RNeasy Plus / extend/repeat DNase digestion or use RNeasy Plus"
+          "then": "wydłużyć/powtórzyć trawienie DNazą lub użyć RNeasy Plus / extend/repeat DNase digestion or use RNeasy Plus",
+          "condition_en": "gDNA contamination",
+          "then_en": "extend/repeat DNase digestion or use RNeasy Plus"
         }
       ],
       "repeat": null,
@@ -919,27 +943,33 @@
   "open_parameters": [
     {
       "question": "Which RNeasy kit — Mini or Micro?",
-      "where": "Uwagi / Notes: 'Do ustalenia na miejscu'"
+      "where": "Uwagi / Notes: 'Do ustalenia na miejscu'",
+      "where_en": "Notes: 'to be decided on site'"
     },
     {
       "question": "What is the input cell number (drives lysis volume: 350 µl for ≤ 5×10⁶ cells vs 600 µl)?",
-      "where": "Procedura krok 1 / Notes"
+      "where": "Procedura krok 1 / Notes",
+      "where_en": "Procedure step 1 / Notes"
     },
     {
       "question": "What lysis volume should be used?",
-      "where": "Uwagi / Notes"
+      "where": "Uwagi / Notes",
+      "where_en": "Notes"
     },
     {
       "question": "What elution volume should be used (30–50 µl Mini vs 14 µl Micro)?",
-      "where": "Procedura / Notes"
+      "where": "Procedura / Notes",
+      "where_en": "Procedure / Notes"
     },
     {
       "question": "What is the target RIN / acceptance threshold?",
-      "where": "Kontrola jakości / Notes"
+      "where": "Kontrola jakości / Notes",
+      "where_en": "Quality control / Notes"
     },
     {
       "question": "Analysis type — bulk or single-cell RNA-seq?",
-      "where": "Uwagi / Notes"
+      "where": "Uwagi / Notes",
+      "where_en": "Notes"
     }
   ],
   "reference": "Porównanie z innymi protokołami bulk RNA-seq (materiał poglądowy — zestawienie dwóch opublikowanych protokołów bulk RNA-seq z fizycznie wyizolowanych neutrofili; metoda docelowa stażu nie jest jeszcze znana). Najważniejsze różnice: metoda izolacji (selekcja negatywna magnetyczna vs gradient gęstości), sposób ekstrakcji RNA (liza w TCL + kuleczki SPRI vs TRIzol + kolumna), przygotowanie biblioteki (Smart-Seq2 pod niskie wejście vs selekcja poli-A). Wspólne: liza erytrocytów na starcie, szybka praca, mrożenie, docelowy RIN około 7. Tabela porównawcza — Gonye/STAR vs RZS (Fresneda Alarcon 2024): Materiał wyjściowy — krew pełna (500 µl, EDTA) vs krew obwodowa (heparyna); Liza erytrocytów — bufor ACK vs bufor chlorku amonu; Izolacja neutrofili — selekcja negatywna magnetyczna (EasySep Direct Human Neutrophil Kit) vs gradient gęstości HetaSep + Ficoll-Paque (czystość >97%, żywotność >98%); Liza/ekstrakcja RNA — liza w TCL + 1% 2-merkaptoetanol (1000 kom./µl), lizat mrożony, oczyszczanie kuleczkami SPRI (RNAClean XP) bez kolumny vs TRIzol-chloroform, precypitacja izopropanolem, oczyszczanie na kolumnie QIAGEN RNeasy (mRNA) lub miRNeasy (miRNA); Trawienie DNazą — opcjonalnie (niskie wejście) vs tak, na kolumnie podczas oczyszczania; Przechowywanie — aliquoty lizatu na suchym lodzie → −80°C vs RNA mrożone w ciekłym azocie → −80°C; Kontrola jakości — Qubit (dsDNA HS), Bioanalyzer HS, ocena czystości bioinformatycznie vs Bioanalyzer RNA Nano/Pico, RIN ≥ 7,0. Źródła: Gonye A.L.K. i wsp., STAR Protocols 4:102125, 2023, DOI: 10.1016/j.xpro.2023.102125; Fresneda Alarcon M. i wsp., J Leukoc Biol, 2024, DOI: 10.1093/jleuko/qiaf090 (PMC12210129); Instrukcja zestawu Qiagen RNeasy — chemia buforów (RLT/RPE), wiązanie i elucja RNA na kolumnie."

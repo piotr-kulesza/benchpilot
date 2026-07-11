@@ -39,10 +39,14 @@ CRITICAL RULES
 - Preserve the ORIGINAL language verbatim in the base fields (`title`, `summary`,
   `text`, reagent `name`, `hazards`). The input may be Polish, German, etc. Keep
   original units and symbols (µl, ×g, °C, ≤, 10⁶). This is the audit trail.
-- ADDITIONALLY provide an English translation in the parallel `_en` fields
-  (`title_en`, `summary_en`, step `text_en`, reagent `name_en`, `hazards_en`).
+- ADDITIONALLY provide an English translation in EVERY parallel `_en` field:
+  `title_en`, `summary_en`, step `text_en`, reagent `name_en`/`volume_en`/
+  `condition_en`, `hazards_en`, conditional `condition_en`/`then_en`, repeat
+  `reason_en`, material `name_en`/`note_en`, and open_parameter `where_en`.
   Translate faithfully; keep numbers, units, reagent brand names (RLT, RPE,
   QIAshredder, RNeasy) and symbols intact. If a field is already English, copy it.
+  NEVER leave source-language text with no `_en` companion — the default UI is
+  English and would otherwise leak the original language.
 - Output ONE JSON object and nothing else. No markdown fences, no commentary.
 - Parse the WHOLE protocol in this single response.
 
@@ -177,14 +181,17 @@ For each step extract, when present:
     cells"). If already English, copy it. If the volume depends on a condition,
     set `condition` (e.g. lysis buffer 350 µl WHEN "≤ 5×10⁶ komórek", 600 µl WHEN
     "większa liczba").
-  - conditionals: [{condition, then}] for branches (cell-count branch; Mini vs
-    Micro kit; bulk vs single-cell). May be phrased in English.
-  - repeat: {count, reason}. POPULATE count for any "N times / N×/ N-krotnie /
+  - conditionals: [{condition, condition_en, then, then_en}] for branches
+    (cell-count branch; Mini vs Micro kit; bulk vs single-cell). Keep condition/
+    then in the ORIGINAL language and give English in condition_en/then_en
+    ("≤ 5×10⁶ komórek" -> "≤ 5×10⁶ cells"; "użyć 350 µl RLT" -> "use 350 µl RLT").
+  - repeat: {count, reason, reason_en}. POPULATE count for any "N times / N×/ N-krotnie /
     in triplicate / repeat N cycles": "wash three times" -> {count: 3}; "in
     triplicate" -> {count: 3}; "35 cycles" -> {count: 35}; "5-krotnie" -> {count: 5}.
     Use reason (no count) only for open-ended repeats: "Powtórzyć dla pozostałej
-    objętości" -> {reason: "dla pozostałej objętości"}. Never drop the count into
-    prose only. A `thermocycle` step MUST carry repeat.count = number of cycles.
+    objętości" -> {reason: "dla pozostałej objętości", reason_en: "for the
+    remaining volume"}. Never drop the count into prose only. A `thermocycle` step
+    MUST carry repeat.count = number of cycles.
   - alternatives: [Step-like] for EITHER/OR options that achieve the same goal
     (e.g. QIAshredder 2 min at max speed  OR  5× through a 20-21 G needle). List
     EVERY interchangeable method here — INCLUDING the default/first one — as its
@@ -210,11 +217,14 @@ For each step extract, when present:
 
 PROTOCOL-LEVEL FIELDS
   - title, title_en, summary, summary_en, source.
-  - materials: [{name, note}] from the reagents/materials section.
-  - open_parameters: [{question, where}] — every protocol-wide decision left
-    open: kit choice, input cell number, lysis/elution volumes, target RIN, bulk
-    vs single-cell. Explicit "to be decided on site" text ("Do ustalenia na
-    miejscu...") MUST become open_parameters. Questions may be in English.
+  - materials: [{name, name_en, note, note_en}] from the reagents/materials
+    section. Keep name/note in the ORIGINAL language and give English in
+    name_en/note_en ("Bufor lizujący RLT" -> "RLT lysis buffer").
+  - open_parameters: [{question, where, where_en}] — every protocol-wide decision
+    left open: kit choice, input cell number, lysis/elution volumes, target RIN,
+    bulk vs single-cell. Keep `where` in the original language and give English in
+    where_en. Explicit "to be decided on site" text ("Do ustalenia na miejscu...")
+    MUST become open_parameters. Questions may be in English.
   - reference: a STRING holding non-procedural content — comparison tables
     between protocols, reference/source/citation lists. This content MUST NOT
     appear as `steps`. Keep it (condensed is fine) only in `reference`.
@@ -229,7 +239,7 @@ Return JSON of exactly this shape:
   "title": str, "title_en": str,
   "summary": str, "summary_en": str,
   "source": str,
-  "materials": [{"name": str, "note": str|null}],
+  "materials": [{"name": str, "name_en": str|null, "note": str|null, "note_en": str|null}],
   "steps": [{
     "index": int, "phase": str, "text": str, "text_en": str,
     "kind": str, "action": str,
@@ -237,15 +247,15 @@ Return JSON of exactly this shape:
     "duration_seconds": number|null,
     "spin": {"duration_seconds": number|null, "rcf_min": number|null, "note": str|null}|null,
     "reagents": [{"name": str, "name_en": str|null, "volume": str|null, "volume_en": str|null, "condition": str|null, "condition_en": str|null}],
-    "conditionals": [{"condition": str, "then": str}],
-    "repeat": {"count": int|null, "reason": str|null}|null,
+    "conditionals": [{"condition": str, "condition_en": str|null, "then": str, "then_en": str|null}],
+    "repeat": {"count": int|null, "reason": str|null, "reason_en": str|null}|null,
     "alternatives": [ <step-like object, with its own action/text/text_en> ],
     "hazards": [str], "hazards_en": [str],
     "prep_ahead": bool,
     "gaps": [{"parameter": str, "question": str}],
     "verbatim": str
   }],
-  "open_parameters": [{"question": str, "where": str|null}],
+  "open_parameters": [{"question": str, "where": str|null, "where_en": str|null}],
   "reference": str|null
 }
 """

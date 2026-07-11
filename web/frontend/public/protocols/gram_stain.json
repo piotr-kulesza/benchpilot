@@ -7,23 +7,33 @@
   "materials": [
     {
       "name": "Crystal violet",
-      "note": null
+      "name_en": null,
+      "note": null,
+      "note_en": null
     },
     {
       "name": "Gram's iodine",
-      "note": null
+      "name_en": null,
+      "note": null,
+      "note_en": null
     },
     {
       "name": "95% ethanol (decolorizer)",
-      "note": null
+      "name_en": null,
+      "note": null,
+      "note_en": null
     },
     {
       "name": "Safranin counterstain",
-      "note": null
+      "name_en": null,
+      "note": null,
+      "note_en": null
     },
     {
       "name": "Glass slides, bunsen burner, light microscope with oil immersion objective",
-      "note": null
+      "name_en": null,
+      "note": null,
+      "note_en": null
     }
   ],
   "steps": [
@@ -70,7 +80,8 @@
       "conditionals": [],
       "repeat": {
         "count": 3,
-        "reason": "pass through flame two or three times"
+        "reason": "pass through flame two or three times",
+        "reason_en": null
       },
       "alternatives": [],
       "hazards": [

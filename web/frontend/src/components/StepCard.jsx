@@ -13,6 +13,7 @@ import {
   reagentName,
   reagentVolume,
   reagentCondition,
+  localize,
 } from '../lib/runtime.js'
 
 const KIND_ICON = {
@@ -85,7 +86,7 @@ export default function StepCard({
           {selected.map((c, i) => (
             <div className="resolved" key={i}>
               <span className="tag">resolved</span>
-              <span>{c.then}</span>
+              <span>{localize(c, 'then', lang)}</span>
             </div>
           ))}
         </div>
@@ -94,7 +95,7 @@ export default function StepCard({
       {/* unresolved branch — ask inline so the run never stalls silently */}
       {selected.length === 0 && undecided.length > 0 && (
         <div className="block">
-          <InlineBranch conditionals={undecided} onAnswerInline={onAnswerInline} />
+          <InlineBranch conditionals={undecided} onAnswerInline={onAnswerInline} lang={lang} />
         </div>
       )}
 
@@ -127,7 +128,7 @@ export default function StepCard({
             {!openEnded && repTarget > 12 && <div className="repeat-count">×{repTarget}</div>}
             <div className="repeat-info">
               {openEnded
-                ? `Repeat ${eff.repeat.reason ? '— ' + eff.repeat.reason : ''} · pass ${passes}`
+                ? `Repeat ${localize(eff.repeat, 'reason', lang) ? '— ' + localize(eff.repeat, 'reason', lang) : ''} · pass ${passes}`
                 : eff.action === 'thermocycle'
                   ? `Cycle ${Math.min(passes, repTarget)} of ${repTarget}`
                   : `Pass ${Math.min(passes, repTarget)} of ${repTarget}`}
@@ -172,7 +173,7 @@ export default function StepCard({
   )
 }
 
-function InlineBranch({ conditionals, onAnswerInline }) {
+function InlineBranch({ conditionals, onAnswerInline, lang = 'en' }) {
   const text = conditionals.map((c) => c.condition).join(' ').toLowerCase()
   const isKit = text.includes('mini') || text.includes('micro')
   const isCells =
@@ -198,7 +199,7 @@ function InlineBranch({ conditionals, onAnswerInline }) {
         <div className="seg">
           {conditionals.map((c, i) => (
             <span key={i} className="r-cond">
-              {c.condition} → {c.then}
+              {localize(c, 'condition', lang)} → {localize(c, 'then', lang)}
             </span>
           ))}
         </div>

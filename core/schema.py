@@ -158,21 +158,26 @@ class Spin:
 
 @dataclass
 class Conditional:
-    """A branch: if `condition` holds, do `then`."""
+    """A branch: if `condition` holds, do `then`. Original kept verbatim; `_en`
+    carries English so the default UI never leaks the source language."""
     condition: str = ""
+    condition_en: Optional[str] = None
     then: str = ""
+    then_en: Optional[str] = None
 
     @classmethod
     def from_dict(cls, d: Any) -> "Conditional":
         d = d or {}
-        return cls(condition=_s(d.get("condition")), then=_s(d.get("then")))
+        return cls(condition=_s(d.get("condition")), condition_en=_opt_s(d.get("condition_en")),
+                   then=_s(d.get("then")), then_en=_opt_s(d.get("then_en")))
 
 
 @dataclass
 class Repeat:
-    """Repeat instruction: a fixed `count`, and/or a `reason`."""
+    """Repeat instruction: a fixed `count`, and/or a `reason` (with English `reason_en`)."""
     count: Optional[int] = None
     reason: Optional[str] = None
+    reason_en: Optional[str] = None
 
     @classmethod
     def from_dict(cls, d: Any) -> Optional["Repeat"]:
@@ -182,6 +187,7 @@ class Repeat:
         return cls(
             count=int(cnt) if cnt is not None else None,
             reason=_opt_s(d.get("reason")),
+            reason_en=_opt_s(d.get("reason_en")),
         )
 
 
@@ -201,25 +207,30 @@ class Gap:
 class OpenParameter:
     """A protocol-level open decision (kit, input, target metric, ...)."""
     question: str = ""
-    where: Optional[str] = None   # where in the protocol it bites
+    where: Optional[str] = None   # where in the protocol it bites (original language)
+    where_en: Optional[str] = None  # English rendering of `where`
 
     @classmethod
     def from_dict(cls, d: Any) -> "OpenParameter":
         d = d or {}
-        return cls(question=_s(d.get("question")), where=_opt_s(d.get("where")))
+        return cls(question=_s(d.get("question")), where=_opt_s(d.get("where")),
+                   where_en=_opt_s(d.get("where_en")))
 
 
 @dataclass
 class Material:
-    name: str = ""
+    name: str = ""              # original language (verbatim)
+    name_en: Optional[str] = None  # English rendering
     note: Optional[str] = None
+    note_en: Optional[str] = None
 
     @classmethod
     def from_dict(cls, d: Any) -> "Material":
         if isinstance(d, str):
             return cls(name=d.strip())
         d = d or {}
-        return cls(name=_s(d.get("name")), note=_opt_s(d.get("note")))
+        return cls(name=_s(d.get("name")), name_en=_opt_s(d.get("name_en")),
+                   note=_opt_s(d.get("note")), note_en=_opt_s(d.get("note_en")))
 
 
 # ---------------------------------------------------------------------------

@@ -313,7 +313,7 @@ export function extractTemperature(step, lang = 'en') {
 // them (kit, cell count) are structured because they drive conditionals; the rest
 // render as free-text so the user records their decision. Deduped by key.
 
-export function deriveIntakeFields(protocol) {
+export function deriveIntakeFields(protocol, lang = 'en') {
   const fields = []
   const seen = new Set()
   const add = (f) => {
@@ -323,7 +323,7 @@ export function deriveIntakeFields(protocol) {
   }
 
   const questions = [
-    ...(protocol.open_parameters || []).map((p) => ({ text: p.question, where: p.where })),
+    ...(protocol.open_parameters || []).map((p) => ({ text: p.question, where: localize(p, 'where', lang) })),
     ...collectGapQuestions(protocol),
   ]
 

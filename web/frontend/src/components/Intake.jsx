@@ -14,7 +14,7 @@ import {
 // The "before you start" screen — the Claude payoff made visible: the open
 // questions the parse surfaced, a prep-ahead checklist, materials, and hazards.
 export default function Intake({ protocol, notes = [], answers, setAnswers, onStart, lang = 'en' }) {
-  const fields = useMemo(() => deriveIntakeFields(protocol), [protocol])
+  const fields = useMemo(() => deriveIntakeFields(protocol, lang), [protocol, lang])
   const prepSteps = protocol.steps.filter((s) => s.prep_ahead)
   const [checked, setChecked] = useState({})
 
@@ -128,8 +128,8 @@ export default function Intake({ protocol, notes = [], answers, setAnswers, onSt
           <ul className="materials-list">
             {protocol.materials.map((m, i) => (
               <li key={i}>
-                {m.name}
-                {m.note ? <span className="note"> — {m.note}</span> : null}
+                {localize(m, 'name', lang)}
+                {localize(m, 'note', lang) ? <span className="note"> — {localize(m, 'note', lang)}</span> : null}
               </li>
             ))}
           </ul>

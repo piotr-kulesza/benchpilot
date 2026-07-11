@@ -7,31 +7,45 @@
   "materials": [
     {
       "name": "Agarose powder",
-      "note": null
+      "name_en": null,
+      "note": null,
+      "note_en": null
     },
     {
       "name": "1X TAE buffer",
-      "note": null
+      "name_en": null,
+      "note": null,
+      "note_en": null
     },
     {
       "name": "10,000X SYBR Safe or ethidium bromide stain",
-      "note": null
+      "name_en": null,
+      "note": null,
+      "note_en": null
     },
     {
       "name": "6X DNA loading dye",
-      "note": null
+      "name_en": null,
+      "note": null,
+      "note_en": null
     },
     {
       "name": "DNA ladder",
-      "note": null
+      "name_en": null,
+      "note": null,
+      "note_en": null
     },
     {
       "name": "Casting tray, comb, gel tank, power supply",
-      "note": null
+      "name_en": null,
+      "note": null,
+      "note_en": null
     },
     {
       "name": "UV or blue-light transilluminator",
-      "note": null
+      "name_en": null,
+      "note": null,
+      "note_en": null
     }
   ],
   "steps": [
@@ -312,11 +326,13 @@
   "open_parameters": [
     {
       "question": "Which stain will be used — SYBR Safe or ethidium bromide?",
-      "where": "Materials / step 4"
+      "where": "Materials / step 4",
+      "where_en": null
     },
     {
       "question": "What is the run time (30-45 min) and stopping point for the gel?",
-      "where": "step 9"
+      "where": "step 9",
+      "where_en": null
     }
   ],
   "reference": null
