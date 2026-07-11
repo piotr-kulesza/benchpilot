@@ -268,10 +268,13 @@ function Equipment({ step, progress, running }) {
     case 'spin_column':
       return <SpinColumn flowThrough={step.action === 'wash' || step.action === 'elute'} color={theme.liquid.accent} scale={scale} />
     case 'bottle_pipette':
+      // pipette tilted like a hand holding it: tip in the tube (world x≈0), body
+      // angled up-left so it clears the top HUD bar AND sits beside the 3D label
+      // (which is centred above the vessel) rather than behind it.
       return (
         <group>
-          <ReagentBottle position={[1.25, 0, 0.35]} scale={0.7} />
-          <Pipette position={[0, 1.8, 0.12]} pouring scale={0.55} />
+          <ReagentBottle position={[1.1, 0, 0.35]} scale={0.7} />
+          <Pipette position={[-0.2, 1.25, 0.15]} rotation={[0, 0, 0.55]} pouring scale={0.48} />
         </group>
       )
     default:
@@ -393,13 +396,17 @@ export default function StationScene({ protocol, activeIndex = 0, answers = {}, 
       <SaturationPass />
       <CameraRig view={view} />
 
-      {/* permanent blue pipette stand — a resident bench prop beside the hero */}
-      <PipetteStand position={[-2.5, 0, 0.5]} scale={0.6} />
+      {/* permanent blue pipette stand — a resident bench prop on the OPEN RIGHT
+          side (the left is covered by the step panel), base flat on the bench.
+          x=1.5 keeps its rightmost (~1.87) inside the visible right edge (~2.14
+          at a 1.6 aspect) with margin, and clearly right of the hero (world 0). */}
+      <PipetteStand position={[1.5, 0, 0.1]} scale={0.52} />
 
-      {/* floating 3D label above the hero + bench station number (fixed frame,
-          since the active station sits at world origin) */}
-      <Label3D title={labelTitle} sub={labelSub} position={[0, 2.5, 0]} />
-      <StationDecal n={active + 1} position={[0, 0.014, 1.5]} />
+      {/* floating 3D label just above the active vessel + bench station number.
+          Fixed frame, since the active station sits at world origin. y=1.9 sits
+          ~21% from the top (clear of the top HUD; y=2.5 was ~3% → clipped). */}
+      <Label3D title={labelTitle} sub={labelSub} position={[0, 1.9, 0]} />
+      <StationDecal n={active + 1} position={[0, 0.014, 0.6]} />
 
 
       <MovingWorld offsetX={stationX(active)}>
