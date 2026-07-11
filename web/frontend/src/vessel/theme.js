@@ -60,9 +60,10 @@ export const theme = {
   // verbatim (barely-there near the hero; blends the far bench into the greige).
   fog: { color: '#bcb7ae', density: 0.0028 },
 
-  // The bench slab: a warm mid-grey, a little DARKER than the background wall and
-  // GENTLY reflective (soft sheen, not a mirror).
-  bench: { color: '#6e685f', metalness: 0.14, roughness: 0.48, envMapIntensity: 0.55 },
+  // The bench slab — the demo's LIVE cinematic bench (applyViewMode): a LIGHT warm
+  // cream resin, gently reflective. Meets the greige wall at a crisp horizon (the
+  // muddy mid-brown was the regression).
+  bench: { color: '#cbc6bd', metalness: 0.12, roughness: 0.5, envMapIntensity: 0.62 },
 
   // One-time HSL saturation boost applied to object materials after each station
   // mounts — neutrals barely move (low sat × factor stays low), coloured
@@ -116,15 +117,18 @@ export const theme = {
     baseFill: 0.5,
   },
 
-  // Cohesive per-reagent coloring — keyed by keyword, else `liquid.accent`.
-  // Restrained (all within a calm cool range) so the scene never goes rainbow.
+  // Per-reagent coloring — the demo's COL_CINE palette, keyed by keyword.
+  // Order matters: β-mercaptoethanol is part of the RLT LYSIS buffer, so it reads
+  // teal (COL.lysis), NOT a separate periwinkle — that mis-match made the first
+  // tube blue. Water/ethanol are distinct blues; wash buffers periwinkle; DNase
+  // amber; eluate/RNA green. Falls back to `liquid.accent`.
   reagentColors: [
-    { match: ['ethanol', 'etanol', 'isopropanol', 'water', 'woda', 'rnase-free'], color: '#9fd6ea' },
-    { match: ['rlt', 'rw1', 'rpe', 'buffer', 'bufor', 'guanidin'], color: '#12a794' },
-    { match: ['dnase', 'rdd', 'enzyme'], color: '#2f8fd6' },
-    { match: ['soc', 'lb', 'medium', 'media', 'agar'], color: '#d9a52e' },
-    { match: ['trizol', 'phenol', 'chloroform'], color: '#d96379' },
-    { match: ['mercapto', '2-me', 'reducing'], color: '#7385cf' },
+    { match: ['rlt', 'β-me', 'b-me', '2-me', 'mercapto', 'reducing', 'lysis', 'guanidin', 'lizuj'], color: '#02b6a0' }, // lysis teal
+    { match: ['ethanol', 'etanol', 'etoh', 'isopropanol'], color: '#1f8bf2' }, // ethanol blue
+    { match: ['rw1', 'rpe', 'wash', 'przemyw', 'buffer', 'bufor'], color: '#5061db' }, // wash periwinkle
+    { match: ['dnase', 'rdd', 'enzyme'], color: '#f2a208' }, // DNase amber
+    { match: ['rna', 'eluat', 'eluate'], color: '#12c46c' }, // eluate / RNA green
+    { match: ['water', 'woda', 'rnase-free', 'h₂o', 'h2o'], color: '#53b4ef' }, // water sky blue
   ],
 
   // Accent used for glows, rings, gauges (heat glow overrides warm).
