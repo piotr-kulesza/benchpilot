@@ -195,6 +195,7 @@ function configureStation(st, o) {
     v.userData.setLevel(startLevel)
     v.visible = true
     v.rotation.set(0, 0, 0)
+    v.scale.setScalar(1) // clear any per-station scale (e.g. the thermocycler's shrunk tube)
     S.at(v, st.x + x, FLAT ? 0 : y, z)
     return v
   }
@@ -402,7 +403,15 @@ function configureStation(st, o) {
     st.updatables.push(tc)
     st.dev = tc
     const n = cycles > 0 ? cycles : 30
-    st.enter = () => { seat(-0.0, BT + 0.25, 0.05); tc.userData.setLid(true); tc.userData.setProgress(0, n) }
+    // Seat the tube DOWN in the block and shrink it to a PCR-tube size, so its top
+    // (~1.1) sits below the lid's closed rest height (LID_CLOSED 1.28) — the heated
+    // lid then presses just above it, never through it. seat() restores scale=1 on
+    // the next station, so this shrink never leaks.
+    st.enter = () => {
+      seat(0, 0.18, 0.05)
+      S[vessel].scale.setScalar(0.52)
+      tc.userData.setLid(true); tc.userData.setProgress(0, n)
+    }
     st.timeline = (p) => {
       tc.userData.setLid(!(p > 0.12 && p < 0.9)) // lid CLOSED while cycling, open before/after
       tc.userData.setProgress(p, n)
@@ -426,33 +435,31 @@ function configureStation(st, o) {
     st.cold = new PointLight(0x8fbaf0, 0, 4)
     st.cold.position.set(0, 1, -0.6)
     st.group.add(st.cold)
-    // The cavity opening faces +z. The vial must enter THROUGH the opening — never
-    // through a wall: it stages in front (aligned on the cavity's x + height), moves
-    // straight in along −z, then lowers onto the cavity floor. Door opens first,
-    // closes only once the vial is fully inside (cap stays clear of the top wall).
+    // The cavity opening faces +z (spans y≈0.30–1.80). The vial must enter THROUGH
+    // the opening — never through a wall. CRITICAL: it stays LOW (base y≈0.4, so its
+    // cap tops out ~1.6, well under the cavity/box top) the entire time it is at or
+    // inside the freezer, and only hops UP while still out in front of the box (never
+    // over it). Door opens first; closes only once the vial is fully inside.
     const bench = { x: -1.4, y: SEAT_Y, z: 0.9 }
-    const front = { x: 0.1, y: 1.05, z: 0.35 }  // staged in front of the mouth
-    const inMid = { x: 0.1, y: 1.05, z: -1.0 }  // carried in through the opening
-    const inside = { x: 0.1, y: 0.5, z: -1.0 }  // lowered onto the cavity floor
+    const front = { x: 0.1, y: 0.4, z: 0.4 }    // staged low, in front of the mouth
+    const inside = { x: 0.1, y: 0.4, z: -1.0 }  // seated on the cavity floor (same low y)
     const move = (v, a, b, q) => S.at(v, st.x + demo.lerp(a.x, b.x, q), demo.lerp(a.y, b.y, q), demo.lerp(a.z, b.z, q))
     st.enter = () => { seat(bench.x, bench.y, bench.z); fr.userData.setDoor(true); fr.userData.setFrost(0); st.cold.intensity = 0 }
     st.timeline = (p) => {
       evolve(p)
       const v = S[vessel]
-      fr.userData.setDoor(p < 0.64)  // open until the vial is seated inside, then close
+      fr.userData.setDoor(p < 0.66)  // open until the vial is seated inside, then close
       if (p < 0.14) {                // 1 · door swings open; vial waits on the bench
         S.at(v, st.x + bench.x, bench.y, bench.z)
-      } else if (p < 0.36) {         // 2 · lift off the bench and approach the opening (hop up)
-        const q = demo.easeInOut((p - 0.14) / 0.22)
-        S.at(v, st.x + demo.lerp(bench.x, front.x, q), demo.lerp(bench.y, front.y, q) + Math.sin(q * Math.PI) * 0.5, demo.lerp(bench.z, front.z, q))
-      } else if (p < 0.52) {         // 3 · move STRAIGHT IN through the opening (−z only)
-        move(v, front, inMid, demo.easeInOut((p - 0.36) / 0.16))
-      } else if (p < 0.64) {         // 4 · lower onto the cavity floor
-        move(v, inMid, inside, demo.easeInOut((p - 0.52) / 0.12))
-      } else {                       // 5 · inside, door closed — deep-cold cast + frost puff
+      } else if (p < 0.42) {         // 2 · approach the opening — hop stays OUT in front of the box
+        const q = demo.easeInOut((p - 0.14) / 0.28)
+        S.at(v, st.x + demo.lerp(bench.x, front.x, q), demo.lerp(bench.y, front.y, q) + Math.sin(q * Math.PI) * 0.45, demo.lerp(bench.z, front.z, q))
+      } else if (p < 0.66) {         // 3 · move STRAIGHT IN through the opening (−z only, low)
+        move(v, front, inside, demo.easeInOut((p - 0.42) / 0.24))
+      } else {                       // 4 · inside, door closed — deep-cold cast + frost puff
         S.at(v, st.x + inside.x, inside.y, inside.z)
-        st.cold.intensity = (p - 0.64) * 5
-        fr.userData.setFrost(0.4 * Math.max(0, Math.sin((p - 0.64) * 7)))
+        st.cold.intensity = (p - 0.66) * 5
+        fr.userData.setFrost(0.4 * Math.max(0, Math.sin((p - 0.66) * 7)))
       }
     }
   } else if (action === 'seed') {

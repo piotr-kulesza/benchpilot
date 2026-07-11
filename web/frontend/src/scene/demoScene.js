@@ -766,12 +766,20 @@ export function undockSample() {
     for(var i=0;i<4;i++){ var bx=-0.6+i*0.4;
       var bore=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.09,0.3,18,1,true), boreMat);
       bore.position.set(bx,0.66,0.05); grp.add(bore); }
-    // hinged HEATED LID that lowers over the wells
-    var lidPivot = new THREE.Group(); lidPivot.position.set(0,0.78,-0.75); grp.add(lidPivot);
+    // HEATED LID that presses STRAIGHT DOWN onto the sample. It travels VERTICALLY
+    // (not a hinge sweep — a sweep passes through a tall tube) and its closed rest
+    // height clears the seated tube's top, so it clamps ABOVE the sample, never through
+    // it. LID_CLOSED must stay above the thermocycle branch's seated-tube top (~1.1).
+    var LID_CLOSED=1.28, LID_OPEN=2.2;
+    var lidPivot = new THREE.Group(); lidPivot.position.set(0,LID_OPEN,0); grp.add(lidPivot);
     var lid = new THREE.Mesh(new THREE.BoxGeometry(2.2,0.22,1.4), matPainted(0x3a3f47,0.5));
-    lid.position.set(0,0.11,0.75); lidPivot.add(lid);
+    lid.position.set(0,0.11,0.05); lidPivot.add(lid);
     var lidGrip = new THREE.Mesh(new THREE.BoxGeometry(1.4,0.08,0.16), matPlastic(0x22272e));
-    lidGrip.position.set(0,0.26,1.15); lidPivot.add(lidGrip);
+    lidGrip.position.set(0,0.26,0.62); lidPivot.add(lidGrip);
+    // four posts the lid rides down on, so the raised lid reads as a press mechanism
+    var postMat=matBrushed(0x8f99a4);
+    for(var lp=0;lp<2;lp++){ var post=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.6,12), postMat);
+      post.position.set(-1.0+lp*2.0,1.5,-0.6); grp.add(post); }
     // slanted control display
     var dc=document.createElement("canvas"); dc.width=256; dc.height=128; var dg=dc.getContext("2d");
     var dTex=new THREE.CanvasTexture(dc); dTex.anisotropy=MAX_ANISO;
@@ -809,7 +817,7 @@ export function undockSample() {
     };
     grp.userData.update=function(dt){
       st.lid=lerp(st.lid, st.tLid, 1-Math.pow(0.02,dt));
-      lidPivot.rotation.x = -easeInOut(st.lid)*1.05;   // 0 = closed over the wells
+      lidPivot.position.y = lerp(LID_CLOSED, LID_OPEN, easeInOut(st.lid)); // 1=open(high), 0=closed(low)
     };
     grp.userData.setProgress(0,30);
     return grp;
