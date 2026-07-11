@@ -1,0 +1,16 @@
+Cryopreservation of Mammalian Cells
+
+Materials
+- Freezing medium: 90% FBS + 10% DMSO (or complete medium with 10% DMSO)
+- Cryovials
+- Isopropanol freezing container (Mr. Frosty) or controlled-rate freezer
+- Liquid nitrogen storage dewar
+
+Procedure
+1. Harvest cells in log-phase growth by trypsinization and neutralize with complete medium.
+2. Centrifuge the cell suspension at 200 x g for 5 min to pellet the cells.
+3. Aspirate and discard the supernatant, taking care not to disturb the pellet.
+4. Gently resuspend the pellet in cold freezing medium to a density of 1-5 x 10^6 cells per mL. Keep the cells on ice.
+5. Aliquot 1 mL of the cell suspension into each labelled cryovial. Work quickly — prolonged exposure to DMSO at room temperature is toxic to cells.
+6. Place the cryovials into an isopropanol freezing container and transfer to a -80°C freezer overnight to achieve a controlled cooling rate of about -1°C per min.
+7. The next day, transfer the frozen cryovials into the liquid nitrogen dewar (vapor phase, below -150°C) for long-term storage.

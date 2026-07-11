@@ -1,0 +1,21 @@
+Agarose Gel Electrophoresis of DNA (1% gel)
+
+Materials
+- Agarose powder
+- 1X TAE buffer
+- 10,000X SYBR Safe or ethidium bromide stain
+- 6X DNA loading dye
+- DNA ladder
+- Casting tray, comb, gel tank, power supply
+- UV or blue-light transilluminator
+
+Procedure
+1. Weigh 1 g of agarose and add it to 100 mL of 1X TAE buffer in a flask.
+2. Microwave the mixture for about 1-2 min, swirling occasionally, until the agarose is fully dissolved and the solution is clear.
+3. Let the molten agarose cool to about 55°C.
+4. Add 10 µL of SYBR Safe stain and swirl to mix. CAUTION: ethidium bromide is a mutagen — wear gloves and work in the designated area.
+5. Pour the agarose into the casting tray with the comb in place and let it solidify at room temperature for 20-30 min.
+6. Remove the comb and place the gel into the tank filled with 1X TAE until the buffer just covers the gel.
+7. Mix each DNA sample with 6X loading dye and load the samples into the wells. Load 5 µL of DNA ladder into the first well.
+8. Connect the tank to the power supply and run the gel at 100 V for 30-45 min, until the dye front has migrated about two-thirds down the gel.
+9. Turn off the power supply and place the gel on the transilluminator to visualize and photograph the DNA bands under UV light.

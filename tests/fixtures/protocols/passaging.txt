@@ -1,0 +1,15 @@
+Subculturing Adherent Cells
+
+Procedure
+1. Monitor cell viability prior to subculturing. Adherent cells should be passaged at log phase with viability greater than 90%.
+2. Remove and discard the spent cell culture media from the culture vessel.
+3. Wash the cells using a balanced salt solution without calcium and magnesium (approximately 2 mL per 10 cm2). Gently add the wash solution to the side of the vessel opposite the attached cell layer to avoid disturbing the cell layer and rock the vessel back and forth several times.
+4. Remove and discard the wash solution from the culture vessel.
+5. Add pre-warmed dissociation reagent such as trypsin or TrypLE to the side of the flask; use enough to cover the cell layer (approximately 0.5 mL per 10 cm2). Gently rock the container to get complete coverage.
+6. Incubate the culture vessel at room temperature for approximately 2 minutes.
+7. Observe the cells under the microscope for detachment. If cells are less than 90% detached, increase the incubation time a few more minutes, checking every 30 seconds.
+8. When >=90% of the cells have detached, add twice the volume of pre-warmed complete growth medium. Disperse by pipetting over the cell layer several times.
+9. Transfer the cells to a 15 mL conical tube and centrifuge at 200 x g for 5 to 10 minutes.
+10. Resuspend the cell pellet in a minimal volume of pre-warmed complete growth medium and remove a sample for counting.
+11. Count the cells using a hemocytometer with Trypan blue exclusion.
+12. Dilute the cell suspension to the recommended seeding density, pipette the appropriate volume into new culture vessels, and return the cells to the 37°C, 5% CO2 incubator.

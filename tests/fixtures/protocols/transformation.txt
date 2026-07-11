@@ -1,0 +1,26 @@
+Bacterial Transformation Protocol
+
+Equipment
+- Shaking incubator at 37 °C
+- Stationary incubator at 37 °C
+- Water bath at 42 °C
+- Ice bucket filled with ice
+- Microcentrifuge tubes
+- Sterile spreading device
+
+Reagents
+- LB agar plate (with appropriate antibiotic)
+- LB or SOC media
+- Competent cells
+- DNA you'd like to transform
+
+Procedure
+1. Take competent cells out of -80°C and thaw on ice (approximately 20-30 mins).
+2. Remove agar plates (containing the appropriate antibiotic) from storage at 4°C and let warm up to room temperature and then (optional) incubate in 37°C incubator.
+3. Mix 1 - 5 µl of DNA (usually 10 pg - 100 ng) into 20-50 µL of competent cells in a microcentrifuge or falcon tube. GENTLY mix by flicking the bottom of the tube with your finger a few times.
+4. Incubate the competent cell/DNA mixture on ice for 20-30 mins.
+5. Heat shock each transformation tube by placing the bottom 1/2 to 2/3 of the tube into a 42°C water bath for 30-60 secs (45 secs is usually ideal, but this varies depending on the competent cells you are using).
+6. Put the tubes back on ice for 2 min.
+7. Add 250-1,000 µl LB or SOC media (without antibiotic) to the bacteria and grow in 37°C shaking incubator for 45 min.
+8. Plate some or all of the transformation onto a 10 cm LB agar plate containing the appropriate antibiotic.
+9. Incubate plates at 37°C overnight.

@@ -1,0 +1,26 @@
+Sandwich ELISA
+
+Sample preparation
+1. Collect blood samples in tubes with anti-coagulant.
+2. Centrifuge the samples at 1,000-10,000 x g for 10 min at 4°C and remove the pellet.
+3. Aliquot the supernatant into several tubes (minimum 50 µL each).
+
+Capture antibody coating
+4. Dilute the capture antibody in coating buffer to 1-10 µg/mL.
+5. Add ~50 µL of diluted capture antibody to each well and cover the plate. Incubate with gentle agitation for 2 h at room temperature, or overnight at 4°C.
+6. Wash each well three times with wash buffer.
+
+Blocking and sample addition
+7. Add 200 µL of blocking buffer to each well and cover the plate. Block with gentle agitation for 1-2 h at room temperature.
+8. Dilute the samples, controls and standards in dilution buffer.
+9. Add 100 µL of diluted samples and standards to the wells and cover the plate. Incubate with gentle agitation for 2 h at room temperature.
+10. Wash each well three times with wash buffer.
+
+Detection
+11. Add 100 µL of pre-diluted detection antibody to each well and cover the plate. Incubate for 2 h at room temperature.
+12. Wash each well three times with wash buffer.
+13. Add 100 µL of HRP-conjugated secondary antibody to each well and incubate for 1-2 h at room temperature.
+14. Wash each well three times with wash buffer.
+15. Add 50-100 µL of TMB enzyme substrate to each well and incubate with gentle agitation on a plate shaker.
+16. Add 100 µL of stop solution to each well and shake for 1 min to mix.
+17. Read the absorbance in the plate reader at 450 nm.

@@ -1,0 +1,23 @@
+Western Blot — gel, transfer, blocking, antibody incubation and detection
+
+Solutions
+- 1X TBS, 1X TBST (wash buffer)
+- Blocking buffer: 1X TBST with 5% w/v nonfat dry milk
+- Primary antibody dilution buffer: 1X TBST with 5% BSA
+- Nitrocellulose membrane (0.2 µm)
+- HRP-conjugated secondary antibody
+- LumiGLO chemiluminescent reagent
+
+Procedure
+1. Load the denatured protein samples and a molecular weight ladder into the wells of the SDS-PAGE gel.
+2. Run the gel at 120 V until the dye front reaches the bottom (approximately 90 min).
+3. Transfer the proteins from the gel onto a nitrocellulose membrane at 100 V for 60 min in cold transfer buffer.
+4. Wash the nitrocellulose membrane with 25 mL TBS for 5 min at room temperature.
+5. Incubate the membrane in 25 mL of blocking buffer with gentle agitation for 1 hr at room temperature.
+6. Wash three times for 5 min each with 15 mL of TBST.
+7. Incubate the membrane with primary antibody in 10 mL primary antibody dilution buffer with gentle agitation overnight at 4°C.
+8. Wash three times for 5 min each with 15 mL of TBST.
+9. Incubate the membrane with the HRP-conjugated secondary antibody at 1:2000 in 10 mL of blocking buffer with gentle agitation for 1 hr at room temperature.
+10. Wash three times for 5 min each with 15 mL of TBST.
+11. Incubate the membrane with 10 mL LumiGLO chemiluminescent reagent with gentle agitation for 1 min at room temperature.
+12. Drain the membrane of excess developing solution (do not let it dry), wrap in plastic wrap, and expose to X-ray film. An initial 10 sec exposure should indicate the proper exposure time.

@@ -1,0 +1,21 @@
+Gram Stain
+
+Materials
+- Crystal violet
+- Gram's iodine
+- 95% ethanol (decolorizer)
+- Safranin counterstain
+- Glass slides, bunsen burner, light microscope with oil immersion objective
+
+Procedure
+1. Prepare a thin smear of the bacterial culture on a clean glass slide and let it air dry.
+2. Heat-fix the smear by passing the slide through a flame two or three times.
+3. Flood the smear with crystal violet and let it stand for 1 min.
+4. Gently rinse the slide with distilled water for a few seconds.
+5. Flood the smear with Gram's iodine and let it stand for 1 min.
+6. Rinse briefly with distilled water.
+7. Decolorize by adding 95% ethanol drop by drop for 10-15 s until the runoff is clear. CAUTION: over-decolorizing gives false Gram-negative results.
+8. Rinse immediately with distilled water to stop decolorization.
+9. Counterstain with safranin for 30-45 s.
+10. Rinse with distilled water and gently blot the slide dry with bibulous paper.
+11. Examine the slide under the light microscope using the oil immersion (100x) objective.
