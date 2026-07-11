@@ -105,6 +105,22 @@ if none fits, use "generic"):
   "discard"       - discard flow-through / waste (odrzucić przesącz)
   "elute"         - the final elution spin (collects the product into a clean tube)
   "measure"       - QC / read on an instrument (NanoDrop, Bioanalyzer)
+  "thermocycle"   - a CYCLIC thermal program (PCR/qPCR): repeated denature/anneal/
+                    extend. ONLY for the cycled block; a single timed hold stays
+                    "incubate_wait"/"heat". Emit ONE thermocycle step with repeat.count
+                    = number of cycles; the initial denaturation and final extension
+                    are their OWN "heat" steps beside it. e.g. "35 cycles of 95°C 30s
+                    / 58°C 30s / 72°C 60s" -> ONE thermocycle, repeat.count 35.
+  "electrophorese"- apply an ELECTRIC FIELD: run a gel (agarose, SDS-PAGE) OR
+                    electro-transfer proteins onto a membrane. "transfer the proteins
+                    to the nitrocellulose membrane" is electrophorese (NOT "transfer").
+  "store"         - place at -20/-80/4 °C or in LN2 for HOLDING/FREEZING (an end-state),
+                    distinct from transient "cool_ice". e.g. "store at -80°C", "freeze
+                    in liquid nitrogen".
+  "seed"          - dispense or SPREAD the sample into/onto a CULTURE vessel to grow it:
+                    seed a flask/dish/well, or spread bacteria on an agar plate.
+  "stain"         - flood a STAIN/DYE over a sample surface (Gram flood, post-gel
+                    stain, IHC).
   "generic"       - fallback when nothing above fits
   Each step has ONE primary action. Split ONLY at distinct physical operations —
   fold mixing into the add, and fold the flow-through discard into the spin:
@@ -123,7 +139,30 @@ if none fits, use "generic"):
   reagents -> "pour_add", NOT "pipette_mix":
     "prepare the DNase I mix: 10 µl DNase I + 70 µl RDD buffer" -> pour_add
 
+CONTAINER (where the SAMPLE now sits) — set `container` per step:
+  A protocol may live in many vessels. Set `container` to ONE of: microtube, tube,
+  well_plate, flask, dish, gel, slide, cryovial, membrane, spin_column, eluate_tube,
+  bottle, agar_plate — ONLY when the step names where the SAMPLE now sits:
+    "aliquot into cryovials" -> cryovial ; "add to the wells" -> well_plate ;
+    "onto a nitrocellulose membrane" -> membrane ; "into new culture flasks" -> flask ;
+    "smear on a glass slide" -> slide ; "load into the gel wells" -> gel ;
+    "onto the RNeasy column" -> spin_column ; "elute into a clean tube" -> eluate_tube ;
+    "spread on an LB agar plate" -> agar_plate.
+  CRITICAL: `container` is where the SAMPLE goes, NEVER where a REAGENT lives.
+  "Add 350 µl RW1 FROM THE BOTTLE" does NOT set container:bottle — the sample stays
+  in its column. If the step names no new home for the sample, OMIT `container`
+  entirely (it persists from the previous step). The very first vessel may be named
+  or default to microtube.
+
+WASHES that do NOT spin (well plate, membrane, slide, flask — no centrifuge) must
+  decompose into pour_add (the wash buffer) + discard (pour/aspirate it off),
+  mirroring the spin-wash rule (pour_add + centrifuge). A wash NEVER just fills; the
+  buffer is always removed. "Wash 3× with 200 µl TBST" -> pour_add(TBST) ;
+  discard  — with repeat.count 3 on the pair (or on each). Do NOT use a "wash" action
+  (there is none) and do NOT leave a wash as a single pour_add.
+
 For each step extract, when present:
+  - container: see the CONTAINER rule above (omit if unchanged).
   - text: instruction in the ORIGINAL language. text_en: the English translation.
   - duration_seconds: numeric seconds parsed from times like "15 s"=15,
     "2 min"=120, "15 min"=900, "1 min"=60, "24 h"=86400. If a step has several
@@ -140,8 +179,12 @@ For each step extract, when present:
     "większa liczba").
   - conditionals: [{condition, then}] for branches (cell-count branch; Mini vs
     Micro kit; bulk vs single-cell). May be phrased in English.
-  - repeat: {count, reason}. e.g. "Powtórzyć dla pozostałej objętości" ->
-    {reason: "dla pozostałej objętości"}. "5-krotnie" -> {count: 5}.
+  - repeat: {count, reason}. POPULATE count for any "N times / N×/ N-krotnie /
+    in triplicate / repeat N cycles": "wash three times" -> {count: 3}; "in
+    triplicate" -> {count: 3}; "35 cycles" -> {count: 35}; "5-krotnie" -> {count: 5}.
+    Use reason (no count) only for open-ended repeats: "Powtórzyć dla pozostałej
+    objętości" -> {reason: "dla pozostałej objętości"}. Never drop the count into
+    prose only. A `thermocycle` step MUST carry repeat.count = number of cycles.
   - alternatives: [Step-like] for EITHER/OR options that achieve the same goal
     (e.g. QIAshredder 2 min at max speed  OR  5× through a 20-21 G needle). List
     EVERY interchangeable method here — INCLUDING the default/first one — as its
@@ -190,6 +233,7 @@ Return JSON of exactly this shape:
   "steps": [{
     "index": int, "phase": str, "text": str, "text_en": str,
     "kind": str, "action": str,
+    "container": str|null,   // where the SAMPLE sits (see CONTAINER rule); omit if unchanged
     "duration_seconds": number|null,
     "spin": {"duration_seconds": number|null, "rcf_min": number|null, "note": str|null}|null,
     "reagents": [{"name": str, "name_en": str|null, "volume": str|null, "volume_en": str|null, "condition": str|null, "condition_en": str|null}],
