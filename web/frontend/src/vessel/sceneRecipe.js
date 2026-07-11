@@ -28,7 +28,10 @@ import { resolveBehavior } from './behavior.js'
 // action → { equipment, vessel, handoff }. The `anim` field is filled in below
 // from behavior.js so the two maps stay in lockstep. Mirrors the master-prompt
 // table and the demo's per-step equipment (buildCentrifuge, buildColdBlock,
-// buildIceBucket, buildSpinColumn, buildNanoDrop, buildBottle).
+// buildIceBucket, buildSpinColumn, buildNanoDrop, buildBottle). `transfer`,
+// `wash` and `elute` all stage a spin column (the master table listed transfer
+// as bare bench, but the loading step reads far better on the column it hands off
+// to — the incoming microtube pours in beside it).
 const RECIPES = {
   pour_add:      { equipment: 'bottle_pipette',   vessel: 'microtube',   handoff: false },
   pipette_mix:   { equipment: 'bottle_pipette',   vessel: 'microtube',   handoff: false },
@@ -37,7 +40,7 @@ const RECIPES = {
   incubate_wait: { equipment: 'incubation_block', vessel: 'microtube',   handoff: false },
   heat:          { equipment: 'heat_block',       vessel: 'microtube',   handoff: false },
   cool_ice:      { equipment: 'ice_bucket',       vessel: 'microtube',   handoff: false },
-  transfer:      { equipment: 'bench',            vessel: 'microtube',   handoff: true  },
+  transfer:      { equipment: 'spin_column',      vessel: 'microtube',   handoff: true  },
   wash:          { equipment: 'spin_column',      vessel: 'spin_column', handoff: false },
   discard:       { equipment: 'bench',            vessel: 'spin_column', handoff: false },
   elute:         { equipment: 'spin_column',      vessel: 'eluate_tube', handoff: true  },
