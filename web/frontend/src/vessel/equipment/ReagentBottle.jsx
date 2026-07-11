@@ -4,7 +4,8 @@
 // the glass body stays neutral.
 
 import { useMemo } from 'react'
-import { GLASS, liquidProps } from './materials.js'
+import { liquidProps } from './materials.js'
+import Glass from './Glass.jsx'
 import { BOTTLE_PROFILE, toPoints } from './profiles.js'
 import { liquidPoints } from './liquid.js'
 import { theme } from '../theme.js'
@@ -15,6 +16,7 @@ export default function ReagentBottle({
   fill = 0.55,
   color = theme.liquid.accent,
   capColor = '#2b7f74',
+  hero = false,
   ...props
 }) {
   const body = useMemo(() => toPoints(BOTTLE_PROFILE, R, H), [R, H])
@@ -26,12 +28,12 @@ export default function ReagentBottle({
   return (
     <group {...props}>
       <mesh castShadow>
-        <latheGeometry args={[body, 44]} />
-        <meshPhysicalMaterial {...GLASS} side={2} depthWrite={false} />
+        <latheGeometry args={[body, 72]} />
+        <Glass hero={hero} />
       </mesh>
       {liquid && (
         <mesh>
-          <latheGeometry args={[liquid, 40]} />
+          <latheGeometry args={[liquid, 64]} />
           <meshPhysicalMaterial {...liquidProps(color)} />
         </mesh>
       )}

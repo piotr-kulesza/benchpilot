@@ -15,6 +15,7 @@
 import { useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Environment, Lightformer, ContactShadows, PerspectiveCamera, OrthographicCamera } from '@react-three/drei'
+import { EffectComposer, Bloom, DepthOfField, Vignette, N8AO } from '@react-three/postprocessing'
 import { MathUtils, Vector3 } from 'three'
 import { theme, reagentColor } from './theme.js'
 import { resolveRecipe, sampleContainerSequence } from './sceneRecipe.js'
@@ -137,8 +138,24 @@ function SaturationPass({ factor = theme.saturation }) {
   return null
 }
 
+// Filmic postprocessing — AO grounds crevices, bloom lifts only highlights, DOF
+// focuses the centred active station, vignette settles the edges. Knobs: theme.post.
+function Post() {
+  const p = theme.post
+  const dofTarget = useMemo(() => new Vector3(...p.dof.target), [p.dof.target])
+  return (
+    <EffectComposer multisampling={4}>
+      <N8AO aoRadius={p.ao.aoRadius} intensity={p.ao.intensity} distanceFalloff={p.ao.distanceFalloff} color={p.ao.color} halfRes={p.ao.halfRes} />
+      <Bloom intensity={p.bloom.intensity} luminanceThreshold={p.bloom.luminanceThreshold} luminanceSmoothing={p.bloom.luminanceSmoothing} mipmapBlur={p.bloom.mipmapBlur} />
+      <DepthOfField target={dofTarget} focalLength={p.dof.focalLength} bokehScale={p.dof.bokehScale} focusRange={p.dof.focusRange} />
+      <Vignette eskil={false} offset={p.vignette.offset} darkness={p.vignette.darkness} />
+    </EffectComposer>
+  )
+}
+
 // The equipment device for a station (no sample; that is placed by the caller).
-function Equipment({ step, progress, running }) {
+// `hero` (active station only) upgrades its glass to true transmission.
+function Equipment({ step, progress, running, hero }) {
   const { equipment } = resolveRecipe(step.action)
   const scale = DEVICE_SCALE[equipment] || 1
   switch (equipment) {
@@ -153,7 +170,7 @@ function Equipment({ step, progress, running }) {
     case 'reader':
       return <Reader progress={progress} scale={scale} />
     case 'spin_column':
-      return <SpinColumn flowThrough={step.action === 'wash' || step.action === 'elute'} color={theme.liquid.accent} scale={scale} />
+      return <SpinColumn flowThrough={step.action === 'wash' || step.action === 'elute'} color={theme.liquid.accent} scale={scale} hero={hero} />
     case 'bottle_pipette':
       return (
         <group>
@@ -166,15 +183,16 @@ function Equipment({ step, progress, running }) {
   }
 }
 
-// The single travelling sample vessel (its container is decided by the walk).
-function Sample({ container, color, fill, scale }) {
+// The single travelling sample vessel (its container is decided by the walk). It
+// is the HERO glass — full transmission — since it is always the active subject.
+function Sample({ container, color, fill, scale, hero = true }) {
   switch (container) {
     case 'spin_column':
-      return <SpinColumn fill={fill} color={color} scale={scale ?? 0.75} />
+      return <SpinColumn fill={fill} color={color} scale={scale ?? 0.75} hero={hero} />
     case 'eluate_tube':
-      return <EluateTube fill={fill} color={color} scale={scale ?? 0.9} />
+      return <EluateTube fill={fill} color={color} scale={scale ?? 0.9} hero={hero} />
     default:
-      return <Microtube fill={fill} color={color} scale={scale ?? 0.62} />
+      return <Microtube fill={fill} color={color} scale={scale ?? 0.62} hero={hero} />
   }
 }
 
@@ -266,7 +284,7 @@ export default function StationScene({ protocol, activeIndex = 0, answers = {}, 
         {/* per-station equipment (only the active window is mounted) */}
         {window.map((i) => (
           <group key={i} position={[stationX(i), 0, 0]}>
-            <Equipment step={steps[i]} progress={i === active ? progress : 1} running={i === active ? running : false} />
+            <Equipment step={steps[i]} progress={i === active ? progress : 1} running={i === active ? running : false} hero={i === active} />
           </group>
         ))}
 
@@ -279,6 +297,8 @@ export default function StationScene({ protocol, activeIndex = 0, answers = {}, 
 
         <ContactShadows position={[stationX(active), 0.001, 0]} opacity={0.33} blur={2.6} far={3} scale={5} color={theme.shadow.color} resolution={512} />
       </MovingWorld>
+
+      <Post />
     </>
   )
 }

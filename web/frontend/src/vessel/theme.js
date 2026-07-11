@@ -74,33 +74,64 @@ export const theme = {
 
   // Real glass. transmission=1 + refraction; tuned so it reads as clean lab
   // borosilicate, not frosted plastic.
+  // HERO glass — true transmissive <MeshTransmissionMaterial> for the ONE active
+  // vessel: it refracts the background AND catches a crisp key-softbox highlight.
+  // Costly (renders a buffer), so only the hero uses it; neighbours fall back to
+  // `glassFallback`. Resolution/samples kept modest for 60fps.
   glass: {
-    color: '#f4f8f9',
+    color: '#eef4f6',
     transmission: 1,
-    thickness: 0.22, // thin → clear (less milky), so the liquid reads through it
-    roughness: 0.05,
-    ior: 1.5,
-    chromaticAberration: 0.04,
-    anisotropy: 0.1,
-    // perf: keep samples/resolution modest for 60fps on a laptop
+    roughness: 0.06,
+    ior: 1.45,
+    thickness: 0.35,
+    chromaticAberration: 0.02,
+    anisotropicBlur: 0.1,
+    distortionScale: 0,
+    temporalDistortion: 0,
     samples: 6,
     resolution: 256,
-    backside: false,
-    backsideThickness: 0.18,
-    attenuationColor: '#eefbf8',
-    attenuationDistance: 6,
-    envMapIntensity: 0.85,
+    envMapIntensity: 1.3,
   },
 
-  // Liquid — a separate inner mesh, gently colored + slightly translucent, with
-  // a domed meniscus. Default accent when no reagent color is known.
+  // Cheap physical glass for neighbour vessels — still refracts + reflects, no
+  // per-frame buffer. Reads as clean borosilicate under the studio key.
+  glassFallback: {
+    color: '#eef4f6',
+    transmission: 1,
+    roughness: 0.06,
+    clearcoat: 1,
+    clearcoatRoughness: 0.06,
+    ior: 1.45,
+    thickness: 0.35,
+    envMapIntensity: 1.3,
+  },
+
+  // Frosted polypropylene (spin-column cup) — translucent, matte-ish, still lit.
+  frosted: {
+    color: '#e2e9f0',
+    roughness: 0.5,
+    transmission: 0.4,
+    thickness: 0.4,
+    clearcoat: 0.3,
+    clearcoatRoughness: 0.5,
+    ior: 1.46,
+    envMapIntensity: 0.9,
+  },
+
+  // Liquid — a glossy, slightly translucent physical material with a domed
+  // meniscus at the surface (not a flat opaque disc). Strong colour reads through
+  // the glass. Default accent when no reagent color is known.
   liquid: {
     accent: '#16b8a6', // benchpilot teal
-    opacity: 0.96,
-    roughness: 0.22,
+    roughness: 0.1,
+    transmission: 0.14,
+    thickness: 1.2,
     ior: 1.34,
-    baseFill: 0.5, // fraction of inner height, 0..1 (behaviors override)
-    surfaceTintBoost: 1.12,
+    clearcoat: 1,
+    clearcoatRoughness: 0.12,
+    emissiveIntensity: 0.12,
+    envMapIntensity: 0.9,
+    baseFill: 0.5,
   },
 
   // Cohesive per-reagent coloring — keyed by keyword, else `liquid.accent`.
@@ -132,10 +163,16 @@ export const theme = {
     color: '#22423d',
   },
 
-  // Restrained post — premium highlights, faint vignette. Never blown-out.
+  // Filmic post stack — tasteful, not an effects demo.
+  //  bloom: only highlights/emissive bloom (never a haze)
+  //  dof:   focus the active station, small gentle bokeh
+  //  ao:    soft ambient occlusion darkens crevices (rotor slots, wells, contacts)
+  //  vignette: subtle edge settle
   post: {
-    bloom: { intensity: 0.32, luminanceThreshold: 0.85, luminanceSmoothing: 0.2, mipmapBlur: true },
-    vignette: { offset: 0.3, darkness: 0.5 },
+    bloom: { intensity: 0.55, luminanceThreshold: 0.85, luminanceSmoothing: 0.25, mipmapBlur: true },
+    dof: { target: [0, 0.7, 0], focalLength: 0.02, bokehScale: 2.2, focusRange: 0.008 },
+    ao: { aoRadius: 0.5, intensity: 2.2, distanceFalloff: 0.4, color: '#0c0f13', halfRes: true },
+    vignette: { offset: 0.28, darkness: 0.52 },
   },
 
   // "Alive at rest" — gentle idle bob + slow camera drift.

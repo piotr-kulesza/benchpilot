@@ -10,6 +10,23 @@
 
 import { Vector2 } from 'three'
 
+// The inset inner radius (world units) at height y along a normalized profile —
+// used to size the meniscus dome exactly to the fluid surface.
+export function innerRadiusAt(profile, R, H, y, inset = 0.9) {
+  if (y <= profile[0][1] * H) return profile[0][0] * R * inset
+  for (let i = 1; i < profile.length; i++) {
+    const ay = profile[i - 1][1] * H
+    const by = profile[i][1] * H
+    if (y <= by) {
+      const ax = profile[i - 1][0] * R
+      const bx = profile[i][0] * R
+      const t = (y - ay) / ((by - ay) || 1)
+      return (ax + (bx - ax) * t) * inset
+    }
+  }
+  return profile[profile.length - 1][0] * R * inset
+}
+
 // profile: normalized [xFactor, yFactor][]; R,H: vessel radius/height;
 // fill: 0..1 of the vessel height; inset: how far inside the wall the fluid sits.
 export function liquidPoints(profile, R, H, fill, { inset = 0.9, bottom = 0.02 } = {}) {

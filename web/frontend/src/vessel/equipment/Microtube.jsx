@@ -4,9 +4,10 @@
 // no schema, no scene wiring — sane defaults, renders standalone.
 
 import { useMemo } from 'react'
-import { GLASS, liquidProps } from './materials.js'
+import { liquidProps } from './materials.js'
+import Glass from './Glass.jsx'
 import { TUBE_PROFILE, toPoints } from './profiles.js'
-import { liquidPoints } from './liquid.js'
+import { liquidPoints, innerRadiusAt } from './liquid.js'
 import { theme } from '../theme.js'
 
 export default function Microtube({
@@ -16,6 +17,7 @@ export default function Microtube({
   color = theme.liquid.accent,
   capColor = '#2b323b',
   cap = true,
+  hero = false,
   ...props
 }) {
   const wall = useMemo(() => toPoints(TUBE_PROFILE, R, H), [R, H])
@@ -23,30 +25,38 @@ export default function Microtube({
     () => (fill > 0.01 ? liquidPoints(TUBE_PROFILE, R, H, fill) : null),
     [R, H, fill],
   )
+  const topY = fill * H
+  const topR = innerRadiusAt(TUBE_PROFILE, R, H, topY)
 
   return (
     <group {...props}>
       {/* glass wall */}
       <mesh castShadow>
-        <latheGeometry args={[wall, 64]} />
-        <meshPhysicalMaterial {...GLASS} side={2} depthWrite={false} />
+        <latheGeometry args={[wall, 96]} />
+        <Glass hero={hero} />
       </mesh>
       {/* rim lip */}
       <mesh position={[0, H, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[R * 1.02, 0.024, 12, 48]} />
-        <meshPhysicalMaterial {...GLASS} side={2} depthWrite={false} />
+        <torusGeometry args={[R * 1.02, 0.024, 16, 64]} />
+        <Glass hero={hero} />
       </mesh>
       {/* frosted writing patch moulded into the front wall */}
       <mesh position={[0, H * 0.6, 0]}>
-        <cylinderGeometry args={[R * 0.965, R * 0.9, H * 0.3, 20, 1, true, Math.PI * 0.5 - 0.62, 1.24]} />
+        <cylinderGeometry args={[R * 0.965, R * 0.9, H * 0.3, 24, 1, true, Math.PI * 0.5 - 0.62, 1.24]} />
         <meshStandardMaterial color="#e9edf1" roughness={0.92} metalness={0} transparent opacity={0.82} side={2} />
       </mesh>
-      {/* liquid, conforming to the tube interior */}
+      {/* liquid, conforming to the tube interior, with a domed meniscus */}
       {liquid && (
-        <mesh>
-          <latheGeometry args={[liquid, 48]} />
-          <meshPhysicalMaterial {...liquidProps(color)} />
-        </mesh>
+        <>
+          <mesh>
+            <latheGeometry args={[liquid, 64]} />
+            <meshPhysicalMaterial {...liquidProps(color)} />
+          </mesh>
+          <mesh position={[0, topY, 0]} scale={[topR, topR * 0.14, topR]}>
+            <sphereGeometry args={[1, 40, 20, 0, Math.PI * 2, 0, Math.PI / 2]} />
+            <meshPhysicalMaterial {...liquidProps(color)} />
+          </mesh>
+        </>
       )}
       {/* hinged cap (open, flipped up over the rim) */}
       {cap && (

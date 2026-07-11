@@ -5,7 +5,8 @@
 
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { GLASS, FROSTED, MAT, liquidProps } from './materials.js'
+import { MAT, liquidProps, frostedProps } from './materials.js'
+import Glass from './Glass.jsx'
 import { COLUMN_COLLAR, COLUMN_CUP, rawPoints } from './profiles.js'
 import { theme } from '../theme.js'
 
@@ -13,6 +14,7 @@ export default function SpinColumn({
   fill = 0.5,
   color = theme.liquid.accent,
   flowThrough = false,
+  hero = false,
   ...props
 }) {
   const collar = useMemo(() => rawPoints(COLUMN_COLLAR), [])
@@ -43,17 +45,17 @@ export default function SpinColumn({
     <group {...props}>
       {/* collection tube (clear) + rim */}
       <mesh castShadow>
-        <latheGeometry args={[collar, 48]} />
-        <meshPhysicalMaterial {...GLASS} side={2} depthWrite={false} />
+        <latheGeometry args={[collar, 96]} />
+        <Glass hero={hero} />
       </mesh>
       <mesh position={[0, 1.0, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[0.325, 0.02, 12, 44]} />
-        <meshPhysicalMaterial {...GLASS} side={2} depthWrite={false} />
+        <torusGeometry args={[0.325, 0.02, 16, 64]} />
+        <Glass hero={hero} />
       </mesh>
       {/* inner frosted cup + white flange */}
       <mesh>
-        <latheGeometry args={[cup, 48]} />
-        <meshPhysicalMaterial {...FROSTED} side={2} depthWrite={false} />
+        <latheGeometry args={[cup, 72]} />
+        <meshPhysicalMaterial {...frostedProps()} side={2} depthWrite={false} />
       </mesh>
       <mesh position={[0, 1.5, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[0.29, 0.028, 12, 44]} />
