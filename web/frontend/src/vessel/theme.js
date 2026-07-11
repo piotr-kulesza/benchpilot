@@ -34,13 +34,15 @@ export const theme = {
   // softbox for highlights + form, DARK fills all around so materials keep
   // contrast and true colour. A near-white env floods every surface pale — that
   // was the washed-out bug. (Ported from the demo's cinematic buildEnvMap.)
+  // Values are the demo's buildEnvMap('cinematic') panels, verbatim: one bright
+  // white key softbox + three DIM neutral fills, over a dark neutral base.
   env: {
     resolution: 256,
-    base: '#565b63', // env base — a dark neutral grey (NOT light)
-    key: { intensity: 1.6, position: [9, 13, 7], scale: [16, 9, 1], color: '#ffffff' },
-    fillL: { intensity: 0.42, position: [-11, 7, -7], scale: [12, 11, 1], color: '#9198a1' },
-    fillR: { intensity: 0.32, position: [-6, 3, 9], scale: [10, 7, 1], color: '#878d96' },
-    rim: { intensity: 0.4, position: [0, 16, -3], scale: [18, 12, 1], color: '#6a6f77' },
+    base: '#686d75', // ~mid of the demo dome gradient (0x474b51 → 0x8d929a)
+    key: { intensity: 1.5, position: [9, 14, 7], scale: [22, 10, 1], color: '#ffffff' },
+    fillL: { intensity: 0.42, position: [-13, 8, -8], scale: [16, 14, 1], color: '#9198a1' },
+    fillR: { intensity: 0.32, position: [-6, 3, 10], scale: [12, 7, 1], color: '#878d96' },
+    rim: { intensity: 0.38, position: [0, 20, 0], scale: [24, 24, 1], color: '#676c74' },
   },
 
   // Explicit scene lights (on top of the IBL) — low flat ambient/hemi + ONE
@@ -54,10 +56,9 @@ export const theme = {
     aux: { color: '#e2e0d8', intensity: 0.14, position: [-3, 11, -6] },
   },
 
-  // Warm exponential fog for depth on the receding bench (blends distant objects
-  // into the greige background). Demo: FogExp2(0xbcb7ae, 0.0028) over a longer
-  // bench; a touch denser here for the tighter hero framing.
-  fog: { color: '#bcb7ae', density: 0.02 },
+  // Warm exponential fog for depth — the demo's FogExp2(0xbcb7ae, 0.0028),
+  // verbatim (barely-there near the hero; blends the far bench into the greige).
+  fog: { color: '#bcb7ae', density: 0.0028 },
 
   // The bench slab: a warm mid-grey, a little DARKER than the background wall and
   // GENTLY reflective (soft sheen, not a mirror).
