@@ -80,27 +80,28 @@ rewritten instead of imported. Go import it.**
 physics flaws. These were fixed on purpose in `web/frontend/src/scene/demoScene.js`
 (each marked `// IMPROVEMENT` in code). **Do not "restore" them to match the demo.**
 
-- **Bottles open to be aspirated + their level drops.** `buildBottle` now exposes
+- **Bottles open to be aspirated + their level drops.** `buildBottle` exposes
   `setCap(on)` (the cap lifts up and tilts aside) and `setLevel(v)` (the liquid
   surface drops), driven each frame (bottle pushed to `st.updatables` in
   `addBottle`). `stationReagent`'s timeline opens the cap before the pipette dips
   in, closes it after, and drops the level as liquid is drawn.
-- **The sample tube caps/uncaps.** `buildTube.setCap` was ported but unused; it now
-  animates (lift + tilt, tube starts UNCAPPED). The tube is uncapped to receive
-  liquid (`stationReagent`, `transfer`, and `seat()` in `StationScene`), and CAPPED
-  before a spin (`stationSpin`) — you cannot spin an open tube.
-- **The centrifuge runs with the tube inside, lid closed.** The demo spun an empty
-  rotor while the tube sat on the bench. `stationSpin` now lowers the capped tube
-  into the rotor, the lid closes over it, it spins enclosed (visible through the
-  tinted dome), the lid opens, and the tube lifts back out. The lid is coupled to
-  `setSpin` in `buildCentrifuge` (closes when spinning, opens when stopped).
+- **The sample vessel is CAPLESS.** `buildTube` has no cap mesh and no `setCap`
+  (the demo's ported cap/toggle was dropped). Do not re-add cap toggling anywhere.
+- **The centrifuge seats the sample in a REAL rotor slot and it rides the rotor.**
+  The demo spun an empty rotor with the tube on the bench, and an earlier pass
+  parked it in the middle. `buildCentrifuge` exposes `holders` (the 8 fixed-angle
+  slots) and an explicit `setLid(open)` hook. `stationSpin` reparents the sample
+  INTO `holders[2]` (correct radius + outward tilt) so it orbits with the rotor as
+  it spins; the lid closes before the spin and opens after; then it lifts out.
+  `undockSample()` frees it if a step change interrupts a spin, and the frame loop
+  skips the glide-lerp while `v.userData.docked`.
 - **The pipette never clips the top HUD.** `buildPipette` is scaled down
   (`PIP_SCALE`) and `pipetteRun`'s travel arc is kept low so the tall body stays
   clear of the top bar during the pour.
 
-Verify with timed headless shots across a pour (bottle open + tube uncapped,
-`?run=1&step=16`) and a spin (capped tube inside a closed centrifuge,
-`?run=1&step=17`).
+Verify with timed headless shots across a pour (bottle open + level dropping,
+capless tube, `?run=1&step=16`) and a spin (sample seated in a rotor slot at the
+right tilt, inside a closed lid, rotating with the rotor, `?run=1&step=17`).
 
 ---
 

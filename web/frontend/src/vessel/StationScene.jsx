@@ -180,7 +180,6 @@ function configureStation(st, o) {
     if (name) v.userData.setLabel(name, vol || '')
     v.userData.setColor(startColor)
     v.userData.setLevel(startLevel)
-    v.userData.setCap?.(false) // open at the bench — only spins leave it capped
     v.visible = true
     v.rotation.set(0, 0, 0)
     S.at(v, st.x + x, y, z)
@@ -277,7 +276,6 @@ function configureStation(st, o) {
       S.tube.userData.setLabel(name || 'Sample', 'load column')
       S.tube.userData.setColor(startColor)
       S.tube.userData.setLevel(startLevel)
-      S.tube.userData.setCap?.(false) // uncap to pour into the column
       S.tube.rotation.set(0, 0, 0)
       S.at(S.tube, st.x + tA.x, tA.y, tA.z)
       S.column.userData.setLabel('RNeasy column', 'loading')
@@ -521,6 +519,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
     railXRef.current = stations[a] ? stations[a].x : 0
     targetXRef.current = railXRef.current
     glideRef.current = { active: false, t: 0, from: railXRef.current, to: railXRef.current }
+    demo.undockSample() // in case a rebuild interrupted a spin
     demo.setSnap(true)
     stations[a]?.enter?.()
     demo.setSnap(false)
@@ -550,6 +549,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
     glideRef.current = { active: true, t: 0, from: railXRef.current, to: stations[active].x }
     targetXRef.current = stations[active].x
     // the single sample glides (sequential) or snaps (jump) to the new station
+    demo.undockSample() // if we left a spin mid-way, free the sample from the rotor
     demo.getSample()?.vessels.forEach((v) => v.rotation.set(0, 0, 0))
     demo.setSnap(!sequential)
     stations[active].enter?.()
@@ -614,10 +614,12 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
     }
     for (const st of stations) for (const u of st.updatables) u.userData?.update?.(dt)
 
-    // 5 · the ONE sample eases toward its world target — glides station→station
+    // 5 · the ONE sample eases toward its world target — glides station→station.
+    // While docked in a centrifuge rotor slot the rotor owns its transform, so skip
+    // the glide (but still tick its liquid).
     const S = demo.getSample()
     if (S) for (const v of S.vessels) {
-      v.position.lerp(v.userData.tPos, 1 - Math.pow(0.02, dt))
+      if (!v.userData.docked) v.position.lerp(v.userData.tPos, 1 - Math.pow(0.02, dt))
       v.userData.update?.(dt)
     }
 

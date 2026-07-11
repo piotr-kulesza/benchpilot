@@ -26,6 +26,15 @@ export function setScene(s) { scene = s }
 export function setSnap(v) { SNAP_SAMPLE = v }
 export function initSample() { SAMPLE = buildSample(); return SAMPLE }
 export function getSample() { return SAMPLE }
+// If a step change interrupts a spin, the sample may still be parented into a
+// centrifuge rotor slot — return every vessel to the scene (upright, full size).
+export function undockSample() {
+  if (!SAMPLE || !scene) return
+  for (const v of SAMPLE.vessels) {
+    if (v.parent && v.parent !== scene) scene.attach(v)
+    if (v.userData.docked) { v.userData.docked = false; v.rotation.set(0, 0, 0); v.scale.setScalar(1) }
+  }
+}
 
   var LOOK = {
     cinematic:{
@@ -390,26 +399,8 @@ export function getSample() { return SAMPLE }
       grp.userData.gradMat = gMat;
     }
 
-    if(opts.cap!==false){
-      var capGrp = new THREE.Group();
-      var capMat = matPlastic(opts.capColor||0x2b323b);
-      var lid = new THREE.Mesh(new THREE.CylinderGeometry(R*1.08,R*1.05,0.11,40), capMat);
-      lid.position.y=0.055; capGrp.add(lid);
-      var lidTop = new THREE.Mesh(new THREE.CylinderGeometry(R*0.62,R*1.02,0.05,40), capMat);
-      lidTop.position.y=0.13; capGrp.add(lidTop);
-      var plug = new THREE.Mesh(new THREE.CylinderGeometry(R*0.9,R*0.86,0.14,36), capMat);
-      plug.position.y=-0.06; capGrp.add(plug);
-      for(var rr=0;rr<18;rr++){
-        var ra=rr/18*Math.PI*2;
-        var rib=new THREE.Mesh(new THREE.BoxGeometry(0.016,0.1,0.05), capMat);
-        rib.position.set(Math.cos(ra)*R*1.09, 0.055, Math.sin(ra)*R*1.09);
-        rib.rotation.y=-ra; capGrp.add(rib);
-      }
-      var hinge=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.05,R*0.5), capMat);
-      hinge.position.set(-R*1.05,0.0,0); capGrp.add(hinge);
-      capGrp.position.set(0, H+0.06, 0); visual.add(capGrp);
-      grp.userData.cap=capGrp; grp.userData.capBaseY=H+0.06;
-    }
+    // IMPROVEMENT: the sample vessel is CAPLESS (no cap mesh, no setCap). The demo's
+    // ported cap/toggle was dropped — the sample is an open tube throughout.
 
     // liquid conforms to the tube's INNER wall (a slightly inset copy of `prof`),
     // rebuilt as a flat-topped lathe whenever the fill level changes.
@@ -446,28 +437,16 @@ export function getSample() { return SAMPLE }
       grp.add(label);
     }
 
-    var state={ level:0,tLevel:0,builtLevel:-1,color:new THREE.Color(opts.color||COL.lysis),tColor:new THREE.Color(opts.color||COL.lysis),H:H,R:R,phase:Math.random()*6.28,
-      capOpen:1,tCapOpen:1 };   // starts UNCAPPED (ready to receive); spins cap it
+    var state={ level:0,tLevel:0,builtLevel:-1,color:new THREE.Color(opts.color||COL.lysis),tColor:new THREE.Color(opts.color||COL.lysis),H:H,R:R,phase:Math.random()*6.28 };
     grp.userData.state=state; grp.userData.liq=liq; grp.userData.label=label;
     grp.userData.setLevel=function(v){ state.tLevel=clamp(v,0,1); };
     grp.userData.setColor=function(hex){ state.tColor.set(hex); };
     grp.userData.setLabel=function(t,s){ if(label) label.userData.update(t,s||"");
       if(grp.userData.gradMat){ grp.userData.gradMat.map.dispose(); grp.userData.gradMat.map=tubeGraphicTex(t); grp.userData.gradMat.needsUpdate=true; } };
-    // IMPROVEMENT over the demo (setCap was ported but never used): the sample tube
-    // must be UNCAPPED to receive liquid and CAPPED before a spin. setCap(on): on=true
-    // seats the lid, on=false lifts it up and tilts it aside (hinged flip-cap).
-    grp.userData.setCap=function(on){ state.tCapOpen = on ? 0 : 1; };
     grp.userData.update=function(dt){
       var kL=1-Math.pow(0.001,dt), kC=1-Math.pow(0.004,dt);
       state.level=lerp(state.level,state.tLevel,kL);
       state.color.lerp(state.tColor,kC);
-      var cg=grp.userData.cap;
-      if(cg){
-        state.capOpen=lerp(state.capOpen,state.tCapOpen,1-Math.pow(0.0009,dt));
-        var co=state.capOpen;
-        cg.position.set(-co*0.42, grp.userData.capBaseY + co*0.5, co*0.16); // lift + slide aside
-        cg.rotation.z = co*1.15;                                            // tilt aside
-      }
       var lv=state.level;
       if(lv<0.004){ liq.visible=false; }
       else{
@@ -799,6 +778,7 @@ export function getSample() { return SAMPLE }
     var nut = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.14,0.12,6), matBrushed(0x828d99));
     nut.position.y=0.2; rotor.add(nut);
     var slotMat = new THREE.MeshStandardMaterial({ color:0x252d37, metalness:0.5, roughness:0.5, envMapIntensity:0.6 });
+    var holders=[];
     for(var k=0;k<8;k++){
       var a=k/8*Math.PI*2;
       var holder=new THREE.Group();
@@ -808,7 +788,7 @@ export function getSample() { return SAMPLE }
       holder.position.set(Math.cos(a)*0.62,0.0,Math.sin(a)*0.62);
       // clean fixed-angle rotor: every slot tilts outward by the SAME angle around its tangential axis
       holder.quaternion.setFromAxisAngle(new THREE.Vector3(-Math.sin(a),0,Math.cos(a)), -0.40);
-      rotor.add(holder);
+      rotor.add(holder); holders.push(holder);   // exposed so stationSpin can dock the sample IN a slot
     }
     // printed well numbers around the rotor face
     var numC=document.createElement("canvas"); numC.width=256; numC.height=256; var numG=numC.getContext("2d");
@@ -855,15 +835,18 @@ export function getSample() { return SAMPLE }
     var label = makeLabel("Centrifuge","");
     label.position.set(0,2.5,0); grp.add(label);
 
-    var st={ spin:0,tSpin:0,lid:0 };
+    var st={ spin:0,tSpin:0,lid:1,tLid:1 };   // lid: 1=open, 0=closed (starts open)
     grp.userData.rotor=rotor; grp.userData.dome=dome; grp.userData.label=label; grp.userData.st=st;
+    grp.userData.holders=holders;
     grp.userData.setSpin=function(v){ st.tSpin=v; };
+    // IMPROVEMENT: explicit lid hook. stationSpin closes it before the rotor spins
+    // up and opens it once the rotor stops (no longer auto-coupled to spin).
+    grp.userData.setLid=function(open){ st.tLid = open?1:0; };
     grp.userData.setLabel=function(t,s){ label.userData.update(t,s||""); };
     grp.userData.update=function(dt){
       st.spin=lerp(st.spin,st.tSpin,1-Math.pow(0.01,dt));
       rotor.rotation.y += st.spin*dt;
-      var wantOpen = st.spin<1.2 ? 1 : 0;
-      st.lid=lerp(st.lid,wantOpen,1-Math.pow(0.02,dt));
+      st.lid=lerp(st.lid,st.tLid,1-Math.pow(0.02,dt));
       lidPivot.rotation.x = -easeInOut(st.lid)*1.15;
       drawRPM(Math.min(st.spin,26)/26*13400);
     };
@@ -1341,7 +1324,6 @@ export {
       if(o.vlabel) v.userData.setLabel(o.vlabel, o.vsub||"");
       if(o.cStart!=null) v.userData.setColor(o.cStart);
       v.userData.setLevel(o.lStart);
-      if(v.userData.setCap) v.userData.setCap(false);   // uncap to receive liquid
       SAMPLE.at(v, st.x, Y, 0);
       pipRest(st);
     };
@@ -1365,44 +1347,59 @@ export {
     var cen=buildCentrifuge(); cen.position.set(1.4,0,-0.5); cen.scale.setScalar(0.85);
     st.group.add(cen); st.updatables.push(cen); st.cen=cen;
     // IMPROVEMENT over the demo (which spun an EMPTY rotor while the tube sat on the
-    // bench): the CAPPED tube is lowered into the rotor, the lid closes over it, it
-    // spins enclosed, the lid opens, and the tube lifts back out. Positions are in
-    // the station's local space; the centrifuge sits at (1.4,0,-0.5).
-    var slot={ x:1.4, y:0.12, z:0.0 };   // sunk into the rotor slot (fits under the closed dome)
-    var lift={ x:1.4, y:2.05, z:0.0 };   // raised above the open rotor
+    // bench): the sample is docked into an ACTUAL rotor slot — correct radius + outward
+    // tilt — and PARENTED to the holder, so it RIDES the rotor as it spins. The lid
+    // closes before the spin and opens once it stops.
+    var holder = cen.userData.holders[2];   // a slot facing the camera at rest
+    var SEAT_SCALE=0.6, SEAT_Y=-0.16;        // a small tube fits the slot and clears the closed lid
+    var preSlot={ x:1.4, y:1.42, z:0.03 };   // just above the slot (station-local)
+    var lift={ x:1.4, y:2.15, z:0.03 };      // raised clear of the rotor
+    var docked=false;
+    function dock(){
+      if(docked) return;
+      var v=SAMPLE[o.vessel];
+      holder.add(v);                         // reparent INTO the slot — now rides the rotor
+      v.position.set(0, SEAT_Y, 0);          // seated in the slot bottom
+      v.rotation.set(0,0,0);                 // aligns with the holder's outward tilt
+      v.scale.setScalar(SEAT_SCALE);
+      v.userData.docked=true; docked=true;   // frame loop stops gliding it while docked
+    }
+    function undock(){
+      if(!docked) return;
+      var v=SAMPLE[o.vessel];
+      scene.attach(v);                       // back to the scene, preserving world transform
+      v.rotation.set(0,0,0); v.scale.setScalar(1);
+      v.userData.docked=false; docked=false;
+    }
     st.enter=function(){
       SAMPLE.only(o.vessel);
       var v=SAMPLE[o.vessel];
       if(o.vlabel) v.userData.setLabel(o.vlabel, o.vsub||"");
       if(o.color!=null) v.userData.setColor(o.color);
       v.userData.setLevel(o.lStart==null?0.5:o.lStart);
-      if(v.userData.setCap) v.userData.setCap(true);   // capped — cannot spin an open tube
-      v.visible=true;
+      undock(); v.scale.setScalar(1); v.rotation.set(0,0,0); v.visible=true;
       SAMPLE.at(v, st.x+lift.x, lift.y, lift.z);        // arrives above the open rotor
-      cen.userData.setLabel(o.cenLabel||"Centrifuge", o.cenSub||""); cen.userData.setSpin(0);
+      cen.userData.setLabel(o.cenLabel||"Centrifuge", o.cenSub||""); cen.userData.setSpin(0); cen.userData.setLid(true);
     };
     if(o.seconds) st.hud={label:o.hudLabel||"Centrifuge", seconds:o.seconds};
     st.timeline=function(p){
       var v=SAMPLE[o.vessel]; v.visible=true;
-      if(v.userData.setCap) v.userData.setCap(true);
-      if(p<0.15){                                  // 1 · lower the capped tube into the rotor
-        var q=easeInOut(p/0.15); v.rotation.y=0;
-        SAMPLE.at(v, st.x+slot.x, lerp(lift.y,slot.y,q), lerp(lift.z,slot.z,q));
-        cen.userData.setSpin(0);
-      } else if(p<0.24){                            // 2 · seated, lid closes over it
-        v.rotation.y=0; SAMPLE.at(v, st.x+slot.x, slot.y, slot.z);
-        cen.userData.setSpin(0);
-      } else if(p<0.80){                            // 3 · lid closed + SPINNING (capped tube inside)
-        v.rotation.y = p*90;                         // spins under the tinted dome
-        SAMPLE.at(v, st.x+slot.x, slot.y, slot.z);
-        cen.userData.setSpin(24);
-      } else if(p<0.90){                            // 4 · rotor stops, lid opens
-        SAMPLE.at(v, st.x+slot.x, slot.y, slot.z);
-        cen.userData.setSpin(0);
-      } else {                                      // 5 · lid open — lift the tube out
-        var q3=easeInOut((p-0.90)/0.10); v.rotation.y=0;
-        SAMPLE.at(v, st.x+slot.x, lerp(slot.y,lift.y,q3), lerp(slot.z,lift.z,q3));
-        cen.userData.setSpin(0);
+      if(p<0.18){                            // 1 · glide in, lower toward the slot (lid open)
+        undock();
+        var q=easeInOut(clamp(p/0.16,0,1));
+        SAMPLE.at(v, st.x+preSlot.x, lerp(lift.y,preSlot.y,q), preSlot.z);
+        cen.userData.setSpin(0); cen.userData.setLid(true);
+      } else if(p<0.26){                     // 2 · seat into the slot; lid closes over it
+        dock(); cen.userData.setSpin(0); cen.userData.setLid(false);
+      } else if(p<0.80){                     // 3 · lid closed + SPINNING — sample rides the rotor
+        dock(); cen.userData.setSpin(24); cen.userData.setLid(false);
+      } else if(p<0.90){                     // 4 · rotor stops; lid opens
+        cen.userData.setSpin(0); cen.userData.setLid(true);
+      } else {                               // 5 · lift the sample out of the slot
+        undock();
+        var q3=easeInOut((p-0.90)/0.10);
+        SAMPLE.at(v, st.x+lift.x, lerp(preSlot.y,lift.y,q3), preSlot.z);
+        cen.userData.setSpin(0); cen.userData.setLid(true);
       }
       if(o.lEnd!=null) v.userData.setLevel(lerp(o.lStart==null?0.5:o.lStart, o.lEnd, easeInOut(clamp(p,0,1))));
     };
