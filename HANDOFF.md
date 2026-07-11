@@ -105,6 +105,41 @@ right tilt, inside a closed lid, rotating with the rotor, `?run=1&step=17`).
 
 ---
 
+## Stage 6 — generalized vocabulary + sample-follow containers (DONE / PENDING)
+
+benchpilot now targets ANY wet-lab protocol, not just spin-column extractions.
+
+**DONE (committed, tested, RNA byte-for-byte):**
+- 5 new verbs in the closed vocab: `thermocycle` (cyclic PCR), `electrophorese`
+  (gel run / electro-transfer), `store` (freeze/hold), `seed` (culture), `stain`
+  (dye flood). Lockstep across `schema.py` ACTIONS, the parser prompt, `BEHAVIORS`,
+  `RECIPES`, `runtime.js` ACTIONS — the lockstep test guards it.
+- **Sample-follow container model** — the STRUCTURAL change. `Step.container` (closed
+  `CONTAINERS` vocab) is parsed from prose ("into the wells", "onto a membrane");
+  `sampleContainerSequence(steps)` seeds microtube, adopts each parsed container, and
+  PERSISTS when unnamed. The old action-inferred `transfer→spin_column`/`elute→eluate`
+  special-cases are GONE. `resolveRemoval(container)` = tip (tube) vs aspirate (plate) —
+  the discard branch follows it (never tip a plate).
+- The RNA render is preserved by two hand-added container fields in the bundled
+  `parsed.json` (step 8 → spin_column, step 24 → eluate_tube) — verified NEW==OLD.
+- Equipment: `buildThermocycler` (cycle counter from `repeat.count`, lid closes to
+  cycle) + `buildGelRig` (migrating bands + voltage). All 5 verbs mount a real station.
+- Repeats render: StepCard dots (≤12) / ×N badge (PCR), thermocycler on-block counter.
+
+**PENDING (the long pole):**
+- Bespoke SAMPLE-VESSEL geometry for the new containers (well_plate, flask, dish, gel,
+  slide, cryovial, membrane, agar_plate) each with insert/remove motions. They currently
+  fall back to the tube geometry via `V_OF[container] || 'tube'` in StationScene — NON-BLANK
+  but not their own shape. Add builders + extend `buildSample()` / V_OF (see the
+  container→3D seam: V_OF map, the `S` object's `setLevel/setColor/setLabel/update/tPos`
+  contract, `liquidProfileGeo`/`innerRadiusFn` for conforming liquid).
+- Dedicated `buildFreezer`/`buildDewar`, `buildAgarPlate`+spreader, `buildStainingTray`
+  (store/seed/stain currently reuse ice-bucket / pour-rig / flood patterns).
+- Stage 7: the 8-protocol offline coverage harness (needs the staged fixture texts —
+  ask Piotr for the fixtures bundle; generic-rate ≤5% assertion, per-verb checks).
+
+---
+
 ## The parse is the other half of the quality
 
 The renderer maps **one `action` → one device → one animation per step**. So a
