@@ -31,6 +31,28 @@ const STEP_DUR = 6.5 // the demo's per-step animation window (seconds)
 
 const V_OF = { microtube: 'tube', spin_column: 'column', eluate_tube: 'elu' }
 
+// The ONE sample persists across every step, carrying its contents. Its state at
+// the start of step N is exactly its state at the end of step N-1 (chained). We
+// fold this deterministically over the whole protocol (not a mutable ref) so a
+// deep-link/back jump still lands the sample in the right carried state.
+const INIT_COLOR = 0xb8b2a6 // neutrophil pellet — where the sample begins
+const INIT_LEVEL = 0.3
+// How each action leaves the sample. `prev` = carried-in state; `color`/`fill`
+// = this step's reagent colour + target level. Reagent steps take the new colour;
+// physical steps carry the colour and only move the level.
+function stepEnd(action, prev, color, fill) {
+  switch (action) {
+    case 'pour_add': return { color, level: Math.max(prev.level, fill) } // added volume raises level
+    case 'pipette_mix': return { color, level: prev.level }
+    case 'transfer': return { color: prev.color, level: 0.9 } // loaded onto the column
+    case 'wash': return { color, level: 0.12 } // wash buffer flows through
+    case 'centrifuge': return { color: prev.color, level: 0.2 } // spun down, supernatant/flow-through gone
+    case 'elute': return { color, level: 0.45 } // eluate collected
+    case 'discard': return { color: prev.color, level: 0.05 }
+    default: return { color: prev.color, level: prev.level } // vortex / incubate / heat / cool / measure — no change
+  }
+}
+
 // build the demo's shared PBR maps once, before any builder runs.
 let _maps = false
 function ensureMaps() {
@@ -122,34 +144,47 @@ function CameraRig({ view }) {
 // Build a station for a step. Every action gets a timeline with VISIBLE motion
 // driven by the per-step progress p (0->1): so no station is ever static.
 function configureStation(st, o) {
-  const { action, equipment, container, color, name, vol, fill, seconds } = o
+  const { action, equipment, container, color, name, vol, seconds, startColor, startLevel, endColor, endLevel } = o
   const vessel = V_OF[container] || 'tube'
   const S = demo.getSample()
   const BT = demo.BLOCK_TOP
 
-  // place the travelling sample at a seat, reset any leftover spin/tip
-  const seat = (x, y, z, lvl = fill) => {
+  // seat the travelling sample WITHOUT resetting its contents: it enters at the
+  // carried-in (start) state, so it continues from where the last step left it.
+  const seat = (x, y, z) => {
     S.only(vessel)
     const v = S[vessel]
     if (name) v.userData.setLabel(name, vol || '')
-    v.userData.setColor(color)
-    v.userData.setLevel(lvl)
+    v.userData.setColor(startColor)
+    v.userData.setLevel(startLevel)
     v.rotation.set(0, 0, 0)
     S.at(v, st.x + x, y, z)
     return v
   }
 
+  // evolve the sample's level (and, past the midpoint, its colour) from the
+  // carried-in start toward this step's end, paced by p. Returns the base level
+  // so callers can add a surface ripple on top.
+  const evolve = (p) => {
+    const v = S[vessel]
+    const base = demo.lerp(startLevel, endLevel, demo.easeInOut(demo.clamp(p, 0, 1)))
+    v.userData.setLevel(base)
+    if (p > 0.5) v.userData.setColor(endColor)
+    return base
+  }
+
   if (action === 'pour_add') {
     // resident pipette rig + bottle; pipette pours over p, fill ramps at p>0.62.
-    demo.stationReagent(st, BT, { key: 'r', blabel: '', color, vessel, vlabel: name || '', vsub: vol || '', cStart: null, cEnd: color, lStart: 0.1, lEnd: fill })
+    // cStart/lStart = carried-in state, so the pour builds ON the existing contents.
+    demo.stationReagent(st, BT, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel })
   } else if (action === 'pipette_mix') {
     // pipette aspirates + dispenses in repeated passes (reuse pipetteRun); ripple.
     demo.addPipetteRig(st)
     st.enter = () => { seat(0, BT, 0); demo.pipRest(st) }
     st.timeline = (p) => {
       const cp = (p * 3) % 1 // 3 mixing passes
-      demo.pipetteRun(st, { x: 0, y: BT, z: 0 }, { x: 0, y: BT, z: 0 }, cp, { color, fill: 0.7 })
-      S[vessel].userData.setLevel(fill + Math.sin(p * 26) * 0.02) // surface ripple
+      demo.pipetteRun(st, { x: 0, y: BT, z: 0 }, { x: 0, y: BT, z: 0 }, cp, { color: endColor, fill: 0.7 })
+      S[vessel].userData.setLevel(evolve(p) + Math.sin(p * 26) * 0.02) // surface ripple over carried level
     }
   } else if (action === 'vortex_mix') {
     // the vessel visibly swirls + wobbles (this was the dead one).
@@ -157,6 +192,7 @@ function configureStation(st, o) {
     st.enter = () => seat(0, BT, 0)
     st.timeline = (p) => {
       const v = S[vessel]
+      evolve(p) // holds the carried contents (start == end for a vortex)
       v.rotation.y = p * 26 // many turns (monotonic)
       v.rotation.z = Math.sin(p * 46) * 0.14 // rapid wobble
     }
@@ -168,12 +204,12 @@ function configureStation(st, o) {
     waste.scale.setScalar(0.9)
     st.group.add(waste)
     st.updatables.push(waste)
-    st.enter = () => seat(0, 0.7, 0, 0.5)
+    st.enter = () => seat(0, 0.7, 0)
     st.timeline = (p) => {
       const e = demo.easeInOut(demo.clamp(p, 0, 1))
       const v = S[vessel]
       v.rotation.z = -e * 1.2 // tip toward the waste
-      v.userData.setLevel(demo.lerp(0.5, 0.02, e)) // drain
+      evolve(p) // drain from the carried level down to the discard end level
     }
   } else if (action === 'transfer') {
     // hand-off: the sample moves tube -> spin column (the demo's LOAD step). NO
@@ -182,14 +218,15 @@ function configureStation(st, o) {
     const tA = { x: -0.9, y: BT, z: 0.1 }
     const cA = { x: 0.7, y: BT, z: 0.1 }
     st.enter = () => {
+      // the tube arrives carrying its contents; the same liquid pours into the column.
       S.only('tube')
       S.tube.userData.setLabel(name || 'Sample', 'load column')
-      S.tube.userData.setColor(color)
-      S.tube.userData.setLevel(0.8)
+      S.tube.userData.setColor(startColor)
+      S.tube.userData.setLevel(startLevel)
       S.tube.rotation.set(0, 0, 0)
       S.at(S.tube, st.x + tA.x, tA.y, tA.z)
       S.column.userData.setLabel('RNeasy column', 'loading')
-      S.column.userData.setColor(color)
+      S.column.userData.setColor(startColor)
       S.column.userData.setLevel(0)
       S.column.rotation.set(0, 0, 0)
       S.snapTo(S.column, st.x + cA.x, cA.y, cA.z)
@@ -199,13 +236,14 @@ function configureStation(st, o) {
       S.tube.visible = true
       if (p > 0.2) S.column.visible = true
       const f = demo.clamp((p - 0.25) / 0.5, 0, 1)
-      S.column.userData.setLevel(demo.lerp(0, 0.9, f))
-      S.tube.userData.setLevel(demo.lerp(0.8, 0.04, f))
+      S.column.userData.setLevel(demo.lerp(0, endLevel, f))
+      S.tube.userData.setLevel(demo.lerp(startLevel, 0.04, f))
       if (p > 0.9) S.tube.visible = false
     }
   } else if (equipment === 'centrifuge' || action === 'wash' || action === 'elute') {
-    // benchtop centrifuge, rotor spins over p (verbatim stationSpin).
-    demo.stationSpin(st, BT, { vessel, vlabel: name || '', vsub: vol || '', color, lStart: 0.5, lEnd: action === 'wash' ? 0.1 : 0.45, cenLabel: 'Centrifuge', cenSub: vol || '', seconds })
+    // benchtop centrifuge, rotor spins over p (verbatim stationSpin). The sample
+    // arrives at its carried level and spins down to the chained end level.
+    demo.stationSpin(st, BT, { vessel, vlabel: name || '', vsub: vol || '', color: endColor, lStart: startLevel, lEnd: endLevel, cenLabel: 'Centrifuge', cenSub: vol || '', seconds })
   } else if (action === 'incubate_wait') {
     // incubation block + a progress RING that fills with p.
     demo.addStand(st)
@@ -228,7 +266,7 @@ function configureStation(st, o) {
         st.arc.geometry.dispose()
         st.arc.geometry = new TorusGeometry(0.55, 0.05, 14, 64, Math.max(0.001, p * Math.PI * 2))
       }
-      S[vessel].userData.setLevel(fill + Math.sin(p * 10) * 0.02)
+      S[vessel].userData.setLevel(evolve(p) + Math.sin(p * 10) * 0.02) // holds carried contents
     }
   } else if (action === 'heat') {
     // heat block + rising bubbles + a warm glow that ramps with p.
@@ -254,7 +292,7 @@ function configureStation(st, o) {
         b.position.set(s.x, BT + 0.2 + yy * 1.3, s.z)
         b.scale.setScalar(0.5 + yy)
       }
-      S[vessel].userData.setLevel(fill + Math.sin(p * 12) * 0.02)
+      S[vessel].userData.setLevel(evolve(p) + Math.sin(p * 12) * 0.02) // holds carried contents
     }
   } else if (action === 'cool_ice') {
     // ice bucket + a cold cast that deepens with p (frost creep) + a faint shiver.
@@ -268,6 +306,7 @@ function configureStation(st, o) {
     st.group.add(st.cold)
     st.enter = () => seat(0, 0.34, 0.3)
     st.timeline = (p) => {
+      evolve(p) // holds the carried contents
       st.cold.intensity = p * 2.6 // cold cast ramps up (monotonic)
       S[vessel].rotation.z = Math.sin(p * 30) * 0.02 // faint cold shiver
     }
@@ -279,12 +318,15 @@ function configureStation(st, o) {
     st.dev = nano
     demo.addStand(st)
     st.enter = () => seat(-1.4, 0, 0.8)
-    st.timeline = (p) => nano.userData.setProgress?.(demo.easeInOut(demo.clamp(p * 1.4, 0, 1)))
+    st.timeline = (p) => {
+      evolve(p) // holds the carried contents while the reader traces
+      nano.userData.setProgress?.(demo.easeInOut(demo.clamp(p * 1.4, 0, 1)))
+    }
   } else {
     // generic actionable (rare) — a slow idle turn so it is never dead.
     demo.addStand(st)
     st.enter = () => seat(0, BT, 0)
-    st.timeline = (p) => { S[vessel].rotation.y = p * 3 }
+    st.timeline = (p) => { evolve(p); S[vessel].rotation.y = p * 3 }
   }
   hideLabels(st.group)
 }
@@ -311,9 +353,29 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
   const labelTitle = primaryName || ACTION_LABEL[step.action] || 'Step'
   const labelSub = vol || (step.spin?.rcf_min ? `≥ ${step.spin.rcf_min.toLocaleString()} ×g` : '')
 
+  // The sample's carried contents at EVERY step, as a pure fold over the protocol:
+  // step N's start state == step N-1's end state. Computed for all steps (not a
+  // mutable ref) so a deep-link/back jump still resolves the right carried state.
+  const stateChain = useMemo(() => {
+    let color = INIT_COLOR
+    let level = INIT_LEVEL
+    return steps.map((s) => {
+      const prim = (s.reagents || []).find((r) => r.volume) || (s.reagents || [])[0]
+      const c = new Color(reagentColor(prim ? reagentName(prim, lang) : null)).getHex()
+      const f = resolveRecipe(s.action).anim.fill
+      const start = { color, level }
+      const end = stepEnd(s.action, start, c, f)
+      color = end.color
+      level = end.level
+      return { start, end }
+    })
+  }, [steps, lang])
+  const chainAt = stateChain[active] || { start: { color: INIT_COLOR, level: INIT_LEVEL }, end: { color: colorHex, level: fill } }
+
   const stRef = useRef(null)
   const pRef = useRef(0)
   const restartRef = useRef(true)
+  const prevActiveRef = useRef(-1)
 
   // one-time scene setup + the persistent travelling SAMPLE (added to the scene).
   useEffect(() => {
@@ -345,13 +407,22 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
   useEffect(() => {
     if (!demo.getSample()) return undefined
     const st = { group: new Group(), updatables: [], reagents: {}, pip: null, enter: null, timeline: null, x: 0, cen: null, dev: null }
-    configureStation(st, { action: step.action, equipment, container, color: colorHex, name: labelTitle, vol, fill, seconds: step.duration_seconds })
+    configureStation(st, {
+      action: step.action, equipment, container, color: colorHex, name: labelTitle, vol, seconds: step.duration_seconds,
+      startColor: chainAt.start.color, startLevel: chainAt.start.level,
+      endColor: chainAt.end.color, endLevel: chainAt.end.level,
+    })
     scene.add(st.group)
     // clear any leftover swirl/tip from the previous step's motion timeline.
     demo.getSample().vessels.forEach((v) => v.rotation.set(0, 0, 0))
-    demo.setSnap(true)
+    // GLIDE the sample when stepping one at a time (it visibly travels to the new
+    // station carrying its contents); SNAP on the first mount or a non-sequential
+    // jump (deep-link/back), exactly as the demo does.
+    const sequential = prevActiveRef.current >= 0 && Math.abs(active - prevActiveRef.current) === 1
+    demo.setSnap(!sequential)
     st.enter?.()
     demo.setSnap(false)
+    prevActiveRef.current = active
     stRef.current = st
     restartRef.current = true // reset the per-step progress on the next frame
     return () => {
