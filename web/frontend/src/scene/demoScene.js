@@ -1420,6 +1420,7 @@ export {
   buildTube, buildPipette, buildPipetteStand, buildBottle, buildSpinColumn,
   buildCentrifuge, buildColdBlock, buildWaterBath, buildIceBucket, buildNanoDrop, buildDrop, buildWaste, buildSyringe,
   buildThermocycler, buildGelRig, buildFreezer, buildStainingTray, buildSpreader,
+  buildCryovial, buildWellPlate, buildFlask, buildDish, buildSlide, buildMembrane, buildGelSlab, buildAgarPlate,
   buildEnvMap, makeCineBackdrop, makeGradientTexture,
   glassMaterial, matPlastic, matBrushed, matAnodized, matPainted, matFrosted, matRubber, matSilicone,
 }

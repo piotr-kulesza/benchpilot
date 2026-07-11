@@ -1,8 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import Home from './components/Home.jsx'
 import Intake from './components/Intake.jsx'
 import Runner from './components/Runner.jsx'
 import { partitionSteps } from './lib/runtime.js'
+
+// Dev-only harness routes: ?models=1 (model gallery) and ?matrix=1 (animation
+// matrix). Lazy so they never touch the production bundle path.
+const DevView = lazy(() => import('./dev/DevView.jsx'))
+const IS_DEV_ROUTE = (() => {
+  const s = new URLSearchParams(window.location.search)
+  return s.has('models') || s.has('matrix')
+})()
 
 // Live-parse backend (uploads / paste). Empty = no backend → the bundled examples
 // still work with ZERO backend and no API key. Point at web/api.py with VITE_API_BASE.
@@ -32,6 +40,17 @@ function saveSession(s) {
 }
 
 export default function App() {
+  if (IS_DEV_ROUTE) {
+    return (
+      <Suspense fallback={null}>
+        <DevView />
+      </Suspense>
+    )
+  }
+  return <MainApp />
+}
+
+function MainApp() {
   const q = new URLSearchParams(window.location.search)
   const persisted = loadSession()
 
