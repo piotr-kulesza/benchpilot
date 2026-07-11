@@ -169,7 +169,8 @@ function Equipment({ step, progress, running, hero }) {
   const scale = DEVICE_SCALE[equipment] || 1
   switch (equipment) {
     case 'centrifuge':
-      return <Centrifuge spin={running ? 18 : 5} scale={scale} />
+      // the active centrifuge always visibly spins; faster while its timer runs
+      return <Centrifuge spin={running ? 22 : 13} scale={scale} />
     case 'incubation_block':
       return <IncubationBlock progress={progress} scale={scale} />
     case 'heat_block':
@@ -194,14 +195,15 @@ function Equipment({ step, progress, running, hero }) {
 
 // The single travelling sample vessel (its container is decided by the walk). It
 // is the HERO glass — full transmission — since it is always the active subject.
-function Sample({ container, color, fill, scale, hero = true }) {
+// `anim` (the active step's behavior descriptor) drives its per-action motion.
+function Sample({ container, color, fill, scale, hero = true, anim = null }) {
   switch (container) {
     case 'spin_column':
       return <SpinColumn fill={fill} color={color} scale={scale ?? 0.75} hero={hero} />
     case 'eluate_tube':
       return <EluateTube fill={fill} color={color} scale={scale ?? 0.9} hero={hero} />
     default:
-      return <Microtube fill={fill} color={color} scale={scale ?? 0.62} hero={hero} />
+      return <Microtube fill={fill} color={color} scale={scale ?? 0.62} hero={hero} anim={anim} />
   }
 }
 
@@ -263,10 +265,11 @@ export default function StationScene({ protocol, activeIndex = 0, answers = {}, 
   const { equipment } = resolveRecipe(step.action)
   const container = containers[active] || 'microtube'
 
-  // active-step sample colour + fill (from its primary reagent + the anim)
+  // active-step sample colour + fill + motion descriptor
   const primary = (step.reagents || []).find((r) => r.volume) || (step.reagents || [])[0]
   const color = reagentColor(primary ? reagentName(primary, lang) : null)
-  const fill = resolveRecipe(step.action).anim.fill
+  const anim = resolveRecipe(step.action).anim
+  const fill = anim.fill
 
   // The travelling sample is suppressed only when the equipment device IS the
   // sample's container (a spin column showing itself — wash / elute). At a
@@ -275,9 +278,10 @@ export default function StationScene({ protocol, activeIndex = 0, answers = {}, 
   const suppressSample = equipment === 'spin_column' && container === 'spin_column'
   const seat = SEAT[equipment] || SEAT.bench
   const sampleScale = SEATED_INSIDE.has(equipment) ? 0.5 : undefined
-  // a free-standing sample (on the bench / under the pipette) gets a gentle idle
-  // bob; one seated inside a device stays put so it doesn't float out of it.
-  const floatable = equipment === 'bench' || equipment === 'bottle_pipette'
+  // a free-standing IDLE sample gets a gentle bob; one that actively moves
+  // (vortex swirl/shake, discard tip) or sits inside a device stays put so the
+  // action animation reads cleanly.
+  const floatable = (equipment === 'bench' || equipment === 'bottle_pipette') && !anim.swirl && !anim.shake && !anim.tip
 
   const lineMid = ((steps.length - 1) * SPACING) / 2
   const lineWidth = Math.max(6, steps.length * SPACING) + SPACING
@@ -315,10 +319,10 @@ export default function StationScene({ protocol, activeIndex = 0, answers = {}, 
           <group position={[stationX(active) + seat[0], seat[1], seat[2]]}>
             {floatable ? (
               <Float speed={1.1} rotationIntensity={0.15} floatIntensity={0.35} floatingRange={[0, 0.06]}>
-                <Sample container={container} color={color} fill={fill} scale={sampleScale} />
+                <Sample container={container} color={color} fill={fill} scale={sampleScale} anim={anim} />
               </Float>
             ) : (
-              <Sample container={container} color={color} fill={fill} scale={sampleScale} />
+              <Sample container={container} color={color} fill={fill} scale={sampleScale} anim={anim} />
             )}
           </group>
         )}
