@@ -83,9 +83,14 @@ For each step extract, when present:
     times, put the DOMINANT one here and keep the rest in text/spin/hazards.
   - spin: {duration_seconds, rcf_min, note} for centrifugation. rcf_min is the
     minimum ×g (e.g. "≥ 8000 × g" -> rcf_min: 8000). note may be English.
-  - reagents: [{name, name_en, volume, condition}]. volume is free text ("350 µl").
-    If the volume depends on a condition, set `condition` (e.g. lysis buffer
-    350 µl WHEN "≤ 5×10⁶ komórek", 600 µl WHEN "większa liczba").
+  - reagents: [{name, name_en, volume, volume_en, condition, condition_en}].
+    volume is free text ("350 µl", "10 µl na 1 ml RLT"). Keep volume/condition in
+    the ORIGINAL language and ALSO give an English rendering in volume_en /
+    condition_en (translate any words, keep numbers/units/brand names: "10 µl na
+    1 ml RLT" -> "10 µl per 1 ml RLT"; "dla ≤ 5×10⁶ komórek" -> "for ≤ 5×10⁶
+    cells"). If already English, copy it. If the volume depends on a condition,
+    set `condition` (e.g. lysis buffer 350 µl WHEN "≤ 5×10⁶ komórek", 600 µl WHEN
+    "większa liczba").
   - conditionals: [{condition, then}] for branches (cell-count branch; Mini vs
     Micro kit; bulk vs single-cell). May be phrased in English.
   - repeat: {count, reason}. e.g. "Powtórzyć dla pozostałej objętości" ->
@@ -131,7 +136,7 @@ Return JSON of exactly this shape:
     "kind": str, "action": str,
     "duration_seconds": number|null,
     "spin": {"duration_seconds": number|null, "rcf_min": number|null, "note": str|null}|null,
-    "reagents": [{"name": str, "name_en": str|null, "volume": str|null, "condition": str|null}],
+    "reagents": [{"name": str, "name_en": str|null, "volume": str|null, "volume_en": str|null, "condition": str|null, "condition_en": str|null}],
     "conditionals": [{"condition": str, "then": str}],
     "repeat": {"count": int|null, "reason": str|null}|null,
     "alternatives": [ <step-like object, with its own action/text/text_en> ],

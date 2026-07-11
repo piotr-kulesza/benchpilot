@@ -11,6 +11,8 @@ import {
   stepText,
   stepHazards,
   reagentName,
+  reagentVolume,
+  reagentCondition,
 } from '../lib/runtime.js'
 
 const KIND_ICON = {
@@ -103,8 +105,8 @@ export default function StepCard({
           {reagents.map((r, i) => (
             <div className={`reagent-row${r.state === 'selected' ? ' selected' : ''}`} key={i}>
               <span className="r-name">{reagentName(r, lang)}</span>
-              {r.condition && r.state !== 'selected' && <span className="r-cond">{r.condition}</span>}
-              {r.volume && <span className="r-vol">{r.volume}</span>}
+              {r.condition && r.state !== 'selected' && <span className="r-cond">{reagentCondition(r, lang)}</span>}
+              {r.volume && <span className="r-vol">{reagentVolume(r, lang)}</span>}
             </div>
           ))}
         </div>

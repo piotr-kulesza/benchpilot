@@ -6,6 +6,7 @@ import {
   localize,
   stepText,
   reagentName,
+  reagentVolume,
   stepHazards,
 } from '../lib/runtime.js'
 
@@ -92,7 +93,7 @@ export default function Intake({ protocol, answers, setAnswers, onStart, lang = 
                         {s.reagents.map((r, i) => (
                           <span className="pill reagent" key={i}>
                             {reagentName(r, lang)}
-                            {r.volume ? ` · ${r.volume}` : ''}
+                            {r.volume ? ` · ${reagentVolume(r, lang)}` : ''}
                           </span>
                         ))}
                         {s.duration_seconds ? (

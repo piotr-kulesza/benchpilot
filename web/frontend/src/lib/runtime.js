@@ -65,6 +65,16 @@ export function reagentName(reagent, lang = 'en') {
   return localize(reagent, 'name', lang)
 }
 
+// Localized reagent volume / condition (e.g. "10 µl na 1 ml RLT" -> the English
+// rendering in EN mode). Falls back to the original when no translation exists.
+export function reagentVolume(reagent, lang = 'en') {
+  return localize(reagent, 'volume', lang)
+}
+
+export function reagentCondition(reagent, lang = 'en') {
+  return localize(reagent, 'condition', lang)
+}
+
 // Localized hazards for a step, aligned by index with the original `hazards`.
 // Falls back per-item to the original when the English list is short/missing.
 export function stepHazards(step, lang = 'en') {

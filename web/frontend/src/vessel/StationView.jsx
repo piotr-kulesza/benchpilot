@@ -13,7 +13,7 @@ import Fallback from './Fallback.jsx'
 import StationCanvas from './StationCanvas.jsx'
 import { reagentColor } from './theme.js'
 import { resolveRecipe } from './sceneRecipe.js'
-import { reagentName } from '../lib/runtime.js'
+import { reagentName, reagentVolume } from '../lib/runtime.js'
 
 class GLBoundary extends Component {
   constructor(props) {
@@ -57,7 +57,7 @@ export default function StationView({ protocol, activeIndex = 0, answers = {}, l
   const primary = primaryReagent(step.reagents)
   const name = primary ? reagentName(primary, lang) : null
   const liquidColor = useMemo(() => reagentColor(name), [name])
-  const volume = primary?.volume || null
+  const volume = primary ? reagentVolume(primary, lang) || null : null
   const spin = step.spin
   const rcf = spin?.rcf_min ? `≥ ${spin.rcf_min.toLocaleString()} ×g` : null
   const spinTime = spin?.duration_seconds ? `${spin.duration_seconds}s` : null

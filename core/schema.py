@@ -88,11 +88,18 @@ def _action(v: Any) -> str:
 
 @dataclass
 class Reagent:
-    """A reagent added at a step. `volume` may be conditional (see `condition`)."""
+    """A reagent added at a step. `volume` may be conditional (see `condition`).
+
+    `volume`/`condition` are kept verbatim in the original language; `volume_en`/
+    `condition_en` carry English renderings so the default UI never leaks the
+    source language (e.g. "10 µl na 1 ml RLT" -> "10 µl per 1 ml RLT").
+    """
     name: str = ""                    # original language (verbatim)
     name_en: Optional[str] = None     # English rendering for comprehension
     volume: Optional[str] = None      # kept as free text: "350 µl", "10 µl/próbkę"
+    volume_en: Optional[str] = None   # English rendering of `volume`
     condition: Optional[str] = None   # e.g. "dla ≤ 5×10⁶ komórek"
+    condition_en: Optional[str] = None  # English rendering of `condition`
 
     @classmethod
     def from_dict(cls, d: Any) -> "Reagent":
@@ -103,7 +110,9 @@ class Reagent:
             name=_s(d.get("name")),
             name_en=_opt_s(d.get("name_en")),
             volume=_opt_s(d.get("volume")),
+            volume_en=_opt_s(d.get("volume_en")),
             condition=_opt_s(d.get("condition")),
+            condition_en=_opt_s(d.get("condition_en")),
         )
 
 
