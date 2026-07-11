@@ -8,11 +8,12 @@ import {
   reagentName,
   reagentVolume,
   stepHazards,
+  PHASE_LABEL,
 } from '../lib/runtime.js'
 
 // The "before you start" screen — the Claude payoff made visible: the open
 // questions the parse surfaced, a prep-ahead checklist, materials, and hazards.
-export default function Intake({ protocol, answers, setAnswers, onStart, lang = 'en' }) {
+export default function Intake({ protocol, notes = [], answers, setAnswers, onStart, lang = 'en' }) {
   const fields = useMemo(() => deriveIntakeFields(protocol), [protocol])
   const prepSteps = protocol.steps.filter((s) => s.prep_ahead)
   const [checked, setChecked] = useState({})
@@ -129,6 +130,24 @@ export default function Intake({ protocol, answers, setAnswers, onStart, lang = 
               <li key={i}>
                 {m.name}
                 {m.note ? <span className="note"> — {m.note}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {notes.length > 0 && (
+        <section className="section">
+          <h2>Notes &amp; non-bench steps</h2>
+          <p className="section-sub">
+            {notes.length} step{notes.length === 1 ? '' : 's'} with nothing to animate — prep,
+            record-keeping and remarks. Read them here; the walkthrough covers the bench actions.
+          </p>
+          <ul className="notes-list">
+            {notes.map((s, i) => (
+              <li key={i} className="note-item" data-phase={s.phase}>
+                <span className="note-phase">{PHASE_LABEL[s.phase] || s.phase}</span>
+                <span className="note-text">{stepText(s, lang)}</span>
               </li>
             ))}
           </ul>

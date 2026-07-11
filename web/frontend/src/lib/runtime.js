@@ -33,6 +33,37 @@ export const PHASE_LABEL = {
 }
 
 // ---------------------------------------------------------------------------
+// actionable vs. prose steps
+// ---------------------------------------------------------------------------
+//
+// Only steps with a real bench action earn a 3D station: an action that has its
+// own device/animation, or a step that carries something to act on (reagents, a
+// spin, or a duration). `notes` and prose-only steps (e.g. "prepare buffer per
+// kit instructions", "record the yield") are shown as text, not animated. This
+// is a PRESENTATION filter — no step is ever dropped from the data.
+
+// `generic` is the only action with no device and no inherent motion.
+const PROSE_ACTIONS = new Set(['generic'])
+
+export function isActionableStep(step) {
+  if (!step) return false
+  if (step.phase === 'notes') return false
+  const action = step.action || 'generic'
+  if (!PROSE_ACTIONS.has(action)) return true
+  // a generic step earns a station only if it carries something to do
+  const hasReagents = Array.isArray(step.reagents) && step.reagents.length > 0
+  return hasReagents || !!step.spin || !!step.duration_seconds
+}
+
+// Split a step list into { stations, notes } — the 3D walkthrough vs the text.
+export function partitionSteps(steps = []) {
+  const stations = []
+  const notes = []
+  for (const s of steps) (isActionableStep(s) ? stations : notes).push(s)
+  return { stations, notes }
+}
+
+// ---------------------------------------------------------------------------
 // language selection
 // ---------------------------------------------------------------------------
 //

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Intake from './components/Intake.jsx'
 import Runner from './components/Runner.jsx'
+import { partitionSteps } from './lib/runtime.js'
 
 // Default data source is the bundled example, so the demo renders with ZERO
 // backend. A future live-parse endpoint can be pointed at with VITE_API_BASE
@@ -45,6 +46,14 @@ export default function App() {
       .catch((e) => setError(e.message))
   }, [])
 
+  // Presentation filter: only actionable steps become 3D stations; the rest
+  // (notes / prose-only) are shown as text in the intake. No data is dropped.
+  const { stations, notes } = useMemo(() => partitionSteps(protocol?.steps || []), [protocol])
+  const runProtocol = useMemo(
+    () => (protocol ? { ...protocol, steps: stations } : protocol),
+    [protocol, stations],
+  )
+
   if (error) {
     return (
       <div className="app">
@@ -71,7 +80,7 @@ export default function App() {
   if (phase === 'run') {
     return (
       <Runner
-        protocol={protocol}
+        protocol={runProtocol}
         answers={answers}
         setAnswers={setAnswers}
         initialStep={initial.step}
@@ -97,6 +106,7 @@ export default function App() {
 
         <Intake
           protocol={protocol}
+          notes={notes}
           answers={answers}
           setAnswers={setAnswers}
           onStart={() => setPhase('run')}
