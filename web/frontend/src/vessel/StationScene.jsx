@@ -202,12 +202,22 @@ function configureStation(st, o) {
     // cStart/lStart = carried-in state, so the pour builds ON the existing contents.
     demo.stationReagent(st, BT, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel })
   } else if (action === 'pipette_mix') {
-    // pipette aspirates + dispenses in repeated passes (reuse pipetteRun); ripple.
+    // resuspend / mix by pipetting: the pipette bobs STRAIGHT down into the tube
+    // and back, aspirating + dispensing. (Do NOT reuse pipetteRun here — that's a
+    // transfer arc, and looping it in place makes the pipette leap up and teleport.)
+    const TOP = BT + 2.4 // raised, tip clear of the tube
+    const BOT = BT + 1.1 // plunged, tip in the liquid
     demo.addPipetteRig(st)
-    st.enter = () => { seat(0, BT, 0); demo.pipRest(st) }
+    st.enter = () => { seat(0, BT, 0); if (st.pip) { st.pip.position.set(0, TOP, 0); st.pip.userData.setFluid(0) } }
     st.timeline = (p) => {
-      const cp = (p * 3) % 1 // 3 mixing passes
-      demo.pipetteRun(st, { x: 0, y: BT, z: 0 }, { x: 0, y: BT, z: 0 }, cp, { color: endColor, fill: 0.7 })
+      const pip = st.pip
+      if (pip) {
+        const cp = (p * 3) % 1 // 3 mixing strokes
+        const dip = Math.sin(cp * Math.PI) // 0→1→0, CONTINUOUS across the reset (no jump)
+        pip.position.set(0, demo.lerp(TOP, BOT, dip), 0)
+        pip.userData.setColor(endColor)
+        pip.userData.setFluid((1 - dip) * 0.6) // draw up when raised, expel when plunged
+      }
       S[vessel].userData.setLevel(evolve(p) + Math.sin(p * 26) * 0.02) // surface ripple over carried level
     }
   } else if (action === 'vortex_mix') {
