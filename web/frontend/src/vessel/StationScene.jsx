@@ -87,7 +87,9 @@ function stepEnd(action, prev, color, fill) {
     case 'centrifuge': return { color: prev.color, level: 0.2 } // spun down, supernatant/flow-through gone
     case 'elute': return { color, level: 0.45 } // eluate collected
     case 'discard': return { color: prev.color, level: 0.05 }
-    default: return { color: prev.color, level: prev.level } // vortex / homogenize / incubate / heat / cool / measure — no change
+    case 'seed': return { color, level: Math.max(prev.level, fill) } // dispensed into a culture vessel
+    case 'stain': return { color, level: Math.max(prev.level, fill) } // dye floods over the surface
+    default: return { color: prev.color, level: prev.level } // vortex/homogenize/incubate/heat/cool/measure/thermocycle/electrophorese/store — no change
   }
 }
 
@@ -167,7 +169,7 @@ function Floor({ totalLen }) {
 // Build a station for a step. Every action gets a timeline with VISIBLE motion
 // driven by the per-step progress p (0->1): so no station is ever static.
 function configureStation(st, o) {
-  const { action, equipment, container, color, name, vol, seconds, startColor, startLevel, endColor, endLevel } = o
+  const { action, equipment, container, color, name, vol, seconds, startColor, startLevel, endColor, endLevel, cycles } = o
   const vessel = V_OF[container] || 'tube'
   const removal = resolveRemoval(container) // 'tip' (tube) vs 'aspirate' (plate/membrane)
   const S = demo.getSample()
@@ -378,6 +380,56 @@ function configureStation(st, o) {
       st.cold.intensity = p * 2.6 // cold cast ramps up (monotonic)
       S[vessel].rotation.z = Math.sin(p * 30) * 0.02 // faint cold shiver
     }
+  } else if (action === 'thermocycle') {
+    // PCR: the sample sits in the thermocycler; the lid closes; it cycles hot↔cool
+    // with a live CYCLE n/N counter driven by repeat.count.
+    const tc = demo.buildThermocycler()
+    st.group.add(tc)
+    st.updatables.push(tc)
+    st.dev = tc
+    const n = cycles > 0 ? cycles : 30
+    st.enter = () => { seat(-0.0, BT + 0.25, 0.05); tc.userData.setLid(true); tc.userData.setProgress(0, n) }
+    st.timeline = (p) => {
+      tc.userData.setLid(!(p > 0.12 && p < 0.9)) // lid CLOSED while cycling, open before/after
+      tc.userData.setProgress(p, n)
+      evolve(p) // contents unchanged; the tube just cycles temperature
+    }
+  } else if (action === 'electrophorese') {
+    // load the sample and run the gel: bands migrate, voltage ramps.
+    const gel = demo.buildGelRig()
+    st.group.add(gel)
+    st.updatables.push(gel)
+    st.dev = gel
+    st.enter = () => seat(-1.7, BT, 0.9) // sample waits beside the tank (loaded into it)
+    st.timeline = (p) => { evolve(p); gel.userData.setProgress?.(p) }
+  } else if (action === 'store') {
+    // end-state storage: the vessel goes cold (frost) and is placed away.
+    demo.addStand(st)
+    const ice = demo.buildIceBucket()
+    ice.position.set(0, 0, 0.3)
+    st.group.add(ice)
+    st.updatables.push(ice)
+    st.cold = new PointLight(0x8fbaf0, 0, 4)
+    st.cold.position.set(0, 1, 0.7)
+    st.group.add(st.cold)
+    st.enter = () => seat(0, 0.34, 0.3)
+    st.timeline = (p) => {
+      evolve(p)
+      st.cold.intensity = p * 2.4 // deep-cold cast ramps up
+      S[vessel].rotation.z = Math.sin(p * 24) * 0.015 // faint shiver as it freezes
+    }
+  } else if (action === 'seed') {
+    // dispense/spread the sample into a culture vessel (pour + a spreading sweep).
+    demo.stationReagent(st, BT, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel })
+  } else if (action === 'stain') {
+    // flood a stain/dye over the sample surface: the liquid colour floods in.
+    demo.addStand(st)
+    st.enter = () => seat(0, BT, 0)
+    st.timeline = (p) => {
+      const f = demo.easeInOut(demo.clamp((p - 0.15) / 0.6, 0, 1))
+      S[vessel].userData.setLevel(demo.lerp(startLevel, Math.max(startLevel, endLevel, 0.6), f))
+      if (p > 0.2) S[vessel].userData.setColor(endColor) // dye floods over
+    }
   } else if (equipment === 'reader') {
     // NanoDrop reads the sample; its trace draws in with p.
     const nano = demo.buildNanoDrop()
@@ -416,7 +468,8 @@ function stationParams(baseStep, lang, altIdx, chain) {
   const fill = resolveRecipe(step.action).anim.fill
   const start = chain?.start || { color: INIT_COLOR, level: INIT_LEVEL }
   const end = chain?.end || { color: colorHex, level: fill }
-  return { action: step.action, equipment, colorHex, vol, title, sub, seconds: step.duration_seconds, start, end }
+  const cycles = step.repeat && typeof step.repeat.count === 'number' ? step.repeat.count : 0
+  return { action: step.action, equipment, colorHex, vol, title, sub, seconds: step.duration_seconds, start, end, cycles }
 }
 
 export default function StationScene({ protocol, activeIndex = 0, lang = 'en', view = 'cinematic', altByStep = {} }) {
@@ -511,7 +564,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
       const st = { group: new Group(), updatables: [], reagents: {}, pip: null, enter: null, timeline: null, x: i * SPACING, cen: null, dev: null, vis: 0, _vstate: -1 }
       configureStation(st, {
         action: o.action, equipment: o.equipment, container, color: o.colorHex, name: o.title, vol: o.vol, seconds: o.seconds,
-        startColor: o.start.color, startLevel: o.start.level, endColor: o.end.color, endLevel: o.end.level,
+        startColor: o.start.color, startLevel: o.start.level, endColor: o.end.color, endLevel: o.end.level, cycles: o.cycles,
       })
       st.group.position.set(st.x, 0, 0)
       // a floating title that travels with its station
@@ -675,5 +728,10 @@ const ACTION_LABEL = {
   discard: 'Discard',
   elute: 'Elute',
   measure: 'Measure',
+  thermocycle: 'Thermocycle',
+  electrophorese: 'Run gel',
+  store: 'Store',
+  seed: 'Seed',
+  stain: 'Stain',
   generic: 'Step',
 }

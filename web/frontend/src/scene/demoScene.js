@@ -693,6 +693,124 @@ export function undockSample() {
     return grp;
   }
 
+  /* ---------- thermocycler (PCR): heated block + motorized heated lid + cycle
+     display. setProgress(p, cycles) cycles the hot↔cool glow and the CYCLE n/N
+     readout; setLid(open) raises/lowers the heated lid. Same anthracite style as
+     buildColdBlock. */
+  function buildThermocycler(){
+    var grp = new THREE.Group();
+    var shell = matAnodized(0x2b2f36);
+    var shellTop = matBrushed(0xb8bec6); shellTop.roughness=0.42;
+    var base = new THREE.Mesh(new THREE.BoxGeometry(2.5,0.7,1.9), shell);
+    base.position.y=0.35; base.castShadow=true; base.receiveShadow=true; grp.add(base);
+    var deck = new THREE.Mesh(new THREE.BoxGeometry(2.3,0.06,1.5), shellTop);
+    deck.position.set(0,0.72,0.05); grp.add(deck);
+    // sunken 8-well plate seat (where the sample rides)
+    var boreMat = new THREE.MeshStandardMaterial({ color:0x1b2128, metalness:0.4, roughness:0.7, side:THREE.DoubleSide });
+    var seat = new THREE.Mesh(new THREE.BoxGeometry(1.5,0.12,0.9), boreMat);
+    seat.position.set(0,0.7,0.05); grp.add(seat);
+    for(var i=0;i<4;i++){ var bx=-0.6+i*0.4;
+      var bore=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.09,0.3,18,1,true), boreMat);
+      bore.position.set(bx,0.66,0.05); grp.add(bore); }
+    // hinged HEATED LID that lowers over the wells
+    var lidPivot = new THREE.Group(); lidPivot.position.set(0,0.78,-0.75); grp.add(lidPivot);
+    var lid = new THREE.Mesh(new THREE.BoxGeometry(2.2,0.22,1.4), matPainted(0x3a3f47,0.5));
+    lid.position.set(0,0.11,0.75); lidPivot.add(lid);
+    var lidGrip = new THREE.Mesh(new THREE.BoxGeometry(1.4,0.08,0.16), matPlastic(0x22272e));
+    lidGrip.position.set(0,0.26,1.15); lidPivot.add(lidGrip);
+    // slanted control display
+    var dc=document.createElement("canvas"); dc.width=256; dc.height=128; var dg=dc.getContext("2d");
+    var dTex=new THREE.CanvasTexture(dc); dTex.anisotropy=MAX_ANISO;
+    function drawDisp(cyc, tot, tempC, hot){
+      dg.fillStyle="#0d1218"; dg.fillRect(0,0,256,128);
+      dg.strokeStyle="rgba(90,100,116,0.4)"; dg.lineWidth=3; dg.strokeRect(6,6,244,116);
+      dg.textAlign="left"; dg.fillStyle="#7a8290"; dg.font="600 20px 'Helvetica Neue',Arial"; dg.fillText("CYCLE", 16,34);
+      dg.fillStyle="#8fcabf"; dg.font="700 46px Menlo,monospace"; dg.fillText(cyc+" / "+tot, 16,86);
+      dg.textAlign="right"; dg.fillStyle=hot?"#ff9a5a":"#6fb8f0"; dg.font="700 34px Menlo,monospace";
+      dg.fillText(Math.round(tempC)+"°", 240,60);
+      dTex.needsUpdate=true;
+    }
+    drawDisp(0,30,25,false);
+    var disp=new THREE.Mesh(new THREE.PlaneGeometry(0.7,0.35), new THREE.MeshBasicMaterial({map:dTex,transparent:true}));
+    disp.position.set(0,0.5,0.96); disp.rotation.x=-0.35; grp.add(disp);
+    var dispFrame=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.44,0.05), matPainted(0x22262c,0.5));
+    dispFrame.position.set(0,0.5,0.94); dispFrame.rotation.x=-0.35; grp.add(dispFrame);
+    // heat glow over the block
+    var glow=new THREE.PointLight(0xff8a3d,0,4); glow.position.set(0,1.1,0.05); grp.add(glow);
+
+    var label=makeLabel("Thermocycler",""); label.position.set(0,1.7,0); grp.add(label);
+    var st={ lid:1, tLid:1 };
+    grp.userData.label=label;
+    grp.userData.setLid=function(open){ st.tLid=open?1:0; };
+    // p in [0,1] over the whole step; `cycles` = repeat.count. Cycles hot->cool and
+    // steps the CYCLE readout; a warm glow pulses on the denature (hot) phase.
+    grp.userData.setProgress=function(p, cycles){
+      cycles=Math.max(1, cycles||30);
+      var cyc=Math.min(cycles, Math.floor(p*cycles)+1);
+      var cp=(p*cycles)%1;                     // progress within the current cycle
+      var hot=cp<0.4;                            // denature (hot) then anneal/extend (cooler)
+      var tempC = hot ? 95 : (cp<0.7 ? 58 : 72);
+      glow.intensity = hot ? 2.6 : 0.5;
+      drawDisp(cyc, cycles, tempC, hot);
+    };
+    grp.userData.update=function(dt){
+      st.lid=lerp(st.lid, st.tLid, 1-Math.pow(0.02,dt));
+      lidPivot.rotation.x = -easeInOut(st.lid)*1.05;   // 0 = closed over the wells
+    };
+    grp.userData.setProgress(0,30);
+    return grp;
+  }
+
+  /* ---------- gel electrophoresis rig: buffer tank + gel with wells + power box.
+     setProgress(p) migrates the dye front / bands down the gel and ramps the
+     voltage readout. Stylized to match the bench (matFrosted tank, matPainted box). */
+  function buildGelRig(){
+    var grp = new THREE.Group();
+    // buffer tank (clear frosted box)
+    var tankMat = matFrosted(0xdfe6ee); tankMat.opacity=0.4;
+    var tank = new THREE.Mesh(new THREE.BoxGeometry(2.6,0.7,1.6), tankMat);
+    tank.position.y=0.55; tank.castShadow=true; grp.add(tank);
+    var lidMat = matPlastic(0x2b3038);
+    var tankLid = new THREE.Mesh(new THREE.BoxGeometry(2.7,0.08,1.7), lidMat);
+    tankLid.position.y=0.95; grp.add(tankLid);
+    // running buffer
+    var buf = new THREE.Mesh(new THREE.BoxGeometry(2.5,0.5,1.5),
+      new THREE.MeshPhysicalMaterial({ color:0xdfe6c0, roughness:0.3, transparent:true, opacity:0.35, envMapIntensity:0.6 }));
+    buf.position.y=0.5; grp.add(buf);
+    // the gel slab (translucent amber) with a row of wells at the top
+    var gelMat = new THREE.MeshPhysicalMaterial({ color:0xd8c98a, roughness:0.5, transparent:true, opacity:0.5, envMapIntensity:0.5 });
+    var gel = new THREE.Mesh(new THREE.BoxGeometry(2.0,0.14,1.2), gelMat);
+    gel.position.set(0,0.66,0); grp.add(gel);
+    // migrating bands (lanes) — move from the wells (back) toward the front
+    var bands=[];
+    var bandMat = new THREE.MeshBasicMaterial({ color:0x2f6ad0, transparent:true, opacity:0.85 });
+    for(var l=0;l<5;l++){ var bx=-0.8+l*0.4;
+      var band=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.02,0.05), bandMat.clone());
+      band.position.set(bx,0.735,-0.5); gel.add(band); bands.push(band); }
+    // power supply box with a voltage readout
+    var box = new THREE.Mesh(new THREE.BoxGeometry(0.9,0.7,0.6), matPainted(0xd8dee6,0.44));
+    box.position.set(1.9,0.35,0.1); box.castShadow=true; grp.add(box);
+    var vc=document.createElement("canvas"); vc.width=128; vc.height=80; var vg=vc.getContext("2d");
+    var vTex=new THREE.CanvasTexture(vc); vTex.anisotropy=MAX_ANISO;
+    function drawV(v){ vg.fillStyle="#0d1218"; vg.fillRect(0,0,128,80);
+      vg.fillStyle="#8fcabf"; vg.font="700 34px Menlo,monospace"; vg.textAlign="right"; vg.fillText(Math.round(v)+"", 96,52);
+      vg.fillStyle="#727a85"; vg.font="600 16px Arial"; vg.fillText("V", 120,52); vTex.needsUpdate=true; }
+    drawV(0);
+    var vDisp=new THREE.Mesh(new THREE.PlaneGeometry(0.5,0.3), new THREE.MeshBasicMaterial({map:vTex,transparent:true}));
+    vDisp.position.set(1.9,0.5,0.41); grp.add(vDisp);
+
+    var label=makeLabel("Electrophoresis",""); label.position.set(0,1.5,0); grp.add(label);
+    grp.userData.label=label;
+    grp.userData.setProgress=function(p){
+      var e=easeInOut(clamp(p,0,1));
+      for(var k=0;k<bands.length;k++){ bands[k].position.z = -0.5 + e*0.9; }  // migrate toward the front
+      drawV(p>0.02 ? 100 : 0);
+    };
+    grp.userData.update=function(){};
+    grp.userData.setProgress(0);
+    return grp;
+  }
+
   /* ---------- open ice bucket (cold storage — keep on ice / −80 °C) ---------- */
   function buildIceBucket(){
     var grp = new THREE.Group();
@@ -1239,6 +1357,7 @@ export {
   buildSharedMaps, makeLabel, stationDecal,
   buildTube, buildPipette, buildPipetteStand, buildBottle, buildSpinColumn,
   buildCentrifuge, buildColdBlock, buildIceBucket, buildNanoDrop, buildDrop, buildWaste, buildSyringe,
+  buildThermocycler, buildGelRig,
   buildEnvMap, makeCineBackdrop, makeGradientTexture,
   glassMaterial, matPlastic, matBrushed, matAnodized, matPainted, matFrosted, matRubber, matSilicone,
 }

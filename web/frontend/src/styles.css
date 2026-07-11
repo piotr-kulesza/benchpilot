@@ -530,6 +530,7 @@ button { font-family: inherit; cursor: pointer; }
   transition: all 0.15s var(--step);
 }
 .repeat-dots .dot.done { background: var(--warn); }
+.repeat-count { font-weight: 800; color: var(--warn); font-size: 20px; letter-spacing: 0.5px; }
 .repeat-info { font-weight: 650; color: var(--warn); font-size: 15.5px; }
 .repeat-btn {
   margin-left: auto;

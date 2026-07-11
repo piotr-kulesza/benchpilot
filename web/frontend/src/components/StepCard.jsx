@@ -116,17 +116,21 @@ export default function StepCard({
       {showRepeat && (
         <div className="block">
           <div className="repeat-tracker">
-            {!openEnded && (
+            {/* dots for small counts (washes ×3); a compact ×N badge for cycles (PCR ×35) */}
+            {!openEnded && repTarget <= 12 && (
               <div className="repeat-dots">
                 {Array.from({ length: repTarget }).map((_, i) => (
                   <span className={`dot${i < passes ? ' done' : ''}`} key={i} />
                 ))}
               </div>
             )}
+            {!openEnded && repTarget > 12 && <div className="repeat-count">×{repTarget}</div>}
             <div className="repeat-info">
               {openEnded
                 ? `Repeat ${eff.repeat.reason ? '— ' + eff.repeat.reason : ''} · pass ${passes}`
-                : `Pass ${Math.min(passes, repTarget)} of ${repTarget}`}
+                : eff.action === 'thermocycle'
+                  ? `Cycle ${Math.min(passes, repTarget)} of ${repTarget}`
+                  : `Pass ${Math.min(passes, repTarget)} of ${repTarget}`}
             </div>
             <button className="repeat-btn" onClick={onPass}>
               {openEnded || passes < repTarget ? '+ Count a pass' : '✓ Done'}
