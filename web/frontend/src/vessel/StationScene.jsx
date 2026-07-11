@@ -28,8 +28,47 @@ const ISO_DIST = 90
 const ISO_LOOK_Y = 1.35
 const VIEW_SIZE = 7.6
 const STEP_DUR = 6.5 // the demo's per-step animation window (seconds)
+const SPACING = 8.4 // distance between stations along +X (the demo's buildLine)
+const GLIDE_DUR = 1.65 // camera rail-dolly duration on a step change (the demo)
+// station equipment fade by distance from the framed point (railX): the active
+// station is full, neighbours recede into fog, and mid-dolly BOTH are visible.
+const VIS_FULL = SPACING * 0.5 // fully visible within here
+const VIS_GONE = SPACING * 1.6 // faded out beyond here
 
 const V_OF = { microtube: 'tube', spin_column: 'column', eluate_tube: 'elu' }
+
+// Snapshot each station's material opacities so the whole unit (equipment +
+// labels + decal + shadow) can be faded in/out together — ported from the demo's
+// collectStationMats / applyStationVis so neighbours can recede without being
+// destroyed. `st.mats` holds {m, o (base opacity), t (base transparent)}.
+function collectStationMats(st) {
+  const seen = new Set()
+  st.mats = []
+  const fold = (root) => root?.traverse?.((o) => {
+    const arr = Array.isArray(o.material) ? o.material : o.material ? [o.material] : []
+    for (const m of arr) {
+      if (m && !seen.has(m)) { seen.add(m); st.mats.push({ m, o: m.opacity == null ? 1 : m.opacity, t: !!m.transparent }) }
+    }
+  })
+  fold(st.group)
+  ;[st.decal].forEach((mesh) => {
+    if (mesh?.material) { const m = mesh.material; if (!seen.has(m)) { seen.add(m); st.mats.push({ m, o: m.opacity == null ? 1 : m.opacity, t: !!m.transparent }) } }
+  })
+}
+function applyStationVis(st) {
+  const f = st.vis
+  if (f <= 0.006) { // fully out — hide and skip material work
+    if (st._vstate !== 0) { st.group.visible = false; if (st.decal) st.decal.visible = false; st._vstate = 0 }
+    return
+  }
+  if (st._vstate === 0) { st.group.visible = true; if (st.decal) st.decal.visible = true }
+  if (f >= 0.994) { // fully in — restore the base look once
+    if (st._vstate !== 2) { for (const e of st.mats) { e.m.transparent = e.t; e.m.opacity = e.o }; st._vstate = 2 }
+  } else { // mid-fade — scale every opacity by f
+    for (const e of st.mats) { e.m.transparent = true; e.m.opacity = e.o * f }
+    st._vstate = 1
+  }
+}
 
 // The ONE sample persists across every step, carrying its contents. Its state at
 // the start of step N is exactly its state at the end of step N-1 (chained). We
@@ -90,13 +129,14 @@ const FILL_BOOST = 1
 // the floor faces UP, so its cool light comes from the hemisphere sky (#dde4ee),
 // not the grazing fill. Boost hemi to neutralise the bench's warm cast.
 const HEMI_BOOST = 1
-function Lights() {
+function Lights({ keyRef }) {
   const L = demo.LOOK.cinematic
   return (
     <>
       <ambientLight color={L.amb.color} intensity={L.amb.int * LIGHT_SCALE} />
       <hemisphereLight color={L.hemi.sky} groundColor={L.hemi.ground} intensity={L.hemi.int * LIGHT_SCALE * HEMI_BOOST} />
       <directionalLight
+        ref={keyRef}
         color={L.key.color}
         intensity={L.key.int * LIGHT_SCALE}
         position={[5, 11, 7]}
@@ -118,27 +158,11 @@ function Lights() {
   )
 }
 
-// the demo's textured resin floor (light warm cream), not a flat plane.
-function Floor() {
-  const floor = useMemo(() => demo.buildFloor(), [])
+// the demo's one continuous resin bench spanning the whole station line.
+function Floor({ totalLen }) {
+  const floor = useMemo(() => demo.buildFloor(totalLen), [totalLen])
+  useEffect(() => () => disposeGroup(floor), [floor])
   return <primitive object={floor} />
-}
-
-function CameraRig({ view }) {
-  const persp = useRef()
-  const ortho = useRef()
-  const { size } = useThree()
-  const zoom = size.height / (2 * VIEW_SIZE)
-  useFrame(() => {
-    if (view === 'isometric') ortho.current?.lookAt(0, ISO_LOOK_Y, 0)
-    else persp.current?.lookAt(0, LOOK_Y, 0)
-  })
-  return (
-    <>
-      <PerspectiveCamera ref={persp} makeDefault={view !== 'isometric'} fov={FOV} near={0.1} far={160} position={[0, RAIL_Y, RAIL_Z]} />
-      <OrthographicCamera ref={ortho} makeDefault={view === 'isometric'} near={0.1} far={400} zoom={zoom} position={[ISO_DIR.x * ISO_DIST, ISO_LOOK_Y + ISO_DIR.y * ISO_DIST, ISO_DIR.z * ISO_DIST]} />
-    </>
-  )
 }
 
 // Build a station for a step. Every action gets a timeline with VISIBLE motion
@@ -354,32 +378,32 @@ function useContainers(steps) {
   return useMemo(() => sampleContainerSequence(steps.map((s) => s.action)), [steps])
 }
 
+// Per-step build + display params for one station in the line.
+function stationParams(baseStep, lang, altIdx, chain) {
+  const step = effectiveStep(baseStep, altIdx) // follow the chosen either/or method
+  const { equipment } = resolveRecipe(step.action)
+  const primary = (step.reagents || []).find((r) => r.volume) || (step.reagents || [])[0]
+  const primaryName = primary ? reagentName(primary, lang) : null
+  const colorHex = new Color(reagentColor(primaryName)).getHex()
+  const vol = (primary && reagentVolume(primary, lang)) || ''
+  const title = primaryName || ACTION_LABEL[step.action] || 'Step'
+  const sub = vol || (step.spin?.rcf_min ? `≥ ${step.spin.rcf_min.toLocaleString()} ×g` : '')
+  const fill = resolveRecipe(step.action).anim.fill
+  const start = chain?.start || { color: INIT_COLOR, level: INIT_LEVEL }
+  const end = chain?.end || { color: colorHex, level: fill }
+  return { action: step.action, equipment, colorHex, vol, title, sub, seconds: step.duration_seconds, start, end }
+}
+
 export default function StationScene({ protocol, activeIndex = 0, lang = 'en', view = 'cinematic', altByStep = {} }) {
   ensureMaps()
-  const { gl, scene } = useThree()
+  const { gl, scene, size } = useThree()
   const steps = protocol?.steps || []
   const containers = useContainers(steps)
   const active = Math.max(0, Math.min(activeIndex, steps.length - 1))
-  const baseStep = steps[active] || { action: 'generic', reagents: [] }
-  // Follow the CHOSEN alternative (either/or method) — the station, action and
-  // title all come from the selected branch, not the primary. Picking the needle
-  // option builds a syringe, not the QIAshredder centrifuge.
-  const altIdx = altByStep[baseStep.index] || 0
-  const step = effectiveStep(baseStep, altIdx)
-  const { equipment } = resolveRecipe(step.action)
-  const container = containers[active] || 'microtube'
+  const totalLen = Math.max(0, steps.length - 1) * SPACING
 
-  const primary = (step.reagents || []).find((r) => r.volume) || (step.reagents || [])[0]
-  const primaryName = primary ? reagentName(primary, lang) : null
-  const colorHex = useMemo(() => new Color(reagentColor(primaryName)).getHex(), [primaryName])
-  const fill = resolveRecipe(step.action).anim.fill
-  const vol = (primary && reagentVolume(primary, lang)) || ''
-  const labelTitle = primaryName || ACTION_LABEL[step.action] || 'Step'
-  const labelSub = vol || (step.spin?.rcf_min ? `≥ ${step.spin.rcf_min.toLocaleString()} ×g` : '')
-
-  // The sample's carried contents at EVERY step, as a pure fold over the protocol:
-  // step N's start state == step N-1's end state. Computed for all steps (not a
-  // mutable ref) so a deep-link/back jump still resolves the right carried state.
+  // The sample's carried contents at EVERY step (pure fold; step N start == step
+  // N-1 end), honouring the chosen alternative so a jump still resolves right.
   const stateChain = useMemo(() => {
     let color = INIT_COLOR
     let level = INIT_LEVEL
@@ -395,12 +419,19 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
       return { start, end }
     })
   }, [steps, lang, altByStep])
-  const chainAt = stateChain[active] || { start: { color: INIT_COLOR, level: INIT_LEVEL }, end: { color: colorHex, level: fill } }
 
-  const stRef = useRef(null)
+  // Camera-rail + line state — refs so the frame loop reads them without a re-render.
+  const stationsRef = useRef(null)
+  const railXRef = useRef(0)
+  const targetXRef = useRef(0)
+  const glideRef = useRef({ active: false, t: 0, from: 0, to: 0 })
+  const activeRef = useRef(0)
+  const prevActiveRef = useRef(-1)
   const pRef = useRef(0)
   const restartRef = useRef(true)
-  const prevActiveRef = useRef(-1)
+  const perspRef = useRef()
+  const orthoRef = useRef()
+  const keyRef = useRef()
 
   // one-time scene setup + the persistent travelling SAMPLE (added to the scene).
   useEffect(() => {
@@ -428,73 +459,167 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
     }
   }, [gl, scene])
 
-  // per active step: build the station, snap the sample in, run enter(), reset clock.
+  // the key light's shadow target follows the framed station (kept in the graph).
+  useEffect(() => {
+    if (keyRef.current) scene.add(keyRef.current.target)
+  }, [scene])
+
+  // ── BUILD THE WHOLE LINE ONCE — one station per step along +X at SPACING.
+  // Rebuilds ONLY on a structural change (protocol / language / chosen method),
+  // NEVER on step navigation. Stations persist for the session; a step change
+  // only dollies the camera and glides the single sample. ──
   useEffect(() => {
     if (!demo.getSample()) return undefined
-    const st = { group: new Group(), updatables: [], reagents: {}, pip: null, enter: null, timeline: null, x: 0, cen: null, dev: null }
-    configureStation(st, {
-      action: step.action, equipment, container, color: colorHex, name: labelTitle, vol, seconds: step.duration_seconds,
-      startColor: chainAt.start.color, startLevel: chainAt.start.level,
-      endColor: chainAt.end.color, endLevel: chainAt.end.level,
+    const stations = []
+    steps.forEach((baseStep, i) => {
+      const altIdx = altByStep[baseStep.index] || 0
+      const container = containers[i] || 'microtube'
+      const o = stationParams(baseStep, lang, altIdx, stateChain[i])
+      const st = { group: new Group(), updatables: [], reagents: {}, pip: null, enter: null, timeline: null, x: i * SPACING, cen: null, dev: null, vis: 0, _vstate: -1 }
+      configureStation(st, {
+        action: o.action, equipment: o.equipment, container, color: o.colorHex, name: o.title, vol: o.vol, seconds: o.seconds,
+        startColor: o.start.color, startLevel: o.start.level, endColor: o.end.color, endLevel: o.end.level,
+      })
+      st.group.position.set(st.x, 0, 0)
+      // a floating title that travels with its station
+      const label = demo.makeLabel(o.title, o.sub)
+      label.position.set(0, 3.2, 0)
+      st.group.add(label)
+      scene.add(st.group)
+      // the bench station number in front
+      const decal = demo.stationDecal(i + 1)
+      decal.position.set(st.x, 0.02, 2.4)
+      scene.add(decal)
+      st.decal = decal
+      collectStationMats(st) // snapshot opacities so the unit fades as one
+      stations.push(st)
     })
-    scene.add(st.group)
-    // clear any leftover swirl/tip from the previous step's motion timeline.
-    demo.getSample().vessels.forEach((v) => v.rotation.set(0, 0, 0))
-    // GLIDE the sample when stepping one at a time (it visibly travels to the new
-    // station carrying its contents); SNAP on the first mount or a non-sequential
-    // jump (deep-link/back), exactly as the demo does.
-    const sequential = prevActiveRef.current >= 0 && Math.abs(active - prevActiveRef.current) === 1
-    demo.setSnap(!sequential)
-    st.enter?.()
+    stationsRef.current = stations
+
+    // frame + seat the active station: snap the sample there, park the camera on it.
+    const a = Math.max(0, Math.min(active, stations.length - 1))
+    railXRef.current = stations[a] ? stations[a].x : 0
+    targetXRef.current = railXRef.current
+    glideRef.current = { active: false, t: 0, from: railXRef.current, to: railXRef.current }
+    demo.setSnap(true)
+    stations[a]?.enter?.()
     demo.setSnap(false)
-    prevActiveRef.current = active
-    stRef.current = st
-    restartRef.current = true // reset the per-step progress on the next frame
+    pRef.current = 0
+    restartRef.current = true
+    activeRef.current = a
+    prevActiveRef.current = a
+
     return () => {
-      scene.remove(st.group)
-      disposeGroup(st.group)
-      if (stRef.current === st) stRef.current = null
+      for (const st of stations) {
+        scene.remove(st.group)
+        disposeGroup(st.group)
+        if (st.decal) { scene.remove(st.decal); disposeGroup(st.decal) }
+      }
+      stationsRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, colorHex, container, step.action])
+  }, [scene, stateChain, containers])
 
-  // drive the station timeline + glide the sample, exactly like the demo's loop.
+  // ── STEP CHANGE: dolly the camera + glide the sample. NEVER rebuild a station. ──
+  useEffect(() => {
+    const stations = stationsRef.current
+    if (!stations || !stations[active]) return
+    if (prevActiveRef.current === active) return // already framed (e.g. just built)
+    const sequential = prevActiveRef.current >= 0 && Math.abs(active - prevActiveRef.current) === 1
+    // rail-dolly the camera to the active station (damped, no cut / pop-in)
+    glideRef.current = { active: true, t: 0, from: railXRef.current, to: stations[active].x }
+    targetXRef.current = stations[active].x
+    // the single sample glides (sequential) or snaps (jump) to the new station
+    demo.getSample()?.vessels.forEach((v) => v.rotation.set(0, 0, 0))
+    demo.setSnap(!sequential)
+    stations[active].enter?.()
+    demo.setSnap(false)
+    pRef.current = 0
+    restartRef.current = true
+    activeRef.current = active
+    prevActiveRef.current = active
+  }, [active])
+
+  // ── FRAME LOOP — the demo's animate(): rail-dolly the camera, run the active
+  // station's p-timeline, fade equipment by distance from the rail, and glide the
+  // one sample along the line. ──
   useFrame((state, dt) => {
     dt = Math.min(dt, 0.05)
-    const st = stRef.current
-    if (st) {
-      // accumulate progress from CAPPED dt (the demo caps dt to 0.05) so a frame
-      // stall can never skip the animation — it plays over ~STEP_DUR of frames.
-      if (restartRef.current) {
-        pRef.current = 0
-        restartRef.current = false
-      }
-      pRef.current = Math.min(pRef.current + dt / STEP_DUR, 1)
-      st.timeline?.(pRef.current)
-      for (const u of st.updatables) u.userData?.update?.(dt)
+    const time = state.clock.elapsedTime
+    const stations = stationsRef.current
+    if (!stations) return
+
+    // 1 · ease railX toward the active station's X
+    const g = glideRef.current
+    if (g.active) {
+      g.t = Math.min(g.t + dt / GLIDE_DUR, 1)
+      railXRef.current = demo.lerp(g.from, g.to, demo.easeInOut(g.t))
+      if (g.t >= 1) { g.active = false; railXRef.current = g.to }
     }
-    const S = demo.getSample()
-    if (S) {
-      for (const v of S.vessels) {
-        v.position.lerp(v.userData.tPos, 1 - Math.pow(0.02, dt))
-        v.userData.update?.(dt)
+    const railX = railXRef.current
+
+    // 2 · position the active camera — pure lateral tracking, no orbit
+    if (view === 'isometric') {
+      const cam = orthoRef.current
+      if (cam) {
+        const tx = railX + Math.sin(time * 0.12) * 0.07
+        cam.position.set(tx + ISO_DIR.x * ISO_DIST, ISO_LOOK_Y + ISO_DIR.y * ISO_DIST, ISO_DIR.z * ISO_DIST)
+        cam.up.set(0, 1, 0)
+        cam.lookAt(tx, ISO_LOOK_Y, 0)
       }
+    } else {
+      const cam = perspRef.current
+      if (cam) {
+        const camX = railX + Math.sin(time * 0.15) * 0.12
+        cam.position.set(camX, RAIL_Y, RAIL_Z)
+        cam.lookAt(camX, LOOK_Y, 0)
+      }
+    }
+
+    // 3 · the key light + its shadow frustum follow the framed station
+    const k = keyRef.current
+    if (k) {
+      const lx = targetXRef.current
+      k.position.set(lx + 5, 11, 7)
+      k.target.position.set(lx, 0.6, 0)
+      k.target.updateMatrixWorld()
+    }
+
+    // 4 · run ONLY the active station's p-timeline (others idle)
+    const act = stations[activeRef.current]
+    if (act) {
+      if (restartRef.current) { pRef.current = 0; restartRef.current = false }
+      pRef.current = Math.min(pRef.current + dt / STEP_DUR, 1)
+      act.timeline?.(pRef.current)
+    }
+    for (const st of stations) for (const u of st.updatables) u.userData?.update?.(dt)
+
+    // 5 · the ONE sample eases toward its world target — glides station→station
+    const S = demo.getSample()
+    if (S) for (const v of S.vessels) {
+      v.position.lerp(v.userData.tPos, 1 - Math.pow(0.02, dt))
+      v.userData.update?.(dt)
+    }
+
+    // 6 · fade equipment by distance from the rail — active full, neighbours
+    // recede into fog, and mid-dolly BOTH stations are visible.
+    for (const st of stations) {
+      const d = Math.abs(st.x - railX)
+      const tgt = demo.clamp(1 - (d - VIS_FULL) / (VIS_GONE - VIS_FULL), 0, 1)
+      st.vis = demo.lerp(st.vis, tgt, 1 - Math.pow(0.01, dt))
+      if (tgt >= 1 && st.vis > 0.999) st.vis = 1
+      if (tgt <= 0 && st.vis < 0.001) st.vis = 0
+      applyStationVis(st)
     }
   })
 
-  // one step-driven floating label + the bench station number.
-  const label = useMemo(() => demo.makeLabel(labelTitle, labelSub), [labelTitle, labelSub])
-  useEffect(() => () => disposeGroup(label), [label])
-  const decal = useMemo(() => demo.stationDecal(active + 1), [active])
-  useEffect(() => () => disposeGroup(decal), [decal])
-
+  const zoom = size.height / (2 * VIEW_SIZE)
   return (
     <>
-      <Lights />
-      <Floor />
-      <CameraRig view={view} />
-      <primitive object={label} position={[0, 3.2, 0]} />
-      <primitive object={decal} position={[0, 0.02, 2.2]} />
+      <Lights keyRef={keyRef} />
+      <Floor totalLen={totalLen} />
+      <PerspectiveCamera ref={perspRef} makeDefault={view !== 'isometric'} fov={FOV} near={0.1} far={260} position={[0, RAIL_Y, RAIL_Z]} />
+      <OrthographicCamera ref={orthoRef} makeDefault={view === 'isometric'} near={0.1} far={400} zoom={zoom} position={[ISO_DIR.x * ISO_DIST, ISO_LOOK_Y + ISO_DIR.y * ISO_DIST, ISO_DIR.z * ISO_DIST]} />
     </>
   )
 }

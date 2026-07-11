@@ -1203,7 +1203,12 @@ export function getSample() { return SAMPLE }
   // the demo's bench floor (buildLine): a light warm-grey resin with a canvas
   // grain/speckle texture — the LIVE cinematic material values baked in
   // (applyViewMode: color 0xcbc6bd, metalness 0.12, roughness 0.5, env 0.62).
-  function buildFloor(){
+  // buildFloor(totalLen): one continuous bench spanning the whole station line.
+  // totalLen = (N-1)*SPACING; the plane runs 0..totalLen (plus margins) and is
+  // centred on the line so far stations recede into fog, exactly like the demo.
+  function buildFloor(totalLen){
+    totalLen = totalLen || 0;
+    var W = totalLen + 140;
     var bc=document.createElement("canvas"); bc.width=512; bc.height=512; var bg2=bc.getContext("2d");
     bg2.fillStyle="#cbc6bd"; bg2.fillRect(0,0,512,512);
     for(var sx=0;sx<520;sx+=2){ bg2.strokeStyle="rgba(120,116,108,"+(0.008+Math.random()*0.012)+")";
@@ -1211,10 +1216,11 @@ export function getSample() { return SAMPLE }
     for(var sp=0;sp<1200;sp++){ bg2.fillStyle="rgba("+(Math.random()<0.5?"255,253,248,":"150,144,134,")+(Math.random()*0.05)+")";
       bg2.fillRect(Math.random()*512,Math.random()*512,1.6,1.6); }
     var benchTex=new THREE.CanvasTexture(bc); benchTex.colorSpace=THREE.SRGBColorSpace;
-    benchTex.wrapS=benchTex.wrapT=THREE.RepeatWrapping; benchTex.repeat.set(30,6); benchTex.anisotropy=MAX_ANISO;
+    // keep texel density constant as the bench widens (140 wide -> 30 tiles)
+    benchTex.wrapS=benchTex.wrapT=THREE.RepeatWrapping; benchTex.repeat.set(Math.max(30, Math.round(W*30/140)),6); benchTex.anisotropy=MAX_ANISO;
     var floorMat=new THREE.MeshStandardMaterial({ color:0xcfd2d3, map:benchTex, metalness:0.12, roughness:0.5, envMapIntensity:0.62 });
-    var floor=new THREE.Mesh(new THREE.PlaneGeometry(140,60), floorMat);
-    floor.rotation.x=-Math.PI/2; floor.receiveShadow=true;
+    var floor=new THREE.Mesh(new THREE.PlaneGeometry(W,60), floorMat);
+    floor.rotation.x=-Math.PI/2; floor.position.x=totalLen*0.5; floor.receiveShadow=true;
     return floor;
   }
 
