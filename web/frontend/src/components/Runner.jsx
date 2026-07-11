@@ -15,7 +15,7 @@ import {
 
 // One step at a time. Owns navigation, per-step alternative choice and repeat
 // pass counts, and a persistent look-ahead so a beginner can prep during a timer.
-export default function Runner({ protocol, answers, setAnswers, onExit, initialStep = 0, lang = 'en' }) {
+export default function Runner({ protocol, answers, setAnswers, onExit, initialStep = 0, lang = 'en', setLang }) {
   const steps = protocol.steps
   const [i, setI] = useState(Math.min(initialStep, steps.length - 1))
   const [altByStep, setAltByStep] = useState({})
@@ -75,32 +75,24 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
   }, [i, steps, altByStep, lang])
 
   if (finished) {
-    return <Complete protocol={protocol} answers={answers} onRestart={onExit} />
+    // the end screen returns to the calm light document shell (the runner renders
+    // full-bleed, but Complete wants the centred padded layout)
+    return (
+      <div className="app">
+        <div className="shell">
+          <Complete protocol={protocol} answers={answers} onRestart={onExit} />
+        </div>
+      </div>
+    )
   }
 
   const passes = passByStep[step.index] || 0
   const progress = ((i + 1) / steps.length) * 100
 
   return (
-    <div className="runner">
-      <div className="run-top">
-        <div className="run-meta">
-          <span className="phase-pill" data-phase={step.phase}>
-            {PHASE_LABEL[step.phase] || step.phase}
-          </span>
-          <span className="spacer" />
-          <span className="step-count">
-            Step {i + 1} of {steps.length}
-          </span>
-        </div>
-        <div className="progress-track">
-          <div className="progress-fill" style={{ width: `${progress}%` }} />
-        </div>
-      </div>
-
-      {/* persistent station-line hero — mounted once, so the sample and camera
-          travel as you navigate rather than the canvas remounting per step */}
-      <div className="station-hero">
+    <div className="immersive" data-phase={step.phase}>
+      {/* full-bleed 3D — the persistent station line fills the viewport */}
+      <div className="imm-3d">
         <StationView
           protocol={protocol}
           activeIndex={i}
@@ -109,37 +101,70 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
           progress={elapsed}
           running={!!timer?.running}
           temp={temp}
+          fill
         />
       </div>
 
-      <div className="stage">
-        <StepCard
-          key={step.index}
-          step={step}
-          answers={answers}
-          altIndex={altIndex}
-          countdown={countdown}
-          timer={timer}
-          onPickAlt={(idx) => setAltByStep((m) => ({ ...m, [step.index]: idx }))}
-          passes={Math.max(passes, 1)}
-          onPass={() =>
-            setPassByStep((m) => ({ ...m, [step.index]: (m[step.index] || 1) + 1 }))
-          }
-          onAnswerInline={(k, v) => setAnswers((a) => ({ ...a, [k]: v }))}
-          lang={lang}
-        />
-      </div>
+      {/* top HUD — brand, progress, step count, language, setup */}
+      <header className="imm-top glass">
+        <div className="imm-brand">
+          <span className="dot" /> benchpilot
+        </div>
+        <div className="imm-progress-track">
+          <div className="imm-progress-fill" style={{ width: `${progress}%` }} />
+        </div>
+        <span className="imm-step">
+          {i + 1} / {steps.length}
+        </span>
+        <div className="lang-toggle" role="group" aria-label="language">
+          <button aria-pressed={lang === 'en'} onClick={() => setLang?.('en')}>
+            EN
+          </button>
+          <button aria-pressed={lang === 'orig'} onClick={() => setLang?.('orig')}>
+            Original
+          </button>
+        </div>
+        <button className="ghost-btn" onClick={onExit}>
+          ← Setup
+        </button>
+      </header>
 
-      <div className="run-foot">
+      {/* step content — a dark glassy floating panel over the 3D */}
+      <section className="imm-panel glass">
+        <div className="imm-panel-head">
+          <span className="phase-pill" data-phase={step.phase}>
+            {PHASE_LABEL[step.phase] || step.phase}
+          </span>
+        </div>
+        <div className="imm-panel-scroll">
+          <StepCard
+            key={step.index}
+            step={step}
+            answers={answers}
+            altIndex={altIndex}
+            countdown={countdown}
+            timer={timer}
+            onPickAlt={(idx) => setAltByStep((m) => ({ ...m, [step.index]: idx }))}
+            passes={Math.max(passes, 1)}
+            onPass={() =>
+              setPassByStep((m) => ({ ...m, [step.index]: (m[step.index] || 1) + 1 }))
+            }
+            onAnswerInline={(k, v) => setAnswers((a) => ({ ...a, [k]: v }))}
+            lang={lang}
+          />
+        </div>
+      </section>
+
+      {/* nav — floating glass footer */}
+      <footer className="imm-foot glass">
         {nextPreview ? (
-          <div className="lookahead">
+          <div className="imm-look">
             <span className="la-label">Next</span>
             <span className="la-text">{nextPreview}</span>
           </div>
         ) : (
-          <div className="lookahead end">Last step — you&apos;re almost done</div>
+          <div className="imm-look end">Last step — you&apos;re almost done</div>
         )}
-
         <div className="nav">
           <button className="nav-btn" onClick={back} disabled={i === 0}>
             ← Back
@@ -148,10 +173,7 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
             {i >= steps.length - 1 ? 'Finish ✓' : 'Next →'}
           </button>
         </div>
-        <div className="nav-hint">
-          <kbd>Space</kbd> next · <kbd>←</kbd> <kbd>→</kbd> navigate
-        </div>
-      </div>
+      </footer>
     </div>
   )
 }

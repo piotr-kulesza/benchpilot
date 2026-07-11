@@ -782,3 +782,185 @@ kbd {
   .step-card { padding: 24px 20px; }
   .timer-controls { margin-left: 0; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   IMMERSIVE RUNNER — full-bleed 3D with dark glassy floating overlays.
+   The `.immersive` scope re-declares the theme CSS variables to a DARK palette,
+   so the existing step-card / reagent / hazard / timer component styles flip to
+   a dark theme automatically (light text on translucent dark glass) with no
+   per-element rewrite.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.immersive {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #14161b; /* fallback behind the scene / during load */
+
+  --ink: #eef1f4;
+  --ink-soft: #c3cad3;
+  --ink-faint: #8f97a3;
+  --panel: rgba(18, 21, 27, 0.72);
+  --panel-2: rgba(30, 35, 43, 0.6);
+  --line: rgba(150, 160, 175, 0.2);
+  --line-strong: rgba(150, 160, 175, 0.34);
+  --accent-soft: rgba(22, 184, 166, 0.16);
+  --accent-tint: rgba(22, 184, 166, 0.42);
+  --danger-soft: rgba(192, 39, 24, 0.22);
+  --danger-line: rgba(242, 130, 118, 0.44);
+  --warn-soft: rgba(180, 116, 11, 0.22);
+  --ok-soft: rgba(47, 143, 78, 0.22);
+  --shadow-sm: none;
+  --shadow-md: 0 8px 30px rgba(0, 0, 0, 0.35);
+}
+
+.imm-3d {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+/* shared glass surface for the floating panels */
+.glass {
+  background: var(--panel);
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* top HUD bar */
+.imm-top {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  right: 16px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 12px 8px 14px;
+  border-radius: 14px;
+}
+.imm-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.imm-brand .dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+.imm-progress-track {
+  flex: 1;
+  height: 5px;
+  min-width: 60px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.imm-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #14a89b);
+  border-radius: 999px;
+  transition: width 0.5s var(--step);
+}
+.imm-step {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+  font-weight: 650;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* step content panel — dark glass, bottom-left */
+.imm-panel {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  z-index: 3;
+  width: min(430px, 44vw);
+  max-height: calc(100vh - 150px);
+  border-radius: 18px;
+  padding: 14px 18px 16px;
+  display: flex;
+  flex-direction: column;
+}
+.imm-panel-head {
+  margin-bottom: 10px;
+}
+.imm-panel-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+}
+/* the card itself becomes transparent — the panel is the glass */
+.imm-panel .step-card {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  animation: none;
+}
+
+/* nav footer — glass, bottom-right */
+.imm-foot {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 9px 12px 9px 16px;
+  border-radius: 14px;
+  max-width: min(520px, 52vw);
+}
+.imm-look {
+  min-width: 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  overflow: hidden;
+}
+.imm-look .la-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--ink-faint);
+  margin-right: 8px;
+}
+.imm-look .la-text {
+  color: var(--ink);
+}
+.imm-look.end {
+  color: var(--ink-soft);
+  font-style: italic;
+}
+.imm-foot .nav {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* small screens — stack the panel + footer, narrow the panel */
+@media (max-width: 720px) {
+  .imm-panel {
+    width: calc(100vw - 32px);
+    max-height: 42vh;
+  }
+  .imm-foot {
+    left: 16px;
+    right: 16px;
+    max-width: none;
+    justify-content: flex-end;
+  }
+  .imm-look { display: none; }
+}

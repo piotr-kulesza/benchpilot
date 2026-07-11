@@ -46,7 +46,7 @@ function primaryReagent(reagents = []) {
   return reagents.find((r) => r.volume) || reagents[0]
 }
 
-export default function StationView({ protocol, activeIndex = 0, answers = {}, lang = 'en', progress = 1, running = false, temp = null }) {
+export default function StationView({ protocol, activeIndex = 0, answers = {}, lang = 'en', progress = 1, running = false, temp = null, fill: fullBleed = false }) {
   const [view, setView] = useState('cinematic')
   const [use3D] = useState(() => webglAvailable())
 
@@ -63,8 +63,8 @@ export default function StationView({ protocol, activeIndex = 0, answers = {}, l
   const spinTime = spin?.duration_seconds ? `${spin.duration_seconds}s` : null
 
   return (
-    <div className="vessel" data-action={step.action}>
-      <div className="vessel-stage station-stage">
+    <div className={`vessel${fullBleed ? ' vessel-fill' : ''}`} data-action={step.action}>
+      <div className={`vessel-stage station-stage${fullBleed ? ' station-stage-fill' : ''}`}>
         {use3D ? (
           <GLBoundary fallback={<Fallback liquidColor={liquidColor} fill={recipe.anim.fill} />}>
             <StationCanvas

@@ -14,7 +14,7 @@
 
 import { useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import { Environment, Lightformer, ContactShadows, PerspectiveCamera, OrthographicCamera } from '@react-three/drei'
+import { Environment, Lightformer, ContactShadows, PerspectiveCamera, OrthographicCamera, Float } from '@react-three/drei'
 import { EffectComposer, Bloom, DepthOfField, Vignette, N8AO } from '@react-three/postprocessing'
 import { MathUtils, Vector3 } from 'three'
 import { theme, reagentColor } from './theme.js'
@@ -34,15 +34,19 @@ import Microtube from './equipment/Microtube.jsx'
 import EluateTube from './equipment/EluateTube.jsx'
 
 const damp = MathUtils.damp
+const easeOut = (t) => 1 - Math.pow(1 - MathUtils.clamp(t, 0, 1), 3)
 
 // ── line geometry (bench top is y = 0; devices + samples rest with base at 0)
 const SPACING = 6.5
 const stationX = (i) => i * SPACING
 
-// ── cinematic (close perspective) framing — the active station fills the frame
-const RAIL_Y = 1.55
-const RAIL_Z = 6.6
-const LOOK_Y = 0.7
+// ── cinematic (close perspective) framing — tight so the hero device fills the
+// frame (little dead space above).
+const RAIL_Y = 1.4
+const RAIL_Z = 5.8
+const LOOK_Y = 0.92
+const FOV = 36
+const INTRO_SECONDS = 1.5 // one-time reveal dolly on mount
 // ── isometric (orthographic) framing
 const ISO_DIR = new Vector3(1, 0.78, 1).normalize()
 const ISO_DIST = 40
@@ -221,18 +225,58 @@ function MovingWorld({ offsetX, children }) {
 }
 
 // Fixed cameras framing the centred station; the world moves, not the camera.
+// On mount the perspective camera plays a one-time reveal dolly (pulls in + up).
 function CameraRig({ view }) {
   const persp = useRef()
   const ortho = useRef()
-  useFrame(() => {
-    if (view === 'isometric') ortho.current?.lookAt(0, ISO_LOOK_Y, 0)
-    else persp.current?.lookAt(0, LOOK_Y, 0)
+  const start = useRef(null)
+  useFrame((state) => {
+    if (view === 'isometric') {
+      ortho.current?.lookAt(0, ISO_LOOK_Y, 0)
+      return
+    }
+    if (!persp.current) return
+    if (start.current === null) start.current = state.clock.elapsedTime
+    const e = easeOut((state.clock.elapsedTime - start.current) / INTRO_SECONDS)
+    const back = 1 - e // 1 at start → 0 settled
+    persp.current.position.set(0, RAIL_Y - back * 0.7, RAIL_Z + back * 3.4)
+    persp.current.lookAt(0, LOOK_Y - back * 0.12, 0)
   })
   return (
     <>
-      <PerspectiveCamera ref={persp} makeDefault={view !== 'isometric'} fov={34} position={[0, RAIL_Y, RAIL_Z]} />
+      <PerspectiveCamera ref={persp} makeDefault={view !== 'isometric'} fov={FOV} position={[0, RAIL_Y, RAIL_Z]} />
       <OrthographicCamera ref={ortho} makeDefault={view === 'isometric'} zoom={64} near={0.1} far={200} position={[ISO_DIR.x * ISO_DIST, ISO_LOOK_Y + ISO_DIR.y * ISO_DIST, ISO_DIR.z * ISO_DIST]} />
     </>
+  )
+}
+
+// Floating dust motes for atmosphere/depth (ported from the demo's particles).
+// Lives in the fixed frame (around origin), so it fills the framed area always.
+function Dust({ count = 110 }) {
+  const ref = useRef()
+  const { positions, base } = useMemo(() => {
+    const pos = new Float32Array(count * 3)
+    for (let i = 0; i < count; i++) {
+      pos[i * 3] = (Math.random() - 0.5) * 14
+      pos[i * 3 + 1] = Math.random() * 5
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 8 - 1
+    }
+    return { positions: pos, base: pos.slice() }
+  }, [count])
+  useFrame((state) => {
+    if (!ref.current) return
+    const t = state.clock.elapsedTime
+    const arr = ref.current.geometry.attributes.position.array
+    for (let i = 0; i < count; i++) arr[i * 3 + 1] = base[i * 3 + 1] + Math.sin(t * 0.4 + i * 0.7) * 0.25
+    ref.current.geometry.attributes.position.needsUpdate = true
+  })
+  return (
+    <points ref={ref} frustumCulled={false}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} />
+      </bufferGeometry>
+      <pointsMaterial size={0.045} color="#b4bec9" transparent opacity={0.3} depthWrite={false} sizeAttenuation />
+    </points>
   )
 }
 
@@ -256,6 +300,9 @@ export default function StationScene({ protocol, activeIndex = 0, answers = {}, 
   const suppressSample = equipment === 'spin_column' && container === 'spin_column'
   const seat = SEAT[equipment] || SEAT.bench
   const sampleScale = SEATED_INSIDE.has(equipment) ? 0.5 : undefined
+  // a free-standing sample (on the bench / under the pipette) gets a gentle idle
+  // bob; one seated inside a device stays put so it doesn't float out of it.
+  const floatable = equipment === 'bench' || equipment === 'bottle_pipette'
 
   const lineMid = ((steps.length - 1) * SPACING) / 2
   const lineWidth = Math.max(6, steps.length * SPACING) + SPACING
@@ -274,6 +321,7 @@ export default function StationScene({ protocol, activeIndex = 0, answers = {}, 
       <Lights />
       <SaturationPass />
       <CameraRig view={view} />
+      <Dust />
 
       <MovingWorld offsetX={stationX(active)}>
         {/* the bench spanning the whole line, top at y = 0 */}
@@ -291,7 +339,13 @@ export default function StationScene({ protocol, activeIndex = 0, answers = {}, 
         {/* the single travelling sample, seated in the active device */}
         {!suppressSample && (
           <group position={[stationX(active) + seat[0], seat[1], seat[2]]}>
-            <Sample container={container} color={color} fill={fill} scale={sampleScale} />
+            {floatable ? (
+              <Float speed={1.1} rotationIntensity={0.15} floatIntensity={0.35} floatingRange={[0, 0.06]}>
+                <Sample container={container} color={color} fill={fill} scale={sampleScale} />
+              </Float>
+            ) : (
+              <Sample container={container} color={color} fill={fill} scale={sampleScale} />
+            )}
           </group>
         )}
 

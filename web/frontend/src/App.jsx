@@ -66,6 +66,22 @@ export default function App() {
     )
   }
 
+  // The runner is a full-bleed immersive experience — it renders outside the
+  // padded document shell (its own top HUD carries the brand + language + setup).
+  if (phase === 'run') {
+    return (
+      <Runner
+        protocol={protocol}
+        answers={answers}
+        setAnswers={setAnswers}
+        initialStep={initial.step}
+        onExit={() => setPhase('intake')}
+        lang={lang}
+        setLang={setLang}
+      />
+    )
+  }
+
   return (
     <div className="app">
       <div className="shell">
@@ -77,31 +93,15 @@ export default function App() {
           </div>
           <span className="spacer" />
           <LangToggle lang={lang} setLang={setLang} />
-          {phase === 'run' && (
-            <button className="ghost-btn" onClick={() => setPhase('intake')}>
-              ← Setup
-            </button>
-          )}
         </div>
 
-        {phase === 'intake' ? (
-          <Intake
-            protocol={protocol}
-            answers={answers}
-            setAnswers={setAnswers}
-            onStart={() => setPhase('run')}
-            lang={lang}
-          />
-        ) : (
-          <Runner
-            protocol={protocol}
-            answers={answers}
-            setAnswers={setAnswers}
-            initialStep={initial.step}
-            onExit={() => setPhase('intake')}
-            lang={lang}
-          />
-        )}
+        <Intake
+          protocol={protocol}
+          answers={answers}
+          setAnswers={setAnswers}
+          onStart={() => setPhase('run')}
+          lang={lang}
+        />
       </div>
     </div>
   )
