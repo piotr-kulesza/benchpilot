@@ -348,7 +348,8 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Przenieść próbkę na kolumnę RNeasy, wirować 15 s przy ≥ 8000 × g, odrzucić przesącz. Powtórzyć dla pozostałej objętości."
+      "verbatim": "Przenieść próbkę na kolumnę RNeasy, wirować 15 s przy ≥ 8000 × g, odrzucić przesącz. Powtórzyć dla pozostałej objętości.",
+      "container": "spin_column"
     },
     {
       "index": 10,
@@ -756,7 +757,8 @@
       ],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "RNA trzymać na lodzie do pomiaru, przechowywać w −80°C. Unikać wielokrotnego zamrażania i rozmrażania."
+      "verbatim": "RNA trzymać na lodzie do pomiaru, przechowywać w −80°C. Unikać wielokrotnego zamrażania i rozmrażania.",
+      "container": "eluate_tube"
     },
     {
       "index": 26,

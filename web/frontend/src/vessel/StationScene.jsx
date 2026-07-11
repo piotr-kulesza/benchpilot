@@ -14,7 +14,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera, OrthographicCamera } from '@react-three/drei'
 import { FogExp2, Color, Vector3, Group, Mesh, TorusGeometry, SphereGeometry, MeshStandardMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
-import { resolveRecipe, sampleContainerSequence } from './sceneRecipe.js'
+import { resolveRecipe, sampleContainerSequence, resolveRemoval } from './sceneRecipe.js'
 import { reagentName, reagentVolume, effectiveStep, selectAlternative, hasAlternatives } from '../lib/runtime.js'
 import * as demo from '../scene/demoScene.js'
 
@@ -169,6 +169,7 @@ function Floor({ totalLen }) {
 function configureStation(st, o) {
   const { action, equipment, container, color, name, vol, seconds, startColor, startLevel, endColor, endLevel } = o
   const vessel = V_OF[container] || 'tube'
+  const removal = resolveRemoval(container) // 'tip' (tube) vs 'aspirate' (plate/membrane)
   const S = demo.getSample()
   const BT = demo.BLOCK_TOP
 
@@ -250,19 +251,33 @@ function configureStation(st, o) {
       S[vessel].userData.setLevel(evolve(p) + Math.sin(p * 34) * 0.02) // agitation ripple over carried level
     }
   } else if (action === 'discard') {
-    // the vessel tips over a waste beaker and drains the flow-through.
+    // remove liquid — motion follows the CURRENT container: a tube TIPS into the
+    // waste; a plate/dish/membrane is ASPIRATED (pipette suck-out — never tip it).
     demo.addStand(st)
-    const waste = demo.buildWaste()
-    waste.position.set(1.3, 0, 0.6)
-    waste.scale.setScalar(0.9)
-    st.group.add(waste)
-    st.updatables.push(waste)
-    st.enter = () => seat(0, 0.7, 0)
-    st.timeline = (p) => {
-      const e = demo.easeInOut(demo.clamp(p, 0, 1))
-      const v = S[vessel]
-      v.rotation.z = -e * 1.2 // tip toward the waste
-      evolve(p) // drain from the carried level down to the discard end level
+    if (removal === 'aspirate') {
+      // resident pipette sucks the liquid out; the level drains as it draws up.
+      demo.addPipetteRig(st)
+      st.enter = () => { seat(0, BT, 0); if (st.pip) { st.pip.position.set(0, BT + 1.35, 0); st.pip.userData.setFluid(0) } }
+      st.timeline = (p) => {
+        if (st.pip) {
+          st.pip.position.set(0, demo.lerp(BT + 1.35, BT + 0.85, demo.easeInOut(demo.clamp(p * 1.4, 0, 1))), 0)
+          st.pip.userData.setColor(endColor)
+          st.pip.userData.setFluid(demo.easeInOut(demo.clamp(p, 0, 1)) * 0.7)
+        }
+        evolve(p) // drain (no tipping)
+      }
+    } else {
+      const waste = demo.buildWaste()
+      waste.position.set(1.3, 0, 0.6)
+      waste.scale.setScalar(0.9)
+      st.group.add(waste)
+      st.updatables.push(waste)
+      st.enter = () => seat(0, 0.7, 0)
+      st.timeline = (p) => {
+        const e = demo.easeInOut(demo.clamp(p, 0, 1))
+        S[vessel].rotation.z = -e * 1.2 // tip toward the waste
+        evolve(p) // drain from the carried level down to the discard end level
+      }
     }
   } else if (action === 'transfer') {
     // hand-off: the sample moves tube -> spin column (the demo's LOAD step). NO
