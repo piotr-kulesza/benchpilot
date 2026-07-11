@@ -29,6 +29,16 @@ const ISO_LOOK_Y = 1.35
 const VIEW_SIZE = 7.6
 const STEP_DUR = 6.5 // the demo's per-step animation window (seconds)
 
+// The demo's tall pipette + its high travel arc don't fit under our top HUD bar
+// (the demo has no such bar). Rather than LOWER it (which drove the tip through
+// the bottle/tube), we shrink the resident pipette and COMPRESS its arc toward
+// the vessel height: high points (the travel peak) come down under the bar, while
+// the low points (tip at the bottle / tube opening) barely move — so the tip
+// never dips below the vessel it's pouring into.
+const PIP_SCALE = 0.5
+const PIP_BASE = 1.6 // ~ the vessel opening height the arc pivots around
+const PIP_SQUASH = 0.45 // vertical compression of the arc about PIP_BASE
+
 const V_OF = { microtube: 'tube', spin_column: 'column', eluate_tube: 'elu' }
 
 // build the demo's shared PBR maps once, before any builder runs.
@@ -140,6 +150,7 @@ function configureStation(st, o) {
       lStart: 0.1,
       lEnd: fill,
     })
+    if (st.pip) st.pip.scale.setScalar(PIP_SCALE) // shrink so the arc fits the frame
   } else if (equipment === 'centrifuge' || action === 'wash' || action === 'transfer' || action === 'elute') {
     // spin: benchtop centrifuge, rotor spins over p (verbatim stationSpin).
     demo.stationSpin(st, demo.BLOCK_TOP, {
@@ -266,6 +277,10 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
       }
       pRef.current = Math.min(pRef.current + dt / STEP_DUR, 1)
       st.timeline?.(pRef.current)
+      // compress the resident pipette's arc (set by pipetteRun above) around the
+      // vessel height so its travel peak stays under the HUD, while the tip stays
+      // at the vessel opening (never dropping through it).
+      if (st.pip) st.pip.position.y = PIP_BASE + (st.pip.position.y - PIP_BASE) * PIP_SQUASH
       for (const u of st.updatables) u.userData?.update?.(dt)
     }
     const S = demo.getSample()
