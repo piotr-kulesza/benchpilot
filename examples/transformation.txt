@@ -1,0 +1,23 @@
+Bacterial Transformation by Heat Shock
+
+Transformation of chemically competent E. coli (DH5-alpha) with plasmid DNA.
+
+Materials: chemically competent DH5-alpha (-80C), plasmid DNA (1-50 ng),
+SOC medium at room temperature, LB agar plates with the appropriate antibiotic,
+42C water bath, ice.
+
+Procedure:
+1. Thaw competent cells on ice for 10 min. Do not vortex.
+2. Add 1-5 uL plasmid DNA (1-50 ng) to 50 uL cells; mix by gently flicking.
+   For ligation reactions, use 2 uL.
+3. Incubate on ice for 30 min.
+4. Heat shock at exactly 42C for 45 s. Do not exceed 45 s.
+5. Return to ice for 2 min.
+6. Add 950 uL SOC (or LB) pre-warmed to 37C.
+7. Recover at 37C for 60 min with shaking at 225 rpm.
+8. Plate onto selective agar: 20 uL for high-efficiency cells,
+   100-200 uL for ligations.
+9. Incubate plates inverted at 37C for 16-18 h.
+
+Notes: plating volume to be optimized per construct. Antibiotic depends on the
+plasmid resistance marker.

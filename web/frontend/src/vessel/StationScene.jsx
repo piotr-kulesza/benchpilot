@@ -60,13 +60,20 @@ const hideLabels = (root) => root.traverse((o) => o.userData?.label && (o.userDa
 // lights; modern three (r0.169) is physically-correct and divides diffuse by π,
 // so the same intensities render ~π× dimmer (that's why the bench went muddy).
 // Scale by π to restore the demo's brightness.
-const LIGHT_SCALE = Math.PI
+const LIGHT_SCALE = 3.3
+// r169 renders this scene warmer than r128 did (the warm key dominates), so the
+// cool fill (#ccd4de) gets an extra boost to neutralise the bench's tan cast —
+// tuned by measuring bench pixels against the HTML demo, not by eye.
+const FILL_BOOST = 1
+// the floor faces UP, so its cool light comes from the hemisphere sky (#dde4ee),
+// not the grazing fill. Boost hemi to neutralise the bench's warm cast.
+const HEMI_BOOST = 1
 function Lights() {
   const L = demo.LOOK.cinematic
   return (
     <>
       <ambientLight color={L.amb.color} intensity={L.amb.int * LIGHT_SCALE} />
-      <hemisphereLight color={L.hemi.sky} groundColor={L.hemi.ground} intensity={L.hemi.int * LIGHT_SCALE} />
+      <hemisphereLight color={L.hemi.sky} groundColor={L.hemi.ground} intensity={L.hemi.int * LIGHT_SCALE * HEMI_BOOST} />
       <directionalLight
         color={L.key.color}
         intensity={L.key.int * LIGHT_SCALE}
@@ -83,7 +90,7 @@ function Lights() {
         shadow-camera-top={11}
         shadow-camera-bottom={-9}
       />
-      <directionalLight color={L.fill.color} intensity={L.fill.int * LIGHT_SCALE} position={L.fill.pos} />
+      <directionalLight color={L.fill.color} intensity={L.fill.int * LIGHT_SCALE * FILL_BOOST} position={L.fill.pos} />
       <directionalLight color={L.aux.color} intensity={L.aux.int * LIGHT_SCALE} position={L.aux.pos} />
     </>
   )
@@ -315,6 +322,10 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
     ensureMaps()
     scene.environment = demo.buildEnvMap('cinematic')
     scene.background = demo.makeCineBackdrop()
+    // the background texture renders ~15 RGB darker in modern three than r128;
+    // lift it so the wall matches the demo's greige (measured, not eyeballed).
+    scene.environmentIntensity = 2.5
+    scene.backgroundIntensity = 1.19
     const f = demo.LOOK.cinematic.fog
     scene.fog = new FogExp2(f.color, f.density)
     const S = demo.initSample()

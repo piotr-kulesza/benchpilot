@@ -18,7 +18,7 @@ export default function StationCanvas({ protocol, activeIndex, answers, lang, pr
         // the demo's renderer settings, verbatim: LinearToneMapping @ 0.78 +
         // PCF soft shadows.
         gl.toneMapping = THREE.LinearToneMapping
-        gl.toneMappingExposure = 0.78
+        gl.toneMappingExposure = 0.92
         gl.shadowMap.type = THREE.PCFSoftShadowMap
       }}
     >

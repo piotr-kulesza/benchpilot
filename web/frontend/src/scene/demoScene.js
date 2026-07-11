@@ -1121,8 +1121,8 @@ export function getSample() { return SAMPLE }
     // grading down to a deeper warm-grey floor, with a lit pool behind the subject and a
     // gentle corner vignette so it has depth and is pleasant to look at.
     var grad=g.createLinearGradient(0,0,0,h);
-    grad.addColorStop(0.00,"#b9b4ab");   // upper wall — warm light greige
-    grad.addColorStop(0.42,"#ada89f");
+    grad.addColorStop(0.00,"#b9b4b7");   // upper wall — warm light greige
+    grad.addColorStop(0.42,"#ada8ab");
     grad.addColorStop(0.585,"#9d978d");  // just above the horizon
     grad.addColorStop(0.615,"#918b81");  // horizon seam
     grad.addColorStop(0.80,"#827d74");   // warm-grey floor
@@ -1153,7 +1153,7 @@ export function getSample() { return SAMPLE }
       bg2.fillRect(Math.random()*512,Math.random()*512,1.6,1.6); }
     var benchTex=new THREE.CanvasTexture(bc); benchTex.colorSpace=THREE.SRGBColorSpace;
     benchTex.wrapS=benchTex.wrapT=THREE.RepeatWrapping; benchTex.repeat.set(30,6); benchTex.anisotropy=MAX_ANISO;
-    var floorMat=new THREE.MeshStandardMaterial({ color:0xcbc6bd, map:benchTex, metalness:0.12, roughness:0.5, envMapIntensity:0.62 });
+    var floorMat=new THREE.MeshStandardMaterial({ color:0xcfd2d3, map:benchTex, metalness:0.12, roughness:0.5, envMapIntensity:0.62 });
     var floor=new THREE.Mesh(new THREE.PlaneGeometry(140,60), floorMat);
     floor.rotation.x=-Math.PI/2; floor.receiveShadow=true;
     return floor;
