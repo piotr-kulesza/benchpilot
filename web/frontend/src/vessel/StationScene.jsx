@@ -35,7 +35,13 @@ const GLIDE_DUR = 1.65 // camera rail-dolly duration on a step change (the demo)
 const VIS_FULL = SPACING * 0.5 // fully visible within here
 const VIS_GONE = SPACING * 1.6 // faded out beyond here
 
-const V_OF = { microtube: 'tube', spin_column: 'column', eluate_tube: 'elu' }
+// container token → sample-vessel key in the demo's SAMPLE object. Every container in
+// the closed vocab now maps to real geometry (no more tube fallback for plates/slides).
+const V_OF = {
+  microtube: 'tube', tube: 'tube', spin_column: 'column', eluate_tube: 'elu', bottle: 'tube',
+  cryovial: 'cryovial', well_plate: 'wellplate', flask: 'flask', dish: 'dish',
+  slide: 'slide', membrane: 'membrane', gel: 'gel', agar_plate: 'agarplate',
+}
 
 // Snapshot each station's material opacities so the whole unit (equipment +
 // labels + decal + shadow) can be faded in/out together — ported from the demo's
@@ -174,6 +180,10 @@ function configureStation(st, o) {
   const removal = resolveRemoval(container) // 'tip' (tube) vs 'aspirate' (plate/membrane)
   const S = demo.getSample()
   const BT = demo.BLOCK_TOP
+  // flat vessels (plates, dishes, slides, membranes, gel, flask) sit ON the bench;
+  // tubes/vials seat at the block-top height. seat() forces a flat vessel to y≈0.
+  const FLAT = ['wellplate', 'flask', 'dish', 'slide', 'membrane', 'gel', 'agarplate'].includes(vessel)
+  const SEAT_Y = FLAT ? 0 : BT
 
   // seat the travelling sample WITHOUT resetting its contents: it enters at the
   // carried-in (start) state, so it continues from where the last step left it.
@@ -185,7 +195,7 @@ function configureStation(st, o) {
     v.userData.setLevel(startLevel)
     v.visible = true
     v.rotation.set(0, 0, 0)
-    S.at(v, st.x + x, y, z)
+    S.at(v, st.x + x, FLAT ? 0 : y, z)
     return v
   }
 
@@ -203,7 +213,7 @@ function configureStation(st, o) {
   if (action === 'pour_add') {
     // resident pipette rig + bottle; pipette pours over p, fill ramps at p>0.62.
     // cStart/lStart = carried-in state, so the pour builds ON the existing contents.
-    demo.stationReagent(st, BT, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel })
+    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel })
   } else if (action === 'pipette_mix') {
     // resuspend / mix by pipetting: the pipette bobs STRAIGHT down into the tube
     // and back, aspirating + dispensing. (Do NOT reuse pipetteRun here — that's a
@@ -403,31 +413,58 @@ function configureStation(st, o) {
     st.enter = () => seat(-1.7, BT, 0.9) // sample waits beside the tank (loaded into it)
     st.timeline = (p) => { evolve(p); gel.userData.setProgress?.(p) }
   } else if (action === 'store') {
-    // end-state storage: the vessel goes cold (frost) and is placed away.
-    demo.addStand(st)
-    const ice = demo.buildIceBucket()
-    ice.position.set(0, 0, 0.3)
-    st.group.add(ice)
-    st.updatables.push(ice)
+    // end-state storage: the vessel glides INTO the freezer; the door closes; frost breathes.
+    const fr = demo.buildFreezer()
+    fr.position.set(0.1, 0, -1.5)
+    st.group.add(fr)
+    st.updatables.push(fr)
+    st.dev = fr
     st.cold = new PointLight(0x8fbaf0, 0, 4)
-    st.cold.position.set(0, 1, 0.7)
+    st.cold.position.set(0, 1, -0.6)
     st.group.add(st.cold)
-    st.enter = () => seat(0, 0.34, 0.3)
+    const bench = { x: -1.4, y: SEAT_Y, z: 0.9 }
+    const inside = { x: 0.1, y: 1.05, z: -1.0 }
+    st.enter = () => { seat(bench.x, bench.y, bench.z); fr.userData.setDoor(true); fr.userData.setFrost(0) }
     st.timeline = (p) => {
       evolve(p)
-      st.cold.intensity = p * 2.4 // deep-cold cast ramps up
-      S[vessel].rotation.z = Math.sin(p * 24) * 0.015 // faint shiver as it freezes
+      const v = S[vessel]
+      if (p < 0.5) { // carry the vessel from the bench to the open freezer
+        const q = demo.easeInOut(demo.clamp(p / 0.45, 0, 1))
+        S.at(v, st.x + demo.lerp(bench.x, inside.x, q), demo.lerp(bench.y, inside.y, q), demo.lerp(bench.z, inside.z, q))
+        fr.userData.setDoor(true)
+      } else { // inside — door closes, deep-cold cast + frost puff
+        S.at(v, st.x + inside.x, inside.y, inside.z)
+        fr.userData.setDoor(false)
+        st.cold.intensity = (p - 0.5) * 5
+        fr.userData.setFrost(0.4 * Math.max(0, Math.sin((p - 0.5) * 7)))
+      }
     }
   } else if (action === 'seed') {
-    // dispense/spread the sample into a culture vessel (pour + a spreading sweep).
-    demo.stationReagent(st, BT, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel })
+    // dispense the sample into the culture vessel; on agar, a spreader then sweeps it out.
+    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel })
+    if (container === 'agar_plate') {
+      const spr = demo.buildSpreader()
+      spr.scale.setScalar(0.9)
+      spr.visible = false
+      st.group.add(spr)
+      const base = st.timeline
+      st.timeline = (p) => {
+        base(p)
+        spr.visible = p > 0.55
+        const a = demo.clamp((p - 0.55) / 0.4, 0, 1) * Math.PI * 3 // sweeping circles
+        spr.position.set(Math.cos(a) * 0.42, 0.2, Math.sin(a) * 0.36)
+        spr.rotation.y = a
+      }
+    }
   } else if (action === 'stain') {
-    // flood a stain/dye over the sample surface: the liquid colour floods in.
-    demo.addStand(st)
-    st.enter = () => seat(0, BT, 0)
+    // flood a stain/dye over the sample surface — the slide rests in a staining tray.
+    const tray = demo.buildStainingTray()
+    st.group.add(tray)
+    st.updatables.push(tray)
+    st.enter = () => { seat(0, 0.28, 0); S.at(S[vessel], st.x, 0.28, 0) } // rest the slide ON the tray rails
     st.timeline = (p) => {
       const f = demo.easeInOut(demo.clamp((p - 0.15) / 0.6, 0, 1))
-      S[vessel].userData.setLevel(demo.lerp(startLevel, Math.max(startLevel, endLevel, 0.6), f))
+      S[vessel].userData.setLevel(demo.lerp(startLevel, Math.max(startLevel, endLevel, 0.7), f))
       if (p > 0.2) S[vessel].userData.setColor(endColor) // dye floods over
     }
   } else if (equipment === 'reader') {

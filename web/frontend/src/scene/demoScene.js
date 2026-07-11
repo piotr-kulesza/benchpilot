@@ -1357,7 +1357,7 @@ export {
   buildSharedMaps, makeLabel, stationDecal,
   buildTube, buildPipette, buildPipetteStand, buildBottle, buildSpinColumn,
   buildCentrifuge, buildColdBlock, buildIceBucket, buildNanoDrop, buildDrop, buildWaste, buildSyringe,
-  buildThermocycler, buildGelRig,
+  buildThermocycler, buildGelRig, buildFreezer, buildStainingTray, buildSpreader,
   buildEnvMap, makeCineBackdrop, makeGradientTexture,
   glassMaterial, matPlastic, matBrushed, matAnodized, matPainted, matFrosted, matRubber, matSilicone,
 }
@@ -1408,19 +1408,265 @@ export {
     st.pip.position.set(PIP_REST.x, PIP_REST.y, PIP_REST.z);
     st.pip.userData.setFluid(0); }
 
+  // ─── Stage-8 container vessels (the sample-follow model shows exactly one) ───
+  // Shared liquid state matching buildTube's contract: setLevel/setColor/setLabel +
+  // an update() that lerps and calls apply(liq, level, color). Stylized (no
+  // transmission, no postprocessing) — reuses the demo's mat* helpers throughout.
+  function attachSampleLiquid(grp, liq, apply, label){
+    var st={ level:0.35, tLevel:0.35, color:new THREE.Color(COL.lysis), tColor:new THREE.Color(COL.lysis) };
+    grp.userData.label=label||null;
+    grp.userData.setLevel=function(v){ st.tLevel=clamp(v,0,1); };
+    grp.userData.setColor=function(h){ st.tColor.set(h); };
+    grp.userData.setLabel=function(t,s){ if(grp.userData.label) grp.userData.label.userData.update(t,s||""); };
+    grp.userData.update=function(dt){
+      st.level=lerp(st.level,st.tLevel,1-Math.pow(0.001,dt));
+      st.color.lerp(st.tColor,1-Math.pow(0.004,dt));
+      apply(liq, st.level, st.color, st);
+    };
+    return st;
+  }
+  function liquidMat(){
+    return new THREE.MeshPhysicalMaterial({ color:COL.lysis, roughness:0.32, metalness:0,
+      emissive:COL.lysis, emissiveIntensity:0.12, clearcoat:0.3, clearcoatRoughness:0.4, envMapIntensity:0.6 });
+  }
+
+  /* screw-cap cryovial — a short PP vial with a colour-coded cap + star foot */
+  function buildCryovial(){
+    var grp=new THREE.Group(); var R=0.22, H=1.05;
+    var body=new THREE.Mesh(new THREE.CylinderGeometry(R,R*0.92,H,32,1,true), matFrosted(0xe7ecf1));
+    body.position.y=H/2; body.castShadow=true; grp.add(body);
+    var round=new THREE.Mesh(new THREE.SphereGeometry(R*0.92,24,12,0,Math.PI*2,Math.PI*0.5,Math.PI*0.5), matFrosted(0xe7ecf1));
+    round.position.y=0.02; grp.add(round);
+    var foot=new THREE.Mesh(new THREE.CylinderGeometry(R*0.9,R*0.9,0.05,6), matPlastic(0x59616c));
+    foot.position.y=0.02; grp.add(foot);
+    var cap=new THREE.Mesh(new THREE.CylinderGeometry(R*1.06,R*1.06,0.2,28), matPlastic(0x8f2f6a));
+    cap.position.y=H+0.05; grp.add(cap);
+    for(var r=0;r<20;r++){ var ra=r/20*Math.PI*2; var rib=new THREE.Mesh(new THREE.BoxGeometry(0.014,0.16,0.03), matPlastic(0x8f2f6a));
+      rib.position.set(Math.cos(ra)*R*1.07,H+0.05,Math.sin(ra)*R*1.07); rib.rotation.y=-ra; grp.add(rib); }
+    var liq=new THREE.Mesh(new THREE.CylinderGeometry(R*0.85,R*0.7,1,24), liquidMat());
+    grp.add(liq);
+    var label=makeLabel("",""); label.position.set(0,H+0.6,0); grp.add(label);
+    attachSampleLiquid(grp, liq, function(liq,lv,color){
+      var h=Math.max(0.02, lv*(H*0.82)); liq.scale.set(1,h,1); liq.position.y=0.06+h/2;
+      liq.material.color.copy(color); liq.material.emissive.copy(color);
+    }, label);
+    return grp;
+  }
+
+  /* 96-well microplate — grid of bores; the sample lives in ONE front well (aspirated) */
+  function buildWellPlate(){
+    var grp=new THREE.Group();
+    var body=new THREE.Mesh(new THREE.BoxGeometry(2.4,0.34,1.6), matFrosted(0xdfe6ee));
+    body.position.y=0.17; body.castShadow=true; body.receiveShadow=true; grp.add(body);
+    var skirt=new THREE.Mesh(new THREE.BoxGeometry(2.5,0.06,1.7), matPlastic(0xc4ccd6));
+    skirt.position.y=0.03; grp.add(skirt);
+    // 96 bores as one instanced mesh (dark wells)
+    var boreGeo=new THREE.CylinderGeometry(0.075,0.06,0.26,12,1,true);
+    var boreMat=new THREE.MeshStandardMaterial({ color:0x2a323c, metalness:0.1, roughness:0.7, side:THREE.DoubleSide });
+    var inst=new THREE.InstancedMesh(boreGeo, boreMat, 96); var m=new THREE.Matrix4(); var idx=0, ax=0, az=0;
+    var awx=0, awz=0;
+    for(var c=0;c<12;c++) for(var r=0;r<8;r++){
+      var x=-1.06+c*0.193, z=-0.6+r*0.171;
+      m.makeTranslation(x,0.22,z); inst.setMatrixAt(idx++,m);
+      if(c===1 && r===7){ awx=x; awz=z; }   // the active (front-left) well
+    }
+    inst.instanceMatrix.needsUpdate=true; grp.add(inst);
+    // sample liquid in the active well
+    var liq=new THREE.Mesh(new THREE.CylinderGeometry(0.066,0.055,1,16), liquidMat());
+    liq.position.set(awx,0.1,awz); grp.add(liq);
+    var label=makeLabel("","96-well"); label.position.set(awx,0.9,awz); grp.add(label);
+    attachSampleLiquid(grp, liq, function(liq,lv,color){
+      var h=Math.max(0.01, lv*0.24); liq.scale.set(1,h,1); liq.position.y=0.1+h/2;
+      liq.material.color.copy(color); liq.material.emissive.copy(color);
+    }, label);
+    return grp;
+  }
+
+  /* culture flask (canted neck) — sample is a liquid layer on the base, aspirated */
+  function buildFlask(){
+    var grp=new THREE.Group();
+    var body=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.55,1.0), matFrosted(0xe3e9ef));
+    body.position.y=0.3; body.castShadow=true; grp.add(body);
+    var neck=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.16,0.34,24), matFrosted(0xe3e9ef));
+    neck.position.set(0.72,0.55,0); neck.rotation.z=-0.5; grp.add(neck);
+    var cap=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.16,0.16,24), matPlastic(0xd23b3b));
+    cap.position.set(0.87,0.63,0); cap.rotation.z=-0.5; grp.add(cap);
+    var liq=new THREE.Mesh(new THREE.BoxGeometry(1.42,1,0.92), liquidMat());
+    grp.add(liq);
+    var label=makeLabel("","flask"); label.position.set(0,1.0,0); grp.add(label);
+    attachSampleLiquid(grp, liq, function(liq,lv,color){
+      var h=Math.max(0.01, lv*0.3); liq.scale.set(1,h,1); liq.position.y=0.06+h/2;
+      liq.material.color.copy(color); liq.material.emissive.copy(color);
+    }, label);
+    return grp;
+  }
+
+  /* petri dish — shallow round liquid layer, aspirated */
+  function buildDish(){
+    var grp=new THREE.Group(); var R=0.95;
+    var base=new THREE.Mesh(new THREE.CylinderGeometry(R,R,0.14,48,1,true), matFrosted(0xe3e9ef));
+    base.position.y=0.07; base.castShadow=true; grp.add(base);
+    var floor=new THREE.Mesh(new THREE.CircleGeometry(R,48), matFrosted(0xeef2f6));
+    floor.rotation.x=-Math.PI/2; floor.position.y=0.006; grp.add(floor);
+    var lid=new THREE.Mesh(new THREE.CylinderGeometry(R*1.03,R*1.03,0.12,48,1,true), glassMaterial());
+    lid.position.y=0.16; grp.add(lid);
+    var liq=new THREE.Mesh(new THREE.CylinderGeometry(R*0.9,R*0.9,1,48), liquidMat());
+    grp.add(liq);
+    var label=makeLabel("","dish"); label.position.set(0,0.7,0); grp.add(label);
+    attachSampleLiquid(grp, liq, function(liq,lv,color){
+      var h=Math.max(0.008, lv*0.09); liq.scale.set(1,h,1); liq.position.y=0.012+h/2;
+      liq.material.color.copy(color); liq.material.emissive.copy(color);
+    }, label);
+    return grp;
+  }
+
+  /* glass microscope slide — sample is a smear/film; stain floods colour over it */
+  function buildSlide(){
+    var grp=new THREE.Group();
+    var glass=new THREE.Mesh(new THREE.BoxGeometry(2.0,0.05,0.9), glassMaterial());
+    glass.position.y=0.08; glass.castShadow=true; grp.add(glass);
+    var frost=new THREE.Mesh(new THREE.BoxGeometry(0.4,0.052,0.9), matFrosted(0xeef2f6));
+    frost.position.set(-0.78,0.081,0); grp.add(frost);   // frosted labelling end
+    // the smear/film — a thin coloured layer flooded by setLevel (coverage) + setColor
+    var filmMat=new THREE.MeshPhysicalMaterial({ color:COL.lysis, roughness:0.5, transparent:true, opacity:0.0, emissive:COL.lysis, emissiveIntensity:0.06, envMapIntensity:0.4 });
+    var film=new THREE.Mesh(new THREE.CircleGeometry(0.42,32), filmMat);
+    film.rotation.x=-Math.PI/2; film.position.set(0.25,0.107,0); grp.add(film);
+    var label=makeLabel("","slide"); label.position.set(0,0.7,0); grp.add(label);
+    attachSampleLiquid(grp, film, function(f,lv,color){
+      f.material.color.copy(color); f.material.emissive.copy(color);
+      f.material.opacity=Math.min(0.9, lv*1.2); f.scale.setScalar(0.6+lv*0.8);   // dye floods outward
+    }, label);
+    return grp;
+  }
+
+  /* nitrocellulose membrane — a thin sheet carrying transferred bands (aspirated) */
+  function buildMembrane(){
+    var grp=new THREE.Group();
+    var sheet=new THREE.Mesh(new THREE.BoxGeometry(1.7,0.03,1.2), matFrosted(0xf1ece4));
+    sheet.material.opacity=0.9; sheet.position.y=0.04; sheet.castShadow=true; grp.add(sheet);
+    // sample = a set of protein bands, coloured by setColor, revealed by setLevel
+    var bands=[]; var bandMat=new THREE.MeshBasicMaterial({ color:COL.lysis, transparent:true, opacity:0 });
+    for(var i=0;i<4;i++){ var b=new THREE.Mesh(new THREE.BoxGeometry(1.3,0.008,0.06), bandMat.clone());
+      b.position.set(0,0.057,-0.4+i*0.26); grp.add(b); bands.push(b); }
+    var label=makeLabel("","membrane"); label.position.set(0,0.7,0); grp.add(label);
+    attachSampleLiquid(grp, bands, function(bs,lv,color){
+      for(var k=0;k<bs.length;k++){ bs[k].material.color.copy(color); bs[k].material.opacity=Math.min(0.95, lv*1.3); }
+    }, label);
+    return grp;
+  }
+
+  /* agarose gel slab in a casting tray — sample = a loaded lane + a migrating band */
+  function buildGelSlab(){
+    var grp=new THREE.Group();
+    var tray=new THREE.Mesh(new THREE.BoxGeometry(1.9,0.1,1.3), matPlastic(0x2b3038));
+    tray.position.y=0.05; grp.add(tray);
+    var gel=new THREE.Mesh(new THREE.BoxGeometry(1.7,0.16,1.1),
+      new THREE.MeshPhysicalMaterial({ color:0xd8c98a, roughness:0.5, transparent:true, opacity:0.5, envMapIntensity:0.5 }));
+    gel.position.y=0.16; grp.add(gel);
+    // wells across the top edge
+    var wellMat=new THREE.MeshBasicMaterial({ color:0x1c2128 });
+    for(var w=0;w<6;w++){ var wl=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.02,0.05), wellMat);
+      wl.position.set(-0.6+w*0.24,0.245,-0.45); gel.add(wl); }
+    var band=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.02,0.05), new THREE.MeshBasicMaterial({ color:COL.lysis, transparent:true, opacity:0 }));
+    band.position.set(-0.36,0.245,-0.4); gel.add(band);
+    var label=makeLabel("","gel"); label.position.set(0,0.8,0); grp.add(label);
+    attachSampleLiquid(grp, band, function(b,lv,color){
+      b.material.color.copy(color); b.material.opacity=Math.min(0.9,lv*1.3);
+      b.position.z=-0.4+lv*0.7;   // the band migrates down the gel with fill/progress
+    }, label);
+    return grp;
+  }
+
+  /* petri dish with an agar bed — for seed: liquid dropped on, spreader sweeps */
+  function buildAgarPlate(){
+    var grp=new THREE.Group(); var R=0.95;
+    var base=new THREE.Mesh(new THREE.CylinderGeometry(R,R,0.16,48,1,true), matFrosted(0xe3e9ef));
+    base.position.y=0.08; base.castShadow=true; grp.add(base);
+    var agar=new THREE.Mesh(new THREE.CylinderGeometry(R*0.94,R*0.94,0.1,48),
+      new THREE.MeshStandardMaterial({ color:0xe7c98a, roughness:0.7, metalness:0, envMapIntensity:0.4 }));
+    agar.position.y=0.09; grp.add(agar);
+    // the seeded film (bacterial lawn) — colour + coverage grow as it's spread
+    var lawnMat=new THREE.MeshStandardMaterial({ color:COL.lysis, roughness:0.6, transparent:true, opacity:0, emissive:COL.lysis, emissiveIntensity:0.05 });
+    var lawn=new THREE.Mesh(new THREE.CircleGeometry(R*0.9,48), lawnMat);
+    lawn.rotation.x=-Math.PI/2; lawn.position.y=0.142; grp.add(lawn);
+    var label=makeLabel("","agar"); label.position.set(0,0.7,0); grp.add(label);
+    attachSampleLiquid(grp, lawn, function(l,lv,color){
+      l.material.color.copy(color); l.material.emissive.copy(color);
+      l.material.opacity=Math.min(0.75, lv*1.1); l.scale.setScalar(0.3+lv*1.0);
+    }, label);
+    return grp;
+  }
+
+  /* −80 °C freezer box — the vessel is placed inside; door opens, frost breathes out */
+  function buildFreezer(){
+    var grp=new THREE.Group();
+    var shell=matPainted(0xd7dbe0,0.5);
+    var box=new THREE.Mesh(new THREE.BoxGeometry(2.2,2.0,1.6), shell);
+    box.position.y=1.0; box.castShadow=true; box.receiveShadow=true; grp.add(box);
+    var cavityMat=new THREE.MeshStandardMaterial({ color:0xaeb8c4, roughness:0.5, metalness:0.1, side:THREE.DoubleSide });
+    var cavity=new THREE.Mesh(new THREE.BoxGeometry(1.7,1.5,0.7), cavityMat);
+    cavity.position.set(0,1.05,0.5); grp.add(cavity);
+    // hinged door (front)
+    var doorPivot=new THREE.Group(); doorPivot.position.set(-1.05,1.0,0.85); grp.add(doorPivot);
+    var door=new THREE.Mesh(new THREE.BoxGeometry(2.1,1.9,0.12), matPainted(0xe6e9ed,0.5));
+    door.position.set(1.05,0,0); doorPivot.add(door);
+    var handle=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.5,0.14), matBrushed(0x9aa4b0));
+    handle.position.set(1.85,0,0.12); doorPivot.add(handle);
+    // frost fog puff (additive) at the mouth
+    var frostMat=new THREE.MeshBasicMaterial({ color:0xdfeaf4, transparent:true, opacity:0.0, depthWrite:false, blending:THREE.AdditiveBlending, fog:false });
+    var frost=new THREE.Mesh(new THREE.SphereGeometry(0.7,16,12), frostMat); frost.position.set(0,0.7,1.0); frost.scale.set(1.3,0.8,0.6); grp.add(frost);
+    var label=makeLabel("−80 °C",""); label.position.set(0,2.3,0); grp.add(label);
+    var st={ door:1, tDoor:1 };
+    grp.userData.label=label;
+    grp.userData.setDoor=function(open){ st.tDoor=open?1:0; };
+    grp.userData.setFrost=function(a){ frostMat.opacity=clamp(a,0,0.5); };
+    grp.userData.update=function(dt){ st.door=lerp(st.door,st.tDoor,1-Math.pow(0.02,dt)); doorPivot.rotation.y=easeInOut(st.door)*1.2; };
+    return grp;
+  }
+
+  /* staining tray — a slotted tray the slide rests in while dye floods over it */
+  function buildStainingTray(){
+    var grp=new THREE.Group();
+    var tray=new THREE.Mesh(new THREE.BoxGeometry(2.4,0.24,1.3), matPlastic(0x394049));
+    tray.position.y=0.12; tray.castShadow=true; tray.receiveShadow=true; grp.add(tray);
+    var well=new THREE.Mesh(new THREE.BoxGeometry(2.2,0.16,1.1), new THREE.MeshStandardMaterial({ color:0x20262d, roughness:0.8, side:THREE.DoubleSide }));
+    well.position.y=0.16; grp.add(well);
+    // two support rails the slide bridges
+    for(var s=0;s<2;s++){ var rail=new THREE.Mesh(new THREE.BoxGeometry(2.2,0.05,0.08), matPlastic(0x596270));
+      rail.position.set(0,0.22,-0.4+s*0.8); grp.add(rail); }
+    var label=makeLabel("Staining tray",""); label.position.set(0,0.9,0); grp.add(label);
+    grp.userData.label=label; grp.userData.update=function(){};
+    return grp;
+  }
+
+  /* bent-glass cell spreader (hockey stick) for plating on agar */
+  function buildSpreader(){
+    var grp=new THREE.Group(); var mat=glassMaterial();
+    var handle=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,1.1,16), mat); handle.position.y=0.55; grp.add(handle);
+    var elbow=new THREE.Mesh(new THREE.TorusGeometry(0.12,0.03,10,18,Math.PI/2), mat); elbow.position.set(0,0.02,0); elbow.rotation.z=Math.PI; grp.add(elbow);
+    var foot=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.34,16), mat); foot.rotation.z=Math.PI/2; foot.position.set(0.17,-0.1,0); grp.add(foot);
+    return grp;
+  }
+
   function buildSample(){
     var tube   = buildTube({height:1.7, radius:0.32, color:COL.pellet, label:"Neutrophil pellet", sub:"", cold:true, capColor:0x3f7fd0});
     var column = buildSpinColumn();
     var elu    = buildTube({height:1.15, radius:0.26, color:COL.rna, label:"Eluate", sub:"RNA", capColor:0x49b26a});
-    var vessels=[tube,column,elu];
+    // Stage-8: the sample can also be ANY of these container types — one persistent
+    // travelling sample carried through the actual glassware of any protocol.
+    var S={ tube:tube, column:column, elu:elu,
+      cryovial:buildCryovial(), wellplate:buildWellPlate(), flask:buildFlask(), dish:buildDish(),
+      slide:buildSlide(), membrane:buildMembrane(), gel:buildGelSlab(), agarplate:buildAgarPlate() };
+    var KEYS=['tube','column','elu','cryovial','wellplate','flask','dish','slide','membrane','gel','agarplate'];
+    var vessels=KEYS.map(function(k){ return S[k]; });
+    S.vessels=vessels; S.active=tube;
     for(var v=0;v<vessels.length;v++){
       vessels[v].visible=false; vessels[v].userData.tPos=vessels[v].position.clone(); scene.add(vessels[v]);
     }
-    var S={ tube:tube, column:column, elu:elu, vessels:vessels, active:tube };
     // show exactly one vessel (hand-off timelines may reveal a second mid-station)
     S.only=function(name){
-      tube.visible=(name==='tube'); column.visible=(name==='column'); elu.visible=(name==='elu');
-      S.active=(name==='tube'?tube:(name==='column'?column:elu));
+      for(var i=0;i<KEYS.length;i++){ S[KEYS[i]].visible=(KEYS[i]===name); }
+      S.active=S[name]||tube;
     };
     // set a vessel's travel target; snap instantly on non-sequential jumps, glide otherwise
     S.at=function(vessel,x,y,z){ vessel.userData.tPos.set(x,y,z); if(SNAP_SAMPLE) vessel.position.set(x,y,z); };
