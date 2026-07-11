@@ -78,6 +78,10 @@ if none fits, use "generic"):
   "pour_add"      - add / pour a liquid (buffer, ethanol) into a vessel
   "pipette_mix"   - pipette, resuspend, or mix by pipetting
   "vortex_mix"    - vortex, flick, or invert to mix
+  "homogenize"    - MANUAL homogenization with NO centrifuge: pass the lysate
+                    through a 20-21 G needle/syringe, plunge, or dounce. This is
+                    NOT a spin — a QIAshredder/spin-column homogenization is
+                    "centrifuge", but the needle/plunger method is "homogenize".
   "centrifuge"    - centrifuge / spin (wirować)
   "incubate_wait" - a timed wait / incubation at a stated temperature
   "heat"          - heat shock / water bath at an elevated temperature
@@ -122,9 +126,15 @@ For each step extract, when present:
   - repeat: {count, reason}. e.g. "Powtórzyć dla pozostałej objętości" ->
     {reason: "dla pozostałej objętości"}. "5-krotnie" -> {count: 5}.
   - alternatives: [Step-like] for EITHER/OR options that achieve the same goal
-    (e.g. QIAshredder 2 min at max speed  OR  5× through a 20-21 G needle). Put
-    each alternative as its own step object inside this list, with its OWN
-    `action`, `text`, and `text_en`.
+    (e.g. QIAshredder 2 min at max speed  OR  5× through a 20-21 G needle). List
+    EVERY interchangeable method here — INCLUDING the default/first one — as its
+    own step object with its OWN `action`, `text`, and `text_en`; a two-method
+    "X or Y" instruction yields TWO alternatives, not one. The parent step's
+    `text` is the shared goal ("Homogenize the lysate") and its `action` mirrors
+    the default method, but the chooser and animation run the SELECTED
+    alternative. Give each alternative the action that fits ITS method — the
+    QIAshredder/spin-column option is "centrifuge", the needle/plunger/dounce
+    option is "homogenize" (NOT "centrifuge", NOT "generic").
   - hazards: [string] in the ORIGINAL language. hazards_en: the SAME hazards in
     English, aligned by index. INCLUDE negative / critical instructions here, not
     just dangers. "Nie wirować" ("Do NOT centrifuge") IS a hazard. So are "pod

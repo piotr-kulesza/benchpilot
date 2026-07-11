@@ -883,6 +883,65 @@ export function getSample() { return SAMPLE }
     return grp;
   }
 
+  /* ---------- Syringe (manual homogenization: pass through a needle) ---------- */
+  // Built needle-DOWN with the needle tip at the local origin (y=0), so the
+  // caller can dip the tip into the tube and tilt the whole group. setPlunge(t)
+  // drives the plunger: t=0 drawn up (full), t=1 pressed down (expelled).
+  function buildSyringe(){
+    var grp = new THREE.Group();
+    var BARREL_BOT=0.9, BARREL_TOP=2.1, BR=0.15;   // barrel spans y 0.9..2.1
+    var PISTON_REST=1.9;                            // piston bottom when full (t=0)
+    var TRAVEL=0.8;                                 // how far the plunger presses
+
+    // needle — thin steel, tip at y=0
+    var steel = matBrushed(0xc4ccd6);
+    var needle = new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.009,0.72,16), steel);
+    needle.position.y=0.36; needle.castShadow=true; grp.add(needle);
+    // coloured luer hub (clinical 20-21 G ≈ green/yellow); connects needle to barrel
+    var hub = new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.03,0.18,24), matPlastic(0x4faa6a));
+    hub.position.y=0.8; grp.add(hub);
+    var neck = new THREE.Mesh(new THREE.CylinderGeometry(BR,0.06,0.12,32), matPlastic(0xdfe6ee));
+    neck.position.y=0.92; grp.add(neck);
+
+    // clear barrel (open cylinder so the fluid reads through it)
+    var barrel = new THREE.Mesh(new THREE.CylinderGeometry(BR,BR,BARREL_TOP-BARREL_BOT,40,1,true), glassMaterial());
+    barrel.position.y=(BARREL_TOP+BARREL_BOT)/2; barrel.castShadow=true; grp.add(barrel);
+    var barrelRim = new THREE.Mesh(new THREE.TorusGeometry(BR,0.014,12,44), matFrosted(0xeef3f8));
+    barrelRim.rotation.x=Math.PI/2; barrelRim.position.y=BARREL_TOP; grp.add(barrelRim);
+    // finger flanges at the top of the barrel
+    var flange = new THREE.Mesh(new THREE.BoxGeometry(0.62,0.05,0.2), matFrosted(0xeef3f8));
+    flange.position.y=BARREL_TOP+0.02; grp.add(flange);
+
+    // fluid inside the barrel (below the piston). Built at unit height, scaled per plunge.
+    var fluidMat = new THREE.MeshPhysicalMaterial({ color:COL.lysis, roughness:0.32, transparent:false,
+      emissive:COL.lysis, emissiveIntensity:0.12, envMapIntensity:0.6 });
+    var fluid = new THREE.Mesh(new THREE.CylinderGeometry(BR*0.92,BR*0.92,1,32), fluidMat);
+    grp.add(fluid);
+
+    // plunger sub-group (piston + rod + thumb rest) — translated down as it presses
+    var plungerGrp = new THREE.Group(); grp.add(plungerGrp);
+    var piston = new THREE.Mesh(new THREE.CylinderGeometry(BR*0.96,BR*0.96,0.09,28), matRubber(0x2a323c));
+    piston.position.y=PISTON_REST+0.045; plungerGrp.add(piston);
+    var rod = new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.75,20), matPlastic(0xe8edf2));
+    rod.position.y=PISTON_REST+0.42; plungerGrp.add(rod);
+    var thumb = new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,0.05,30), matPlastic(0xd7dee6));
+    thumb.position.y=PISTON_REST+0.8; plungerGrp.add(thumb);
+
+    grp.userData.setColor=function(hex){ fluidMat.color.set(hex); fluidMat.emissive.set(hex); };
+    grp.userData.setPlunge=function(t){
+      t=clamp(t,0,1);
+      plungerGrp.position.y=-TRAVEL*t;
+      var top=PISTON_REST - TRAVEL*t;              // fluid top follows the piston
+      var h=Math.max(0.001, top-BARREL_BOT);
+      fluid.scale.y=h; fluid.position.y=(top+BARREL_BOT)/2;
+    };
+    grp.userData.setPlunge(0);
+    grp.userData.update=function(){};
+    var label = makeLabel("20–21 G needle","homogenize");
+    label.position.set(0,2.55,0); grp.add(label); grp.userData.label=label;
+    return grp;
+  }
+
   /* ---------- NanoDrop ---------- */
   function buildNanoDrop(){
     var grp = new THREE.Group();
@@ -1164,7 +1223,7 @@ export {
   COL, COL_CINE, COL_ISO, LOOK, SPACING, BLOCK_TOP,
   buildSharedMaps, makeLabel, stationDecal,
   buildTube, buildPipette, buildPipetteStand, buildBottle, buildSpinColumn,
-  buildCentrifuge, buildColdBlock, buildIceBucket, buildNanoDrop, buildDrop, buildWaste,
+  buildCentrifuge, buildColdBlock, buildIceBucket, buildNanoDrop, buildDrop, buildWaste, buildSyringe,
   buildEnvMap, makeCineBackdrop, makeGradientTexture,
   glassMaterial, matPlastic, matBrushed, matAnodized, matPainted, matFrosted, matRubber, matSilicone,
 }

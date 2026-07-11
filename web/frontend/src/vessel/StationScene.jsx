@@ -15,7 +15,7 @@ import { PerspectiveCamera, OrthographicCamera } from '@react-three/drei'
 import { FogExp2, Color, Vector3, Group, Mesh, TorusGeometry, SphereGeometry, MeshStandardMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
 import { resolveRecipe, sampleContainerSequence } from './sceneRecipe.js'
-import { reagentName, reagentVolume } from '../lib/runtime.js'
+import { reagentName, reagentVolume, effectiveStep, selectAlternative, hasAlternatives } from '../lib/runtime.js'
 import * as demo from '../scene/demoScene.js'
 
 // the demo's cinematic camera + isometric framing
@@ -49,7 +49,7 @@ function stepEnd(action, prev, color, fill) {
     case 'centrifuge': return { color: prev.color, level: 0.2 } // spun down, supernatant/flow-through gone
     case 'elute': return { color, level: 0.45 } // eluate collected
     case 'discard': return { color: prev.color, level: 0.05 }
-    default: return { color: prev.color, level: prev.level } // vortex / incubate / heat / cool / measure — no change
+    default: return { color: prev.color, level: prev.level } // vortex / homogenize / incubate / heat / cool / measure — no change
   }
 }
 
@@ -196,6 +196,25 @@ function configureStation(st, o) {
       v.rotation.y = p * 26 // many turns (monotonic)
       v.rotation.z = Math.sin(p * 46) * 0.14 // rapid wobble
     }
+  } else if (action === 'homogenize') {
+    // MANUAL homogenization: a syringe dips into the tube and the plunger pumps
+    // repeatedly (pass the lysate through a 20-21 G needle). NO centrifuge.
+    demo.addStand(st)
+    const syr = demo.buildSyringe()
+    syr.userData.setColor(endColor)
+    syr.position.set(0.1, BT + 0.05, 0.1) // beside the tube, needle dipping toward its mouth
+    syr.rotation.z = -0.3 // tilt like a hand holding it
+    syr.scale.setScalar(0.8)
+    st.group.add(syr)
+    st.updatables.push(syr)
+    st.enter = () => seat(0, BT, 0)
+    st.timeline = (p) => {
+      const passes = 5 // "pass 5 times through the needle"
+      const cp = (p * passes) % 1
+      syr.userData.setPlunge(cp < 0.5 ? cp * 2 : (1 - cp) * 2) // press down then draw up
+      syr.userData.setColor(endColor)
+      S[vessel].userData.setLevel(evolve(p) + Math.sin(p * 34) * 0.02) // agitation ripple over carried level
+    }
   } else if (action === 'discard') {
     // the vessel tips over a waste beaker and drains the flow-through.
     demo.addStand(st)
@@ -335,13 +354,18 @@ function useContainers(steps) {
   return useMemo(() => sampleContainerSequence(steps.map((s) => s.action)), [steps])
 }
 
-export default function StationScene({ protocol, activeIndex = 0, lang = 'en', view = 'cinematic' }) {
+export default function StationScene({ protocol, activeIndex = 0, lang = 'en', view = 'cinematic', altByStep = {} }) {
   ensureMaps()
   const { gl, scene } = useThree()
   const steps = protocol?.steps || []
   const containers = useContainers(steps)
   const active = Math.max(0, Math.min(activeIndex, steps.length - 1))
-  const step = steps[active] || { action: 'generic', reagents: [] }
+  const baseStep = steps[active] || { action: 'generic', reagents: [] }
+  // Follow the CHOSEN alternative (either/or method) — the station, action and
+  // title all come from the selected branch, not the primary. Picking the needle
+  // option builds a syringe, not the QIAshredder centrifuge.
+  const altIdx = altByStep[baseStep.index] || 0
+  const step = effectiveStep(baseStep, altIdx)
   const { equipment } = resolveRecipe(step.action)
   const container = containers[active] || 'microtube'
 
@@ -360,16 +384,17 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
     let color = INIT_COLOR
     let level = INIT_LEVEL
     return steps.map((s) => {
-      const prim = (s.reagents || []).find((r) => r.volume) || (s.reagents || [])[0]
+      const eff = hasAlternatives(s) ? selectAlternative(s, altByStep[s.index] || 0) : s
+      const prim = (eff.reagents || []).find((r) => r.volume) || (eff.reagents || [])[0]
       const c = new Color(reagentColor(prim ? reagentName(prim, lang) : null)).getHex()
-      const f = resolveRecipe(s.action).anim.fill
+      const f = resolveRecipe(eff.action).anim.fill
       const start = { color, level }
-      const end = stepEnd(s.action, start, c, f)
+      const end = stepEnd(eff.action, start, c, f)
       color = end.color
       level = end.level
       return { start, end }
     })
-  }, [steps, lang])
+  }, [steps, lang, altByStep])
   const chainAt = stateChain[active] || { start: { color: INIT_COLOR, level: INIT_LEVEL }, end: { color: colorHex, level: fill } }
 
   const stRef = useRef(null)
@@ -431,7 +456,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
       if (stRef.current === st) stRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, colorHex, container])
+  }, [active, colorHex, container, step.action])
 
   // drive the station timeline + glide the sample, exactly like the demo's loop.
   useFrame((state, dt) => {
@@ -478,6 +503,7 @@ const ACTION_LABEL = {
   pour_add: 'Add reagent',
   pipette_mix: 'Mix',
   vortex_mix: 'Vortex',
+  homogenize: 'Homogenize',
   centrifuge: 'Centrifuge',
   incubate_wait: 'Incubate',
   heat: 'Heat',

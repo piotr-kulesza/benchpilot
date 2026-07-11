@@ -28,6 +28,7 @@ ACTIONS = (
     "pour_add",       # add / pour a liquid into a vessel
     "pipette_mix",    # pipette / resuspend / mix by pipetting
     "vortex_mix",     # vortex / flick / invert
+    "homogenize",     # manual homogenization — pass through a needle / plunge / dounce (NOT a spin)
     "centrifuge",     # spin
     "incubate_wait",  # timed wait at a stated temperature
     "heat",           # heat shock / water bath

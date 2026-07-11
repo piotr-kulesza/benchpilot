@@ -17,6 +17,7 @@
 //   bubbles     rising bubbles (heat)
 //   warm        warm glow + emissive (heat)
 //   frost       frost creeps up the glass + cold cast (cool_ice)
+//   plunge      syringe plunger pumps (manual homogenization)
 //   pulse       gentle liquid pulse amplitude (incubate)
 //   ring        progress ring driven by the timer (incubate)
 //   transfer    a second vessel; contents move across
@@ -32,6 +33,7 @@ const base = {
   spin: 0,
   pour: false,
   pipette: false,
+  plunge: false,
   drop: false,
   bubbles: false,
   warm: false,
@@ -50,6 +52,7 @@ export const BEHAVIORS = {
   pour_add: b({ fill: 0.28, pour: true }),
   pipette_mix: b({ fill: 0.55, pipette: true }),
   vortex_mix: b({ fill: 0.55, swirl: 6.5, shake: 0.05 }),
+  homogenize: b({ fill: 0.55, plunge: true }),
   centrifuge: b({ fill: 0.5, spin: 18 }),
   incubate_wait: b({ fill: 0.55, pulse: 0.03, ring: true }),
   heat: b({ fill: 0.55, bubbles: true, warm: true }),

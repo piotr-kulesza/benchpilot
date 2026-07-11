@@ -16,7 +16,7 @@
 // Recipe shape:
 //   equipment  which device stages the action. One of:
 //              'centrifuge' | 'incubation_block' | 'heat_block' | 'ice_bucket'
-//              | 'spin_column' | 'bottle_pipette' | 'reader' | 'bench'
+//              | 'spin_column' | 'bottle_pipette' | 'reader' | 'syringe' | 'bench'
 //   vessel     the container the sample sits in for this action. One of:
 //              'microtube' | 'spin_column' | 'bottle' | 'eluate_tube'
 //   anim       the behavior.js descriptor for this action (fill/pour/spin/…)
@@ -36,6 +36,7 @@ const RECIPES = {
   pour_add:      { equipment: 'bottle_pipette',   vessel: 'microtube',   handoff: false },
   pipette_mix:   { equipment: 'bottle_pipette',   vessel: 'microtube',   handoff: false },
   vortex_mix:    { equipment: 'bench',            vessel: 'microtube',   handoff: false },
+  homogenize:    { equipment: 'syringe',          vessel: 'microtube',   handoff: false },
   centrifuge:    { equipment: 'centrifuge',       vessel: 'microtube',   handoff: false },
   incubate_wait: { equipment: 'incubation_block', vessel: 'microtube',   handoff: false },
   heat:          { equipment: 'heat_block',       vessel: 'microtube',   handoff: false },

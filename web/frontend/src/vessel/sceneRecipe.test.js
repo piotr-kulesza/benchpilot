@@ -10,7 +10,7 @@ import { ACTIONS } from '../lib/runtime.js'
 
 const EQUIPMENT = new Set([
   'centrifuge', 'incubation_block', 'heat_block', 'ice_bucket',
-  'spin_column', 'bottle_pipette', 'reader', 'bench',
+  'spin_column', 'bottle_pipette', 'reader', 'syringe', 'bench',
 ])
 const VESSELS = new Set(['microtube', 'spin_column', 'bottle', 'eluate_tube'])
 

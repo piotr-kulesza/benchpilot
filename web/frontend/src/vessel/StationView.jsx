@@ -13,7 +13,7 @@ import Fallback from './Fallback.jsx'
 import StationCanvas from './StationCanvas.jsx'
 import { reagentColor } from './theme.js'
 import { resolveRecipe } from './sceneRecipe.js'
-import { reagentName, reagentVolume } from '../lib/runtime.js'
+import { reagentName, reagentVolume, effectiveStep } from '../lib/runtime.js'
 
 class GLBoundary extends Component {
   constructor(props) {
@@ -46,12 +46,14 @@ function primaryReagent(reagents = []) {
   return reagents.find((r) => r.volume) || reagents[0]
 }
 
-export default function StationView({ protocol, activeIndex = 0, answers = {}, lang = 'en', progress = 1, running = false, temp = null, fill: fullBleed = false }) {
+export default function StationView({ protocol, activeIndex = 0, answers = {}, lang = 'en', progress = 1, running = false, temp = null, fill: fullBleed = false, altByStep = {} }) {
   const [view, setView] = useState('cinematic')
   const [use3D] = useState(() => webglAvailable())
 
   const steps = protocol?.steps || []
-  const step = steps[Math.max(0, Math.min(activeIndex, steps.length - 1))] || { action: 'generic', reagents: [] }
+  const baseStep = steps[Math.max(0, Math.min(activeIndex, steps.length - 1))] || { action: 'generic', reagents: [] }
+  // the overlay (reagent / spin chips / action) follows the CHOSEN alternative
+  const step = effectiveStep(baseStep, altByStep[baseStep.index] || 0)
   const recipe = useMemo(() => resolveRecipe(step.action), [step.action])
 
   const primary = primaryReagent(step.reagents)
@@ -75,6 +77,7 @@ export default function StationView({ protocol, activeIndex = 0, answers = {}, l
               progress={progress}
               running={running}
               view={view}
+              altByStep={altByStep}
             />
           </GLBoundary>
         ) : (

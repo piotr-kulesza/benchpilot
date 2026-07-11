@@ -13,6 +13,7 @@ export const ACTIONS = [
   'pour_add',
   'pipette_mix',
   'vortex_mix',
+  'homogenize',
   'centrifuge',
   'incubate_wait',
   'heat',

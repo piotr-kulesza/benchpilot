@@ -101,6 +101,7 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
           progress={elapsed}
           running={!!timer?.running}
           temp={temp}
+          altByStep={altByStep}
           fill
         />
       </div>
