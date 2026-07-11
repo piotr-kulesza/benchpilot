@@ -1,42 +1,42 @@
 import { describe, it, expect } from 'vitest'
-import { SCENE_RECIPES, resolveRecipe, sampleContainerSequence } from './sceneRecipe.js'
+import {
+  SCENE_RECIPES, resolveRecipe, sampleContainerSequence, resolveContainer, resolveRemoval,
+} from './sceneRecipe.js'
 import { resolveBehavior } from './behavior.js'
 import { ACTIONS } from '../lib/runtime.js'
 
-// The 3D scene isn't unit-tested (no GPU in CI). What we DO guarantee is the
-// action → scene-recipe mapping: every action in the vocabulary resolves to a
-// valid recipe (equipment + vessel + anim + handoff), and anything unknown
-// falls back to `generic`.
+// The 3D scene isn't unit-tested (no GPU in CI). What we DO guarantee is that the
+// two decoupled axes resolve: every action → a valid { equipment, anim } recipe,
+// and every container → a valid { geo, removal }; anything unknown falls back.
 
 const EQUIPMENT = new Set([
   'centrifuge', 'incubation_block', 'heat_block', 'ice_bucket',
-  'spin_column', 'bottle_pipette', 'reader', 'syringe', 'bench',
+  'bottle_pipette', 'reader', 'syringe', 'bench',
+  'thermocycler', 'gel_rig', 'freezer', 'staining_tray',
 ])
-const VESSELS = new Set(['microtube', 'spin_column', 'bottle', 'eluate_tube'])
+const CONTAINERS = [
+  'microtube', 'tube', 'well_plate', 'flask', 'dish', 'gel', 'slide',
+  'cryovial', 'membrane', 'spin_column', 'eluate_tube', 'bottle', 'agar_plate', 'generic',
+]
 
 describe('action → scene recipe mapping', () => {
-  it('resolves every action enum value to a valid recipe', () => {
+  it('resolves every action enum value to a valid { equipment, anim } recipe', () => {
     for (const action of ACTIONS) {
       const r = resolveRecipe(action)
       expect(r, action).toBeTypeOf('object')
       expect(r, action).toBe(SCENE_RECIPES[action])
       expect(EQUIPMENT.has(r.equipment), `${action} equipment=${r.equipment}`).toBe(true)
-      expect(VESSELS.has(r.vessel), `${action} vessel=${r.vessel}`).toBe(true)
-      expect(r.handoff).toBeTypeOf('boolean')
+      // container/handoff are NO LONGER per-action — the sample-follow model owns them
+      expect(r).not.toHaveProperty('vessel')
+      expect(r).not.toHaveProperty('handoff')
       // anim is the action's behavior descriptor, kept in lockstep with behavior.js
       expect(r.anim).toBe(resolveBehavior(action))
       expect(r.anim).toHaveProperty('fill')
     }
   })
 
-  it('has exactly one entry per vocabulary value and no extras', () => {
+  it('has exactly one entry per vocabulary value and no extras (lockstep)', () => {
     expect(Object.keys(SCENE_RECIPES).sort()).toEqual([...ACTIONS].sort())
-  })
-
-  it('marks transfer and elute as hand-offs (sample changes container)', () => {
-    expect(resolveRecipe('transfer').handoff).toBe(true)
-    expect(resolveRecipe('elute').handoff).toBe(true)
-    expect(resolveRecipe('centrifuge').handoff).toBe(false)
   })
 
   it('falls back to generic for unknown / missing actions', () => {
@@ -47,25 +47,63 @@ describe('action → scene recipe mapping', () => {
   })
 })
 
-describe('travelling sample container sequence', () => {
-  it('starts as a microtube and changes only at hand-offs', () => {
-    // microtube … until transfer → spin column … until elute → eluate tube
-    const actions = ['pour_add', 'pipette_mix', 'transfer', 'wash', 'incubate_wait', 'elute', 'measure', 'cool_ice']
-    expect(sampleContainerSequence(actions)).toEqual([
-      'microtube', // pour_add (as step begins)
-      'microtube', // pipette_mix
-      'microtube', // transfer — hand-off happens AT the end of this step
-      'spin_column', // wash
-      'spin_column', // incubate_wait
-      'spin_column', // elute — hand-off at the end
-      'eluate_tube', // measure
-      'eluate_tube', // cool_ice
+describe('container axis', () => {
+  it('resolves every container to geometry + a removal motion', () => {
+    for (const c of CONTAINERS) {
+      const r = resolveContainer(c)
+      expect(r, c).toBeTypeOf('object')
+      expect(typeof r.geo, c).toBe('string')
+      expect(['tip', 'aspirate'].includes(r.removal), `${c} removal=${r.removal}`).toBe(true)
+    }
+  })
+
+  it('tips tubes/columns, aspirates plates/membranes/dishes', () => {
+    for (const c of ['microtube', 'tube', 'spin_column', 'eluate_tube', 'cryovial']) {
+      expect(resolveRemoval(c), c).toBe('tip')
+    }
+    for (const c of ['well_plate', 'flask', 'dish', 'membrane', 'slide', 'gel', 'agar_plate']) {
+      expect(resolveRemoval(c), c).toBe('aspirate')
+    }
+  })
+
+  it('unknown/missing container → generic (a tip-out tube)', () => {
+    expect(resolveContainer('nope')).toBe(resolveContainer('generic'))
+    expect(resolveContainer(undefined)).toBe(resolveContainer('generic'))
+    expect(resolveRemoval(null)).toBe('tip')
+  })
+})
+
+describe('sample-follow container sequence', () => {
+  it('seeds microtube, adopts each parsed container, and PERSISTS when unnamed', () => {
+    const steps = [
+      { action: 'pour_add' },                       // microtube (seed)
+      { action: 'transfer', container: 'well_plate' }, // adopts well_plate
+      { action: 'incubate_wait' },                  // persists well_plate
+      { action: 'electrophorese', container: 'membrane' }, // adopts membrane
+      { action: 'stain' },                          // persists membrane
+      { action: 'transfer', container: 'tube' },    // back to a tube
+    ]
+    expect(sampleContainerSequence(steps)).toEqual([
+      'microtube', 'well_plate', 'well_plate', 'membrane', 'membrane', 'tube',
     ])
   })
 
-  it('never changes container without a transfer/elute (unknown actions included)', () => {
-    const seq = sampleContainerSequence(['pour_add', 'centrifuge', 'does_not_exist', 'heat'])
-    expect(seq).toEqual(['microtube', 'microtube', 'microtube', 'microtube'])
+  it('reproduces the RNA tube → column → eluate chain from parsed containers', () => {
+    const steps = [
+      { action: 'pour_add' },
+      { action: 'transfer', container: 'spin_column' },
+      { action: 'centrifuge' },
+      { action: 'elute', container: 'eluate_tube' },
+      { action: 'measure' },
+    ]
+    expect(sampleContainerSequence(steps)).toEqual([
+      'microtube', 'spin_column', 'spin_column', 'eluate_tube', 'eluate_tube',
+    ])
+  })
+
+  it('ignores an unknown container token (persists previous)', () => {
+    const seq = sampleContainerSequence([{ container: 'flask' }, { container: 'bogus' }, {}])
+    expect(seq).toEqual(['flask', 'flask', 'flask'])
   })
 
   it('handles an empty protocol', () => {

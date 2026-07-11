@@ -22,6 +22,11 @@ export const ACTIONS = [
   'discard',
   'elute',
   'measure',
+  'thermocycle',
+  'electrophorese',
+  'store',
+  'seed',
+  'stain',
   'generic',
 ]
 

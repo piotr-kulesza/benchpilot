@@ -385,7 +385,7 @@ function configureStation(st, o) {
 }
 
 function useContainers(steps) {
-  return useMemo(() => sampleContainerSequence(steps.map((s) => s.action)), [steps])
+  return useMemo(() => sampleContainerSequence(steps), [steps])
 }
 
 // Per-step build + display params for one station in the line.

@@ -1,51 +1,44 @@
 // ─────────────────────────────────────────────────────────────────────────
-// sceneRecipe.js — pure action → SCENE RECIPE resolver.
+// sceneRecipe.js — pure resolvers for the equipment-aware Scene.
 //
-// `behavior.js` answers "how does the ONE vessel behave?". This module answers
-// the richer question the demo (`demos/neutrophil-rna-extraction.html`) poses:
-// "what EQUIPMENT and which VESSEL does this action stage, and does the sample
-//  change container?". It is the contract the equipment-aware Scene builds on.
+// TWO DECOUPLED AXES (this is the Stage-6 generalization):
+//   • ACTION → EQUIPMENT + anim.  What the step DOES (a centrifuge spins, a plate
+//     reader reads). `resolveRecipe(action)` answers this. `anim` IS the behavior.js
+//     descriptor so the two modules never drift.
+//   • CONTAINER → geometry + removal motion.  WHERE the sample sits (microtube,
+//     well plate, membrane, …). This now comes from the sample-follow sequence
+//     (`sampleContainerSequence`, seeded + persisted from each step's parsed
+//     `container`), NOT from a per-action `vessel`/`handoff`. A "transfer" is simply
+//     a step whose container differs from the previous one.
 //
-// Like behavior.js it imports nothing heavy (no three.js / DOM / network), so it
-// runs in node under Vitest, and it GUARANTEES every action resolves — unknown /
-// missing → the `generic` recipe, so no step ever renders blank or crashes.
-//
-// It composes behavior.js rather than duplicating it: `anim` IS the action's
-// behavior descriptor, so the two modules never drift.
-//
-// Recipe shape:
-//   equipment  which device stages the action. One of:
-//              'centrifuge' | 'incubation_block' | 'heat_block' | 'ice_bucket'
-//              | 'spin_column' | 'bottle_pipette' | 'reader' | 'syringe' | 'bench'
-//   vessel     the container the sample sits in for this action. One of:
-//              'microtube' | 'spin_column' | 'bottle' | 'eluate_tube'
-//   anim       the behavior.js descriptor for this action (fill/pour/spin/…)
-//   handoff    true when the sample changes container (transfer / elute)
+// Imports nothing heavy (no three.js / DOM / network) so it runs in node under
+// Vitest. GUARANTEES every action AND every container resolves — unknown/missing →
+// `generic` (action) / persist (container) — so no step ever renders blank.
 // ─────────────────────────────────────────────────────────────────────────
 
 import { resolveBehavior } from './behavior.js'
 
-// action → { equipment, vessel, handoff }. The `anim` field is filled in below
-// from behavior.js so the two maps stay in lockstep. Mirrors the master-prompt
-// table and the demo's per-step equipment (buildCentrifuge, buildColdBlock,
-// buildIceBucket, buildSpinColumn, buildNanoDrop, buildBottle). `transfer`,
-// `wash` and `elute` all stage a spin column (the master table listed transfer
-// as bare bench, but the loading step reads far better on the column it hands off
-// to — the incoming microtube pours in beside it).
+// action → { equipment }. `anim` is filled in from behavior.js below.
+// equipment is the STATION device; the sample's vessel is the container axis.
 const RECIPES = {
-  pour_add:      { equipment: 'bottle_pipette',   vessel: 'microtube',   handoff: false },
-  pipette_mix:   { equipment: 'bottle_pipette',   vessel: 'microtube',   handoff: false },
-  vortex_mix:    { equipment: 'bench',            vessel: 'microtube',   handoff: false },
-  homogenize:    { equipment: 'syringe',          vessel: 'microtube',   handoff: false },
-  centrifuge:    { equipment: 'centrifuge',       vessel: 'microtube',   handoff: false },
-  incubate_wait: { equipment: 'incubation_block', vessel: 'microtube',   handoff: false },
-  heat:          { equipment: 'heat_block',       vessel: 'microtube',   handoff: false },
-  cool_ice:      { equipment: 'ice_bucket',       vessel: 'microtube',   handoff: false },
-  transfer:      { equipment: 'spin_column',      vessel: 'microtube',   handoff: true  },
-  discard:       { equipment: 'bench',            vessel: 'spin_column', handoff: false },
-  elute:         { equipment: 'spin_column',      vessel: 'eluate_tube', handoff: true  },
-  measure:       { equipment: 'reader',           vessel: 'microtube',   handoff: false },
-  generic:       { equipment: 'bench',            vessel: 'microtube',   handoff: false },
+  pour_add:       { equipment: 'bottle_pipette' },
+  pipette_mix:    { equipment: 'bottle_pipette' },
+  vortex_mix:     { equipment: 'bench' },
+  homogenize:     { equipment: 'syringe' },
+  centrifuge:     { equipment: 'centrifuge' },
+  incubate_wait:  { equipment: 'incubation_block' },
+  heat:           { equipment: 'heat_block' },
+  cool_ice:       { equipment: 'ice_bucket' },
+  transfer:       { equipment: 'bench' },        // no baked destination — container decides
+  discard:        { equipment: 'bench' },
+  elute:          { equipment: 'centrifuge' },    // the elution spin
+  measure:        { equipment: 'reader' },
+  thermocycle:    { equipment: 'thermocycler' },
+  electrophorese: { equipment: 'gel_rig' },
+  store:          { equipment: 'freezer' },
+  seed:           { equipment: 'bench' },          // container = flask/dish/agar_plate
+  stain:          { equipment: 'staining_tray' },
+  generic:        { equipment: 'bench' },
 }
 
 // The full recipe map, each entry carrying its behavior descriptor as `anim`.
@@ -61,19 +54,49 @@ export function resolveRecipe(action) {
   return SCENE_RECIPES[action] || SCENE_RECIPES.generic
 }
 
-// The ONE travelling sample's container as each step BEGINS. It starts as a
-// microtube and changes ONLY at a hand-off (`transfer` → spin column, `elute` →
-// eluate tube); every other action leaves it unchanged. Pure so the invariant is
-// unit-testable. `actions` is the ordered list of each step's `action`.
-export function sampleContainerSequence(actions = []) {
+// ─── container axis ──────────────────────────────────────────────────────
+// container → { geo (geometry key the Scene mounts), removal (how liquid leaves) }.
+//   removal 'tip'      — the vessel tilts and dumps (a tube you can pick up)
+//   removal 'aspirate' — a pipette sucks it out (NEVER tip a plate/dish/membrane)
+// The `geo` key maps to a demoScene builder / sample-vessel slot in the Scene.
+const CONTAINERS = {
+  microtube:   { geo: 'tube',     removal: 'tip' },
+  tube:        { geo: 'tube',     removal: 'tip' },
+  spin_column: { geo: 'column',   removal: 'tip' },
+  eluate_tube: { geo: 'elu',      removal: 'tip' },
+  cryovial:    { geo: 'cryovial', removal: 'tip' },
+  bottle:      { geo: 'tube',     removal: 'tip' },
+  well_plate:  { geo: 'wellplate', removal: 'aspirate' },
+  flask:       { geo: 'flask',    removal: 'aspirate' },
+  dish:        { geo: 'dish',     removal: 'aspirate' },
+  membrane:    { geo: 'membrane', removal: 'aspirate' },
+  slide:       { geo: 'slide',    removal: 'aspirate' },
+  gel:         { geo: 'gel',      removal: 'aspirate' },
+  agar_plate:  { geo: 'agarplate', removal: 'aspirate' },
+  generic:     { geo: 'tube',     removal: 'tip' },
+}
+
+// Resolve a container token → { geo, removal }; unknown/missing → generic (a tube).
+export function resolveContainer(container) {
+  return CONTAINERS[container] || CONTAINERS.generic
+}
+
+// How liquid is removed from the CURRENT container: 'tip' vs 'aspirate'.
+export function resolveRemoval(container) {
+  return resolveContainer(container).removal
+}
+
+// The ONE travelling sample's container as each step BEGINS — the SAMPLE-FOLLOW
+// model. Seed with the first named container (or microtube), then for each step
+// use its parsed `container` if present, else CARRY the previous one. Pure so the
+// invariant is unit-testable. `steps` is the ordered list of step objects.
+export function sampleContainerSequence(steps = []) {
   const out = []
   let container = 'microtube'
-  for (const action of actions) {
+  for (const s of steps) {
+    const named = s && typeof s === 'object' ? s.container : null
+    if (named && CONTAINERS[named]) container = named
     out.push(container)
-    if (resolveRecipe(action).handoff) {
-      if (action === 'transfer') container = 'spin_column'
-      else if (action === 'elute') container = 'eluate_tube'
-    }
   }
   return out
 }

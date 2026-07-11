@@ -24,6 +24,11 @@
 //   tip         pour-out tip angle in radians (discard)
 //   flowThrough liquid rinses through (wash)
 //   gauge       show a measurement gauge beside the vessel (measure)
+//   cycle       thermal program cycles hot↔cool this many times (thermocycle)
+//   migrate     bands/dye front migrate through a gel/onto a membrane (electrophorese)
+//   place       vessel is placed inside equipment (store — freezer/dewar)
+//   spread      a spreader sweeps the sample over a surface (seed on agar)
+//   flood       a stain/dye colour floods over the sample surface (stain)
 // ─────────────────────────────────────────────────────────────────────────
 
 const base = {
@@ -44,6 +49,11 @@ const base = {
   tip: 0,
   flowThrough: false,
   gauge: false,
+  cycle: 0,
+  migrate: false,
+  place: false,
+  spread: false,
+  flood: false,
 }
 
 const b = (over) => ({ ...base, ...over })
@@ -61,6 +71,11 @@ export const BEHAVIORS = {
   discard: b({ fill: 0.2, tip: 1.15, shake: 0.02 }),
   elute: b({ fill: 0.22, drop: true }),
   measure: b({ fill: 0.55, gauge: true }),
+  thermocycle: b({ fill: 0.5, cycle: 30, warm: true, ring: true }), // cycles hot↔cool; ring = cycle counter
+  electrophorese: b({ fill: 0.5, migrate: true }),
+  store: b({ fill: 0.5, frost: true, place: true }),
+  seed: b({ fill: 0.35, pour: true, spread: true }),
+  stain: b({ fill: 0.4, flood: true }),
   generic: b({ fill: 0.5 }),
 }
 
