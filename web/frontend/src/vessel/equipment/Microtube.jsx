@@ -26,7 +26,6 @@ export default function Microtube({
   color = theme.liquid.accent,
   capColor = '#2b323b',
   cap = true,
-  hero = false,
   anim = null,
   ...props
 }) {
@@ -82,12 +81,12 @@ export default function Microtube({
       {/* glass wall */}
       <mesh castShadow>
         <latheGeometry args={[wall, 96]} />
-        <Glass hero={hero} />
+        <Glass />
       </mesh>
       {/* rim lip */}
       <mesh position={[0, H, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[R * 1.02, 0.024, 16, 64]} />
-        <Glass hero={hero} />
+        <Glass />
       </mesh>
       {/* frosted writing patch moulded into the front wall */}
       <mesh position={[0, H * 0.6, 0]}>
@@ -97,7 +96,7 @@ export default function Microtube({
       {/* pour stream — a thin falling ribbon of the reagent (shown during pour) */}
       <mesh ref={stream} position={[0, H * 1.05, 0]} visible={false}>
         <cylinderGeometry args={[0.03, 0.05, H * 0.9, 12]} />
-        <meshPhysicalMaterial color={color} roughness={0.1} transmission={0.4} thickness={0.4} transparent opacity={0.9} emissive={color} emissiveIntensity={0.2} />
+        <meshPhysicalMaterial color={color} roughness={0.3} transparent opacity={0.85} emissive={color} emissiveIntensity={0.2} />
       </mesh>
       {/* liquid, conforming to the tube interior, with a domed meniscus */}
       {liquid && (

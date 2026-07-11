@@ -14,7 +14,6 @@ export default function SpinColumn({
   fill = 0.5,
   color = theme.liquid.accent,
   flowThrough = false,
-  hero = false,
   ...props
 }) {
   const collar = useMemo(() => rawPoints(COLUMN_COLLAR), [])
@@ -46,11 +45,11 @@ export default function SpinColumn({
       {/* collection tube (clear) + rim */}
       <mesh castShadow>
         <latheGeometry args={[collar, 96]} />
-        <Glass hero={hero} />
+        <Glass />
       </mesh>
       <mesh position={[0, 1.0, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[0.325, 0.02, 16, 64]} />
-        <Glass hero={hero} />
+        <Glass />
       </mesh>
       {/* inner frosted cup + white flange */}
       <mesh>

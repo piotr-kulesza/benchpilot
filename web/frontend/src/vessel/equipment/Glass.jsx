@@ -1,53 +1,47 @@
-// Glass — the vessel wall material. The HERO (active) vessel gets true
-// transmissive <MeshTransmissionMaterial> (refracts the background + a crisp
-// key-softbox specular); neighbours get the cheaper physical-glass fallback (no
-// per-frame buffer). All knobs live in theme.glass / theme.glassFallback.
+// Glass — the vessel wall material. Ported 1:1 from the demo's glassMaterial() +
+// fresnelize(): a STYLIZED faked glass, NOT a photoreal transmissive render. It
+// is a plain MeshPhysicalMaterial with low opacity, clearcoat, and a muted
+// neutral fresnel rim added in the shader. No MeshTransmissionMaterial, no
+// transmission/ior/thickness/chromatic-aberration. ONE material for every vessel.
 //
-// Used as a material child: `<mesh><Glass hero /></mesh>`.
+// Used as a material child: `<mesh><Glass /></mesh>`.
 
-import { MeshTransmissionMaterial } from '@react-three/drei'
 import { DoubleSide } from 'three'
 import { theme } from '../theme.js'
 
-export default function Glass({ hero = false }) {
-  if (hero) {
-    const g = theme.glass
-    return (
-      <MeshTransmissionMaterial
-        transmission={g.transmission}
-        roughness={g.roughness}
-        ior={g.ior}
-        thickness={g.thickness}
-        chromaticAberration={g.chromaticAberration}
-        anisotropicBlur={g.anisotropicBlur}
-        distortionScale={g.distortionScale}
-        temporalDistortion={g.temporalDistortion}
-        samples={g.samples}
-        resolution={g.resolution}
-        color={g.color}
-        clearcoat={g.clearcoat}
-        clearcoatRoughness={g.clearcoatRoughness}
-        envMapIntensity={g.envMapIntensity}
-        transparent
-        depthWrite={false}
-        side={DoubleSide}
-      />
-    )
-  }
-  const f = theme.glassFallback
+// demo fresnelize(): add a restrained neutral edge highlight + lift edge alpha so
+// the thin glass reads at grazing angles. Injected before the final colour write.
+// (three renamed the chunk output_fragment → opaque_fragment; handle both.)
+function fresnelize(shader) {
+  const inject = [
+    'float rimF = pow(1.0 - abs(dot(normalize(vNormal), normalize(vViewPosition))), 3.0);',
+    'outgoingLight += vec3(0.62,0.68,0.74) * rimF * 0.45;',
+    'diffuseColor.a = clamp(diffuseColor.a + rimF * 0.30, 0.0, 1.0);',
+  ].join('\n')
+  const token = shader.fragmentShader.includes('#include <opaque_fragment>')
+    ? '#include <opaque_fragment>'
+    : '#include <output_fragment>'
+  shader.fragmentShader = shader.fragmentShader.replace(token, `${inject}\n${token}`)
+}
+const glassCacheKey = () => 'glassFresnelMuted'
+
+export default function Glass() {
+  const g = theme.glass
   return (
     <meshPhysicalMaterial
-      color={f.color}
-      transmission={f.transmission}
-      roughness={f.roughness}
-      clearcoat={f.clearcoat}
-      clearcoatRoughness={f.clearcoatRoughness}
-      ior={f.ior}
-      thickness={f.thickness}
-      envMapIntensity={f.envMapIntensity}
+      color={g.color}
+      metalness={0}
+      roughness={g.roughness}
       transparent
-      depthWrite={false}
+      opacity={g.opacity}
+      clearcoat={g.clearcoat}
+      clearcoatRoughness={g.clearcoatRoughness}
+      envMapIntensity={g.envMapIntensity}
+      reflectivity={g.reflectivity}
       side={DoubleSide}
+      depthWrite={false}
+      onBeforeCompile={fresnelize}
+      customProgramCacheKey={glassCacheKey}
     />
   )
 }

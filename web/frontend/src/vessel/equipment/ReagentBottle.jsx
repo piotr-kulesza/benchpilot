@@ -16,7 +16,6 @@ export default function ReagentBottle({
   fill = 0.55,
   color = theme.liquid.accent,
   capColor = '#2b7f74',
-  hero = false,
   ...props
 }) {
   const body = useMemo(() => toPoints(BOTTLE_PROFILE, R, H), [R, H])
@@ -29,7 +28,7 @@ export default function ReagentBottle({
     <group {...props}>
       <mesh castShadow>
         <latheGeometry args={[body, 72]} />
-        <Glass hero={hero} />
+        <Glass />
       </mesh>
       {liquid && (
         <mesh>

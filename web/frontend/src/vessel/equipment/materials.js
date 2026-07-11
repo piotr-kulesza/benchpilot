@@ -42,8 +42,8 @@ export const ACCENT = {
   trimTeal: '#2fa898',
 }
 
-// Glass is its own component now (equipment/Glass.jsx) — hero transmission vs a
-// cheap physical fallback, both read from theme.
+// Glass is its own component now (equipment/Glass.jsx) — one stylized physical
+// material + fresnel rim (the demo's glassMaterial), read from theme.glass.
 
 // Frosted polypropylene (spin-column cup) — translucent, matte-ish, still lit.
 export function frostedProps() {

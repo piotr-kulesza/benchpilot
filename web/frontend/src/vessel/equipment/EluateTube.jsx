@@ -16,7 +16,6 @@ export default function EluateTube({
   color = '#12c46c', // fresh RNA green
   capColor = '#49b26a',
   cap = true,
-  hero = false,
   ...props
 }) {
   const wall = useMemo(() => toPoints(TUBE_PROFILE, R, H), [R, H])
@@ -31,11 +30,11 @@ export default function EluateTube({
     <group {...props}>
       <mesh castShadow>
         <latheGeometry args={[wall, 96]} />
-        <Glass hero={hero} />
+        <Glass />
       </mesh>
       <mesh position={[0, H, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[R * 1.02, 0.02, 16, 64]} />
-        <Glass hero={hero} />
+        <Glass />
       </mesh>
       {liquid && (
         <>

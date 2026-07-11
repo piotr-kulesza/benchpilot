@@ -73,43 +73,19 @@ export const theme = {
   // headroom.
   vesselScale: 0.82,
 
-  // Real glass. transmission=1 + refraction; tuned so it reads as clean lab
-  // borosilicate, not frosted plastic.
-  // HERO glass — true transmissive <MeshTransmissionMaterial> for the ONE active
-  // vessel: it refracts the background AND catches a crisp key-softbox highlight.
-  // Costly (renders a buffer), so only the hero uses it; neighbours fall back to
-  // `glassFallback`. Resolution/samples kept modest for 60fps.
-  // Matches the demo's glassMaterial() — clear refractive glass with a clearcoat
-  // and a MODERATE envMapIntensity (~1.3), NOT a chrome mirror. roughness 0.08 +
-  // env 1.3 gives a soft key highlight, not a hard specular ball.
+  // The demo's glassMaterial(), verbatim — a STYLIZED faked glass: a plain
+  // MeshPhysicalMaterial with low opacity + a fresnel rim (see equipment/Glass),
+  // NO transmission/ior/thickness/refraction. This is what reads as the demo's
+  // clean, crisp lab glass rather than a photoreal transmissive render. One
+  // material for every vessel (no hero/neighbour split).
   glass: {
     color: '#dce6ec', // demo COL.glass
-    transmission: 1,
     roughness: 0.08,
-    ior: 1.45,
-    thickness: 0.35,
-    chromaticAberration: 0.02,
-    anisotropicBlur: 0.1,
-    distortionScale: 0,
-    temporalDistortion: 0,
-    samples: 6,
-    resolution: 256,
+    opacity: 0.24,
     clearcoat: 1,
     clearcoatRoughness: 0.06,
-    envMapIntensity: 1.3,
-  },
-
-  // Cheap physical glass for neighbour vessels — same soft look, no per-frame
-  // buffer. Reads as clean borosilicate under the studio key.
-  glassFallback: {
-    color: '#dce6ec',
-    transmission: 1,
-    roughness: 0.08,
-    clearcoat: 1,
-    clearcoatRoughness: 0.06,
-    ior: 1.45,
-    thickness: 0.35,
-    envMapIntensity: 1.3,
+    envMapIntensity: 1.35,
+    reflectivity: 0.4,
   },
 
   // Frosted polypropylene (spin-column cup) — translucent, matte-ish, still lit.
@@ -169,21 +145,9 @@ export const theme = {
     color: '#22423d',
   },
 
-  // Filmic post stack — tasteful, not an effects demo.
-  //  bloom: only highlights/emissive bloom (never a haze)
-  //  dof:   focus the active station, small gentle bokeh
-  //  ao:    soft ambient occlusion darkens crevices (rotor slots, wells, contacts)
-  //  vignette: subtle edge settle
-  post: {
-    // bloom only on speculars/emissive (high threshold, modest intensity) — never
-    // a soft haze over the whole frame
-    bloom: { intensity: 0.34, luminanceThreshold: 0.9, luminanceSmoothing: 0.2, mipmapBlur: true },
-    // DOF focus LOCKED on the hero (active station at world origin); small bokeh
-    // so ONLY neighbours + far background blur and the hero stays razor sharp
-    dof: { target: [0, 0.95, 0], focalLength: 0.012, bokehScale: 1.3, focusRange: 0.004 },
-    ao: { aoRadius: 0.5, intensity: 2.2, distanceFalloff: 0.4, color: '#0c0f13', halfRes: true },
-    vignette: { offset: 0.28, darkness: 0.52 },
-  },
+  // No postprocessing — the demo has none. The scene reads crisp/stylized
+  // straight from the renderer (LinearToneMapping, exposure 0.78) with no
+  // EffectComposer, bloom, DOF, AO, or vignette.
 
   // "Alive at rest" — gentle idle bob + slow camera drift.
   motion: {
