@@ -56,16 +56,20 @@ function disposeGroup(group) {
 
 const hideLabels = (root) => root.traverse((o) => o.userData?.label && (o.userData.label.visible = false))
 
-// the demo's LOOK.cinematic lights (verbatim values).
+// the demo's LOOK.cinematic light values. The demo (three r128) used LEGACY
+// lights; modern three (r0.169) is physically-correct and divides diffuse by π,
+// so the same intensities render ~π× dimmer (that's why the bench went muddy).
+// Scale by π to restore the demo's brightness.
+const LIGHT_SCALE = Math.PI
 function Lights() {
   const L = demo.LOOK.cinematic
   return (
     <>
-      <ambientLight color={L.amb.color} intensity={L.amb.int} />
-      <hemisphereLight color={L.hemi.sky} groundColor={L.hemi.ground} intensity={L.hemi.int} />
+      <ambientLight color={L.amb.color} intensity={L.amb.int * LIGHT_SCALE} />
+      <hemisphereLight color={L.hemi.sky} groundColor={L.hemi.ground} intensity={L.hemi.int * LIGHT_SCALE} />
       <directionalLight
         color={L.key.color}
-        intensity={L.key.int}
+        intensity={L.key.int * LIGHT_SCALE}
         position={[5, 11, 7]}
         castShadow
         shadow-mapSize-width={2048}
@@ -79,19 +83,16 @@ function Lights() {
         shadow-camera-top={11}
         shadow-camera-bottom={-9}
       />
-      <directionalLight color={L.fill.color} intensity={L.fill.int} position={L.fill.pos} />
-      <directionalLight color={L.aux.color} intensity={L.aux.int} position={L.aux.pos} />
+      <directionalLight color={L.fill.color} intensity={L.fill.int * LIGHT_SCALE} position={L.fill.pos} />
+      <directionalLight color={L.aux.color} intensity={L.aux.int * LIGHT_SCALE} position={L.aux.pos} />
     </>
   )
 }
 
+// the demo's textured resin floor (light warm cream), not a flat plane.
 function Floor() {
-  return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-      <planeGeometry args={[80, 40]} />
-      <meshStandardMaterial color={0xcbc6bd} metalness={0.12} roughness={0.5} envMapIntensity={0.62} />
-    </mesh>
-  )
+  const floor = useMemo(() => demo.buildFloor(), [])
+  return <primitive object={floor} />
 }
 
 function CameraRig({ view }) {
@@ -167,7 +168,35 @@ function configureStation(st, o) {
       v.rotation.z = -e * 1.2 // tip toward the waste
       v.userData.setLevel(demo.lerp(0.5, 0.02, e)) // drain
     }
-  } else if (equipment === 'centrifuge' || action === 'wash' || action === 'transfer' || action === 'elute') {
+  } else if (action === 'transfer') {
+    // hand-off: the sample moves tube -> spin column (the demo's LOAD step). NO
+    // centrifuge — the column fills as the tube drains.
+    demo.addStand(st)
+    const tA = { x: -0.9, y: BT, z: 0.1 }
+    const cA = { x: 0.7, y: BT, z: 0.1 }
+    st.enter = () => {
+      S.only('tube')
+      S.tube.userData.setLabel(name || 'Sample', 'load column')
+      S.tube.userData.setColor(color)
+      S.tube.userData.setLevel(0.8)
+      S.tube.rotation.set(0, 0, 0)
+      S.at(S.tube, st.x + tA.x, tA.y, tA.z)
+      S.column.userData.setLabel('RNeasy column', 'loading')
+      S.column.userData.setColor(color)
+      S.column.userData.setLevel(0)
+      S.column.rotation.set(0, 0, 0)
+      S.snapTo(S.column, st.x + cA.x, cA.y, cA.z)
+      S.column.visible = false
+    }
+    st.timeline = (p) => {
+      S.tube.visible = true
+      if (p > 0.2) S.column.visible = true
+      const f = demo.clamp((p - 0.25) / 0.5, 0, 1)
+      S.column.userData.setLevel(demo.lerp(0, 0.9, f))
+      S.tube.userData.setLevel(demo.lerp(0.8, 0.04, f))
+      if (p > 0.9) S.tube.visible = false
+    }
+  } else if (equipment === 'centrifuge' || action === 'wash' || action === 'elute') {
     // benchtop centrifuge, rotor spins over p (verbatim stationSpin).
     demo.stationSpin(st, BT, { vessel, vlabel: name || '', vsub: vol || '', color, lStart: 0.5, lEnd: action === 'wash' ? 0.1 : 0.45, cenLabel: 'Centrifuge', cenSub: vol || '', seconds })
   } else if (action === 'incubate_wait') {

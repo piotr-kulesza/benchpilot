@@ -839,13 +839,7 @@ export function getSample() { return SAMPLE }
     var handle = new THREE.Mesh(new THREE.TorusGeometry(0.16,0.03,12,24,Math.PI), matPlastic(0x232a33));
     handle.position.set(0,0.6,2.2); handle.rotation.x=Math.PI/2; lidPivot.add(handle);
 
-    // coloured control accents on the front fascia — green status LED + blue start button
-    var cfLed=new THREE.Mesh(new THREE.SphereGeometry(0.055,16,12),
-      new THREE.MeshStandardMaterial({ color:0x3ad884, emissive:0x2fbf6f, emissiveIntensity:0.7, roughness:0.4, metalness:0 }));
-    cfLed.position.set(-0.42,0.62,1.30); grp.add(cfLed);
-    var cfBtn=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,0.05,24),
-      new THREE.MeshStandardMaterial({ color:0x3f7fd0, emissive:0x2f6fd0, emissiveIntensity:0.85, roughness:0.42, metalness:0.15 }));
-    cfBtn.rotation.x=Math.PI/2 - 0.32; cfBtn.position.set(0.42,0.62,1.30); grp.add(cfBtn);
+    // (status LED + start button removed — colour comes only from liquids/caps/reagents)
 
     var label = makeLabel("Centrifuge","");
     label.position.set(0,2.5,0); grp.add(label);
@@ -931,12 +925,7 @@ export function getSample() { return SAMPLE }
     var ndTrim=new THREE.Mesh(new THREE.BoxGeometry(1.4,0.04,0.04),
       new THREE.MeshStandardMaterial({ color:0x2fa898, metalness:0.3, roughness:0.4, envMapIntensity:0.7 }));
     ndTrim.position.set(0,0.55,0.6); grp.add(ndTrim);
-    var ndLed=new THREE.Mesh(new THREE.SphereGeometry(0.045,16,12),
-      new THREE.MeshStandardMaterial({ color:0x3ad884, emissive:0x2fbf6f, emissiveIntensity:0.7, roughness:0.4 }));
-    ndLed.position.set(-0.6,0.4,0.6); grp.add(ndLed);
-    var ndBtn=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.05,22),
-      new THREE.MeshStandardMaterial({ color:0x3f7fd0, emissive:0x1f4f8f, emissiveIntensity:0.25, roughness:0.42, metalness:0.15 }));
-    ndBtn.rotation.x=Math.PI/2; ndBtn.position.set(-0.35,0.585,0.55); grp.add(ndBtn);
+    // (status LED + sample button removed — colour comes only from liquids/caps/reagents)
 
     var label = makeLabel("NanoDrop","A260/280 = 2.0");
     label.position.set(0.4,2.15,0); grp.add(label);
@@ -1152,7 +1141,26 @@ export function getSample() { return SAMPLE }
     var t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t;
   }
 
+  // the demo's bench floor (buildLine): a light warm-grey resin with a canvas
+  // grain/speckle texture — the LIVE cinematic material values baked in
+  // (applyViewMode: color 0xcbc6bd, metalness 0.12, roughness 0.5, env 0.62).
+  function buildFloor(){
+    var bc=document.createElement("canvas"); bc.width=512; bc.height=512; var bg2=bc.getContext("2d");
+    bg2.fillStyle="#cbc6bd"; bg2.fillRect(0,0,512,512);
+    for(var sx=0;sx<520;sx+=2){ bg2.strokeStyle="rgba(120,116,108,"+(0.008+Math.random()*0.012)+")";
+      bg2.lineWidth=1; bg2.beginPath(); bg2.moveTo(sx,0); bg2.lineTo(sx+(Math.random()*6-3),512); bg2.stroke(); }
+    for(var sp=0;sp<1200;sp++){ bg2.fillStyle="rgba("+(Math.random()<0.5?"255,253,248,":"150,144,134,")+(Math.random()*0.05)+")";
+      bg2.fillRect(Math.random()*512,Math.random()*512,1.6,1.6); }
+    var benchTex=new THREE.CanvasTexture(bc); benchTex.colorSpace=THREE.SRGBColorSpace;
+    benchTex.wrapS=benchTex.wrapT=THREE.RepeatWrapping; benchTex.repeat.set(30,6); benchTex.anisotropy=MAX_ANISO;
+    var floorMat=new THREE.MeshStandardMaterial({ color:0xcbc6bd, map:benchTex, metalness:0.12, roughness:0.5, envMapIntensity:0.62 });
+    var floor=new THREE.Mesh(new THREE.PlaneGeometry(140,60), floorMat);
+    floor.rotation.x=-Math.PI/2; floor.receiveShadow=true;
+    return floor;
+  }
+
 export {
+  buildFloor,
   COL, COL_CINE, COL_ISO, LOOK, SPACING, BLOCK_TOP,
   buildSharedMaps, makeLabel, stationDecal,
   buildTube, buildPipette, buildPipetteStand, buildBottle, buildSpinColumn,
@@ -1252,15 +1260,14 @@ export {
   function stationSpin(st, Y, o){
     var cen=buildCentrifuge(); cen.position.set(1.4,0,-0.5); cen.scale.setScalar(0.85);
     st.group.add(cen); st.updatables.push(cen); st.cen=cen;
-    var plate=new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.56,Y,32), matPlastic(0x2e3843));
-    plate.position.set(-1.5,Y*0.5,1.4); plate.castShadow=true; st.group.add(plate);
+    // (black riser plate removed — the sample rests on the bench, not a pedestal)
     st.enter=function(){
       SAMPLE.only(o.vessel);
       var v=SAMPLE[o.vessel];
       if(o.vlabel) v.userData.setLabel(o.vlabel, o.vsub||"");
       if(o.color!=null) v.userData.setColor(o.color);
       v.userData.setLevel(o.lStart==null?0.5:o.lStart);
-      SAMPLE.at(v, st.x-1.5, Y, 1.4);
+      SAMPLE.at(v, st.x-1.5, 0, 1.4);   // on the bench (plate riser removed)
       cen.userData.setLabel(o.cenLabel||"Centrifuge", o.cenSub||""); cen.userData.setSpin(0);
     };
     if(o.seconds) st.hud={label:o.hudLabel||"Centrifuge", seconds:o.seconds};
