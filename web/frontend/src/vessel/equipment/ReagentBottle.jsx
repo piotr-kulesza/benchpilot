@@ -36,6 +36,16 @@ export default function ReagentBottle({
           <meshPhysicalMaterial {...liquidProps(color)} />
         </mesh>
       )}
+      {/* white product label wrapped on the front */}
+      <mesh position={[0, H * 0.42, 0]}>
+        <cylinderGeometry args={[0.372, 0.372, 0.52, 40, 1, true, Math.PI * 0.5 - 0.9, 1.8]} />
+        <meshStandardMaterial color="#eef1f4" roughness={0.55} metalness={0} side={2} />
+      </mesh>
+      {/* reagent-coded identity band under the label (same as the cap) */}
+      <mesh position={[0, H * 0.2, 0]}>
+        <cylinderGeometry args={[0.365, 0.365, 0.08, 40, 1, true]} />
+        <meshStandardMaterial color={capColor} roughness={0.5} metalness={0.05} side={2} />
+      </mesh>
       {/* screw cap + coloured neck seal */}
       <mesh position={[0, H + 0.11, 0]}>
         <cylinderGeometry args={[0.17, 0.17, 0.22, 28]} />

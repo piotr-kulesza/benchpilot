@@ -28,6 +28,7 @@ import IceBucket from './equipment/IceBucket.jsx'
 import SpinColumn from './equipment/SpinColumn.jsx'
 import ReagentBottle from './equipment/ReagentBottle.jsx'
 import Pipette from './equipment/Pipette.jsx'
+import PipetteStand from './equipment/PipetteStand.jsx'
 import Reader from './equipment/Reader.jsx'
 import Microtube from './equipment/Microtube.jsx'
 import EluateTube from './equipment/EluateTube.jsx'
@@ -168,7 +169,7 @@ function Equipment({ step, progress, running }) {
       return (
         <group>
           <ReagentBottle position={[1.25, 0, 0.35]} scale={0.7} />
-          <Pipette position={[0, 2.0, 0]} pouring scale={0.7} />
+          <Pipette position={[0, 1.8, 0.12]} pouring scale={0.55} />
         </group>
       )
     default:
@@ -282,6 +283,10 @@ export default function StationScene({ protocol, activeIndex = 0, answers = {}, 
       <Lights />
       <SaturationPass />
       <CameraRig view={view} />
+
+      {/* permanent blue pipette stand — a resident bench prop beside the hero */}
+      <PipetteStand position={[-2.5, 0, 0.5]} scale={0.6} />
+
 
       <MovingWorld offsetX={stationX(active)}>
         {/* the bench spanning the whole line, top at y = 0 */}
