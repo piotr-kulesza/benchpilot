@@ -175,7 +175,7 @@ function Floor({ totalLen }) {
 // Build a station for a step. Every action gets a timeline with VISIBLE motion
 // driven by the per-step progress p (0->1): so no station is ever static.
 function configureStation(st, o) {
-  const { action, equipment, container, color, name, vol, seconds, startColor, startLevel, endColor, endLevel, cycles } = o
+  const { action, equipment, container, prevContainer, color, name, vol, seconds, startColor, startLevel, endColor, endLevel, cycles } = o
   const vessel = V_OF[container] || 'tube'
   const removal = resolveRemoval(container) // 'tip' (tube) vs 'aspirate' (plate/membrane)
   const S = demo.getSample()
@@ -235,7 +235,6 @@ function configureStation(st, o) {
     }
   } else if (action === 'vortex_mix') {
     // the vessel visibly swirls + wobbles (this was the dead one).
-    demo.addStand(st)
     st.enter = () => seat(0, BT, 0)
     st.timeline = (p) => {
       const v = S[vessel]
@@ -246,7 +245,6 @@ function configureStation(st, o) {
   } else if (action === 'homogenize') {
     // MANUAL homogenization: a syringe dips into the tube and the plunger pumps
     // repeatedly (pass the lysate through a 20-21 G needle). NO centrifuge.
-    demo.addStand(st)
     const syr = demo.buildSyringe()
     syr.userData.setColor(endColor)
     syr.position.set(0.1, BT + 0.05, 0.1) // beside the tube, needle dipping toward its mouth
@@ -265,9 +263,9 @@ function configureStation(st, o) {
   } else if (action === 'discard') {
     // remove liquid — motion follows the CURRENT container: a tube TIPS into the
     // waste; a plate/dish/membrane is ASPIRATED (pipette suck-out — never tip it).
-    demo.addStand(st)
     if (removal === 'aspirate') {
-      // resident pipette sucks the liquid out; the level drains as it draws up.
+      // resident pipette sucks the liquid out (its stand comes with the rig — a
+      // genuine pipetting station); the level drains as it draws up.
       demo.addPipetteRig(st)
       st.enter = () => { seat(0, BT, 0); if (st.pip) { st.pip.position.set(0, BT + 1.35, 0); st.pip.userData.setFluid(0) } }
       st.timeline = (p) => {
@@ -294,7 +292,6 @@ function configureStation(st, o) {
   } else if (action === 'transfer') {
     // hand-off: the sample moves tube -> spin column (the demo's LOAD step). NO
     // centrifuge — the column fills as the tube drains.
-    demo.addStand(st)
     const tA = { x: -0.9, y: BT, z: 0.1 }
     const cA = { x: 0.7, y: BT, z: 0.1 }
     st.enter = () => {
@@ -325,9 +322,11 @@ function configureStation(st, o) {
     // arrives at its carried level and spins down to the chained end level.
     demo.stationSpin(st, BT, { vessel, vlabel: name || '', vsub: vol || '', color: endColor, lStart: startLevel, lEnd: endLevel, cenLabel: 'Centrifuge', cenSub: vol || '', seconds })
   } else if (action === 'incubate_wait') {
-    // incubation block + a progress RING that fills with p.
-    demo.addStand(st)
+    // incubation block BEHIND the sample + a progress RING that fills with p. The
+    // block is offset in −z so the carried container (esp. a flat plate/slide) is
+    // never buried inside it — it sits in front, plainly visible, nothing clipping.
     const block = demo.buildColdBlock()
+    block.position.set(0, 0, -1.25)
     st.group.add(block)
     st.updatables.push(block)
     st.ring = new Mesh(new TorusGeometry(0.55, 0.02, 12, 64), new MeshStandardMaterial({ color: 0x5a636e, roughness: 0.6 }))
@@ -349,34 +348,39 @@ function configureStation(st, o) {
       S[vessel].userData.setLevel(evolve(p) + Math.sin(p * 10) * 0.02) // holds carried contents
     }
   } else if (action === 'heat') {
-    // heat block + rising bubbles + a warm glow that ramps with p.
-    demo.addStand(st)
-    const block = demo.buildColdBlock()
-    st.group.add(block)
-    st.updatables.push(block)
-    st.warm = new PointLight(0xff8a3d, 0, 5)
-    st.warm.position.set(0, 1.1, 0.5)
+    // WATER BATH — a warm water-filled tub with the tube half-submerged + steam,
+    // deliberately unlike the dry incubation block. Warm glow + bubbles ramp with p.
+    const bath = demo.buildWaterBath()
+    st.group.add(bath)
+    st.updatables.push(bath)
+    st.warm = new PointLight(0xffb060, 0, 5)
+    st.warm.position.set(0, 1.0, 0.4)
     st.group.add(st.warm)
+    const SURF = 0.66 // water-surface height (matches buildWaterBath SURFY)
     st.bubbles = Array.from({ length: 8 }, () => {
-      const b = new Mesh(new SphereGeometry(0.05, 10, 8), new MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, roughness: 0.1 }))
-      b.userData.seed = { x: (Math.random() - 0.5) * 0.4, z: (Math.random() - 0.5) * 0.4, off: Math.random(), sp: 0.5 + Math.random() }
+      const b = new Mesh(new SphereGeometry(0.045, 10, 8), new MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, roughness: 0.1 }))
+      b.userData.seed = { x: (Math.random() - 0.5) * 1.6, z: (Math.random() - 0.5) * 1.0, off: Math.random(), sp: 0.5 + Math.random() }
       st.group.add(b)
       return b
     })
-    st.enter = () => seat(0, BT, 0)
+    st.enter = () => {
+      if (FLAT) { seat(0, 0, 1.6); bath.position.set(0, 0, -1.15) } // flat vessel in front, bath behind
+      else { seat(0, 0.1, 0); bath.position.set(0, 0, 0) }          // tube dips INTO the water
+    }
     st.timeline = (p) => {
-      st.warm.intensity = p * 3.2 // warm glow ramps up (monotonic)
+      st.warm.intensity = p * 2.6 // warm glow ramps up (monotonic)
+      bath.userData.setWarmth?.(demo.clamp(p * 1.3, 0, 1))
       for (const b of st.bubbles) {
         const s = b.userData.seed
         const yy = (p * s.sp * 3 + s.off) % 1
-        b.position.set(s.x, BT + 0.2 + yy * 1.3, s.z)
-        b.scale.setScalar(0.5 + yy)
+        b.position.set(s.x, SURF + yy * 0.9, s.z)
+        b.scale.setScalar(0.4 + yy)
+        b.visible = !FLAT // bubbles only rise when a tube is dipped in
       }
       S[vessel].userData.setLevel(evolve(p) + Math.sin(p * 12) * 0.02) // holds carried contents
     }
   } else if (action === 'cool_ice') {
     // ice bucket + a cold cast that deepens with p (frost creep) + a faint shiver.
-    demo.addStand(st)
     const ice = demo.buildIceBucket()
     ice.position.set(0, 0, 0.3)
     st.group.add(ice)
@@ -422,21 +426,33 @@ function configureStation(st, o) {
     st.cold = new PointLight(0x8fbaf0, 0, 4)
     st.cold.position.set(0, 1, -0.6)
     st.group.add(st.cold)
+    // The cavity opening faces +z. The vial must enter THROUGH the opening — never
+    // through a wall: it stages in front (aligned on the cavity's x + height), moves
+    // straight in along −z, then lowers onto the cavity floor. Door opens first,
+    // closes only once the vial is fully inside (cap stays clear of the top wall).
     const bench = { x: -1.4, y: SEAT_Y, z: 0.9 }
-    const inside = { x: 0.1, y: 1.05, z: -1.0 }
-    st.enter = () => { seat(bench.x, bench.y, bench.z); fr.userData.setDoor(true); fr.userData.setFrost(0) }
+    const front = { x: 0.1, y: 1.05, z: 0.35 }  // staged in front of the mouth
+    const inMid = { x: 0.1, y: 1.05, z: -1.0 }  // carried in through the opening
+    const inside = { x: 0.1, y: 0.5, z: -1.0 }  // lowered onto the cavity floor
+    const move = (v, a, b, q) => S.at(v, st.x + demo.lerp(a.x, b.x, q), demo.lerp(a.y, b.y, q), demo.lerp(a.z, b.z, q))
+    st.enter = () => { seat(bench.x, bench.y, bench.z); fr.userData.setDoor(true); fr.userData.setFrost(0); st.cold.intensity = 0 }
     st.timeline = (p) => {
       evolve(p)
       const v = S[vessel]
-      if (p < 0.5) { // carry the vessel from the bench to the open freezer
-        const q = demo.easeInOut(demo.clamp(p / 0.45, 0, 1))
-        S.at(v, st.x + demo.lerp(bench.x, inside.x, q), demo.lerp(bench.y, inside.y, q), demo.lerp(bench.z, inside.z, q))
-        fr.userData.setDoor(true)
-      } else { // inside — door closes, deep-cold cast + frost puff
+      fr.userData.setDoor(p < 0.64)  // open until the vial is seated inside, then close
+      if (p < 0.14) {                // 1 · door swings open; vial waits on the bench
+        S.at(v, st.x + bench.x, bench.y, bench.z)
+      } else if (p < 0.36) {         // 2 · lift off the bench and approach the opening (hop up)
+        const q = demo.easeInOut((p - 0.14) / 0.22)
+        S.at(v, st.x + demo.lerp(bench.x, front.x, q), demo.lerp(bench.y, front.y, q) + Math.sin(q * Math.PI) * 0.5, demo.lerp(bench.z, front.z, q))
+      } else if (p < 0.52) {         // 3 · move STRAIGHT IN through the opening (−z only)
+        move(v, front, inMid, demo.easeInOut((p - 0.36) / 0.16))
+      } else if (p < 0.64) {         // 4 · lower onto the cavity floor
+        move(v, inMid, inside, demo.easeInOut((p - 0.52) / 0.12))
+      } else {                       // 5 · inside, door closed — deep-cold cast + frost puff
         S.at(v, st.x + inside.x, inside.y, inside.z)
-        fr.userData.setDoor(false)
-        st.cold.intensity = (p - 0.5) * 5
-        fr.userData.setFrost(0.4 * Math.max(0, Math.sin((p - 0.5) * 7)))
+        st.cold.intensity = (p - 0.64) * 5
+        fr.userData.setFrost(0.4 * Math.max(0, Math.sin((p - 0.64) * 7)))
       }
     }
   } else if (action === 'seed') {
@@ -473,7 +489,6 @@ function configureStation(st, o) {
     st.group.add(nano)
     st.updatables.push(nano)
     st.dev = nano
-    demo.addStand(st)
     st.enter = () => seat(-1.4, 0, 0.8)
     st.timeline = (p) => {
       evolve(p) // holds the carried contents while the reader traces
@@ -481,11 +496,72 @@ function configureStation(st, o) {
     }
   } else {
     // generic actionable (rare) — a slow idle turn so it is never dead.
-    demo.addStand(st)
     st.enter = () => seat(0, BT, 0)
     st.timeline = (p) => { evolve(p); S[vessel].rotation.y = p * 3 }
   }
+
+  // Bug #2: if the sample's CONTAINER changed from the previous station, ANIMATE the
+  // hand-off (old vessel lifts out → new vessel settles in) instead of the new vessel
+  // popping out of nowhere. Skip actions that already choreograph the vessel: transfer
+  // pours across; the centrifuge glides it into the rotor; store flies it into the freezer.
+  const prevVessel = prevContainer ? (V_OF[prevContainer] || 'tube') : null
+  const custom = action === 'transfer' || action === 'store' || equipment === 'centrifuge'
+  if (prevVessel && prevVessel !== vessel && !custom) {
+    wrapHandoff(st, S, prevVessel, vessel, startColor, startLevel)
+  }
   hideLabels(st.group)
+}
+
+// Wrap a station's enter/timeline with a visible container hand-off: for the first
+// TR of the step the OLD vessel lifts up and out (remove motion) and the NEW vessel
+// descends into its seat (insert motion) — the two halves of one transition. Then the
+// station's real action runs on the remapped remainder. Uses snapTo (position == tPos)
+// so the swap is crisp and the frame-loop glide never fights it.
+function wrapHandoff(st, S, fromKey, toKey, color, level) {
+  const baseEnter = st.enter
+  const baseTimeline = st.timeline
+  const TR = 0.26   // fraction of the step spent on the hand-off
+  const LIFT = 3.2  // vertical travel of the swap
+  st.enter = () => {
+    baseEnter && baseEnter()             // seats the NEW vessel at its target + sets its state
+    const nv = S[toKey]
+    st._seat = nv.userData.tPos.clone()  // where the new vessel belongs
+    const ov = S[fromKey]
+    ov.visible = true                    // the OLD vessel carries the incoming contents in
+    ov.rotation.set(0, 0, 0)
+    ov.userData.setColor?.(color)
+    ov.userData.setLevel?.(level)
+    S.snapTo(ov, st._seat.x, st._seat.y, st._seat.z)
+    nv.visible = false                   // hide the new one until it descends
+    st._handoff = true
+  }
+  st.timeline = (p) => {
+    if (p < TR) {
+      const q = p / TR
+      const ov = S[fromKey]
+      const nv = S[toKey]
+      if (q < 0.5) {                     // old vessel lifts up & aside (remove)
+        ov.visible = true; nv.visible = false
+        const e = demo.easeInOut(q / 0.5)
+        S.snapTo(ov, st._seat.x, st._seat.y + e * LIFT, st._seat.z)
+        ov.rotation.z = e * 0.5
+      } else {                           // new vessel settles down into the seat (insert)
+        ov.visible = false; nv.visible = true
+        const e = demo.easeInOut((q - 0.5) / 0.5)
+        nv.userData.setColor?.(color)
+        nv.userData.setLevel?.(level)
+        S.snapTo(nv, st._seat.x, st._seat.y + (1 - e) * LIFT, st._seat.z)
+      }
+    } else {
+      if (st._handoff) {                 // hand-off done — lock to the new vessel, run the action
+        S.only(toKey)
+        S.snapTo(S[toKey], st._seat.x, st._seat.y, st._seat.z)
+        S[fromKey].rotation.set(0, 0, 0)
+        st._handoff = false
+      }
+      baseTimeline && baseTimeline((p - TR) / (1 - TR))
+    }
+  }
 }
 
 function useContainers(steps) {
@@ -597,10 +673,11 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
     steps.forEach((baseStep, i) => {
       const altIdx = altByStep[baseStep.index] || 0
       const container = containers[i] || 'microtube'
+      const prevContainer = i > 0 ? (containers[i - 1] || 'microtube') : null
       const o = stationParams(baseStep, lang, altIdx, stateChain[i])
       const st = { group: new Group(), updatables: [], reagents: {}, pip: null, enter: null, timeline: null, x: i * SPACING, cen: null, dev: null, vis: 0, _vstate: -1 }
       configureStation(st, {
-        action: o.action, equipment: o.equipment, container, color: o.colorHex, name: o.title, vol: o.vol, seconds: o.seconds,
+        action: o.action, equipment: o.equipment, container, prevContainer, color: o.colorHex, name: o.title, vol: o.vol, seconds: o.seconds,
         startColor: o.start.color, startLevel: o.start.level, endColor: o.end.color, endLevel: o.end.level, cycles: o.cycles,
       })
       st.group.position.set(st.x, 0, 0)

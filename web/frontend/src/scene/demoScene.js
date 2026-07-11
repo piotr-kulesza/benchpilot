@@ -693,6 +693,60 @@ export function undockSample() {
     return grp;
   }
 
+  /* ---------- water bath (heat, e.g. 42 °C): a stainless tub FILLED with warm
+     water (translucent, gently rippling), a slotted rack across the top, and
+     steam wisps rising off the surface. Deliberately UNLIKE the dry incubation
+     block (buildColdBlock) — liquid-filled + steam vs. a dry anthracite well
+     block — so the two heat/incubate stations never read as the same device. */
+  function buildWaterBath(){
+    var grp=new THREE.Group();
+    var steel=matBrushed(0xb9c0c8); steel.roughness=0.4;
+    // OPEN BASIN (not a solid box — a solid box's top is a lid that hides the water).
+    // Floor + four walls, with a LOW FRONT wall so the cyan pool is plainly visible
+    // over the front edge at the scene's shallow downward camera angle.
+    var WALL=0.9, FRONT=0.5, SURFY=0.66;               // wall heights + water-surface height
+    var floor=new THREE.Mesh(new THREE.BoxGeometry(2.4,0.08,1.8), steel); floor.position.y=0.04; floor.receiveShadow=true; grp.add(floor);
+    var back=new THREE.Mesh(new THREE.BoxGeometry(2.4,WALL,0.1), steel); back.position.set(0,WALL/2,-0.85); back.castShadow=true; grp.add(back);
+    var frontW=new THREE.Mesh(new THREE.BoxGeometry(2.4,FRONT,0.1), steel); frontW.position.set(0,FRONT/2,0.85); grp.add(frontW);
+    for(var sw=0;sw<2;sw++){ var side=new THREE.Mesh(new THREE.BoxGeometry(0.1,WALL,1.8), steel);
+      side.position.set(-1.15+sw*2.3, WALL/2, 0); side.castShadow=true; grp.add(side); }
+    // TEAL inner liner behind the water so the basin reads as water-filled, not metal
+    var innerMat=new THREE.MeshStandardMaterial({ color:0x2c7f9c, roughness:0.4, metalness:0.1, emissive:0x1c5266, emissiveIntensity:0.4, side:THREE.DoubleSide });
+    var inner=new THREE.Mesh(new THREE.BoxGeometry(2.24,SURFY,1.64), innerMat); inner.position.y=SURFY/2+0.04; grp.add(inner);
+    // WARM WATER body — translucent (NO transmission: stylized opacity per the art rules)
+    var waterMat=new THREE.MeshPhysicalMaterial({ color:0x5cc6ea, roughness:0.1, metalness:0,
+      transparent:true, opacity:0.72, emissive:0x2f88a6, emissiveIntensity:0.28, clearcoat:0.7, clearcoatRoughness:0.2, envMapIntensity:1.0 });
+    var water=new THREE.Mesh(new THREE.BoxGeometry(2.24,SURFY-0.02,1.64), waterMat); water.position.y=(SURFY-0.02)/2+0.05; grp.add(water);
+    // the bright cyan water SURFACE pool at the top of the basin
+    var surfMat=new THREE.MeshPhysicalMaterial({ color:0x54c4e8, roughness:0.05, metalness:0,
+      transparent:true, opacity:0.95, emissive:0x2f9fc8, emissiveIntensity:0.45, envMapIntensity:1.2, toneMapped:false });
+    var surf=new THREE.Mesh(new THREE.BoxGeometry(2.22,0.04,1.62), surfMat); surf.position.y=SURFY; grp.add(surf);
+    // brushed rim capping the tall walls (front stays open)
+    var rim=new THREE.Mesh(new THREE.BoxGeometry(2.5,0.05,1.9), matBrushed(0xcfd5db)); rim.position.y=WALL+0.02; rim.visible=false; grp.add(rim);
+    // steam wisps (additive) rising off the surface + a warm surface glow
+    var steamMat=new THREE.MeshBasicMaterial({ color:0xf0f4f6, transparent:true, opacity:0.0, depthWrite:false, blending:THREE.AdditiveBlending, fog:false });
+    var wisps=[]; for(var w=0;w<7;w++){ var s=new THREE.Mesh(new THREE.SphereGeometry(0.18,10,8), steamMat.clone());
+      s.userData.seed={ x:(Math.random()-0.5)*1.7, z:(Math.random()-0.5)*1.1, off:Math.random(), sp:0.35+Math.random()*0.4 };
+      grp.add(s); wisps.push(s); }
+    var label=makeLabel("Water bath","42 °C"); label.position.set(0,1.7,0); grp.add(label);
+    var wst={ t:0, warmth:0, tWarmth:0 };
+    grp.userData.label=label;
+    grp.userData.setWarmth=function(v){ wst.tWarmth=clamp(v,0,1); };
+    grp.userData.update=function(dt){
+      wst.t+=dt; wst.warmth=lerp(wst.warmth,wst.tWarmth,1-Math.pow(0.05,dt));
+      var bob=Math.sin(wst.t*1.6)*0.006;
+      surf.position.y=SURFY+bob;                              // gentle surface bob
+      waterMat.emissiveIntensity=0.2+wst.warmth*0.14; surfMat.emissiveIntensity=0.24+wst.warmth*0.16;
+      for(var i=0;i<wisps.length;i++){ var sd=wisps[i].userData.seed;
+        var yy=((wst.t*sd.sp+sd.off)%1);
+        wisps[i].position.set(sd.x, 0.85+yy*1.1, sd.z);
+        wisps[i].scale.setScalar(0.4+yy*1.1);
+        wisps[i].material.opacity=wst.warmth*0.32*(1-yy)*(yy<0.1?yy*10:1);
+      }
+    };
+    return grp;
+  }
+
   /* ---------- thermocycler (PCR): heated block + motorized heated lid + cycle
      display. setProgress(p, cycles) cycles the hot↔cool glow and the CYCLE n/N
      readout; setLid(open) raises/lowers the heated lid. Same anthracite style as
@@ -1356,7 +1410,7 @@ export {
   COL, COL_CINE, COL_ISO, LOOK, SPACING, BLOCK_TOP,
   buildSharedMaps, makeLabel, stationDecal,
   buildTube, buildPipette, buildPipetteStand, buildBottle, buildSpinColumn,
-  buildCentrifuge, buildColdBlock, buildIceBucket, buildNanoDrop, buildDrop, buildWaste, buildSyringe,
+  buildCentrifuge, buildColdBlock, buildWaterBath, buildIceBucket, buildNanoDrop, buildDrop, buildWaste, buildSyringe,
   buildThermocycler, buildGelRig, buildFreezer, buildStainingTray, buildSpreader,
   buildEnvMap, makeCineBackdrop, makeGradientTexture,
   glassMaterial, matPlastic, matBrushed, matAnodized, matPainted, matFrosted, matRubber, matSilicone,
@@ -1366,23 +1420,28 @@ export {
   function pipetteRun(st, from, to, p, opts){
     opts=opts||{};
     var pip=st.pip; if(!pip) return;
-    // IMPROVEMENT over the demo: the pipette is scaled shorter (PIP_SCALE) and the
-    // travel arc is kept low so the body never reaches up behind the top HUD bar.
-    var phaseA=0.30, phaseB=0.62, hover=1.15;
+    // GEOMETRY-SAFE motion (bug fix): NEVER cross laterally at rim height (that
+    // pushed the tip through the vessel wall). Instead: draw at the bottle, travel
+    // LEVEL and HIGH — well clear of any vessel top — to directly above the mouth,
+    // then descend STRAIGHT DOWN into the mouth, dispense, and withdraw STRAIGHT UP.
+    var draw=0.26, travel=0.50;                 // phase boundaries
+    var TRAVEL_Y=Math.max(from.y,to.y)+2.0;     // cruise altitude, above every vessel
+    var DIP_Y=to.y+0.62;                        // tip lowered into the mouth
     var pos=new THREE.Vector3();
-    if(p<phaseA){
-      var q=easeInOut(p/phaseA);
-      pos.set(from.x, lerp(hover, from.y+0.72, q), from.z);
+    if(p<draw){                                 // A · at the bottle: rise & aspirate
+      var q=easeInOut(p/draw);
+      pos.set(from.x, lerp(from.y+0.72, TRAVEL_Y, q), from.z);
       pip.userData.setFluid(q*(opts.fill||0.8)); pip.userData.setColor(opts.color||COL.lysis);
-    } else if(p<phaseB){
-      var q2=easeInOut((p-phaseA)/(phaseB-phaseA));
-      pos.set(lerp(from.x,to.x,q2), 0, lerp(from.z,to.z,q2));
-      pos.y = lerp(from.y+0.72, to.y+0.86, q2) + Math.sin(q2*Math.PI)*0.16;
+    } else if(p<travel){                         // B · cruise HIGH & LEVEL over the mouth
+      var q2=easeInOut((p-draw)/(travel-draw));
+      pos.set(lerp(from.x,to.x,q2), TRAVEL_Y, lerp(from.z,to.z,q2));
       pip.userData.setFluid(opts.fill||0.8);
-    } else {
-      var q3=easeInOut((p-phaseB)/(1-phaseB));
-      pos.set(to.x, lerp(to.y+1.0, to.y+0.82, q3), to.z);
-      pip.userData.setFluid((1-q3)*(opts.fill||0.8));
+    } else {                                     // C · descend in, dispense, withdraw up
+      var q3=(p-travel)/(1-travel);
+      var y = q3<0.5 ? lerp(TRAVEL_Y,DIP_Y,easeInOut(q3/0.5))
+                     : lerp(DIP_Y,TRAVEL_Y,easeInOut((q3-0.5)/0.5));
+      pos.set(to.x, y, to.z);
+      pip.userData.setFluid((1-clamp(q3*1.5,0,1))*(opts.fill||0.8));
     }
     pip.position.copy(pos);                 // LOCAL — resident pipette stays at its station
   }
