@@ -37,7 +37,22 @@ ACTIONS = (
     "discard",        # discard flow-through / waste
     "elute",          # final elution
     "measure",        # QC / read on an instrument
+    "thermocycle",    # cyclic thermal program (PCR/qPCR): denature/anneal/extend ×N cycles
+    "electrophorese", # apply an electric field: run a gel OR electro-transfer to a membrane
+    "store",          # place at −20/−80/4 °C or in LN₂ for holding/freezing (end-state)
+    "seed",           # dispense/spread the sample into/onto a culture vessel (flask/dish/well/agar)
+    "stain",          # flood a stain/dye over a sample surface (Gram/gel/IHC)
     "generic",        # fallback
+)
+
+# Closed container vocabulary — WHERE THE SAMPLE SITS at a step. Parsed from the
+# prose; unknown/missing coerces to None so the sample PERSISTS its previous
+# container (see _container). The frontend maps each token to geometry + an
+# insert/remove motion; unknown → generic.
+CONTAINERS = (
+    "microtube", "tube", "well_plate", "flask", "dish", "gel", "slide",
+    "cryovial", "membrane", "spin_column", "eluate_tube", "bottle", "agar_plate",
+    "generic",
 )
 
 
@@ -80,6 +95,13 @@ def _action(v: Any) -> str:
     """Coerce to a value in the fixed ACTIONS vocabulary; unknown -> 'generic'."""
     s = _s(v).lower()
     return s if s in ACTIONS else "generic"
+
+
+def _container(v: Any) -> Optional[str]:
+    """Coerce to a value in the closed CONTAINERS vocab. Unknown/missing -> None,
+    which tells the sample-follow model to PERSIST the previous container."""
+    s = _s(v).lower()
+    return s if s in CONTAINERS else None
 
 
 # ---------------------------------------------------------------------------
@@ -212,6 +234,7 @@ class Step:
     text_en: Optional[str] = None       # English translation for the default UI
     kind: str = "action"
     action: str = "generic"             # animation vocabulary (see ACTIONS)
+    container: Optional[str] = None     # WHERE THE SAMPLE SITS (see CONTAINERS); None = persist previous
     duration_seconds: Optional[float] = None
     spin: Optional[Spin] = None
     reagents: list[Reagent] = field(default_factory=list)
@@ -243,6 +266,7 @@ class Step:
             text_en=_opt_s(d.get("text_en")),
             kind=kind,
             action=_action(d.get("action")),
+            container=_container(d.get("container")),
             duration_seconds=_opt_num(d.get("duration_seconds")),
             spin=Spin.from_dict(d.get("spin")),
             reagents=[Reagent.from_dict(r) for r in _list(d.get("reagents"))],
