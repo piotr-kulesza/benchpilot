@@ -1,0 +1,2424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>benchpilot · Total RNA from Neutrophils — production line</title>
+<style>
+  :root{
+    --bg-0:#0e1013;
+    --bg-1:#15181c;
+    --ink:#eef1f4;
+    --ink-soft:#aab2bc;
+    --ink-dim:#727a85;
+    --teal:#5fb3a6;          /* the one restrained accent */
+    --teal-soft:#8fcabf;
+    --amber:#c2a06a;         /* muted */
+    --red:#c06a62;           /* muted */
+    --line:rgba(180,190,205,0.12);
+    --panel:rgba(20,23,27,0.72);
+    --panel-brd:rgba(190,200,214,0.14);
+  }
+  /* ISOMETRIC mode — light high-contrast "clay" UI palette (from isometric-v3) */
+  body.iso{
+    --bg-0:#eef1f7;
+    --bg-1:#e3e8f1;
+    --ink:#2b3038;
+    --ink-soft:#5c6473;
+    --ink-dim:#98a1af;
+    --teal:#2fa898;
+    --teal-soft:#34b7a6;
+    --amber:#e0a24e;
+    --red:#e57a70;
+    --line:rgba(40,52,74,0.12);
+    --panel:rgba(255,255,255,0.74);
+    --panel-brd:rgba(40,52,74,0.10);
+    background:
+      radial-gradient(1500px 1000px at 52% 30%, #313d5c 0%, #26304a 44%, #1d2539 76%, #151b2b 100%);
+  }
+  *{box-sizing:border-box;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
+  html,body{margin:0;height:100%;overflow:hidden;background:#eef0f2;}
+  body{
+    font-family:"Helvetica Neue",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    color:var(--ink);
+    background:
+      radial-gradient(1400px 900px at 55% 34%, #f3f4f6 0%, #e9ebee 46%, #dfe1e5 80%, #d6d8dc 100%);
+    transition:background .6s ease;
+  }
+  body.iso #panel{box-shadow:0 20px 54px rgba(56,68,96,0.20);}
+  body.iso #grain{opacity:0.014;mix-blend-mode:soft-light;}
+  body.iso #title{font-weight:400;color:#242a33;}
+
+  /* ---------- VIEW toggle pill (top-right) ---------- */
+  #viewToggle{
+    position:fixed;top:24px;right:26px;z-index:24;display:flex;align-items:center;gap:2px;
+    padding:3px;border-radius:9px;
+    background:var(--panel);border:1px solid var(--panel-brd);
+    backdrop-filter:blur(14px) saturate(105%);-webkit-backdrop-filter:blur(14px) saturate(105%);
+    opacity:0;transform:translateY(-10px);transition:opacity .5s ease, transform .5s cubic-bezier(.16,1,.3,1);
+    user-select:none;
+  }
+  #viewToggle.ready{opacity:1;transform:translateY(0);}
+  #viewToggle .vt{
+    appearance:none;border:none;cursor:pointer;font-family:inherit;
+    font-size:10.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--ink-soft);background:transparent;padding:7px 13px;border-radius:7px;
+    transition:color .2s ease, background .2s ease;
+  }
+  #viewToggle .vt:hover{color:var(--ink);}
+  #viewToggle .vt.on{color:var(--teal);background:rgba(95,179,166,0.12);}
+  body.iso #viewToggle .vt.on{color:var(--teal);background:rgba(47,168,152,0.14);}
+  @media (max-width:560px){ #viewToggle{top:14px;right:14px;} #viewToggle .vt{padding:6px 10px;} }
+  #stage{position:fixed;inset:0;}
+  canvas{display:block;}
+
+  /* ---------- subtle filmic grade ---------- */
+  /* bright-lab: only a whisper of edge falloff, no dark pool */
+  #vignette{position:fixed;inset:0;pointer-events:none;z-index:8;
+    box-shadow:inset 0 0 150px 8px rgba(50,54,62,0.08);
+    background:radial-gradient(132% 122% at 50% 46%, rgba(0,0,0,0) 74%, rgba(60,66,74,0.05) 92%, rgba(60,66,74,0.10) 100%);}
+  body.iso #vignette{box-shadow:inset 0 0 180px 14px rgba(0,0,0,0.16);
+    background:radial-gradient(126% 118% at 50% 46%, rgba(0,0,0,0) 62%, rgba(0,0,0,0.10) 88%, rgba(0,0,0,0.22) 100%);}
+  #grain{position:fixed;inset:-50%;pointer-events:none;z-index:9;opacity:0.035;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");
+    background-size:200px 200px;animation:grain 0.7s steps(3) infinite;will-change:transform;}
+  @keyframes grain{
+    0%{transform:translate(0,0);}20%{transform:translate(-5%,3%);}40%{transform:translate(4%,-4%);}
+    60%{transform:translate(-3%,5%);}80%{transform:translate(5%,2%);}100%{transform:translate(0,0);}}
+
+  /* ---------- intro ---------- */
+  #intro{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;pointer-events:none;opacity:0;transition:opacity 1.0s ease;
+    background:radial-gradient(62% 62% at 50% 50%, rgba(244,246,248,0.30) 30%, rgba(232,235,239,0.80) 100%);}
+  body.iso #intro{background:radial-gradient(60% 60% at 50% 50%, rgba(20,26,40,0) 42%, rgba(20,26,40,0.55) 100%);}
+  #intro.show{opacity:1;}
+  #intro.gone{opacity:0;}
+  #intro .kicker{font-size:11px;letter-spacing:.44em;text-transform:uppercase;color:var(--teal);
+    font-weight:500;margin-bottom:20px;opacity:0;transform:translateY(8px);
+    animation:introUp .9s .2s cubic-bezier(.16,1,.3,1) forwards;}
+  #intro h1{margin:0;font-weight:200;font-size:clamp(28px,5.6vw,60px);line-height:1.06;letter-spacing:.01em;
+    color:#23282f;opacity:0;transform:translateY(14px);
+    animation:introUp 1.05s .4s cubic-bezier(.16,1,.3,1) forwards;}
+  #intro h1 em{font-style:normal;font-weight:400;color:#2f9d8c;}
+  body.iso #intro h1{color:#f4f6f8;}
+  body.iso #intro h1 em{color:var(--teal-soft);}
+  #intro .sub{margin-top:20px;font-size:12px;letter-spacing:.26em;text-transform:uppercase;color:var(--ink-dim);
+    opacity:0;transform:translateY(10px);animation:introUp 1s .7s cubic-bezier(.16,1,.3,1) forwards;}
+  #intro .rule{width:0;height:1px;margin:22px auto 0;background:var(--line);
+    animation:introRule 1.1s .85s cubic-bezier(.16,1,.3,1) forwards;}
+  @keyframes introUp{to{opacity:1;transform:translateY(0);}}
+  @keyframes introRule{to{width:220px;}}
+
+  /* ---------- process timer (HUD) ---------- */
+  #hud{
+    position:fixed;top:26px;left:50%;transform:translateX(-50%) translateY(-14px);
+    display:flex;align-items:center;gap:13px;
+    padding:9px 18px;border-radius:8px;
+    background:var(--panel);
+    border:1px solid var(--panel-brd);
+    backdrop-filter:blur(14px) saturate(105%);
+    -webkit-backdrop-filter:blur(14px) saturate(105%);
+    opacity:0;pointer-events:none;transition:opacity .45s ease, transform .45s cubic-bezier(.16,1,.3,1);
+    z-index:22;
+  }
+  #hud.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  #hud .dot{width:6px;height:6px;border-radius:50%;background:var(--teal);opacity:.85;
+    animation:pulse 1.8s ease-in-out infinite;}
+  #hud .hud-label{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);font-weight:500;}
+  #hud .hud-time{font-variant-numeric:tabular-nums;font-weight:500;font-size:17px;letter-spacing:.02em;
+    color:var(--teal-soft);min-width:62px;text-align:center;
+    font-family:"SFMono-Regular",Menlo,Consolas,monospace;}
+  @keyframes pulse{0%,100%{opacity:.35;}50%{opacity:.95;}}
+
+  /* ---------- caption panel ---------- */
+  #panel{
+    position:fixed;left:34px;bottom:34px;width:392px;max-width:calc(100vw - 68px);
+    padding:22px 26px 20px;border-radius:12px;
+    background:var(--panel);
+    border:1px solid var(--panel-brd);
+    backdrop-filter:blur(18px) saturate(108%);
+    -webkit-backdrop-filter:blur(18px) saturate(108%);
+    box-shadow:0 22px 60px rgba(0,0,0,0.42);
+    z-index:22;opacity:0;transform:translateY(18px);
+    transition:opacity .7s ease, transform .7s cubic-bezier(.16,1,.3,1);
+  }
+  #panel.ready{opacity:1;transform:translateY(0);}
+
+  .brand{display:flex;align-items:center;gap:9px;margin-bottom:16px;}
+  .brand .mark{width:14px;height:14px;border-radius:3px;border:1px solid var(--teal);position:relative;}
+  .brand .mark:after{content:"";position:absolute;inset:3px;border-radius:1px;background:var(--teal);opacity:.55;}
+  .brand .name{font-size:11.5px;font-weight:500;letter-spacing:.04em;color:var(--ink-soft);}
+  .brand .name b{color:var(--ink);font-weight:600;}
+  .brand .proto{margin-left:auto;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-dim);}
+
+  .step-head{display:flex;align-items:center;gap:12px;margin-bottom:9px;}
+  .st-index{font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-dim);font-weight:500;
+    font-variant-numeric:tabular-nums;}
+  .st-index b{color:var(--teal);font-weight:600;}
+  .tag{margin-left:auto;font-size:9px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;
+    padding:4px 10px;border-radius:4px;color:var(--teal);
+    background:rgba(95,179,166,0.09);border:1px solid rgba(95,179,166,0.28);transition:all .3s ease;}
+  .tag.warn{color:var(--red);background:rgba(192,106,98,0.10);border-color:rgba(192,106,98,0.34);}
+  .tag.wait{color:var(--amber);background:rgba(194,160,106,0.10);border-color:rgba(194,160,106,0.32);}
+
+  #title{font-size:19px;font-weight:300;line-height:1.28;margin:2px 0 9px;letter-spacing:.005em;color:#f2f4f6;
+    transition:opacity .28s ease, transform .28s ease;}
+  #body{font-size:12.5px;line-height:1.68;color:var(--ink-soft);margin:0 0 18px;min-height:66px;font-weight:400;
+    transition:opacity .28s ease, transform .28s ease;}
+  #body b{color:var(--ink);font-weight:600;}
+  #body .hot{color:var(--red);font-weight:600;}
+  #body .tealw{color:var(--teal-soft);}
+  .fading{opacity:0;transform:translateY(5px);}
+
+  /* slim process strip */
+  #track{display:flex;gap:4px;margin-bottom:16px;}
+  #track .seg{flex:1;height:2px;border-radius:1px;background:rgba(180,190,205,0.13);cursor:pointer;
+    transition:background .25s ease;position:relative;overflow:hidden;}
+  #track .seg:hover{background:rgba(180,190,205,0.24);}
+  #track .seg .fill{position:absolute;inset:0;width:0;border-radius:1px;background:var(--teal);transition:width .12s linear;}
+  #track .seg.done .fill{width:100%;background:rgba(95,179,166,0.5);}
+
+  /* minimal controls */
+  #controls{display:flex;align-items:center;gap:18px;}
+  .btn{appearance:none;border:none;background:none;cursor:pointer;
+    font-family:inherit;font-size:11px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--ink-soft);padding:4px 0;transition:color .2s ease,opacity .2s ease;}
+  .btn:hover{color:var(--ink);}
+  .btn:disabled{opacity:.28;cursor:default;}
+  .btn.next{margin-left:auto;color:var(--teal-soft);}
+  .btn.next:hover{color:var(--teal);}
+
+  #hint{position:fixed;right:28px;bottom:30px;z-index:16;font-size:10.5px;letter-spacing:.04em;
+    color:var(--ink-dim);text-align:right;line-height:1.9;user-select:none;
+    opacity:0;transition:opacity .8s ease;}
+  #hint.ready{opacity:1;}
+  #hint kbd{display:inline-block;padding:1px 5px;margin:0 1px;border-radius:3px;font-size:9.5px;
+    background:rgba(180,190,205,0.07);border:1px solid var(--line);color:var(--ink-soft);font-family:inherit;}
+
+  #fail{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:40px;z-index:50;}
+  #fail .card{max-width:420px;text-align:center;padding:32px 30px;border-radius:12px;
+    background:var(--panel);border:1px solid var(--panel-brd);backdrop-filter:blur(16px);}
+  #fail h2{margin:0 0 10px;font-size:18px;font-weight:400;}
+  #fail p{margin:0;color:var(--ink-soft);font-size:13.5px;line-height:1.6;}
+  #fail .ic{font-size:30px;margin-bottom:8px;opacity:.7;}
+
+  @media (max-width:560px){
+    #panel{left:14px;right:14px;bottom:14px;width:auto;padding:18px 18px 15px;}
+    #hint{display:none;}
+    #title{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+  <div id="stage"></div>
+  <div id="vignette"></div>
+  <div id="grain"></div>
+
+  <div id="viewToggle">
+    <button class="vt on" id="vtCine" data-mode="cinematic">Cinematic</button>
+    <button class="vt" id="vtIso" data-mode="isometric">Isometric</button>
+  </div>
+
+  <div id="intro">
+    <div class="kicker">benchpilot protocol</div>
+    <h1>Total RNA<br>from <em>Neutrophils</em></h1>
+    <div class="sub">RNeasy silica-column production line</div>
+    <div class="rule"></div>
+  </div>
+
+  <div id="hud">
+    <span class="dot"></span>
+    <span class="hud-label" id="hudLabel">Incubating</span>
+    <span class="hud-time" id="hudTime">15:00</span>
+  </div>
+
+  <div id="panel">
+    <div class="brand">
+      <div class="mark"></div>
+      <div class="name"><b>bench</b>pilot</div>
+      <div class="proto">RNeasy · Neutrophil RNA</div>
+    </div>
+    <div class="step-head">
+      <div class="st-index" id="stIndex">Station <b>01</b> / 16</div>
+      <div class="tag" id="tag">LYSE</div>
+    </div>
+    <div id="title">Lyse the neutrophil pellet</div>
+    <p id="body"></p>
+    <div id="track"></div>
+    <div id="controls">
+      <button class="btn" id="back">‹ Prev</button>
+      <button class="btn" id="replay">Replay</button>
+      <button class="btn next" id="next">Next ›</button>
+    </div>
+  </div>
+
+  <div id="hint">
+    <div><kbd>drag</kbd> nudge &nbsp; <kbd>scroll</kbd> dolly</div>
+    <div><kbd>←</kbd> <kbd>→</kbd> stations</div>
+  </div>
+
+  <div id="fail">
+    <div class="card">
+      <div class="ic">⬡</div>
+      <h2>3D view unavailable</h2>
+      <p>This walkthrough needs WebGL, which your browser or device didn't enable. Try a recent version of Chrome, Safari, Edge or Firefox with hardware acceleration on.</p>
+    </div>
+  </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+"use strict";
+(function(){
+
+  /* ============================================================
+     0 · GUARD — never blank
+     ============================================================ */
+  if (typeof THREE === "undefined" || !window.WebGLRenderingContext){
+    document.getElementById("fail").style.display = "flex";
+    return;
+  }
+
+  var scene, camera, renderer, clock, envTex;
+  var stageEl = document.getElementById("stage");
+
+  /* ---- VIEW MODE (Cinematic ⇄ Isometric) ---------------------------------
+     One scene, two presentations. Only the CAMERA (perspective rail-dolly vs
+     orthographic isometric) and the look (background / fog / lights / env /
+     palette / UI) change; geometry, props, sample-travel and step logic are
+     shared. */
+  var VIEW = "cinematic";
+  try{ var _sv=localStorage.getItem("benchpilot.view"); if(_sv==="isometric"||_sv==="cinematic") VIEW=_sv; }catch(e){}
+  var camPersp, camOrtho;                 // both live at once; `camera` points at the active one
+  var envCine, envIso;                    // per-mode PMREM environments
+  var bgCine, bgIso;                      // per-mode background gradient textures
+  var L = {};                             // named light refs, restyled per mode
+
+  /* per-mode look parameters */
+  var LOOK = {
+    cinematic:{
+      // BRIGHT REAL LAB under fluorescent panels: high ambient + hemi for even, fairly FLAT
+      // fill; a soft near-white key for gentle soft shadows only — NO dark surroundings, NO
+      // teal rim. Colour comes from the scattered saturated props, not from a grade.
+      // bright room, but NOT a white flood: the near-white fog + heavy flat fill was
+      // laying a milky veil over everything and washing the props to pastel. Fog is now a
+      // faint touch, the flood is roughly halved, and the key stays strong for form/shading
+      // so the saturated props actually read as saturated.
+      // Was massively OVER-LIT and flat → every real colour blew to pale pastel (a navy stand
+      // rendered baby-blue) with no shadow. Cut the flat fill hard, keep ONE strong key →
+      // real shadow-to-highlight range = contrast, and true saturated colour.
+      fog:{ color:0xbcb7ae, density:0.0028 }, exposure:0.78,
+      amb:{ color:0xd6d9de, int:0.12 }, hemi:{ sky:0xdde4ee, ground:0xb4aea4, int:0.20 },
+      key:{ color:0xfff3e2, int:1.32 }, fill:{ color:0xccd4de, int:0.17, pos:[-8,4,9] },
+      aux:{ color:0xe2e0d8, int:0.14, pos:[-3,11,-6] }
+    },
+    isometric:{
+      fog:{ color:0x2a3452, density:0.0055 }, exposure:0.98,
+      amb:{ color:0x566280, int:0.24 }, hemi:{ sky:0x93a6cf, ground:0x232c38, int:0.30 },
+      key:{ color:0xfff0da, int:1.08 }, fill:{ color:0x6f88c4, int:0.22, pos:[-8,5,9] },
+      aux:{ color:0x39c9d6, int:0.40, pos:[-3,9,-11] }
+    }
+  };
+
+  /* production-line geometry */
+  var SPACING = 8.4;                 // distance between stations along +X
+  var BLOCK_TOP = 0.45;              // cold-block plate height
+
+  /* Two palettes. CINEMATIC = b4's muted, desaturated look; ISOMETRIC = the
+     saturated stylized "clay" candy tones from isometric-v3. `COL` is the LIVE
+     palette (mutated in place on a view switch); structural materials are built
+     from it once, travelling-sample liquids read it live every frame. */
+  var COL_CINE = {
+    lysis:  0x02b6a0,   // saturated teal   (RLT + β-ME)
+    etoh:   0x1f8bf2,   // clear blue       (70% ethanol)
+    wash:   0x5061db,   // periwinkle-blue  (RW1 / RPE)
+    dnase:  0xf2a208,   // rich amber       (DNase I)
+    rna:    0x12c46c,   // vivid RNA green  (eluate / RNA)
+    water:  0x53b4ef,   // clear sky blue   (RNase-free water)
+    pellet: 0xe07f1f,   // neutrophil pellet (warm amber)
+    glass:  0xdce6ec,
+    steel:  0x9aa4b0,
+    accent: 0x1fb8a2
+  };
+  var COL_ISO = {
+    lysis:  0x3ec9b3,   // saturated teal   (RLT + β-ME)
+    etoh:   0x5aa9ee,   // clear sky-blue   (70% ethanol)
+    wash:   0x8fa0cf,   // periwinkle       (RW1 / RPE)
+    dnase:  0xf6b53a,   // warm amber       (DNase I)
+    rna:    0x54d494,   // fresh mint       (eluate / RNA)
+    water:  0xa9d8f2,   // cool clear       (RNase-free water)
+    pellet: 0xe6a862,   // neutrophil pellet (warm sand)
+    glass:  0xdfeaf3,
+    steel:  0xb4c0d0,
+    accent: 0x35c8b2
+  };
+  var COL = {};
+  (function(s){ for(var k in s) COL[k]=s[k]; })(COL_CINE);   // live palette starts cinematic
+  function setPalette(src){ for(var k in src) COL[k]=src[k]; }   // mutate in place (refs stay valid)
+
+  /* helpers */
+  function lerp(a,b,t){ return a + (b-a)*t; }
+  function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
+  function easeInOut(t){ t=clamp(t,0,1); return t<0.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2; }
+  var MAX_ANISO = 8;
+
+  function radialTex(stops){
+    var c=document.createElement("canvas"); c.width=128; c.height=128;
+    var g=c.getContext("2d");
+    var grad=g.createRadialGradient(64,64,0,64,64,64);
+    for(var i=0;i<stops.length;i++) grad.addColorStop(stops[i][0],stops[i][1]);
+    g.fillStyle=grad; g.fillRect(0,0,128,128);
+    return new THREE.CanvasTexture(c);
+  }
+  var GLOW_TEX = null, DUST_TEX = null;
+  // muted "glow" — really just a soft, low-opacity light bloom (no neon)
+  function addGlow(color, size, opacity){
+    var m=new THREE.SpriteMaterial({ map:GLOW_TEX, color:color, transparent:true,
+      opacity:opacity==null?0.18:opacity, blending:THREE.AdditiveBlending, depthWrite:false, depthTest:true });
+    var s=new THREE.Sprite(m); s.scale.set(size,size,1); return s;
+  }
+
+  function roundRect(g,x,y,w,h,r){
+    g.beginPath();
+    g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r);
+    g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath();
+  }
+  // floating vessel label — muted editorial card
+  function makeLabel(text, sub){
+    var W=1024, H=320, S=W/512;
+    var c = document.createElement("canvas"); c.width=W; c.height=H;
+    var g = c.getContext("2d");
+    function draw(t2,s2){
+      g.clearRect(0,0,W,H);
+      var r=14*S, x=10*S, y=34*S, w=492*S, h=92*S;
+      g.fillStyle="rgba(20,23,27,0.82)"; roundRect(g,x,y,w,h,r); g.fill();
+      g.lineWidth=1.5*S; g.strokeStyle="rgba(150,160,175,0.28)"; roundRect(g,x,y,w,h,r); g.stroke();
+      g.fillStyle="#e9edf1";
+      g.font="500 "+(42*S)+"px 'Helvetica Neue', Helvetica, Arial";
+      g.textAlign="center"; g.textBaseline="middle";
+      g.fillText(t2, W/2, (s2?66:80)*S);
+      if(s2){
+        g.font="400 "+(28*S)+"px 'Helvetica Neue', Helvetica, Arial";
+        g.fillStyle="#8fcabf";
+        g.fillText(s2, W/2, 104*S);
+      }
+    }
+    draw(text, sub);
+    var tex=new THREE.CanvasTexture(c); tex.anisotropy=MAX_ANISO;
+    var sp=new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, transparent:true, depthTest:false, depthWrite:false }));
+    sp.scale.set(1.85,0.578,1); sp.renderOrder=999;
+    sp.userData.update=function(t2,s2){ draw(t2,s2); tex.needsUpdate=true; };
+    return sp;
+  }
+
+  // vertical vertex-colour gradient for a liquid volume
+  function tintGradient(geo, lo, hi){
+    var p=geo.attributes.position, n=p.count;
+    var col=new Float32Array(n*3);
+    var ymin=Infinity, ymax=-Infinity, i;
+    for(i=0;i<n;i++){ var y=p.getY(i); if(y<ymin)ymin=y; if(y>ymax)ymax=y; }
+    var span=(ymax-ymin)||1;
+    for(i=0;i<n;i++){
+      var t=(p.getY(i)-ymin)/span, v=lerp(lo,hi,t);
+      col[i*3]=v; col[i*3+1]=v; col[i*3+2]=v;
+    }
+    geo.setAttribute("color", new THREE.BufferAttribute(col,3));
+  }
+
+  /* ---- liquid that CONFORMS to its vessel's interior ---------------------
+     A vessel's glass is a lathe of a 2D profile (x = radius, y = height). Its
+     liquid must obey the SAME contour, not a floating cylinder. `innerRadiusFn`
+     samples that profile (slightly inset so the fluid reads as inside the wall);
+     `liquidProfileGeo` revolves the inner profile from the vessel bottom up to
+     the fill line and caps it FLAT there — wide where the vessel is wide,
+     narrow where it tapers, no dome. */
+  function innerRadiusFn(profPts, inset){
+    inset = (inset==null)?0.9:inset;
+    return function(y){
+      if(y<=profPts[0].y) return profPts[0].x*inset;
+      for(var i=1;i<profPts.length;i++){
+        if(y<=profPts[i].y){
+          var a=profPts[i-1], b=profPts[i], t=(y-a.y)/((b.y-a.y)||1);
+          return (a.x+(b.x-a.x)*t)*inset;
+        }
+      }
+      return profPts[profPts.length-1].x*inset;
+    };
+  }
+  function liquidProfileGeo(innerR, y0, yTop, seg){
+    seg = seg||48;
+    if(yTop <= y0+0.001) yTop = y0+0.001;
+    var steps=16, pts=[], i;
+    pts.push(new THREE.Vector2(0.0006, y0));                 // centre of the bottom
+    for(i=0;i<=steps;i++){
+      var y=y0+(yTop-y0)*(i/steps);
+      pts.push(new THREE.Vector2(Math.max(innerR(y),0.0008), y));   // follow the inner wall
+    }
+    pts.push(new THREE.Vector2(0.0006, yTop));               // flat top at the fill line
+    return new THREE.LatheGeometry(pts, seg);
+  }
+
+  /* ============================================================
+     0b · SHARED PROCEDURAL PBR MAPS  (built once, reused everywhere)
+        brushed-aluminium anisotropy · plastic micro-roughness ·
+        knurl · epoxy benchtop — all as normal + roughness canvases.
+     ============================================================ */
+  var TEX = {};   // lazily-built shared texture cache
+  function _cv(w,h){ var c=document.createElement("canvas"); c.width=w; c.height=h; return c; }
+  function _finish(c, rep){
+    var t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping;
+    if(rep) t.repeat.set(rep[0],rep[1]); t.anisotropy=MAX_ANISO; return t;
+  }
+  // brushed metal: horizontal anisotropic streaks perturbing the tangent normal
+  function makeBrushedNormal(){
+    var c=_cv(512,512), g=c.getContext("2d");
+    g.fillStyle="rgb(128,128,255)"; g.fillRect(0,0,512,512);
+    for(var i=0;i<3400;i++){
+      var y=Math.random()*512, x=Math.random()*512, len=30+Math.random()*380;
+      var dev=(Math.random()-0.5)*70;                    // lateral normal tilt
+      g.strokeStyle="rgba("+Math.round(128+dev)+",128,255,0.05)";
+      g.lineWidth=0.6+Math.random()*1.1;
+      g.beginPath(); g.moveTo(x,y); g.lineTo(x+len,y+(Math.random()-0.5)*1.2); g.stroke();
+    }
+    return _finish(c,[3,3]);
+  }
+  // brushed metal roughness: streaky bright/dull grain + faint edge wear specks
+  function makeBrushedRough(base){
+    var c=_cv(512,512), g=c.getContext("2d");
+    var b=Math.round((base==null?0.4:base)*255);
+    g.fillStyle="rgb("+b+","+b+","+b+")"; g.fillRect(0,0,512,512);
+    for(var i=0;i<2600;i++){
+      var y=Math.random()*512, x=Math.random()*512, len=40+Math.random()*360;
+      var v=Math.round(clamp((base==null?0.4:base)+(Math.random()-0.5)*0.34,0,1)*255);
+      g.strokeStyle="rgba("+v+","+v+","+v+",0.08)";
+      g.lineWidth=0.6+Math.random(); g.beginPath();
+      g.moveTo(x,y); g.lineTo(x+len,y); g.stroke();
+    }
+    for(var w=0;w<260;w++){ var wv=Math.round((0.75+Math.random()*0.25)*255);
+      g.fillStyle="rgba("+wv+","+wv+","+wv+",0.10)";
+      g.fillRect(Math.random()*512,Math.random()*512,1.4,1.4); }
+    return _finish(c,[3,3]);
+  }
+  // fine matte-plastic micro roughness (subtle speckle, no directionality)
+  function makePlasticRough(base){
+    var c=_cv(256,256), g=c.getContext("2d");
+    var b=Math.round((base==null?0.6:base)*255);
+    g.fillStyle="rgb("+b+","+b+","+b+")"; g.fillRect(0,0,256,256);
+    for(var i=0;i<9000;i++){ var v=Math.round(clamp((base==null?0.6:base)+(Math.random()-0.5)*0.18,0,1)*255);
+      g.fillStyle="rgba("+v+","+v+","+v+",0.5)"; g.fillRect(Math.random()*256,Math.random()*256,1,1); }
+    return _finish(c,[2,2]);
+  }
+  // knurl normal (diagonal cross-hatch) for thumbwheels / grips
+  function makeKnurlNormal(){
+    var c=_cv(128,128), g=c.getContext("2d");
+    g.fillStyle="rgb(128,128,255)"; g.fillRect(0,0,128,128);
+    g.lineWidth=1.4;
+    for(var d=-128;d<128;d+=6){
+      g.strokeStyle="rgba(172,128,255,0.5)"; g.beginPath(); g.moveTo(d,0); g.lineTo(d+128,128); g.stroke();
+      g.strokeStyle="rgba(84,128,255,0.5)"; g.beginPath(); g.moveTo(d,128); g.lineTo(d+128,0); g.stroke();
+    }
+    return _finish(c,[10,2]);
+  }
+  function buildSharedMaps(){
+    TEX.brushedN = makeBrushedNormal();
+    TEX.brushedR = makeBrushedRough(0.4);
+    TEX.anodR    = makeBrushedRough(0.5);
+    TEX.plasticR = makePlasticRough(0.62);
+    TEX.knurlN   = makeKnurlNormal();
+  }
+
+  /* ============================================================
+     1 · MATERIAL LIBRARY — realistic PBR, muted, varied roughness
+     ============================================================ */
+  // r128: MeshPhysicalMaterial.transmission does not render, so glass is faked with
+  // real alpha + a restrained fresnel rim and the env map. Liquids are opaque meshes
+  // drawn in the opaque pass so the level reads through the wall.
+  function fresnelize(mat){
+    mat.onBeforeCompile = function(shader){
+      shader.fragmentShader = shader.fragmentShader.replace(
+        "#include <output_fragment>",
+        [ "float rimF = pow(1.0 - abs(dot(normalize(vNormal), normalize(vViewPosition))), 3.0);",
+          "outgoingLight += vec3(0.62,0.68,0.74) * rimF * 0.45;",   // neutral, restrained edge
+          "diffuseColor.a = clamp(diffuseColor.a + rimF * 0.30, 0.0, 1.0);",
+          "#include <output_fragment>" ].join("\n")
+      );
+    };
+    mat.customProgramCacheKey = function(){ return "glassFresnelMuted"; };
+    return mat;
+  }
+  function glassMaterial(){
+    return fresnelize(new THREE.MeshPhysicalMaterial({
+      color: COL.glass, metalness:0, roughness:0.08,
+      transparent:true, opacity:0.24,
+      clearcoat:1, clearcoatRoughness:0.06,
+      envMapIntensity:1.35, reflectivity:0.4,
+      side:THREE.DoubleSide, depthWrite:false
+    }));
+  }
+  function matFrosted(color){            // frosted / translucent polypropylene
+    return new THREE.MeshPhysicalMaterial({ color:color||0xdfe6ee, metalness:0, roughness:0.62,
+      transparent:true, opacity:0.62, clearcoat:0.2,
+      clearcoatRoughness:0.6, envMapIntensity:0.7, side:THREE.DoubleSide, depthWrite:false });
+  }
+  function matPlastic(color){           // matte moulded plastic
+    var m=new THREE.MeshStandardMaterial({ color:color, metalness:0.03, roughness:0.62, envMapIntensity:0.7 });
+    if(TEX.plasticR){ m.roughnessMap=TEX.plasticR; }
+    return m;
+  }
+  function matRubber(color){            // matte silicone
+    var m=new THREE.MeshStandardMaterial({ color:color, metalness:0.0, roughness:0.92, envMapIntensity:0.35 });
+    if(TEX.plasticR){ m.roughnessMap=TEX.plasticR; }
+    return m;
+  }
+  function matSilicone(color){          // soft translucent silicone tip
+    return new THREE.MeshPhysicalMaterial({ color:color, roughness:0.4,
+      transparent:true, opacity:0.5, clearcoat:0.35, envMapIntensity:0.7, side:THREE.DoubleSide, depthWrite:false });
+  }
+  function matAnodized(color){          // anodized aluminium (cold block)
+    var m=new THREE.MeshStandardMaterial({ color:color, metalness:0.72, roughness:0.44, envMapIntensity:1.0 });
+    if(TEX.brushedN){ m.normalMap=TEX.brushedN; m.normalScale=new THREE.Vector2(0.28,0.28); m.roughnessMap=TEX.anodR; }
+    return m;
+  }
+  function matBrushed(color){           // brushed steel / rotor
+    var m=new THREE.MeshStandardMaterial({ color:color, metalness:0.85, roughness:0.36, envMapIntensity:1.15 });
+    if(TEX.brushedN){ m.normalMap=TEX.brushedN; m.normalScale=new THREE.Vector2(0.42,0.42); m.roughnessMap=TEX.brushedR; }
+    return m;
+  }
+  function matPainted(color, r){        // painted instrument shell
+    var m=new THREE.MeshPhysicalMaterial({ color:color, metalness:0.15, roughness:r==null?0.52:r,
+      clearcoat:0.4, clearcoatRoughness:0.4, envMapIntensity:0.85 });
+    if(TEX.plasticR){ m.roughnessMap=TEX.plasticR; }
+    return m;
+  }
+
+  function tubeGraphicTex(label){
+    var c=document.createElement("canvas"); c.width=512; c.height=512;
+    var g=c.getContext("2d");
+    g.clearRect(0,0,512,512);
+    g.strokeStyle="rgba(180,192,206,0.6)"; g.lineCap="round";
+    for(var i=0;i<9;i++){
+      var y=150+i*34, major=(i%2===0);
+      g.lineWidth=major?4:2.4;
+      g.beginPath(); g.moveTo(150,y); g.lineTo(major?196:180,y); g.stroke();
+    }
+    g.fillStyle="rgba(190,200,214,0.5)"; g.font="600 20px 'Helvetica Neue',Arial"; g.textAlign="left";
+    var vals=["1.5","","1.0","","0.5",""];
+    for(var k=0;k<vals.length;k++){ if(vals[k]) g.fillText(vals[k], 204, 156+k*68); }
+    var lx=250, ly=196, lw=150, lh=118;
+    g.fillStyle="rgba(238,241,244,0.92)"; roundRect(g,lx,ly,lw,lh,10); g.fill();
+    g.strokeStyle="rgba(140,150,166,0.5)"; g.lineWidth=2; roundRect(g,lx,ly,lw,lh,10); g.stroke();
+    g.fillStyle="#20252c"; g.font="italic 600 30px 'Helvetica Neue',Arial"; g.textAlign="center";
+    g.fillText(label||"", lx+lw/2, ly+52);
+    g.strokeStyle="rgba(120,130,146,0.35)"; g.lineWidth=1.5;
+    g.beginPath(); g.moveTo(lx+16,ly+78); g.lineTo(lx+lw-16,ly+78); g.stroke();
+    g.beginPath(); g.moveTo(lx+16,ly+96); g.lineTo(lx+lw-30,ly+96); g.stroke();
+    var t=new THREE.CanvasTexture(c); t.anisotropy=MAX_ANISO;
+    return t;
+  }
+
+  /* ---------- conical microcentrifuge tube ---------- */
+  function buildTube(opts){
+    opts = opts || {};
+    var H = opts.height || 1.7;
+    var R = opts.radius || 0.34;
+    var grp = new THREE.Group();
+    var visual = new THREE.Group(); grp.add(visual);
+
+    var glassMat = glassMaterial();
+    var prof = [
+      new THREE.Vector2(0.0, 0.0),           // rounded bell bottom (was a sharp point)
+      new THREE.Vector2(R*0.22, H*0.010),
+      new THREE.Vector2(R*0.42, H*0.038),
+      new THREE.Vector2(R*0.60, H*0.088),
+      new THREE.Vector2(R*0.75, H*0.155),
+      new THREE.Vector2(R*0.87, H*0.245),
+      new THREE.Vector2(R*0.93, H*0.34),
+      new THREE.Vector2(R*0.955, H*0.45),
+      new THREE.Vector2(R*0.955, H*0.90),
+      new THREE.Vector2(R*0.985, H*0.945),
+      new THREE.Vector2(R*1.06, H*0.985),
+      new THREE.Vector2(R*1.05, H)
+    ];
+    var wall = new THREE.Mesh(new THREE.LatheGeometry(prof, 64), glassMat);
+    wall.castShadow=true; visual.add(wall);
+    var rim = new THREE.Mesh(new THREE.TorusGeometry(R*1.02,0.024,12,48), glassMat);
+    rim.rotation.x=Math.PI/2; rim.position.y=H; visual.add(rim);
+
+    // frosted writing patch moulded into the front wall
+    var patchMat = new THREE.MeshStandardMaterial({ color:0xe9edf1, roughness:0.92, metalness:0,
+      transparent:true, opacity:0.82, envMapIntensity:0.15, side:THREE.DoubleSide });
+    var patch = new THREE.Mesh(new THREE.CylinderGeometry(R*0.965,R*0.9,H*0.30,20,1,true, Math.PI*0.5-0.62, 1.24), patchMat);
+    patch.position.y=H*0.6; visual.add(patch);
+
+    if(opts.grads!==false){
+      var gMat = new THREE.MeshStandardMaterial({ map:tubeGraphicTex(opts.label||""), transparent:true,
+        roughness:0.7, metalness:0, envMapIntensity:0.25, depthWrite:false, side:THREE.DoubleSide });
+      var grad = new THREE.Mesh(new THREE.CylinderGeometry(R*0.99,R*0.9,H*0.7,48,1,true), gMat);
+      grad.position.y=H*0.5; visual.add(grad);
+      grp.userData.gradMat = gMat;
+    }
+
+    if(opts.cap!==false){
+      var capGrp = new THREE.Group();
+      var capMat = matPlastic(opts.capColor||0x2b323b);
+      var lid = new THREE.Mesh(new THREE.CylinderGeometry(R*1.08,R*1.05,0.11,40), capMat);
+      lid.position.y=0.055; capGrp.add(lid);
+      var lidTop = new THREE.Mesh(new THREE.CylinderGeometry(R*0.62,R*1.02,0.05,40), capMat);
+      lidTop.position.y=0.13; capGrp.add(lidTop);
+      var plug = new THREE.Mesh(new THREE.CylinderGeometry(R*0.9,R*0.86,0.14,36), capMat);
+      plug.position.y=-0.06; capGrp.add(plug);
+      for(var rr=0;rr<18;rr++){
+        var ra=rr/18*Math.PI*2;
+        var rib=new THREE.Mesh(new THREE.BoxGeometry(0.016,0.1,0.05), capMat);
+        rib.position.set(Math.cos(ra)*R*1.09, 0.055, Math.sin(ra)*R*1.09);
+        rib.rotation.y=-ra; capGrp.add(rib);
+      }
+      var hinge=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.05,R*0.5), capMat);
+      hinge.position.set(-R*1.05,0.0,0); capGrp.add(hinge);
+      capGrp.position.y=H+0.06; capGrp.visible=false; visual.add(capGrp);
+      grp.userData.cap=capGrp;
+    }
+
+    // liquid conforms to the tube's INNER wall (a slightly inset copy of `prof`),
+    // rebuilt as a flat-topped lathe whenever the fill level changes.
+    var innerFn   = innerRadiusFn(prof, 0.90);
+    var liqBottom = 0.03;
+    var liqFillMax= H*0.90;                 // fill line at full level
+    var liqMat = new THREE.MeshPhysicalMaterial({
+      color: opts.color||COL.lysis, metalness:0, roughness:0.32, vertexColors:true,
+      transparent:false, emissive: opts.color||COL.lysis, emissiveIntensity:0.14,
+      clearcoat:0.35, clearcoatRoughness:0.4, envMapIntensity:0.7
+    });
+    var liq = new THREE.Mesh(new THREE.BufferGeometry(), liqMat);
+    liq.visible=false; visual.add(liq);
+
+    var condens=null;
+    if(opts.cold){
+      condens=new THREE.Group();
+      var dMat=new THREE.MeshPhysicalMaterial({ color:0xd6e2ea, roughness:0.08,
+        transparent:true, opacity:0.42, envMapIntensity:1.0, depthWrite:false });
+      var dGeo=new THREE.SphereGeometry(1,10,8);
+      for(var dc=0;dc<22;dc++){
+        var da=Math.random()*Math.PI*2, dy=H*(0.2+Math.random()*0.65), ds=0.012+Math.random()*0.02;
+        var dm=new THREE.Mesh(dGeo,dMat);
+        dm.position.set(Math.cos(da)*R*0.99, dy, Math.sin(da)*R*0.99);
+        dm.scale.set(ds,ds*1.5,ds); condens.add(dm);
+      }
+      visual.add(condens);
+    }
+
+    var label=null;
+    if(opts.label!==false){
+      label=makeLabel(opts.label||"", opts.sub||"");
+      label.position.set(0, H+0.7, 0);
+      grp.add(label);
+    }
+
+    var state={ level:0,tLevel:0,builtLevel:-1,color:new THREE.Color(opts.color||COL.lysis),tColor:new THREE.Color(opts.color||COL.lysis),H:H,R:R,phase:Math.random()*6.28 };
+    grp.userData.state=state; grp.userData.liq=liq; grp.userData.label=label;
+    grp.userData.setLevel=function(v){ state.tLevel=clamp(v,0,1); };
+    grp.userData.setColor=function(hex){ state.tColor.set(hex); };
+    grp.userData.setLabel=function(t,s){ if(label) label.userData.update(t,s||"");
+      if(grp.userData.gradMat){ grp.userData.gradMat.map.dispose(); grp.userData.gradMat.map=tubeGraphicTex(t); grp.userData.gradMat.needsUpdate=true; } };
+    grp.userData.setCap=function(on){ if(grp.userData.cap) grp.userData.cap.visible=!!on; };
+    grp.userData.update=function(dt){
+      var kL=1-Math.pow(0.001,dt), kC=1-Math.pow(0.004,dt);
+      state.level=lerp(state.level,state.tLevel,kL);
+      state.color.lerp(state.tColor,kC);
+      var lv=state.level;
+      if(lv<0.004){ liq.visible=false; }
+      else{
+        liq.visible=true;
+        if(Math.abs(lv-state.builtLevel)>0.004){
+          state.builtLevel=lv;
+          var yTop=liqBottom + lv*(liqFillMax-liqBottom);
+          var geo=liquidProfileGeo(innerFn, liqBottom, yTop, 48);
+          tintGradient(geo,0.55,1.05);
+          liq.geometry.dispose(); liq.geometry=geo;
+        }
+        liqMat.color.copy(state.color); liqMat.emissive.copy(state.color);
+      }
+    };
+    grp.userData.visual=visual;
+    return grp;
+  }
+
+  /* ---------- air-displacement micropipette ---------- */
+  function buildPipette(){
+    var grp = new THREE.Group();
+    var bodyMat  = matPainted(0xd8dee6, 0.42);
+    var accentMat= new THREE.MeshStandardMaterial({ color:0x4c6470, metalness:0.3, roughness:0.44, envMapIntensity:0.8 });
+    var darkMat  = matPlastic(0x232a33);
+    var steelMat = matBrushed(0xaab2be);
+
+    var bp = [
+      new THREE.Vector2(0.0,0.55), new THREE.Vector2(0.135,0.55), new THREE.Vector2(0.152,0.85),
+      new THREE.Vector2(0.15,1.35), new THREE.Vector2(0.128,1.7), new THREE.Vector2(0.11,2.0),
+      new THREE.Vector2(0.108,2.05)
+    ];
+    var body = new THREE.Mesh(new THREE.LatheGeometry(bp,48), bodyMat);
+    body.castShadow=true; grp.add(body);
+    var band = new THREE.Mesh(new THREE.CylinderGeometry(0.155,0.14,0.34,40), accentMat);
+    band.position.y=0.95; grp.add(band);
+    var hook = new THREE.Mesh(new THREE.TorusGeometry(0.12,0.032,14,28,Math.PI*1.2), accentMat);
+    hook.position.set(0,1.25,0.12); hook.rotation.x=1.2; grp.add(hook);
+
+    var winFrame = new THREE.Mesh(new THREE.BoxGeometry(0.13,0.2,0.04), darkMat);
+    winFrame.position.set(0,1.05,0.14); winFrame.rotation.x=-0.05; grp.add(winFrame);
+    var vc=document.createElement("canvas"); vc.width=128; vc.height=180; var vg=vc.getContext("2d");
+    vg.fillStyle="#131920"; vg.fillRect(0,0,128,180);
+    vg.fillStyle="#9fb0ba"; vg.font="700 62px Menlo,monospace"; vg.textAlign="center";
+    vg.fillText("3",64,58); vg.fillText("5",64,118); vg.fillText("0",64,178);
+    var vTex=new THREE.CanvasTexture(vc); vTex.anisotropy=MAX_ANISO;
+    var win=new THREE.Mesh(new THREE.PlaneGeometry(0.1,0.16), new THREE.MeshBasicMaterial({map:vTex,transparent:true}));
+    win.position.set(0,1.05,0.162); win.rotation.x=-0.05; grp.add(win);
+
+    var shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.34,22), steelMat);
+    shaft.position.y=2.22; grp.add(shaft);
+    var plunger = new THREE.Mesh(new THREE.CylinderGeometry(0.115,0.1,0.14,28), accentMat);
+    plunger.position.y=2.45; grp.add(plunger);
+    var pbtn = new THREE.Mesh(new THREE.SphereGeometry(0.11,24,18,0,Math.PI*2,0,Math.PI*0.6), matRubber(0x2a323c));
+    pbtn.position.y=2.5; grp.add(pbtn);
+
+    var ejCollar = new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.13,0.1,28), darkMat);
+    ejCollar.position.y=2.02; grp.add(ejCollar);
+    var ejBtn = new THREE.Mesh(new THREE.BoxGeometry(0.07,0.16,0.09), accentMat);
+    ejBtn.position.set(0.14,2.1,0); grp.add(ejBtn);
+    var ejArm = new THREE.Mesh(new THREE.BoxGeometry(0.035,1.5,0.05), steelMat);
+    ejArm.position.set(0.135,1.25,0); grp.add(ejArm);
+
+    var stem = new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.04,0.5,24), bodyMat);
+    stem.position.y=0.3; grp.add(stem);
+    var cone = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.028,0.16,24), steelMat);
+    cone.position.y=0.02; grp.add(cone);
+
+    var tipMat = matSilicone(0xe6eef4); tipMat.opacity=0.42;
+    var tp=[
+      new THREE.Vector2(0.0,-0.86), new THREE.Vector2(0.014,-0.8), new THREE.Vector2(0.05,-0.2),
+      new THREE.Vector2(0.08,0.02), new THREE.Vector2(0.11,0.02), new THREE.Vector2(0.115,-0.03)
+    ];
+    var tip = new THREE.Mesh(new THREE.LatheGeometry(tp,32), tipMat);
+    tip.castShadow=true; grp.add(tip);
+
+    var fluidMat = new THREE.MeshPhysicalMaterial({ color:COL.lysis, roughness:0.32,
+      transparent:false, emissive:COL.lysis, emissiveIntensity:0.06, envMapIntensity:0.6 });
+    var fluid = new THREE.Mesh(new THREE.CylinderGeometry(0.058,0.016,0.6,24), fluidMat);
+    fluid.position.y=-0.18; fluid.scale.y=0.0001; fluid.visible=false; grp.add(fluid);
+    var drop = new THREE.Mesh(new THREE.SphereGeometry(0.03,16,12), fluidMat);
+    drop.scale.set(1,1.3,1); drop.position.y=-0.9; drop.visible=false; grp.add(drop);
+
+    // knurled volume-adjustment thumbwheel (its digits show in the window above)
+    var dialMat = matBrushed(0x8a94a0);
+    if(TEX.knurlN){ dialMat.normalMap=TEX.knurlN; dialMat.normalScale=new THREE.Vector2(0.55,0.55); }
+    var dial = new THREE.Mesh(new THREE.CylinderGeometry(0.148,0.148,0.26,30), dialMat);
+    dial.position.y=1.5; grp.add(dial);
+    var dialRimA = new THREE.Mesh(new THREE.TorusGeometry(0.15,0.013,10,30), accentMat);
+    dialRimA.rotation.x=Math.PI/2; dialRimA.position.y=1.63; grp.add(dialRimA);
+    var dialRimB = new THREE.Mesh(new THREE.TorusGeometry(0.15,0.013,10,30), accentMat);
+    dialRimB.rotation.x=Math.PI/2; dialRimB.position.y=1.37; grp.add(dialRimB);
+
+    // moulded brand ridge on the body front
+    var brandC=document.createElement("canvas"); brandC.width=160; brandC.height=72; var brandG=brandC.getContext("2d");
+    brandG.clearRect(0,0,160,72);
+    brandG.fillStyle="#516873"; brandG.font="700 34px 'Helvetica Neue',Arial"; brandG.textAlign="center"; brandG.textBaseline="middle";
+    brandG.fillText("P200",80,30);
+    brandG.font="500 15px 'Helvetica Neue',Arial"; brandG.fillStyle="#41535d"; brandG.fillText("20 – 200 µL",80,56);
+    var brandTex=new THREE.CanvasTexture(brandC); brandTex.anisotropy=MAX_ANISO;
+    var brand=new THREE.Mesh(new THREE.PlaneGeometry(0.18,0.081),
+      new THREE.MeshStandardMaterial({ map:brandTex, transparent:true, roughness:0.55, metalness:0, envMapIntensity:0.4 }));
+    brand.position.set(0,0.77,0.156); brand.rotation.x=-0.02; grp.add(brand);
+
+    // fine graduation printed on the translucent tip
+    var tgC=document.createElement("canvas"); tgC.width=64; tgC.height=160; var tgG=tgC.getContext("2d");
+    tgG.clearRect(0,0,64,160);
+    tgG.strokeStyle="rgba(110,130,142,0.75)"; tgG.lineWidth=2.2; tgG.lineCap="round";
+    for(var tgi=0;tgi<5;tgi++){ var yy=44+tgi*20; tgG.beginPath(); tgG.moveTo(8,yy); tgG.lineTo(tgi%2?24:34,yy); tgG.stroke(); }
+    var tgTex=new THREE.CanvasTexture(tgC); tgTex.anisotropy=MAX_ANISO;
+    var tgRing=new THREE.Mesh(new THREE.CylinderGeometry(0.056,0.041,0.34,20,1,true),
+      new THREE.MeshBasicMaterial({ map:tgTex, transparent:true, depthWrite:false, side:THREE.DoubleSide }));
+    tgRing.position.y=-0.34; grp.add(tgRing);
+
+    var rig = new THREE.Group(); rig.position.y=0.86;
+    var kids = grp.children.slice();
+    for(var ci=0;ci<kids.length;ci++) rig.add(kids[ci]);
+    grp.add(rig);
+
+    var st={ fill:0,tFill:0,color:new THREE.Color(COL.lysis),tColor:new THREE.Color(COL.lysis) };
+    grp.userData.st=st;
+    grp.userData.setFluid=function(v){ st.tFill=clamp(v,0,1); };
+    grp.userData.setColor=function(h){ st.tColor.set(h); };
+    grp.userData.update=function(dt){
+      var prev=st.fill;
+      st.fill=lerp(st.fill,st.tFill,1-Math.pow(0.002,dt));
+      st.color.lerp(st.tColor,1-Math.pow(0.004,dt));
+      fluidMat.color.copy(st.color); fluidMat.emissive.copy(st.color);
+      var dispensing = st.tFill<prev-0.0002 && st.fill>0.03;
+      drop.visible=dispensing;
+      if(dispensing){ var t=performance.now()*0.006; drop.position.y=-0.9-Math.sin(t)*0.01; drop.scale.y=1.3+Math.sin(t*1.3)*0.15; }
+      if(st.fill<0.01){ fluid.visible=false; }
+      else{ fluid.visible=true; var h=st.fill*0.66; fluid.scale.y=h/0.6; fluid.position.y=-0.8+h/2; }
+    };
+    return grp;
+  }
+
+  /* ---------- RNeasy spin column ---------- */
+  function buildSpinColumn(){
+    var grp = new THREE.Group();
+    var clearMat = glassMaterial(); clearMat.opacity=0.28;
+    var frostMat = matFrosted(0xe2e9f0); frostMat.opacity=0.5;
+    var whiteMat = matPlastic(0xe6ebf0);
+    // rounded U-shaped bottom (was a sharp cone tip)
+    var cp=[
+      new THREE.Vector2(0.0,0.0), new THREE.Vector2(0.075,0.012), new THREE.Vector2(0.145,0.05),
+      new THREE.Vector2(0.21,0.12), new THREE.Vector2(0.265,0.22), new THREE.Vector2(0.30,0.36),
+      new THREE.Vector2(0.32,0.60), new THREE.Vector2(0.32,0.98), new THREE.Vector2(0.335,1.0)
+    ];
+    var coll = new THREE.Mesh(new THREE.LatheGeometry(cp,48), clearMat);
+    coll.castShadow=true; grp.add(coll);
+    var collRim = new THREE.Mesh(new THREE.TorusGeometry(0.325,0.02,12,44), clearMat);
+    collRim.rotation.x=Math.PI/2; collRim.position.y=1.0; grp.add(collRim);
+    var ip=[
+      new THREE.Vector2(0.14,0.86), new THREE.Vector2(0.2,0.9), new THREE.Vector2(0.27,1.02),
+      new THREE.Vector2(0.28,1.5), new THREE.Vector2(0.3,1.56)
+    ];
+    var cup = new THREE.Mesh(new THREE.LatheGeometry(ip,48), frostMat); grp.add(cup);
+    var flange = new THREE.Mesh(new THREE.TorusGeometry(0.29,0.028,12,44), whiteMat);
+    flange.rotation.x=Math.PI/2; flange.position.y=1.5; grp.add(flange);
+    var cupRim = new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.28,0.06,44,1,true), whiteMat);
+    cupRim.position.y=1.53; grp.add(cupRim);
+    var ring = new THREE.Mesh(new THREE.TorusGeometry(0.2,0.03,14,44), new THREE.MeshStandardMaterial({
+      color:0xe6b0c0, roughness:0.9, metalness:0, envMapIntensity:0.3 }));
+    ring.rotation.x=Math.PI/2; ring.position.y=0.92; grp.add(ring);
+    var memMat = new THREE.MeshStandardMaterial({ color:0xf0dbe3, roughness:0.94, envMapIntensity:0.25 });
+    var mem = new THREE.Mesh(new THREE.CircleGeometry(0.19,40), memMat);
+    mem.rotation.x=-Math.PI/2; mem.position.y=0.9; grp.add(mem);
+    var liqMat = new THREE.MeshPhysicalMaterial({ color:COL.lysis, roughness:0.32,
+      transparent:false, emissive:COL.lysis, emissiveIntensity:0.14, envMapIntensity:0.6 });
+    // liquid follows the column cup's inner wall (`ip`), flat-topped at the fill line
+    var colInnerFn = innerRadiusFn(ip, 0.90);
+    var colBottom  = 0.90, colFillMax = 1.44;
+    var liq = new THREE.Mesh(new THREE.BufferGeometry(), liqMat);
+    liq.visible=false; grp.add(liq);
+
+    var label = makeLabel("RNeasy column","");
+    label.position.set(0,2.4,0); grp.add(label);
+
+    var st={ level:0,tLevel:0,builtLevel:-1,color:new THREE.Color(COL.lysis),tColor:new THREE.Color(COL.lysis) };
+    grp.userData.liq=liq; grp.userData.label=label; grp.userData.st=st;
+    grp.userData.setLevel=function(v){ st.tLevel=clamp(v,0,1); };
+    grp.userData.setColor=function(h){ st.tColor.set(h); };
+    grp.userData.setLabel=function(t,s){ label.userData.update(t,s||""); };
+    grp.userData.update=function(dt){
+      var kC=1-Math.pow(0.004,dt);
+      st.level=lerp(st.level,st.tLevel,1-Math.pow(0.002,dt));
+      st.color.lerp(st.tColor,kC);
+      if(st.level<0.01){ liq.visible=false; }
+      else{
+        liq.visible=true;
+        if(Math.abs(st.level-st.builtLevel)>0.004){
+          st.builtLevel=st.level;
+          var yTop=colBottom + st.level*(colFillMax-colBottom);
+          var geo=liquidProfileGeo(colInnerFn, colBottom, yTop, 44);
+          liq.geometry.dispose(); liq.geometry=geo;
+        }
+        liqMat.color.copy(st.color); liqMat.emissive.copy(st.color);
+      }
+    };
+    return grp;
+  }
+
+  /* ---------- anodized cold block ---------- */
+  function buildColdBlock(){
+    var grp = new THREE.Group();
+    var alu   = matAnodized(0x30343b);                        // dark anthracite body (ThermoMixer C)
+    var aluTop= matBrushed(0xb8bec6); aluTop.roughness=0.42;  // brushed-silver thermoblock top
+    var chamfer = new THREE.Mesh(new THREE.BoxGeometry(2.46,0.12,1.86), matAnodized(0x24272d));
+    chamfer.position.y=0.06; chamfer.castShadow=true; chamfer.receiveShadow=true; grp.add(chamfer);
+    var base = new THREE.Mesh(new THREE.BoxGeometry(2.34,0.32,1.74), alu);
+    base.position.y=0.28; base.castShadow=true; base.receiveShadow=true; grp.add(base);
+    var topPlate = new THREE.Mesh(new THREE.BoxGeometry(2.38,0.06,1.78), aluTop);
+    topPlate.position.y=0.45; grp.add(topPlate);
+    // machined bevel frame around the top edge — catches the key light
+    var bevelMat=matAnodized(0xc0cad4); bevelMat.roughness=0.34;
+    var bevY=0.485;
+    var bvA=new THREE.Mesh(new THREE.BoxGeometry(2.42,0.028,0.055), bevelMat); bvA.position.set(0,bevY,0.9); grp.add(bvA);
+    var bvB=new THREE.Mesh(new THREE.BoxGeometry(2.42,0.028,0.055), bevelMat); bvB.position.set(0,bevY,-0.9); grp.add(bvB);
+    var bvC=new THREE.Mesh(new THREE.BoxGeometry(0.055,0.028,1.86), bevelMat); bvC.position.set(1.2,bevY,0); grp.add(bvC);
+    var bvD=new THREE.Mesh(new THREE.BoxGeometry(0.055,0.028,1.86), bevelMat); bvD.position.set(-1.2,bevY,0); grp.add(bvD);
+    var fluteMat = matAnodized(0x2a2e35);
+    for(var f=0;f<9;f++){
+      var fl=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.3,10), fluteMat);
+      fl.position.set(-1.0+f*0.25,0.28,0.9); grp.add(fl);
+    }
+    var wellRim = matAnodized(0x8b95a1);
+    var boreMat = new THREE.MeshStandardMaterial({ color:0x1d232b, metalness:0.4, roughness:0.7, side:THREE.DoubleSide });
+    for(var i=0;i<3;i++) for(var j=0;j<2;j++){
+      var x=-0.7+i*0.7, z=-0.4+j*0.8;
+      var bore = new THREE.Mesh(new THREE.CylinderGeometry(0.19,0.19,0.34,24,1,true), boreMat);
+      bore.position.set(x,0.34,z); grp.add(bore);
+      var boreBot = new THREE.Mesh(new THREE.CircleGeometry(0.19,24), boreMat);
+      boreBot.rotation.x=-Math.PI/2; boreBot.position.set(x,0.18,z); grp.add(boreBot);
+      var lip = new THREE.Mesh(new THREE.TorusGeometry(0.19,0.014,10,24), wellRim);
+      lip.rotation.x=Math.PI/2; lip.position.set(x,0.48,z); grp.add(lip);
+    }
+    // (removed the scattered frost specks + ice cubes — they read as stray artefacts on the
+    //  block, and make no sense for a room-temperature incubation step)
+    // (blue status strip, cyan LED and teal touchscreen removed per user)
+
+    var label = makeLabel("On ice","4 °C");
+    label.position.set(0,1.5,0.6); grp.add(label);
+    grp.userData.label=label; grp.userData.update=function(){};
+    return grp;
+  }
+
+  /* ---------- open ice bucket (cold storage — keep on ice / −80 °C) ---------- */
+  function buildIceBucket(){
+    var grp = new THREE.Group();
+    // stainless-steel open tub (neutral realistic metal, clear-ish liner)
+    var steel = matBrushed(0xc4cbd4); steel.roughness=0.4;
+    var steelDk = matBrushed(0x929ba6);
+    var wall = new THREE.Mesh(new THREE.CylinderGeometry(0.74,0.62,0.6,44,1,true), steel);
+    wall.position.y=0.3; wall.castShadow=true; wall.receiveShadow=true; grp.add(wall);
+    var rim = new THREE.Mesh(new THREE.TorusGeometry(0.74,0.03,14,48), steelDk);
+    rim.rotation.x=Math.PI/2; rim.position.y=0.6; grp.add(rim);
+    var innerMat = new THREE.MeshStandardMaterial({ color:0x3f86bf, metalness:0.25, roughness:0.5, envMapIntensity:0.8, side:THREE.DoubleSide });
+    var inner = new THREE.Mesh(new THREE.CylinderGeometry(0.7,0.58,0.6,44,1,true), innerMat);
+    inner.position.y=0.3; grp.add(inner);
+    var floor = new THREE.Mesh(new THREE.CircleGeometry(0.58,44), innerMat);
+    floor.rotation.x=-Math.PI/2; floor.position.y=0.02; grp.add(floor);
+    // a bed of translucent ice cubes (leaves the centre clear for the tube)
+    var iceMat=new THREE.MeshPhysicalMaterial({ color:0xd4e2ea, roughness:0.14,
+      transparent:true, opacity:0.55, clearcoat:0.8, envMapIntensity:1.0, flatShading:true, depthWrite:false });
+    for(var ic=0;ic<12;ic++){
+      var a=Math.random()*Math.PI*2, rr=0.16+Math.random()*0.42;
+      var cube=new THREE.Mesh(new THREE.IcosahedronGeometry(0.12+Math.random()*0.07,0), iceMat);
+      cube.position.set(Math.cos(a)*rr, 0.4+Math.random()*0.14, Math.sin(a)*rr);
+      cube.rotation.set(Math.random(),Math.random(),Math.random());
+      cube.castShadow=true; grp.add(cube);
+    }
+    // faint frost rime on the outer wall
+    var frostMat=new THREE.MeshStandardMaterial({ color:0xe1e9ef, roughness:0.9, envMapIntensity:0.4 });
+    var frostGeo=new THREE.SphereGeometry(1,6,5);
+    for(var fr=0;fr<22;fr++){
+      var fm=new THREE.Mesh(frostGeo,frostMat);
+      var fa=Math.random()*Math.PI*2, fy=0.08+Math.random()*0.48;
+      fm.position.set(Math.cos(fa)*0.73, fy, Math.sin(fa)*0.73);
+      var fs=0.01+Math.random()*0.02; fm.scale.set(fs,fs,fs); grp.add(fm);
+    }
+    var label = makeLabel("On ice","store −80 °C");
+    label.position.set(0,1.45,0); grp.add(label);
+    grp.userData.label=label; grp.userData.update=function(){};
+    return grp;
+  }
+
+  /* ---------- benchtop centrifuge ---------- */
+  function buildCentrifuge(){
+    var grp = new THREE.Group();
+    var shell = matPainted(0xa6aeb9, 0.42);      // dove-grey upper shell (two-tone top)
+    var shellDk = matPainted(0x2b323c, 0.5);     // graphite accent panels
+    var metalBase = matBrushed(0x707a86);        // brushed graphite metal base (catches key light)
+    // realistic light-grey instrument shell with just a slim brand-blue accent (no glow)
+    var trim  = new THREE.MeshStandardMaterial({ color:0x9fb6cf, metalness:0.3, roughness:0.42,
+      envMapIntensity:0.7 });
+    var foot = new THREE.Mesh(new THREE.CylinderGeometry(1.5,1.58,0.18,56), matBrushed(0x7c8590));
+    foot.position.y=0.09; foot.receiveShadow=true; grp.add(foot);
+    var base = new THREE.Mesh(new THREE.CylinderGeometry(1.35,1.5,0.62,56), metalBase);
+    base.position.y=0.44; base.castShadow=true; base.receiveShadow=true; grp.add(base);
+    // rubber feet
+    var cfFoot=matRubber(0x161a20);
+    for(var ft=0;ft<4;ft++){ var fa=ft/4*Math.PI*2+Math.PI/4;
+      var fm=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.18,0.1,16), cfFoot);
+      fm.position.set(Math.cos(fa)*1.34,0.05,Math.sin(fa)*1.34); grp.add(fm); }
+    // cooling vent slits around the base
+    var cfVent=new THREE.MeshStandardMaterial({ color:0x11151a, roughness:0.85, metalness:0.3, envMapIntensity:0.4 });
+    for(var vv=0;vv<20;vv++){ var va=vv/20*Math.PI*2;
+      var vent=new THREE.Mesh(new THREE.BoxGeometry(0.045,0.24,0.03), cfVent);
+      vent.position.set(Math.cos(va)*1.40,0.4,Math.sin(va)*1.40); vent.rotation.y=-va; grp.add(vent); }
+    var body = new THREE.Mesh(new THREE.CylinderGeometry(1.25,1.3,0.5,56), shell);
+    body.position.y=0.9; grp.add(body);
+    var lipRing = new THREE.Mesh(new THREE.TorusGeometry(1.24,0.05,16,60), shellDk);
+    lipRing.rotation.x=Math.PI/2; lipRing.position.y=1.14; grp.add(lipRing);
+    var ringT = new THREE.Mesh(new THREE.TorusGeometry(1.2,0.072,16,60), trim);
+    ringT.rotation.x=Math.PI/2; ringT.position.y=1.12; grp.add(ringT);
+    // bold petrol-teal accent band wrapping the metal base — a real colour panel, not a dot
+    var accentBand = new THREE.Mesh(new THREE.CylinderGeometry(1.315,1.315,0.13,56,1,true), trim);
+    accentBand.position.y=0.7; grp.add(accentBand);
+
+    var bowl = new THREE.Mesh(new THREE.CylinderGeometry(1.15,1.0,0.5,48,1,true),
+      new THREE.MeshStandardMaterial({color:0x15191f,metalness:0.4,roughness:0.7,side:THREE.DoubleSide}));
+    bowl.position.y=0.9; grp.add(bowl);
+
+    var rotor = new THREE.Group(); rotor.position.y=1.08;
+    var rotorMat = matBrushed(0x9ba6b2);
+    var hub = new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.4,0.34,32), rotorMat); rotor.add(hub);
+    var disc = new THREE.Mesh(new THREE.CylinderGeometry(0.95,0.85,0.12,44), rotorMat);
+    disc.position.y=-0.02; rotor.add(disc);
+    var nut = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.14,0.12,6), matBrushed(0x828d99));
+    nut.position.y=0.2; rotor.add(nut);
+    var slotMat = new THREE.MeshStandardMaterial({ color:0x252d37, metalness:0.5, roughness:0.5, envMapIntensity:0.6 });
+    for(var k=0;k<8;k++){
+      var a=k/8*Math.PI*2;
+      var holder=new THREE.Group();
+      var slot=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.09,0.62,20,1,true), slotMat); holder.add(slot);
+      var slotBot=new THREE.Mesh(new THREE.SphereGeometry(0.09,16,10,0,Math.PI*2,Math.PI*0.5,Math.PI*0.5),slotMat);
+      slotBot.position.y=-0.31; holder.add(slotBot);
+      holder.position.set(Math.cos(a)*0.62,0.0,Math.sin(a)*0.62);
+      // clean fixed-angle rotor: every slot tilts outward by the SAME angle around its tangential axis
+      holder.quaternion.setFromAxisAngle(new THREE.Vector3(-Math.sin(a),0,Math.cos(a)), -0.40);
+      rotor.add(holder);
+    }
+    // printed well numbers around the rotor face
+    var numC=document.createElement("canvas"); numC.width=256; numC.height=256; var numG=numC.getContext("2d");
+    numG.clearRect(0,0,256,256);
+    numG.fillStyle="#c2c9d2"; numG.font="700 24px 'Helvetica Neue',Arial"; numG.textAlign="center"; numG.textBaseline="middle";
+    for(var nn=0;nn<8;nn++){ var na=nn/8*Math.PI*2 - Math.PI/2, nx=128+Math.cos(na)*82, ny=128+Math.sin(na)*82;
+      numG.fillText((nn+1)+"", nx, ny); }
+    var numTex=new THREE.CanvasTexture(numC); numTex.anisotropy=MAX_ANISO;
+    var numPlate=new THREE.Mesh(new THREE.CircleGeometry(0.82,44),
+      new THREE.MeshBasicMaterial({ map:numTex, transparent:true, depthWrite:false }));
+    numPlate.rotation.x=-Math.PI/2; numPlate.position.y=0.05; rotor.add(numPlate);
+    grp.add(rotor);
+
+    var rc=document.createElement("canvas"); rc.width=256; rc.height=128; var rg=rc.getContext("2d");
+    var rTex=new THREE.CanvasTexture(rc); rTex.anisotropy=MAX_ANISO;
+    function drawRPM(v){
+      rg.fillStyle="#12161c"; rg.fillRect(0,0,256,128);
+      rg.strokeStyle="rgba(90,100,116,0.4)"; rg.lineWidth=3; rg.strokeRect(6,6,244,116);
+      rg.fillStyle="#8fcabf"; rg.font="700 52px Menlo,monospace"; rg.textAlign="right";
+      rg.fillText(Math.round(v)+"", 200,72);
+      rg.fillStyle="#727a85"; rg.font="600 20px 'Helvetica Neue',Arial"; rg.fillText("× g", 244,72);
+      rg.textAlign="left"; rg.fillText("SPEED", 16,34);
+      rTex.needsUpdate=true;
+    }
+    drawRPM(0);
+    var readout=new THREE.Mesh(new THREE.PlaneGeometry(0.62,0.31), new THREE.MeshBasicMaterial({map:rTex,transparent:true}));
+    readout.position.set(0,0.62,1.31); readout.rotation.x=-0.32; grp.add(readout);
+    var roFrame=new THREE.Mesh(new THREE.BoxGeometry(0.72,0.4,0.05), shellDk);
+    roFrame.position.set(0,0.62,1.29); roFrame.rotation.x=-0.32; grp.add(roFrame);
+
+    var domeMat = fresnelize(new THREE.MeshPhysicalMaterial({ color:0x282d36, roughness:0.12,
+      transparent:true, opacity:0.5, clearcoat:1, clearcoatRoughness:0.08, envMapIntensity:1.1,
+      side:THREE.DoubleSide, depthWrite:false }));
+    var lidPivot = new THREE.Group(); lidPivot.position.set(0,1.16,-1.2); grp.add(lidPivot);
+    var dome = new THREE.Mesh(new THREE.SphereGeometry(1.22,44,30,0,Math.PI*2,0,Math.PI*0.5), domeMat);
+    dome.position.set(0,0,1.2); lidPivot.add(dome);
+    var lidRim = new THREE.Mesh(new THREE.TorusGeometry(1.2,0.045,14,60), matBrushed(0x6d7783));
+    lidRim.rotation.x=Math.PI/2; lidRim.position.set(0,0.01,1.2); lidPivot.add(lidRim);
+    var handle = new THREE.Mesh(new THREE.TorusGeometry(0.16,0.03,12,24,Math.PI), matPlastic(0x232a33));
+    handle.position.set(0,0.6,2.2); handle.rotation.x=Math.PI/2; lidPivot.add(handle);
+
+    // coloured control accents on the front fascia — green status LED + blue start button
+    var cfLed=new THREE.Mesh(new THREE.SphereGeometry(0.055,16,12),
+      new THREE.MeshStandardMaterial({ color:0x3ad884, emissive:0x2fbf6f, emissiveIntensity:0.7, roughness:0.4, metalness:0 }));
+    cfLed.position.set(-0.42,0.62,1.30); grp.add(cfLed);
+    var cfBtn=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,0.05,24),
+      new THREE.MeshStandardMaterial({ color:0x3f7fd0, emissive:0x2f6fd0, emissiveIntensity:0.85, roughness:0.42, metalness:0.15 }));
+    cfBtn.rotation.x=Math.PI/2 - 0.32; cfBtn.position.set(0.42,0.62,1.30); grp.add(cfBtn);
+
+    var label = makeLabel("Centrifuge","");
+    label.position.set(0,2.5,0); grp.add(label);
+
+    var st={ spin:0,tSpin:0,lid:0 };
+    grp.userData.rotor=rotor; grp.userData.dome=dome; grp.userData.label=label; grp.userData.st=st;
+    grp.userData.setSpin=function(v){ st.tSpin=v; };
+    grp.userData.setLabel=function(t,s){ label.userData.update(t,s||""); };
+    grp.userData.update=function(dt){
+      st.spin=lerp(st.spin,st.tSpin,1-Math.pow(0.01,dt));
+      rotor.rotation.y += st.spin*dt;
+      var wantOpen = st.spin<1.2 ? 1 : 0;
+      st.lid=lerp(st.lid,wantOpen,1-Math.pow(0.02,dt));
+      lidPivot.rotation.x = -easeInOut(st.lid)*1.15;
+      drawRPM(Math.min(st.spin,26)/26*13400);
+    };
+    return grp;
+  }
+
+  /* ---------- waste beaker ---------- */
+  function buildWaste(){
+    var grp = new THREE.Group();
+    var m = matFrosted(0x2b323c); m.opacity=0.7;
+    var body = new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.42,1.0,44,1,true), m);
+    body.position.y=0.5; body.castShadow=true; grp.add(body);
+    var innerMat = new THREE.MeshStandardMaterial({ color:0x14181e, roughness:0.9, side:THREE.DoubleSide });
+    var inner = new THREE.Mesh(new THREE.CylinderGeometry(0.46,0.4,1.0,44,1,true), innerMat);
+    inner.position.y=0.5; grp.add(inner);
+    var floor = new THREE.Mesh(new THREE.CircleGeometry(0.4,44), innerMat);
+    floor.rotation.x=-Math.PI/2; floor.position.y=0.02; grp.add(floor);
+    var rim = new THREE.Mesh(new THREE.TorusGeometry(0.5,0.035,14,48), matPlastic(0x323942));
+    rim.rotation.x=Math.PI/2; rim.position.y=1.0; grp.add(rim);
+    var junk=matFrosted(0xdfe6ee); junk.opacity=0.5;
+    for(var q=0;q<2;q++){
+      var jt=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.06,0.5,20), junk);
+      jt.position.set(-0.12+q*0.24,0.35,0.05); jt.rotation.z=(q?0.4:-0.5); jt.rotation.x=0.2; grp.add(jt);
+    }
+    var label = makeLabel("Flow-through","discard");
+    label.position.set(0,1.7,0); grp.add(label);
+    grp.userData.label=label; grp.userData.update=function(){};
+    return grp;
+  }
+
+  /* ---------- NanoDrop ---------- */
+  function buildNanoDrop(){
+    var grp = new THREE.Group();
+    var shell = matPainted(0xb0b8c2, 0.44);      // dove-grey upper body (no more flat white)
+    var shellDk = matPainted(0x272d36, 0.5);     // graphite base / fascia
+    var footPl = new THREE.Mesh(new THREE.BoxGeometry(1.7,0.1,1.3), shellDk);
+    footPl.position.y=0.05; footPl.receiveShadow=true; grp.add(footPl);
+    var base = new THREE.Mesh(new THREE.BoxGeometry(1.58,0.44,1.18), shellDk);
+    base.position.y=0.32; base.castShadow=true; base.receiveShadow=true; grp.add(base);
+    var deck = new THREE.Mesh(new THREE.BoxGeometry(1.5,0.05,1.1), shellDk);
+    deck.position.y=0.56; grp.add(deck);
+    var arm = new THREE.Mesh(new THREE.BoxGeometry(0.42,1.05,0.52), shell);
+    arm.position.set(-0.5,1.05,0); grp.add(arm);
+    var armPivot=new THREE.Group(); armPivot.position.set(-0.32,1.5,0); grp.add(armPivot);
+    var head = new THREE.Mesh(new THREE.BoxGeometry(0.82,0.34,0.56), shellDk);
+    head.position.set(0.34,-0.02,0); armPivot.add(head);
+    var headLip = new THREE.Mesh(new THREE.BoxGeometry(0.84,0.06,0.58), shellDk);
+    headLip.position.set(0.34,-0.2,0); armPivot.add(headLip);
+    armPivot.rotation.z=0.12;
+    var pedMat = new THREE.MeshStandardMaterial({ color:0xcdd3da, metalness:0.85, roughness:0.28, envMapIntensity:1.1 });
+    if(TEX.brushedN){ pedMat.normalMap=TEX.brushedN; pedMat.normalScale=new THREE.Vector2(0.3,0.3); pedMat.roughnessMap=TEX.brushedR; }
+    var pedBase = new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.16,0.06,28), pedMat);
+    pedBase.position.set(0.15,0.58,0); grp.add(pedBase);
+    var ped = new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.09,0.1,26), pedMat);
+    ped.position.set(0.15,0.63,0); grp.add(ped);
+    var upperPin = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.1,20), pedMat);
+    armPivot.add(upperPin); upperPin.position.set(0.15,-0.12,0);
+
+    var sc = document.createElement("canvas"); sc.width=720; sc.height=480;
+    var sg = sc.getContext("2d");
+    drawTrace(sg,0);
+    var scTex = new THREE.CanvasTexture(sc); scTex.anisotropy=MAX_ANISO;
+    var scMat = new THREE.MeshBasicMaterial({ map:scTex, transparent:true });
+    var screen = new THREE.Mesh(new THREE.PlaneGeometry(1.15,0.78), scMat);
+    screen.position.set(0.55,1.0,0.61); grp.add(screen);
+    var frame = new THREE.Mesh(new THREE.BoxGeometry(1.25,0.9,0.06), new THREE.MeshStandardMaterial({color:0x2a2f36, emissive:0x1FA6C8, emissiveIntensity:0.14, roughness:0.5, envMapIntensity:0.6}));
+    frame.position.set(0.55,1.0,0.58); grp.add(frame);
+
+    // coloured accents — teal trim strip, green power LED, blue sample button
+    var ndTrim=new THREE.Mesh(new THREE.BoxGeometry(1.4,0.04,0.04),
+      new THREE.MeshStandardMaterial({ color:0x2fa898, metalness:0.3, roughness:0.4, envMapIntensity:0.7 }));
+    ndTrim.position.set(0,0.55,0.6); grp.add(ndTrim);
+    var ndLed=new THREE.Mesh(new THREE.SphereGeometry(0.045,16,12),
+      new THREE.MeshStandardMaterial({ color:0x3ad884, emissive:0x2fbf6f, emissiveIntensity:0.7, roughness:0.4 }));
+    ndLed.position.set(-0.6,0.4,0.6); grp.add(ndLed);
+    var ndBtn=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.05,22),
+      new THREE.MeshStandardMaterial({ color:0x3f7fd0, emissive:0x1f4f8f, emissiveIntensity:0.25, roughness:0.42, metalness:0.15 }));
+    ndBtn.rotation.x=Math.PI/2; ndBtn.position.set(-0.35,0.585,0.55); grp.add(ndBtn);
+
+    var label = makeLabel("NanoDrop","A260/280 = 2.0");
+    label.position.set(0.4,2.15,0); grp.add(label);
+
+    var st={ prog:0,tProg:0 };
+    grp.userData.screenTex=scTex; grp.userData.sg=sg; grp.userData.label=label; grp.userData.st=st;
+    grp.userData.setProgress=function(v){ st.tProg=v; };
+    grp.userData.update=function(dt){
+      st.prog=lerp(st.prog,st.tProg,1-Math.pow(0.01,dt));
+      drawTrace(sg,st.prog); scTex.needsUpdate=true;
+    };
+    return grp;
+  }
+  function drawTrace(g,prog){
+    var W=720,H=480,S=2;
+    g.clearRect(0,0,W,H);
+    var bg=g.createLinearGradient(0,0,0,H);
+    bg.addColorStop(0,"#161b22"); bg.addColorStop(1,"#101319");
+    g.fillStyle=bg; g.fillRect(0,0,W,H);
+    g.strokeStyle="rgba(120,132,150,0.12)"; g.lineWidth=1*S;
+    for(var i=1;i<6;i++){ g.beginPath(); g.moveTo(0,i*80); g.lineTo(W,i*80); g.stroke(); }
+    for(var j=1;j<9;j++){ g.beginPath(); g.moveTo(j*80,0); g.lineTo(j*80,H); g.stroke(); }
+    g.strokeStyle="#8fb59c"; g.lineWidth=3*S; g.beginPath();
+    for(var x=0;x<=W;x+=6){
+      var nm = 220 + (x/W)*140;
+      var peak = Math.exp(-Math.pow((nm-260)/26,2))*1.0;
+      var shoulder = Math.exp(-Math.pow((nm-230)/14,2))*0.18;
+      var y = 400 - (peak+shoulder)*300*clamp(prog,0,1);
+      if(x===0) g.moveTo(x,y); else g.lineTo(x,y);
+    }
+    g.stroke();
+    g.fillStyle="#8fcabf"; g.font="600 "+(18*S)+"px 'Helvetica Neue',Arial"; g.textAlign="left";
+    g.fillText("A260/280  " + (1.8+0.2*clamp(prog,0,1)).toFixed(2), 28, 52);
+    g.fillStyle="#aab2bc"; g.font="500 "+(15*S)+"px 'Helvetica Neue',Arial";
+    g.fillText("A260/230  " + (1.6+0.5*clamp(prog,0,1)).toFixed(2), 28, 96);
+    g.fillStyle="#727a85"; g.font="500 "+(12*S)+"px 'Helvetica Neue',Arial"; g.textAlign="right";
+    g.fillText("260 nm", 600, 448);
+  }
+
+  /* ---------- eluate droplet ---------- */
+  function buildDrop(color){
+    var m = new THREE.MeshPhysicalMaterial({ color:color, roughness:0.14,
+      transparent:false, emissive:color, emissiveIntensity:0.08, clearcoat:0.8, envMapIntensity:1.0 });
+    var d = new THREE.Mesh(new THREE.SphereGeometry(0.07,22,18), m);
+    d.scale.set(1,1.3,1); d.visible=false;
+    return d;
+  }
+
+  /* ---------- small pipette stand ---------- */
+  function buildPipetteStand(){
+    var grp=new THREE.Group();
+    var baseMat=matPlastic(0x244f78), postMat=matPlastic(0x2c608e), armMat=matPlastic(0x3672a0);
+    var pad=new THREE.Mesh(new THREE.CylinderGeometry(0.62,0.72,0.12,40), baseMat);
+    pad.position.y=0.06; pad.castShadow=true; pad.receiveShadow=true; grp.add(pad);
+    var padTop=new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.56,0.04,40), postMat);
+    padTop.position.y=0.14; grp.add(padTop);
+    var post=new THREE.Mesh(new THREE.CylinderGeometry(0.085,0.11,3.0,24), postMat);
+    post.position.set(-0.42,1.6,0); post.castShadow=true; grp.add(post);
+    function cradle(y,rr){
+      var arm=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.09,0.13), armMat);
+      arm.position.set(-0.2,y,0); grp.add(arm);
+      var ring=new THREE.Mesh(new THREE.TorusGeometry(rr,0.035,14,32), armMat);
+      ring.position.set(0.0,y,0); ring.rotation.x=Math.PI/2; grp.add(ring);
+    }
+    cradle(2.55,0.19); cradle(1.75,0.17);
+    return grp;
+  }
+
+  /* ---------- reagent bottle (dressing) ---------- */
+  function buildBottle(col, labelText, h, capColor){
+    var grp=new THREE.Group(); h=h||1.3;
+    var glass=glassMaterial(); glass.opacity=0.24;
+    var bp=[
+      new THREE.Vector2(0.001,0), new THREE.Vector2(0.34,0.02), new THREE.Vector2(0.36,0.08),
+      new THREE.Vector2(0.36,h*0.72), new THREE.Vector2(0.3,h*0.82), new THREE.Vector2(0.16,h*0.9),
+      new THREE.Vector2(0.15,h), new THREE.Vector2(0.155,h+0.005)
+    ];
+    var body=new THREE.Mesh(new THREE.LatheGeometry(bp,44), glass);
+    body.castShadow=true; grp.add(body);
+    // liquid revolved from the bottle's inner profile (`bp`) — fills the wide body,
+    // tapers with the base, flat top at the fill line (no floating cylinder)
+    var liqInnerFn=innerRadiusFn(bp,0.90);
+    var liq=new THREE.Mesh(liquidProfileGeo(liqInnerFn, 0.02, h*0.55, 40),
+      new THREE.MeshPhysicalMaterial({color:col,roughness:0.35,transparent:false,emissive:col,emissiveIntensity:0.11,envMapIntensity:0.7}));
+    grp.add(liq);
+    var cap=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.17,0.22,28), matPlastic(capColor==null?0x2b7f74:capColor));
+    cap.position.y=h+0.11; grp.add(cap);
+    // coloured neck ring under the cap — reads as a reagent-coded seal
+    var capRing=new THREE.Mesh(new THREE.TorusGeometry(0.155,0.022,12,32), matPlastic(capColor==null?0x2b7f74:capColor));
+    capRing.rotation.x=Math.PI/2; capRing.position.y=h; grp.add(capRing);
+    var lc=document.createElement("canvas"); lc.width=256; lc.height=128; var lg=lc.getContext("2d");
+    lg.fillStyle="#eef1f4"; lg.fillRect(0,0,256,128);
+    lg.fillStyle="#252c34"; lg.font="700 30px 'Helvetica Neue',Arial"; lg.textAlign="center";
+    lg.fillText(labelText||"", 128,58);
+    lg.strokeStyle="rgba(120,130,146,0.4)"; lg.lineWidth=2; lg.strokeRect(10,74,236,40);
+    var lTex=new THREE.CanvasTexture(lc); lTex.anisotropy=MAX_ANISO;
+    var band=new THREE.Mesh(new THREE.CylinderGeometry(0.365,0.365,h*0.42,40,1,true),
+      new THREE.MeshStandardMaterial({map:lTex,roughness:0.75,metalness:0,envMapIntensity:0.25}));
+    band.position.y=h*0.4; grp.add(band);
+    return grp;
+  }
+
+  /* ---------- muted warning ring (⛔ caution) ---------- */
+  function buildWarnRing(){
+    // red caution ring removed per user — return an empty, inert group so the step logic
+    // (which toggles .visible and calls .update) still works with nothing to show.
+    var grp=new THREE.Group();
+    grp.userData.update=function(){};
+    return grp;
+  }
+
+  /* ---------- bright back wall + packed colourful shelving ----------
+     Evokes the real lab photo: a light back wall, white shelf boards CRAMMED with
+     colourful boxes and kit-box spines (blue, magenta, orange, green), plus a bold RED
+     door / accent panel. All unlit MeshBasic + fog so it recedes into the bright room. */
+  function buildBackdrop(totalLen){
+    var grp=new THREE.Group();
+    // light back wall panel
+    var wall=new THREE.Mesh(new THREE.PlaneGeometry(totalLen+70,26),
+      new THREE.MeshBasicMaterial({color:0xa7a29a, fog:true}));
+    wall.position.set(totalLen*0.5,9,-15); grp.add(wall);
+    // Backdrop shelving, boxes, door and coats REMOVED per user — clean plain back wall only.
+    grp.userData.update=function(){};
+    return grp;
+  }
+
+  /* ---------- SCATTERED COLOURFUL LAB PROPS (persistent set-dressing) ----------
+     Always-visible clutter around & behind the active station — this is where the
+     colour comes from. Simple low-poly lit meshes with SATURATED colours: tube racks
+     with assorted caps, pipette-tip boxes, reagent bottles, a red waste bin, a yellow
+     sharps container, a magenta folder, a blue roll, markers. Added at scene level so
+     the per-step show/hide never touches them. */
+  function buildColourProps(totalLen){
+    var grp=new THREE.Group();
+    // low envMapIntensity so the bright room doesn't reflect into the props and wash them
+    // to pastel — keeps the caps/bins/boxes reading as saturated red/blue/yellow.
+    function mat(c,rough){ return new THREE.MeshStandardMaterial({ color:c, roughness:rough==null?0.55:rough, metalness:0.02, envMapIntensity:0.18 }); }
+    function tint(c,op){ return new THREE.MeshStandardMaterial({ color:c, roughness:0.3, metalness:0, transparent:true, opacity:op==null?0.82:op, envMapIntensity:0.22 }); }
+    var CAPS=[0xe23b34,0x2f7fd6,0x30b25a,0xf2c018,0xef8a1f,0x8a4fd0]; // red blue green yellow orange purple
+
+    // a rack of tubes with assorted saturated caps
+    function tubeRack(){
+      var r=new THREE.Group();
+      var body=new THREE.Mesh(new THREE.BoxGeometry(1.7,0.26,0.66), mat(0x3a86c8,0.7));
+      body.position.y=0.13; r.add(body);
+      var foot=new THREE.Mesh(new THREE.BoxGeometry(1.74,0.06,0.7), mat(0x2f6ea8,0.7));
+      foot.position.y=0.03; r.add(foot);
+      for(var i=0;i<6;i++){ var x=-0.68+i*0.272;
+        var tube=new THREE.Mesh(new THREE.CylinderGeometry(0.072,0.05,0.5,12), tint(0xdfe6ee,0.6));
+        tube.position.set(x,0.42,0); r.add(tube);
+        var cap=new THREE.Mesh(new THREE.CylinderGeometry(0.088,0.088,0.1,12), mat(CAPS[i%6],0.5));
+        cap.position.set(x,0.71,0); r.add(cap);
+      }
+      return r;
+    }
+    // a short stack of pipette-tip boxes with coloured lids
+    function tipBoxes(){
+      var r=new THREE.Group(); var lids=[0x2f7fd6,0x30b25a,0x8a4fd0];
+      for(var i=0;i<3;i++){
+        var base=new THREE.Mesh(new THREE.BoxGeometry(0.78,0.2,0.78), mat(0xeceff2,0.62));
+        base.position.y=0.1+i*0.32; r.add(base);
+        var lid=new THREE.Mesh(new THREE.BoxGeometry(0.82,0.12,0.82), mat(lids[i%3],0.55));
+        lid.position.y=0.26+i*0.32; r.add(lid);
+      }
+      return r;
+    }
+    // a few reagent bottles with coloured caps + faintly tinted contents
+    function reagentBottles(){
+      var r=new THREE.Group(); var cols=[0x2f7fd6,0xef8a1f,0xe23b34];
+      for(var i=0;i<3;i++){ var x=-0.42+i*0.42;
+        var body=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.16,0.62,16), tint(cols[i],0.8));
+        body.position.set(x,0.31,0); r.add(body);
+        var neck=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.12,0.1,16), tint(cols[i],0.8));
+        neck.position.set(x,0.63,0); r.add(neck);
+        var cap=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.14,16), mat(cols[i],0.5));
+        cap.position.set(x,0.72,0); r.add(cap);
+      }
+      return r;
+    }
+    // bright red bench-top waste bin
+    function wasteBin(){
+      var r=new THREE.Group();
+      var body=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.33,0.82,20), mat(0xd62f28,0.62));
+      body.position.y=0.41; r.add(body);
+      var rim=new THREE.Mesh(new THREE.TorusGeometry(0.4,0.045,10,22), mat(0xa81f18,0.6));
+      rim.rotation.x=Math.PI/2; rim.position.y=0.82; r.add(rim);
+      return r;
+    }
+    // yellow biohazard sharps container
+    function sharps(){
+      var r=new THREE.Group();
+      var body=new THREE.Mesh(new THREE.BoxGeometry(0.68,0.78,0.54), mat(0xf2c018,0.6));
+      body.position.y=0.39; r.add(body);
+      var lid=new THREE.Mesh(new THREE.BoxGeometry(0.72,0.16,0.58), mat(0xdca70f,0.6));
+      lid.position.y=0.85; r.add(lid);
+      var badge=new THREE.Mesh(new THREE.PlaneGeometry(0.34,0.28),
+        new THREE.MeshBasicMaterial({color:0x2a2a2a})); badge.position.set(0,0.44,0.271); r.add(badge);
+      return r;
+    }
+    // magenta lever-arch folder
+    function folder(){
+      var r=new THREE.Group();
+      var body=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.7,0.16), mat(0xd0338f,0.7));
+      body.position.y=0.35; r.add(body);
+      var spine=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.7,0.18), mat(0xb02878,0.7));
+      spine.position.set(-0.25,0.35,0); r.add(spine);
+      return r;
+    }
+    // blue roll (paper towel) on its side
+    function blueRoll(){
+      var r=new THREE.Group();
+      var roll=new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.26,0.5,18), mat(0x2f6fc8,0.75));
+      roll.rotation.z=Math.PI/2; roll.position.y=0.26; r.add(roll);
+      return r;
+    }
+    // a couple of markers lying down
+    function markers(){
+      var r=new THREE.Group(); var cols=[0xe23b34,0x2c2c2c,0x2f7fd6];
+      for(var i=0;i<3;i++){
+        var m=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.32,10), mat(cols[i],0.5));
+        m.rotation.z=Math.PI/2+(i-1)*0.14; m.position.set((i-1)*0.04,0.032,i*0.09); r.add(m);
+      }
+      return r;
+    }
+
+    var seed=3; function rnd(){ seed=(seed*9301+49297)%233280; return seed/233280; }
+    var back=[tubeRack,tipBoxes,reagentBottles,wasteBin,sharps,folder,blueRoll,markers,tubeRack,tipBoxes];
+    // BACK dressing row REMOVED — user wants a clean background with no equipment/clutter
+    // behind the hero. Colour now comes only from the near/side foreground props below.
+    void back;
+    // NEAR-FOREGROUND corner props — low, off to the sides so they never hide the hero
+    var front=[wasteBin,sharps,tubeRack,tipBoxes,folder,blueRoll];
+    for(var fx=1; fx<totalLen; fx+=SPACING*1.8){
+      var fp=front[Math.floor(rnd()*front.length)]();
+      var off=(rnd()<0.5?-1:1)*(1.8+rnd()*1.4);   // pushed to the sides of the framed station
+      fp.position.set(fx+off, 0, 3.5+rnd()*0.7);
+      fp.rotation.y=(rnd()-0.5)*1.0; fp.scale.setScalar(0.8+rnd()*0.3);
+      grp.add(fp);
+    }
+    grp.userData.update=function(){};
+    return grp;
+  }
+
+  /* number decal on the bench in front of each station */
+  function stationDecal(n){
+    var c=document.createElement("canvas"); c.width=256; c.height=128; var g=c.getContext("2d");
+    g.clearRect(0,0,256,128);
+    g.fillStyle="rgba(150,164,180,0.5)"; g.font="300 74px 'Helvetica Neue',Arial"; g.textAlign="left"; g.textBaseline="middle";
+    g.fillText(("0"+n).slice(-2), 12, 70);
+    g.strokeStyle="rgba(95,179,166,0.55)"; g.lineWidth=4; g.beginPath(); g.moveTo(14,104); g.lineTo(150,104); g.stroke();
+    var t=new THREE.CanvasTexture(c); t.anisotropy=MAX_ANISO;
+    var m=new THREE.Mesh(new THREE.PlaneGeometry(1.7,0.85), new THREE.MeshBasicMaterial({map:t,transparent:true,depthWrite:false}));
+    m.rotation.x=-Math.PI/2; return m;
+  }
+
+  /* ============================================================
+     2 · SCENE + LIGHTING (soft neutral studio)
+     ============================================================ */
+  var CONTACT_TEX;
+  function initScene(){
+    scene = new THREE.Scene();
+
+    var _asp = innerWidth/innerHeight;
+    camPersp = new THREE.PerspectiveCamera(40, _asp, 0.1, 160);
+    camOrtho = new THREE.OrthographicCamera(-VIEW_SIZE*_asp, VIEW_SIZE*_asp, VIEW_SIZE, -VIEW_SIZE, 0.1, 400);
+    camera = (VIEW==="isometric") ? camOrtho : camPersp;
+
+    renderer = new THREE.WebGLRenderer({ antialias:true, alpha:false, powerPreference:"high-performance" });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // ACES filmic desaturates bright surfaces toward white — the main cause of the
+    // washed-out look. Cineon keeps far more saturation while still rolling off highlights.
+    // Linear keeps full saturation (no filmic desaturation) AND honours exposure, so the whole
+    // scene can be dimmed to a comfortable mid-tone without blowing the light background.
+    renderer.toneMapping = THREE.LinearToneMapping;
+    renderer.toneMappingExposure = 0.78;
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    stageEl.appendChild(renderer.domElement);
+
+    GLOW_TEX = radialTex([[0,"rgba(255,255,255,0.85)"],[0.3,"rgba(255,255,255,0.4)"],[1,"rgba(255,255,255,0)"]]);
+    DUST_TEX = radialTex([[0,"rgba(255,255,255,0.9)"],[0.4,"rgba(220,228,236,0.5)"],[1,"rgba(220,228,236,0)"]]);
+    CONTACT_TEX = radialTex([[0,"rgba(0,0,0,0.5)"],[0.55,"rgba(0,0,0,0.22)"],[1,"rgba(0,0,0,0)"]]);
+    buildSharedMaps();
+
+    // build BOTH backgrounds + BOTH env maps once; applyViewMode swaps between them
+    bgCine = makeCineBackdrop();   // deep atmospheric pool of light + vignette (not a flat field)
+    bgIso  = makeGradientTexture(["#333f5e","#232c46","#161c2e"]);
+    envCine = buildEnvMap("cinematic");
+    envIso  = buildEnvMap("isometric");
+    envTex = envCine;
+
+    /* studio lighting — refs kept so applyViewMode can restyle them per mode */
+    L.amb  = new THREE.AmbientLight(0x8b94a1, 0.5); scene.add(L.amb);
+    L.hemi = new THREE.HemisphereLight(0xc6cdd8, 0x24282e, 0.6); scene.add(L.hemi);
+
+    // softbox key (follows the active station so shadows stay tight & crisp)
+    keyLight = new THREE.DirectionalLight(0xffffff, 1.15);
+    keyLight.position.set(5,11,7); keyLight.castShadow=true;
+    keyLight.shadow.mapSize.set(2048,2048);
+    keyLight.shadow.camera.near=1; keyLight.shadow.camera.far=44;
+    keyLight.shadow.camera.left=-7; keyLight.shadow.camera.right=7;
+    keyLight.shadow.camera.top=9; keyLight.shadow.camera.bottom=-9;
+    keyLight.shadow.bias=-0.0004; keyLight.shadow.normalBias=0.02; keyLight.shadow.radius=6;
+    scene.add(keyLight); scene.add(keyLight.target);
+    L.key = keyLight;
+
+    // gentle fill from the front-left
+    L.fill = new THREE.DirectionalLight(0xdfe6ef, 0.42);
+    L.fill.position.set(-7,4,9); scene.add(L.fill);
+    // faint top/back rim to separate edges
+    L.aux = new THREE.DirectionalLight(0xc9d2dc, 0.28);
+    L.aux.position.set(0,12,-4); scene.add(L.aux);
+
+    buildLine();
+    applyViewMode(VIEW, true);          // set background/fog/lights/env/palette/camera for the saved mode
+  }
+
+  /* ---- switch presentation without disturbing step / sample / timer ---- */
+  function applyViewMode(mode, initial){
+    VIEW = (mode==="isometric") ? "isometric" : "cinematic";
+    var k = LOOK[VIEW];
+
+    // camera
+    camera = (VIEW==="isometric") ? camOrtho : camPersp;
+    if(VIEW==="isometric"){ camOrtho.up.set(0,1,0); applyOrtho(); }
+    else { camPersp.aspect = innerWidth/innerHeight; camPersp.updateProjectionMatrix(); }
+
+    // scene look
+    scene.background = (VIEW==="isometric") ? bgIso : bgCine;
+    scene.fog = new THREE.FogExp2(k.fog.color, k.fog.density);
+    scene.environment = (VIEW==="isometric") ? envIso : envCine; envTex = scene.environment;
+    renderer.toneMappingExposure = k.exposure;
+
+    // lights
+    L.amb.color.setHex(k.amb.color);   L.amb.intensity = k.amb.int;
+    L.hemi.color.setHex(k.hemi.sky);   L.hemi.groundColor.setHex(k.hemi.ground); L.hemi.intensity = k.hemi.int;
+    L.key.color.setHex(k.key.color);   L.key.intensity = k.key.int;
+    L.fill.color.setHex(k.fill.color); L.fill.intensity = k.fill.int; L.fill.position.set(k.fill.pos[0],k.fill.pos[1],k.fill.pos[2]);
+    L.aux.color.setHex(k.aux.color);   L.aux.intensity = k.aux.int;  L.aux.position.set(k.aux.pos[0],k.aux.pos[1],k.aux.pos[2]);
+
+    // bench surface — deep & glossy (mirror-like) for the cinematic hero shot; slightly
+    // lighter & less reflective for the isometric clay look.
+    if(benchMat){
+      if(VIEW==="isometric"){ benchMat.color.setHex(0x232935); benchMat.metalness=0.34; benchMat.roughness=0.5; benchMat.envMapIntensity=0.55; }
+      else { benchMat.color.setHex(0xcbc6bd); benchMat.metalness=0.12; benchMat.roughness=0.5; benchMat.envMapIntensity=0.62; }
+      benchMat.needsUpdate=true;
+    }
+
+    // liquid palette — mutate live COL in place; timelines pick it up next frame
+    setPalette(VIEW==="isometric" ? COL_ISO : COL_CINE);
+
+    // UI chrome
+    document.body.classList.toggle("iso", VIEW==="isometric");
+    var vc=document.getElementById("vtCine"), vi=document.getElementById("vtIso");
+    if(vc&&vi){ vc.classList.toggle("on", VIEW==="cinematic"); vi.classList.toggle("on", VIEW==="isometric"); }
+    if(el && el.hint){ el.hint.innerHTML = (VIEW==="isometric")
+      ? '<div><kbd>drag</kbd> pan &nbsp; <kbd>scroll</kbd> zoom</div><div><kbd>←</kbd> <kbd>→</kbd> stations</div>'
+      : '<div><kbd>drag</kbd> nudge &nbsp; <kbd>scroll</kbd> dolly</div><div><kbd>←</kbd> <kbd>→</kbd> stations</div>'; }
+
+    try{ localStorage.setItem("benchpilot.view", VIEW); }catch(e){}
+  }
+
+  var keyLight;
+  var TOTAL_LEN;
+
+  function buildLine(){
+    var N = 16;
+    TOTAL_LEN = (N-1)*SPACING;
+
+    /* one long continuous bench */
+    var bc=document.createElement("canvas"); bc.width=512; bc.height=512; var bg2=bc.getContext("2d");
+    bg2.fillStyle="#cbc6bd"; bg2.fillRect(0,0,512,512);                       // light warm-grey resin
+    for(var sx=0;sx<520;sx+=2){ bg2.strokeStyle="rgba(120,116,108,"+(0.008+Math.random()*0.012)+")";
+      bg2.lineWidth=1; bg2.beginPath(); bg2.moveTo(sx,0); bg2.lineTo(sx+(Math.random()*6-3),512); bg2.stroke(); }
+    for(var sp=0;sp<1200;sp++){ bg2.fillStyle="rgba("+(Math.random()<0.5?"255,253,248,":"150,144,134,")+(Math.random()*0.05)+")";
+      bg2.fillRect(Math.random()*512,Math.random()*512,1.6,1.6); }
+    var benchTex=new THREE.CanvasTexture(bc); benchTex.wrapS=benchTex.wrapT=THREE.RepeatWrapping;
+    benchTex.repeat.set(30,6); benchTex.anisotropy=MAX_ANISO;
+    // light warm-grey resin bench, GENTLY reflective (soft sheen, not a mirror).
+    // applyViewMode() retunes it per mode.
+    var floorMat = new THREE.MeshStandardMaterial({ color:0x8f8a82, map:benchTex, metalness:0.14, roughness:0.46, envMapIntensity:0.5 });
+    benchMat = floorMat;
+    var floor = new THREE.Mesh(new THREE.PlaneGeometry(TOTAL_LEN+60,60), floorMat);
+    floor.rotation.x=-Math.PI/2; floor.position.x=TOTAL_LEN*0.5; floor.receiveShadow=true; scene.add(floor);
+
+    // soft coloured CONTACT GLOW pool that follows the active station — the subject sits
+    // in a lit spot on the dark bench (cinematic only; faded out in isometric).
+    var glowMat=new THREE.MeshBasicMaterial({ map:GLOW_TEX, color:0x27d4be, transparent:true,
+      opacity:0.0, blending:THREE.AdditiveBlending, depthWrite:false, fog:false });
+    stationGlow=new THREE.Mesh(new THREE.PlaneGeometry(10,7.2), glowMat);
+    stationGlow.rotation.x=-Math.PI/2; stationGlow.position.set(0,0.02,0.1);
+    stationGlow.renderOrder=-1; stationGlowMat=glowMat; scene.add(stationGlow);
+
+    // brushed-steel front lip → reads as an industrial bench edge
+    var lipMat = matBrushed(0x8b95a1); lipMat.roughness=0.42;
+    var lip = new THREE.Mesh(new THREE.BoxGeometry(TOTAL_LEN+24,0.14,0.22), lipMat);
+    lip.position.set(TOTAL_LEN*0.5,-0.02,4.4); lip.castShadow=true; scene.add(lip);
+    // inlaid continuous guide line down the middle of the line (production rail)
+    var guideMat = new THREE.MeshBasicMaterial({ color:0x3a444b, transparent:true, opacity:0.6 });
+    var guide = new THREE.Mesh(new THREE.PlaneGeometry(TOTAL_LEN+16,0.05), guideMat);
+    guide.rotation.x=-Math.PI/2; guide.position.set(TOTAL_LEN*0.5,0.006,1.6); scene.add(guide);
+
+    // graded far plane for depth-of-field softness
+    var dofTex = radialTex([[0,"rgba(226,230,235,0.10)"],[0.5,"rgba(220,224,230,0.05)"],[1,"rgba(220,224,230,0)"]]);
+    var dofPlane = new THREE.Mesh(new THREE.PlaneGeometry(TOTAL_LEN+80,42),
+      new THREE.MeshBasicMaterial({ map:dofTex, transparent:true, depthWrite:false, fog:false }));
+    dofPlane.position.set(TOTAL_LEN*0.5,7,-17); scene.add(dofPlane);
+
+    backdrop = buildBackdrop(TOTAL_LEN); scene.add(backdrop);
+    // table clutter removed per user — nothing lying around the bench; keep an empty group
+    // so the update loop stays happy.
+    colourProps = new THREE.Group(); colourProps.userData.update=function(){}; scene.add(colourProps);
+    dust = makeParticles(TOTAL_LEN); scene.add(dust);
+
+    // ONE travelling SAMPLE for the whole production line — the vessel holding the
+    // neutrophil material. It glides station to station in protocol order; its
+    // container changes at the hand-offs (tube → RNeasy column → clean eluate tube)
+    // but it is always the single thing moving down the bench. Equipment stays put.
+    SAMPLE = buildSample();
+
+    // build the 9 stations along +X
+    for(var i=0;i<N;i++){
+      var st = buildStation(i);
+      st.group.position.set(i*SPACING, 0, 0);
+      st.x = i*SPACING;
+      scene.add(st.group);
+      // number decal on the bench in front
+      var decal = stationDecal(i+1); decal.position.set(i*SPACING-0.2, 0.007, 2.9); scene.add(decal);
+      st.decal = decal;
+      // soft contact shadow footprint
+      st.shadow = groundShadow(i*SPACING, 0.1, 5.4, 3.4, 0.42);
+      // per-step visibility: snapshot this station's materials so the whole set
+      // (equipment + labels + decal + shadow) can be faded in/out as one unit.
+      collectStationMats(st);
+      st.vis = 0; st._vstate = -1;      // starts hidden; the active step fades in
+      stations.push(st);
+    }
+  }
+
+  function groundShadow(x,z,sx,sz,op){
+    var s=new THREE.Mesh(new THREE.PlaneGeometry(sx,sz),
+      new THREE.MeshBasicMaterial({ map:CONTACT_TEX, color:0x000000, transparent:true, opacity:op==null?0.4:op, depthWrite:false }));
+    s.rotation.x=-Math.PI/2; s.position.set(x,0.008,z); scene.add(s);
+    return s;
+  }
+
+  var backdrop, colourProps, dust, stations=[];
+  var benchMat=null, stationGlow=null, stationGlowMat=null;   // reflective bench + active-station contact glow
+
+  function buildEnvMap(mode){
+    var iso = (mode==="isometric");
+    var pmrem = new THREE.PMREMGenerator(renderer);
+    pmrem.compileCubemapShader();
+    var es = new THREE.Scene();
+    var domeGeo = new THREE.SphereGeometry(50,32,20);
+    var col = new Float32Array(domeGeo.attributes.position.count*3);
+    var top = new THREE.Color(iso?0x5f6d90:0x8d929a), bot = new THREE.Color(iso?0x2b3348:0x474b51);
+    for(var i=0;i<domeGeo.attributes.position.count;i++){
+      var y=domeGeo.attributes.position.getY(i)/50*0.5+0.5;
+      var c=bot.clone().lerp(top, Math.pow(y,0.8));
+      col[i*3]=c.r; col[i*3+1]=c.g; col[i*3+2]=c.b;
+    }
+    domeGeo.setAttribute("color", new THREE.BufferAttribute(col,3));
+    es.add(new THREE.Mesh(domeGeo, new THREE.MeshBasicMaterial({ side:THREE.BackSide, vertexColors:true })));
+    function panel(x,y,z,w,h,color,intensity){
+      var m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),
+        new THREE.MeshBasicMaterial({ color:new THREE.Color(color).multiplyScalar(intensity) }));
+      m.position.set(x,y,z); m.lookAt(0,y*0.4,0); es.add(m);
+    }
+    if(iso){
+      // softboxes → crisp key highlight, darker fills so matte "clay" props keep contrast
+      panel(9,14,7, 22,10, 0xffffff, 1.7);
+      panel(-13,8,-8, 16,14, 0x9fb0cf, 0.7);
+      panel(-6,3,10, 12,7, 0x8f9fc0, 0.45);
+      panel(0,20,0, 24,24, 0x525c78, 0.4);
+    } else {
+      // Neutral STUDIO: ONE bright key softbox for highlights + form, DARK fills all around so
+      // materials keep contrast and true colour instead of being flooded to pale by a near-white
+      // environment. This is the real fix for the washed-out, low-contrast look.
+      panel(9,14,7, 22,10, 0xffffff, 1.5);       // key softbox (highlights)
+      panel(-13,8,-8, 16,14, 0x9198a1, 0.42);    // dim neutral fill
+      panel(-6,3,10, 12,7, 0x878d96, 0.32);      // dim front fill
+      panel(0,20,0, 24,24, 0x676c74, 0.38);      // dim overhead
+    }
+    var tex = pmrem.fromScene(es, 0.04).texture;
+    pmrem.dispose();
+    return tex;
+  }
+  function makeGradientTexture(stops){
+    stops = stops || ["#252a31","#181b20","#0f1114"];
+    var c=document.createElement("canvas"); c.width=64; c.height=256; var g=c.getContext("2d");
+    var grad=g.createLinearGradient(0,0,0,256);
+    grad.addColorStop(0,stops[0]); grad.addColorStop(0.5,stops[1]); grad.addColorStop(1,stops[2]);
+    g.fillStyle=grad; g.fillRect(0,0,64,256);
+    var t=new THREE.CanvasTexture(c); t.encoding=THREE.sRGBEncoding; return t;
+  }
+  /* CINEMATIC backdrop — a BRIGHT ROOM, not a black void: a soft warm/cool-white upper wall
+     fading through a faint horizon to a light warm-grey resin floor. Evenly lit, no vignette,
+     no pool of light — the colour in the scene comes from the scattered props, not here. */
+  function makeCineBackdrop(){
+    var w=640,h=640;
+    var c=document.createElement("canvas"); c.width=w; c.height=h; var g=c.getContext("2d");
+    // COMFORTABLE WARM MID-TONE room — NOT a white void, NOT dark. A soft warm greige wall
+    // grading down to a deeper warm-grey floor, with a lit pool behind the subject and a
+    // gentle corner vignette so it has depth and is pleasant to look at.
+    var grad=g.createLinearGradient(0,0,0,h);
+    grad.addColorStop(0.00,"#b9b4ab");   // upper wall — warm light greige
+    grad.addColorStop(0.42,"#ada89f");
+    grad.addColorStop(0.585,"#9d978d");  // just above the horizon
+    grad.addColorStop(0.615,"#918b81");  // horizon seam
+    grad.addColorStop(0.80,"#827d74");   // warm-grey floor
+    grad.addColorStop(1.00,"#6f6a61");
+    g.fillStyle=grad; g.fillRect(0,0,w,h);
+    // soft pool of light behind the subject — the centre lifts, so the bright subject reads
+    var soft=g.createRadialGradient(w*0.5,h*0.34,20, w*0.5,h*0.40,w*0.80);
+    soft.addColorStop(0,"rgba(244,238,228,0.30)");
+    soft.addColorStop(1,"rgba(244,238,228,0)");
+    g.fillStyle=soft; g.fillRect(0,0,w,h);
+    // corner vignette for depth (settles the edges without going dark/sci-fi)
+    var vig=g.createRadialGradient(w*0.5,h*0.46,w*0.30, w*0.5,h*0.5,w*0.75);
+    vig.addColorStop(0,"rgba(42,38,33,0)");
+    vig.addColorStop(1,"rgba(42,38,33,0.34)");
+    g.fillStyle=vig; g.fillRect(0,0,w,h);
+    var t=new THREE.CanvasTexture(c); t.encoding=THREE.sRGBEncoding; return t;
+  }
+  function makeParticles(totalLen){
+    var n=140, g=new THREE.BufferGeometry(), pos=new Float32Array(n*3);
+    for(var i=0;i<n;i++){ pos[i*3]=-6+Math.random()*(totalLen+12); pos[i*3+1]=Math.random()*8; pos[i*3+2]=(Math.random()-0.5)*18; }
+    g.setAttribute("position", new THREE.BufferAttribute(pos,3));
+    var m=new THREE.PointsMaterial({ map:DUST_TEX, color:0xb4bec9, size:0.05, transparent:true,
+      opacity:0.32, depthWrite:false, blending:THREE.AdditiveBlending, sizeAttenuation:true });
+    var p=new THREE.Points(g,m);
+    p.userData.base=pos.slice();
+    p.userData.update=function(dt){
+      var t=performance.now()*0.001, arr=p.geometry.attributes.position.array, base=p.userData.base;
+      for(var i=0;i<n;i++){ arr[i*3+1]=base[i*3+1]+Math.sin(t*0.4+i*0.7)*0.3; }
+      p.geometry.attributes.position.needsUpdate=true;
+      m.opacity=0.26+Math.sin(t*0.6)*0.08;
+    };
+    return p;
+  }
+
+  /* ============================================================
+     3 · STATIONS — each a self-contained set for its step
+        Camera arrives, the action plays at its station.
+     ============================================================ */
+  // pipette transfer — the station's OWN resident pipette (st.pip, a child of the
+  // station group) dips into its reagent and adds to the arriving sample vessel.
+  // Coordinates are LOCAL to the station; the pipette never leaves its station.
+  function pipetteRun(st, from, to, p, opts){
+    opts=opts||{};
+    var pip=st.pip; if(!pip) return;
+    var phaseA=0.30, phaseB=0.62, hover=2.5;
+    var pos=new THREE.Vector3();
+    if(p<phaseA){
+      var q=easeInOut(p/phaseA);
+      pos.set(from.x, lerp(hover, from.y+1.1, q), from.z);
+      pip.userData.setFluid(q*(opts.fill||0.8)); pip.userData.setColor(opts.color||COL.lysis);
+    } else if(p<phaseB){
+      var q2=easeInOut((p-phaseA)/(phaseB-phaseA));
+      pos.set(lerp(from.x,to.x,q2), 0, lerp(from.z,to.z,q2));
+      pos.y = lerp(from.y+1.1, to.y+1.2, q2) + Math.sin(q2*Math.PI)*0.5 + 1.0;
+      pip.userData.setFluid(opts.fill||0.8);
+    } else {
+      var q3=easeInOut((p-phaseB)/(1-phaseB));
+      pos.set(to.x, lerp(to.y+2.2, to.y+1.25, q3), to.z);
+      pip.userData.setFluid((1-q3)*(opts.fill||0.8));
+    }
+    pip.position.copy(pos);                 // LOCAL — resident pipette stays at its station
+  }
+
+  // shared local layout anchors (per-station, in the station's local space)
+  var PIP_STAND = {x:-2.1, y:0, z:1.25};
+  var PIP_REST  = new THREE.Vector3(-2.1, 1.2, 1.25);
+
+  // a bare stand (dressing) — for stations that don't pipette
+  function addStand(st){
+    var stand = buildPipetteStand(); stand.position.set(PIP_STAND.x,PIP_STAND.y,PIP_STAND.z); st.group.add(stand);
+  }
+  // resident equipment: a stand AND its OWN pipette, both fixed to this station
+  function addPipetteRig(st){
+    addStand(st);
+    var pip = buildPipette(); pip.position.set(PIP_REST.x, PIP_REST.y, PIP_REST.z);
+    st.group.add(pip); st.pip = pip; st.updatables.push(pip);
+  }
+  // dock this station's resident pipette back in its stand (LOCAL space)
+  function pipRest(st){ if(!st.pip) return;
+    st.pip.position.set(PIP_REST.x, PIP_REST.y, PIP_REST.z);
+    st.pip.userData.setFluid(0); }
+
+  /* ---------- THE single travelling sample (its container changes at hand-offs) ----------
+     One microcentrifuge tube carries the neutrophil material; at BIND it is loaded onto
+     the RNeasy spin column (the column then travels); at ELUTE the RNA is spun into a
+     clean collection tube (that tube then travels). Only one is "active" at a time — the
+     others ride along hidden. Each glides toward its own world target every frame. */
+  var SAMPLE=null, SNAP_SAMPLE=false;
+  function buildSample(){
+    var tube   = buildTube({height:1.7, radius:0.32, color:COL.pellet, label:"Neutrophil pellet", sub:"", cold:true, capColor:0x3f7fd0});
+    var column = buildSpinColumn();
+    var elu    = buildTube({height:1.15, radius:0.26, color:COL.rna, label:"Eluate", sub:"RNA", capColor:0x49b26a});
+    var vessels=[tube,column,elu];
+    for(var v=0;v<vessels.length;v++){
+      vessels[v].visible=false; vessels[v].userData.tPos=vessels[v].position.clone(); scene.add(vessels[v]);
+    }
+    var S={ tube:tube, column:column, elu:elu, vessels:vessels, active:tube };
+    // show exactly one vessel (hand-off timelines may reveal a second mid-station)
+    S.only=function(name){
+      tube.visible=(name==='tube'); column.visible=(name==='column'); elu.visible=(name==='elu');
+      S.active=(name==='tube'?tube:(name==='column'?column:elu));
+    };
+    // set a vessel's travel target; snap instantly on non-sequential jumps, glide otherwise
+    S.at=function(vessel,x,y,z){ vessel.userData.tPos.set(x,y,z); if(SNAP_SAMPLE) vessel.position.set(x,y,z); };
+    S.snapTo=function(vessel,x,y,z){ vessel.userData.tPos.set(x,y,z); vessel.position.set(x,y,z); };
+    return S;
+  }
+
+  // a small labelled reagent tube standing at a local spot
+  function addReagent(st, key, label, sub, color, x, z){
+    var t = buildTube({height:1.1, radius:0.23, color:color, label:label, sub:sub, cap:false});
+    t.position.set(x, 0.0, z); t.userData.setLevel(0.62);
+    if(t.userData.label) t.userData.label.scale.set(1.3,0.4,1);
+    st.group.add(t); st.updatables.push(t);
+    st.reagents[key] = { grp:t, pos:new THREE.Vector3(x, 0.24, z) };
+  }
+
+  /* ---- per-step helpers (reuse the existing prop builders) --------------
+     A reagent-addition station: a reagent BOTTLE + the resident pipette that
+     pours it into the travelling vessel. A centrifuge station: one benchtop
+     CENTRIFUGE that spins the arriving vessel. Both keep the sample visible. */
+  function addBottle(st, key, labelText, color, x, z){
+    var b = buildBottle(color, labelText, 1.3, color);
+    b.position.set(x, 0, z); st.group.add(b);
+    st.reagents[key] = { grp:b, pos:new THREE.Vector3(x, 0.24, z) };
+  }
+  function stationReagent(st, Y, o){
+    addPipetteRig(st);
+    addBottle(st, o.key, o.blabel, o.color, 2.0, 0.7);
+    st.enter=function(){
+      SAMPLE.only(o.vessel);
+      var v=SAMPLE[o.vessel];
+      if(o.vlabel) v.userData.setLabel(o.vlabel, o.vsub||"");
+      if(o.cStart!=null) v.userData.setColor(o.cStart);
+      v.userData.setLevel(o.lStart);
+      SAMPLE.at(v, st.x, Y, 0);
+      pipRest(st);
+    };
+    st.timeline=function(p){
+      var v=SAMPLE[o.vessel];
+      pipetteRun(st, st.reagents[o.key].pos, {x:0,y:Y,z:0}, p, {color:o.color, fill:0.8});
+      if(p>0.62){ var q=easeInOut((p-0.62)/0.38);
+        v.userData.setLevel(lerp(o.lStart,o.lEnd,q));
+        if(o.cEnd!=null) v.userData.setColor(o.cEnd);
+      }
+    };
+  }
+  function stationSpin(st, Y, o){
+    var cen=buildCentrifuge(); cen.position.set(1.4,0,-0.5); cen.scale.setScalar(0.85);
+    st.group.add(cen); st.updatables.push(cen); st.cen=cen;
+    var plate=new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.56,Y,32), matPlastic(0x2e3843));
+    plate.position.set(-1.5,Y*0.5,1.4); plate.castShadow=true; st.group.add(plate);
+    st.enter=function(){
+      SAMPLE.only(o.vessel);
+      var v=SAMPLE[o.vessel];
+      if(o.vlabel) v.userData.setLabel(o.vlabel, o.vsub||"");
+      if(o.color!=null) v.userData.setColor(o.color);
+      v.userData.setLevel(o.lStart==null?0.5:o.lStart);
+      SAMPLE.at(v, st.x-1.5, Y, 1.4);
+      cen.userData.setLabel(o.cenLabel||"Centrifuge", o.cenSub||""); cen.userData.setSpin(0);
+    };
+    if(o.seconds) st.hud={label:o.hudLabel||"Centrifuge", seconds:o.seconds};
+    st.timeline=function(p){
+      cen.userData.setSpin(p<0.08?0:(p>0.9?2:24));
+      var v=SAMPLE[o.vessel];
+      if(o.lEnd!=null) v.userData.setLevel(lerp(o.lStart==null?0.5:o.lStart, o.lEnd, easeInOut(clamp(p,0,1))));
+    };
+  }
+
+  function buildStation(i){
+    var st = { group:new THREE.Group(), updatables:[], reagents:{}, pip:null, enter:null, timeline:null, x:0 };
+    var Y=BLOCK_TOP;
+
+    if(i===0){
+      /* 1 · LYSE — RLT + β-ME poured onto the neutrophil pellet */
+      stationReagent(st, Y, {key:"lysis", blabel:"RLT", color:COL.lysis, vessel:"tube",
+        vlabel:"RLT + β-ME", vsub:"350–600 µl", cStart:COL.pellet, cEnd:COL.lysis, lStart:0.08, lEnd:0.55});
+
+    } else if(i===1){
+      /* 2 · HOMOGENISE — QIAshredder spin (its OWN step) */
+      stationSpin(st, Y, {vessel:"tube", vlabel:"Lysate", vsub:"QIAshredder", color:COL.lysis,
+        lStart:0.55, lEnd:0.5, cenLabel:"QIAshredder", cenSub:"2 min · max", seconds:120, hudLabel:"QIAshredder · max speed"});
+
+    } else if(i===2){
+      /* 3 · ADD 70% ETHANOL — reagent bottle + ⛔ do-NOT-centrifuge warning */
+      stationReagent(st, Y, {key:"etoh", blabel:"EtOH", color:COL.etoh, vessel:"tube",
+        vlabel:"Lysate + EtOH", vsub:"1 volume", cStart:COL.lysis, cEnd:0x7fa39c, lStart:0.55, lEnd:0.8});
+      var warn=buildWarnRing(); warn.position.set(0,Y+0.35,0); warn.visible=false;
+      st.group.add(warn); st.updatables.push(warn); st.warn=warn;
+      var baseEnter2=st.enter;
+      st.enter=function(){ baseEnter2(); warn.visible=true; };
+
+    } else if(i===3){
+      /* 4 · LOAD ONTO THE RNeasy COLUMN — HAND-OFF tube → column (no equipment) */
+      var tA={x:-0.9,y:Y,z:0.1}, cA={x:0.7,y:Y,z:0.1};
+      st.enter=function(){
+        SAMPLE.only('tube');
+        SAMPLE.tube.userData.setLabel("Sample","load column");
+        SAMPLE.tube.userData.setColor(0x7fa39c);
+        SAMPLE.tube.userData.setLevel(0.8);
+        SAMPLE.at(SAMPLE.tube, st.x+tA.x, tA.y, tA.z);
+        SAMPLE.column.userData.setLabel("RNeasy column","loading");
+        SAMPLE.column.userData.setColor(0x7fa39c);
+        SAMPLE.column.userData.setLevel(0);
+        SAMPLE.snapTo(SAMPLE.column, st.x+cA.x, cA.y, cA.z);
+        SAMPLE.column.visible=false;
+      };
+      st.timeline=function(p){
+        SAMPLE.tube.visible=true;
+        if(p>0.2) SAMPLE.column.visible=true;
+        var f=clamp((p-0.25)/0.5,0,1);
+        SAMPLE.column.userData.setLevel(lerp(0,0.9,f));
+        SAMPLE.tube.userData.setLevel(lerp(0.8,0.04,f));
+        if(p>0.9){ SAMPLE.tube.visible=false; SAMPLE.active=SAMPLE.column; }
+      };
+
+    } else if(i===4){
+      /* 5 · CENTRIFUGE — BIND (its OWN step) */
+      stationSpin(st, Y, {vessel:"column", vlabel:"RNeasy column", vsub:"binding", color:0x7fa39c,
+        lStart:0.9, lEnd:0.05, cenLabel:"Bind", cenSub:"≥8000 × g", seconds:15, hudLabel:"Bind · ≥8000 × g"});
+
+    } else if(i===5){
+      /* 6 · ADD BUFFER RW1 */
+      stationReagent(st, Y, {key:"rw1", blabel:"RW1", color:COL.wash, vessel:"column",
+        vlabel:"Buffer RW1", vsub:"350 µl", cStart:COL.wash, cEnd:COL.wash, lStart:0.05, lEnd:0.5});
+
+    } else if(i===6){
+      /* 7 · CENTRIFUGE — WASH (its OWN step) */
+      stationSpin(st, Y, {vessel:"column", vlabel:"Wash", vsub:"flow-through", color:COL.wash,
+        lStart:0.5, lEnd:0.05, cenLabel:"Wash", cenSub:"≥8000 × g", seconds:15, hudLabel:"Wash · ≥8000 × g"});
+
+    } else if(i===7){
+      /* 8 · ON-COLUMN DNase I DIGESTION — incubation block + 15-min timer */
+      var blk=buildColdBlock(); blk.position.set(0,0,0); st.group.add(blk); st.updatables.push(blk);
+      if(blk.userData.label) blk.userData.label.userData.update("Incubate","15 min · RT");
+      st.enter=function(){
+        SAMPLE.only('column');
+        SAMPLE.column.userData.setLabel("DNase I","15 min · RT");
+        SAMPLE.column.userData.setColor(COL.dnase);
+        SAMPLE.column.userData.setLevel(0.7);
+        SAMPLE.at(SAMPLE.column, st.x, Y, 0);
+      };
+      st.hud={label:"DNase I · room temp", seconds:900};
+      st.timeline=function(p){ SAMPLE.column.userData.setColor(COL.dnase); SAMPLE.column.userData.setLevel(0.7); };
+
+    } else if(i===8){
+      /* 9 · ADD BUFFER RW1 */
+      stationReagent(st, Y, {key:"rw1b", blabel:"RW1", color:COL.wash, vessel:"column",
+        vlabel:"Buffer RW1", vsub:"350 µl", cStart:COL.dnase, cEnd:COL.wash, lStart:0.05, lEnd:0.5});
+
+    } else if(i===9){
+      /* 10 · CENTRIFUGE (its OWN step) */
+      stationSpin(st, Y, {vessel:"column", vlabel:"Wash", vsub:"flow-through", color:COL.wash,
+        lStart:0.5, lEnd:0.05, cenLabel:"Spin", cenSub:"≥8000 × g", seconds:15, hudLabel:"Spin · ≥8000 × g"});
+
+    } else if(i===10){
+      /* 11 · WASH WITH BUFFER RPE (×2) */
+      stationReagent(st, Y, {key:"rpe", blabel:"RPE", color:COL.wash, vessel:"column",
+        vlabel:"Buffer RPE", vsub:"500 µl", cStart:COL.wash, cEnd:COL.wash, lStart:0.05, lEnd:0.5});
+
+    } else if(i===11){
+      /* 12 · CENTRIFUGE — DRY THE COLUMN (RPE spin, then dry spin) */
+      stationSpin(st, Y, {vessel:"column", vlabel:"Dry spin", vsub:"empty column", color:COL.wash,
+        lStart:0.5, lEnd:0.02, cenLabel:"Dry spin", cenSub:"2 min + 1 min", seconds:120, hudLabel:"Dry spin"});
+
+    } else if(i===12){
+      /* 13 · ELUTE THE RNA — RNase-free water onto the membrane */
+      stationReagent(st, Y, {key:"water", blabel:"H₂O", color:COL.water, vessel:"column",
+        vlabel:"Elute", vsub:"RNase-free H₂O", cStart:COL.wash, cEnd:COL.water, lStart:0.02, lEnd:0.6});
+
+    } else if(i===13){
+      /* 14 · CENTRIFUGE — ELUTE (its OWN step) — HAND-OFF column → clean tube */
+      var cen=buildCentrifuge(); cen.position.set(1.4,0,-0.5); cen.scale.setScalar(0.82);
+      st.group.add(cen); st.updatables.push(cen); st.cen=cen;
+      var plate=new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.56,Y,32), matPlastic(0x2e3843));
+      plate.position.set(-1.5,Y*0.5,1.4); plate.castShadow=true; st.group.add(plate);
+      var drop=buildDrop(COL.rna); st.group.add(drop); st.drop=drop;
+      var cA={x:-1.5,y:Y,z:1.4}, eA={x:0.2,y:Y,z:1.4};
+      st.enter=function(){
+        SAMPLE.only('column');
+        SAMPLE.column.userData.setLabel("Elute","spin 1 min");
+        SAMPLE.column.userData.setColor(COL.water);
+        SAMPLE.column.userData.setLevel(0.6);
+        SAMPLE.at(SAMPLE.column, st.x+cA.x, cA.y, cA.z);
+        SAMPLE.elu.userData.setLabel("Eluate","RNA");
+        SAMPLE.elu.userData.setColor(COL.rna);
+        SAMPLE.elu.userData.setLevel(0);
+        SAMPLE.elu.userData.setCap(false);
+        SAMPLE.snapTo(SAMPLE.elu, st.x+eA.x, eA.y, eA.z);
+        SAMPLE.elu.visible=false;
+        drop.visible=false; cen.userData.setLabel("Elute","1 min · ≥8000 × g"); cen.userData.setSpin(0);
+      };
+      st.hud={label:"Elution · 1 min", seconds:60};
+      st.timeline=function(p){
+        var s=easeInOut(clamp(p,0,1));
+        cen.userData.setSpin(p<0.08?0:(p>0.9?2:20));
+        SAMPLE.column.userData.setLevel(lerp(0.6,0.05,s));
+        drop.visible = p>0.15 && p<0.9;
+        var dropP=(s*2)%1; drop.position.set(0.2, lerp(1.9,0.55+Y,dropP), 1.4);
+        SAMPLE.elu.visible=true; SAMPLE.active=SAMPLE.elu;
+        SAMPLE.elu.userData.setColor(COL.rna);
+        SAMPLE.elu.userData.setLevel(lerp(0,0.5,s));
+      };
+
+    } else if(i===14){
+      /* 15 · QUALITY CONTROL — NanoDrop reads the eluate */
+      var nano=buildNanoDrop(); nano.position.set(0.2,0,-0.3); nano.rotation.y=0.35;
+      st.group.add(nano); st.updatables.push(nano); st.nano=nano;
+      st.enter=function(){
+        SAMPLE.only('elu');
+        SAMPLE.elu.userData.setLabel("RNA","A260/280 ≈ 2.0");
+        SAMPLE.elu.userData.setColor(COL.rna);
+        SAMPLE.elu.userData.setLevel(0.5);
+        SAMPLE.elu.userData.setCap(true);
+        SAMPLE.at(SAMPLE.elu, st.x-1.4, Y, 0.8);
+        nano.userData.setProgress(0);
+      };
+      st.timeline=function(p){ nano.userData.setProgress(easeInOut(clamp(p*1.4,0,1))); };
+
+    } else {
+      /* 16 · KEEP ON ICE / STORE — ice / cold storage (NOT a centrifuge) */
+      var ice=buildIceBucket(); ice.position.set(0,0,0.3); st.group.add(ice); st.updatables.push(ice); st.ice=ice;
+      st.enter=function(){
+        SAMPLE.only('elu');
+        SAMPLE.elu.userData.setLabel("RNA","−80 °C");
+        SAMPLE.elu.userData.setColor(COL.rna);
+        SAMPLE.elu.userData.setLevel(0.5);
+        SAMPLE.elu.userData.setCap(true);
+        SAMPLE.at(SAMPLE.elu, st.x, 0.34, 0.3);
+      };
+      st.timeline=function(p){};
+    }
+
+    return st;
+  }
+
+  /* content — atomic steps (each centrifugation is its OWN step) */
+  var CONTENT = [
+    { title:"Lyse the neutrophil pellet", tag:"LYSE", tagClass:"",
+      body:'Add <b>RLT + 1% 2-mercaptoethanol</b> — <b>350 µl</b> for ≤5×10⁶ cells, <b>600 µl</b> for more. Work fast, <span class="tealw">on ice</span>.' },
+    { title:"Homogenise (QIAshredder)", tag:"HOMOGENISE", tagClass:"",
+      body:'Spin the lysate through a <b>QIAshredder</b> column, <b>2 min at max speed</b>.' },
+    { title:"Add 70% ethanol", tag:"⛔ CAUTION", tagClass:"warn",
+      body:'Add <b>one volume of 70% ethanol</b> and mix by pipetting. <span class="hot">Do NOT centrifuge.</span>' },
+    { title:"Load onto the RNeasy column", tag:"LOAD", tagClass:"",
+      body:'Transfer the sample onto the <b>RNeasy spin column</b>.' },
+    { title:"Centrifuge — bind", tag:"BIND · SPIN", tagClass:"",
+      body:'<b>15 s at ≥8000 × g</b>; discard flow-through; <b>repeat</b> for the remaining volume.' },
+    { title:"Add buffer RW1", tag:"RW1", tagClass:"",
+      body:'Add <b>350 µl RW1</b> to the column.' },
+    { title:"Centrifuge — wash", tag:"WASH · SPIN", tagClass:"",
+      body:'<b>15 s at ≥8000 × g</b>; discard flow-through.' },
+    { title:"On-column DNase I digestion", tag:"DNase · WAIT", tagClass:"wait",
+      body:'Add <b>80 µl DNase I mix</b> to the membrane; <b>incubate 15 min at room temperature</b>.' },
+    { title:"Add buffer RW1", tag:"RW1", tagClass:"",
+      body:'Add <b>350 µl RW1</b>.' },
+    { title:"Centrifuge", tag:"SPIN", tagClass:"",
+      body:'<b>15 s at ≥8000 × g</b>.' },
+    { title:"Wash with buffer RPE (×2)", tag:"RPE", tagClass:"",
+      body:'Add <b>500 µl RPE</b>.' },
+    { title:"Centrifuge — dry the column", tag:"DRY · SPIN", tagClass:"",
+      body:'Spin RPE through (<b>2 min</b>), then <b>dry-spin</b> the empty column <b>1 min</b>.' },
+    { title:"Elute the RNA", tag:"ELUTE", tagClass:"",
+      body:'Add <b>30–50 µl RNase-free water</b> (<b>14 µl</b> for Micro); <b>wait 1 min</b>.' },
+    { title:"Centrifuge — elute", tag:"ELUTE · SPIN", tagClass:"",
+      body:'<b>1 min at ≥8000 × g</b> to collect the eluate. The purified <span style="color:#82a58f">RNA</span> spins into a clean tube.' },
+    { title:"Quality control", tag:"QC", tagClass:"",
+      body:'<b>NanoDrop</b>: <b>A260/280 ≈ 2.0</b>, <b>A260/230 2.0–2.2</b>.' },
+    { title:"Keep on ice / store", tag:"STORE", tagClass:"",
+      body:'Keep RNA <span class="tealw">on ice</span> for measurement; store at <b>−80 °C</b>. Avoid freeze–thaw.' }
+  ];
+
+  /* ============================================================
+     4 · CAMERA ON A RAIL — pure lateral tracking, no orbit
+     ============================================================ */
+  /* CINEMATIC — perspective rail-dolly */
+  var RAIL_Y = 3.35;         // fixed height
+  var RAIL_Z = 9.6;          // fixed depth (dolly distance)
+  var LOOK_Y = 1.05;
+  var railZoom = RAIL_Z;     // scroll dolly (persists)
+
+  /* ISOMETRIC — orthographic fixed-angle camera that pans along the bench */
+  var VIEW_SIZE = 7.6;                 // ortho half-height (world units) — wheel zoom adjusts it
+  var ISO_LOOK_Y = 1.35;               // vertical point the iso frames on
+  var ISO_DIR = new THREE.Vector3(1, 0.82, 1).normalize();   // classic iso: ~35° elev, 45° azimuth
+  var ISO_DIST = 90;                   // ortho: distance only sets near/far, not scale
+
+  /* shared framing state (both modes track the same station X) */
+  var railX = 0;             // live framed position (glides along X only)
+  var manual = { x:0, y:0 }; // drag nudge, decays back to the framing
+  var glide = { active:false, t:0, dur:1.65, fromX:0, toX:0 };
+  var targetStationX = 0;
+
+  function applyOrtho(){
+    var a = innerWidth/innerHeight;
+    camOrtho.left=-VIEW_SIZE*a; camOrtho.right=VIEW_SIZE*a;
+    camOrtho.top=VIEW_SIZE; camOrtho.bottom=-VIEW_SIZE;
+    camOrtho.updateProjectionMatrix();
+  }
+  function applyStationCam(i){
+    glide.fromX = railX; glide.toX = stations[i].x; glide.t=0; glide.active=true;
+    targetStationX = stations[i].x;   // frame the active station immediately
+  }
+  function updateCamera(dt, time){
+    if(glide.active){
+      glide.t += dt/glide.dur;
+      var e = easeInOut(clamp(glide.t,0,1));
+      railX = lerp(glide.fromX, glide.toX, e);
+      if(glide.t>=1){ glide.active=false; railX=glide.toX; }
+    }
+    // manual nudges relax back to the framing (framing is the default)
+    var relax = 1-Math.pow(0.06, dt);
+    manual.x = lerp(manual.x, 0, relax);
+    manual.y = lerp(manual.y, 0, relax);
+
+    if(VIEW==="isometric"){
+      // fixed iso ANGLE: camera holds a constant offset from the framed point → advancing
+      // a step gently PANS along the bench, no rotation, no perspective shift.
+      var idxI = Math.sin(time*0.12)*0.07;
+      var tx = railX + idxI + manual.x, ty = ISO_LOOK_Y + manual.y;
+      camOrtho.position.set(tx + ISO_DIR.x*ISO_DIST, ty + ISO_DIR.y*ISO_DIST, ISO_DIR.z*ISO_DIST);
+      camOrtho.up.set(0,1,0);
+      camOrtho.lookAt(tx, ty, 0);
+    } else {
+      // pure lateral dolly: look straight ahead so the view direction is constant everywhere.
+      var idleX = Math.sin(time*0.15)*0.12;
+      var camX = railX + idleX + manual.x;
+      camPersp.position.set(camX, RAIL_Y + manual.y, railZoom);
+      camPersp.lookAt(camX, LOOK_Y, 0);
+    }
+  }
+
+  /* input — drag nudges the framing, wheel dollies/zooms; neither mode orbits */
+  var dragging=false, lastX=0, lastY=0;
+  function pt(e){ return e.touches&&e.touches[0] ? {x:e.touches[0].clientX,y:e.touches[0].clientY} : {x:e.clientX,y:e.clientY}; }
+  function onDown(e){ dragging=true; var p=pt(e); lastX=p.x; lastY=p.y; }
+  function onMove(e){
+    if(!dragging) return;
+    var p=pt(e); var dx=p.x-lastX, dy=p.y-lastY; lastX=p.x; lastY=p.y;
+    if(VIEW==="isometric"){
+      manual.x = clamp(manual.x - dx*0.013, -3.2, 3.2);
+      manual.y = clamp(manual.y + dy*0.010, -1.4, 2.0);
+    } else {
+      manual.x = clamp(manual.x - dx*0.01, -2.4, 2.4);
+      manual.y = clamp(manual.y - dy*0.006, -0.9, 1.2);
+    }
+  }
+  function onUp(){ dragging=false; }
+  function onWheel(e){ e.preventDefault();
+    if(VIEW==="isometric"){ VIEW_SIZE = clamp(VIEW_SIZE*(1+e.deltaY*0.0012), 5.0, 13.0); applyOrtho(); }
+    else { railZoom = clamp(railZoom*(1+e.deltaY*0.0011), 6.5, 15); }
+  }
+  window.addEventListener("mousedown",onDown); window.addEventListener("mousemove",onMove); window.addEventListener("mouseup",onUp);
+  window.addEventListener("touchstart",onDown,{passive:true}); window.addEventListener("touchmove",onMove,{passive:true}); window.addEventListener("touchend",onUp);
+
+  /* ============================================================
+     5 · PLAYBACK + UI
+     ============================================================ */
+  var cur=0, stepStart=0, playing=true;
+  var STEP_DUR = 6.5;
+
+  var el = {
+    stIndex:document.getElementById("stIndex"),
+    tag:document.getElementById("tag"), title:document.getElementById("title"),
+    body:document.getElementById("body"), track:document.getElementById("track"),
+    back:document.getElementById("back"), next:document.getElementById("next"), replay:document.getElementById("replay"),
+    hud:document.getElementById("hud"), hudLabel:document.getElementById("hudLabel"), hudTime:document.getElementById("hudTime"),
+    panel:document.getElementById("panel"), hint:document.getElementById("hint")
+  };
+
+  function buildTrack(){
+    el.track.innerHTML="";
+    for(var i=0;i<CONTENT.length;i++){
+      var s=document.createElement("div"); s.className="seg"; s.dataset.i=i;
+      var f=document.createElement("div"); f.className="fill"; s.appendChild(f);
+      s.addEventListener("click", (function(idx){ return function(){ goTo(idx); }; })(i));
+      el.track.appendChild(s);
+    }
+  }
+  function refreshTrack(){
+    var segs=el.track.children;
+    for(var i=0;i<segs.length;i++){
+      segs[i].className="seg"+(i<cur?" done":"");
+      if(i>cur) segs[i].firstChild.style.width="0%";
+    }
+  }
+  function pad(n){ return (n<10?"0":"")+n; }
+
+  function renderStep(){
+    var c=CONTENT[cur], st=stations[cur];
+    el.title.classList.add("fading"); el.body.classList.add("fading");
+    setTimeout(function(){
+      el.stIndex.innerHTML = "Station <b>"+pad(cur+1)+"</b> / "+pad(CONTENT.length);
+      el.tag.textContent=c.tag; el.tag.className="tag"+(c.tagClass?" "+c.tagClass:"");
+      el.title.textContent=c.title; el.body.innerHTML=c.body;
+      el.title.classList.remove("fading"); el.body.classList.remove("fading");
+    },160);
+    el.back.disabled = cur===0;
+    el.next.textContent = cur===CONTENT.length-1 ? "Restart ↺" : "Next ›";
+    refreshTrack();
+    applyStationCam(cur);
+    if(st.enter) st.enter();        // positions the travelling sample & docks resident tools
+    if(st.hud){ el.hudLabel.textContent=st.hud.label; el.hud.classList.add("show"); }
+    else el.hud.classList.remove("show");
+    stepStart=clock.getElapsedTime(); playing=true;
+  }
+  // sequential Next lets the sample GLIDE from the previous station; any other jump snaps it
+  function goTo(i){ var prev=cur; cur=clamp(i,0,CONTENT.length-1); SNAP_SAMPLE=(cur!==prev+1); renderStep(); }
+  function next(){ if(cur===CONTENT.length-1){ goTo(0); } else goTo(cur+1); }
+  function back(){ goTo(cur-1); }
+  function replay(){ var st=stations[cur]; SNAP_SAMPLE=true; if(st.enter) st.enter(); stepStart=clock.getElapsedTime(); playing=true; }
+
+  el.next.addEventListener("click",next);
+  el.back.addEventListener("click",back);
+  el.replay.addEventListener("click",replay);
+  window.addEventListener("keydown",function(e){
+    if(e.key==="ArrowRight"){ next(); }
+    else if(e.key==="ArrowLeft"){ back(); }
+    else if(e.key===" "){ replay(); }
+  });
+
+  /* ============================================================
+     5b · PER-STEP VISIBILITY — show ONLY the current step's equipment
+        Each station group already holds exactly the props that step uses (its
+        reagent bottle / centrifuge / cold block / incubation / NanoDrop / ice),
+        so fading the whole group in for the active step and out for every other
+        one means no prop is ever visible on a step that doesn't use it — e.g.
+        the centrifuge no longer shows on the lyse or ethanol steps. The
+        travelling SAMPLE lives at scene level and is deliberately untouched, so
+        it stays present across every step. Both Cinematic and Isometric run
+        this same pass every frame, so both respect per-step visibility.
+     ============================================================ */
+  function collectStationMats(st){
+    var seen=[]; st.mats=[];
+    st.group.traverse(function(o){
+      if(!o.material) return;
+      var arr = Array.isArray(o.material) ? o.material : [o.material];
+      for(var k=0;k<arr.length;k++){
+        var m=arr[k];
+        if(m && seen.indexOf(m)<0){ seen.push(m);
+          m._bo=(m.opacity==null?1:m.opacity); m._bt=!!m.transparent; st.mats.push(m); }
+      }
+    });
+    // fold the bench decal + contact shadow into the same fade set
+    [st.decal, st.shadow].forEach(function(mesh){
+      if(mesh && mesh.material){ var m=mesh.material;
+        m._bo=(m.opacity==null?1:m.opacity); m._bt=!!m.transparent; st.mats.push(m); }
+    });
+  }
+  function applyStationVis(st){
+    var f=st.vis;
+    if(f<=0.006){                                // fully out — hide, skip material work
+      if(st._vstate!==0){
+        st.group.visible=false;
+        if(st.decal) st.decal.visible=false;
+        if(st.shadow) st.shadow.visible=false;
+        st._vstate=0;
+      }
+      return;
+    }
+    if(st._vstate===0){                          // coming back in — reveal meshes
+      st.group.visible=true;
+      if(st.decal) st.decal.visible=true;
+      if(st.shadow) st.shadow.visible=true;
+    }
+    if(f>=0.994){                                // fully in — restore base look once
+      if(st._vstate!==2){
+        for(var i=0;i<st.mats.length;i++){ var m=st.mats[i]; m.transparent=m._bt; m.opacity=m._bo; }
+        st._vstate=2;
+      }
+    } else {                                     // mid-fade — scale every opacity by f
+      for(var j=0;j<st.mats.length;j++){ var mm=st.mats[j]; mm.transparent=true; mm.opacity=mm._bo*f; }
+      st._vstate=1;
+    }
+  }
+  function updateStationVisibility(dt){
+    var kv = 1-Math.pow(0.0009, dt);             // smooth ~0.4s fade in/out
+    for(var i=0;i<stations.length;i++){
+      var st=stations[i], tgt=(i===cur)?1:0;
+      st.vis = lerp(st.vis, tgt, kv);
+      if(tgt===1 && st.vis>0.999) st.vis=1;
+      if(tgt===0 && st.vis<0.001) st.vis=0;
+      applyStationVis(st);
+    }
+  }
+
+  /* ============================================================
+     6 · LOOP
+     ============================================================ */
+  function updateAll(dt, time){
+    for(var i=0;i<stations.length;i++){
+      var st=stations[i];
+      for(var u=0;u<st.updatables.length;u++){
+        var o=st.updatables[u];
+        if(o.userData && o.userData.update) o.userData.update(dt);
+      }
+    }
+    // THE single travelling sample — each vessel eases toward its world target and
+    // updates its own liquid; only the active one (and a hand-off partner) is visible.
+    if(SAMPLE){
+      for(var v=0;v<SAMPLE.vessels.length;v++){
+        var ves=SAMPLE.vessels[v];
+        ves.position.lerp(ves.userData.tPos, 1-Math.pow(0.02,dt));
+        if(ves.userData.update) ves.userData.update(dt);
+      }
+    }
+    if(dust) dust.userData.update(dt);
+  }
+
+  function animate(){
+    requestAnimationFrame(animate);
+    var dt=Math.min(clock.getDelta(),0.05);
+    var time=clock.getElapsedTime();
+
+    var st=stations[cur];
+    var elapsed=time-stepStart;
+    var p=clamp(elapsed/STEP_DUR,0,1);
+    if(p>=1) playing=false;
+    if(st.timeline) st.timeline(p);
+
+    var segs=el.track.children;
+    if(segs[cur]) segs[cur].firstChild.style.width=(p*100)+"%";
+
+    if(st.hud){
+      var remain=Math.max(0, st.hud.seconds*(1-p));
+      var mm=Math.floor(remain/60), ss=Math.floor(remain%60);
+      el.hudTime.textContent=pad(mm)+":"+pad(ss);
+    }
+
+    updateStationVisibility(dt);   // show ONLY the current step's equipment
+    updateAll(dt, time);
+
+    // keep the softbox key light (and its shadow frustum) tight around the active station
+    var lx = targetStationX;
+    keyLight.position.set(lx+5, 11, 7);
+    keyLight.target.position.set(lx, 0.6, 0);
+    keyLight.target.updateMatrixWorld();
+
+    // dark-studio pool-of-light removed for the bright-lab look — keep the node but hidden
+    if(stationGlow){
+      stationGlow.position.x = railX;
+      stationGlowMat.opacity = 0.0;
+    }
+
+    updateCamera(dt, time);
+    renderer.render(scene,camera);
+  }
+
+  /* ============================================================
+     BOOT
+     ============================================================ */
+  try{
+    clock=new THREE.Clock();
+    initScene();
+    // initialise every station to its start state so the whole line reads correctly
+    SNAP_SAMPLE=true;
+    for(var s=0;s<stations.length;s++){ if(stations[s].enter) stations[s].enter(); }
+    // SATURATION PASS — deepen every object's colour. Neutrals (grey instruments, bench) barely
+    // change because low saturation × factor stays low; only the coloured props/liquids/accents
+    // pop. Background wall / labels / env use MeshBasicMaterial and are skipped.
+    (function boostSat(){
+      var f=1.5, seen=[];
+      scene.traverse(function(o){
+        if(!o.isMesh || !o.material) return;
+        var mats = Array.isArray(o.material) ? o.material : [o.material];
+        for(var i=0;i<mats.length;i++){
+          var m=mats[i];
+          if(!m || !m.color || m.isMeshBasicMaterial) continue;
+          if(seen.indexOf(m)!==-1) continue; seen.push(m);
+          var hsl={}; m.color.getHSL(hsl);
+          if(hsl.s>0.05){ hsl.s=Math.min(1,hsl.s*f); m.color.setHSL(hsl.h,hsl.s,hsl.l); }
+        }
+      });
+    })();
+    renderer.domElement.addEventListener("wheel", onWheel, {passive:false});
+    buildTrack();
+    railX = stations[0].x; targetStationX = stations[0].x;
+    renderStep();
+    animate();
+
+    // VIEW toggle wiring — switching keeps step / sample / timer / warning intact
+    function pickMode(m){ if(m===VIEW) return; applyViewMode(m); }
+    document.getElementById("vtCine").addEventListener("click", function(){ pickMode("cinematic"); });
+    document.getElementById("vtIso").addEventListener("click", function(){ pickMode("isometric"); });
+
+    var intro=document.getElementById("intro");
+    requestAnimationFrame(function(){ intro.classList.add("show"); });
+    setTimeout(function(){ el.panel.classList.add("ready"); el.hint.classList.add("ready");
+      document.getElementById("viewToggle").classList.add("ready"); }, 1900);
+    setTimeout(function(){ intro.classList.remove("show"); intro.classList.add("gone");
+      setTimeout(function(){ intro.style.display="none"; }, 1100); }, 2800);
+
+    window.addEventListener("resize",function(){
+      var a=innerWidth/innerHeight;
+      camPersp.aspect=a; camPersp.updateProjectionMatrix();
+      applyOrtho();
+      renderer.setSize(innerWidth,innerHeight);
+      renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+    });
+  }catch(err){
+    console.error(err);
+    document.getElementById("fail").style.display="flex";
+  }
+
+})();
+</script>
+</body>
+</html>
