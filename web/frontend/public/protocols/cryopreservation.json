@@ -1,0 +1,233 @@
+{
+  "title": "Cryopreservation of Mammalian Cells",
+  "title_en": "Cryopreservation of Mammalian Cells",
+  "summary": "Protocol for harvesting, freezing, and long-term storage of mammalian cells in liquid nitrogen using DMSO-based freezing medium.",
+  "summary_en": "Protocol for harvesting, freezing, and long-term storage of mammalian cells in liquid nitrogen using DMSO-based freezing medium.",
+  "source": "Cryopreservation of Mammalian Cells",
+  "materials": [
+    {
+      "name": "Freezing medium: 90% FBS + 10% DMSO (or complete medium with 10% DMSO)",
+      "note": null
+    },
+    {
+      "name": "Cryovials",
+      "note": null
+    },
+    {
+      "name": "Isopropanol freezing container (Mr. Frosty) or controlled-rate freezer",
+      "note": null
+    },
+    {
+      "name": "Liquid nitrogen storage dewar",
+      "note": null
+    }
+  ],
+  "steps": [
+    {
+      "index": 1,
+      "phase": "procedure",
+      "text": "Harvest cells in log-phase growth by trypsinization and neutralize with complete medium.",
+      "text_en": "Harvest cells in log-phase growth by trypsinization and neutralize with complete medium.",
+      "kind": "action",
+      "action": "generic",
+      "container": "flask",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [
+        {
+          "name": "trypsin",
+          "name_en": "trypsin",
+          "volume": null,
+          "volume_en": null,
+          "condition": null,
+          "condition_en": null
+        },
+        {
+          "name": "complete medium",
+          "name_en": "complete medium",
+          "volume": null,
+          "volume_en": null,
+          "condition": null,
+          "condition_en": null
+        }
+      ],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "Harvest cells in log-phase growth by trypsinization and neutralize with complete medium."
+    },
+    {
+      "index": 2,
+      "phase": "procedure",
+      "text": "Centrifuge the cell suspension at 200 x g for 5 min to pellet the cells.",
+      "text_en": "Centrifuge the cell suspension at 200 x g for 5 min to pellet the cells.",
+      "kind": "spin",
+      "action": "centrifuge",
+      "container": "tube",
+      "duration_seconds": 300,
+      "spin": {
+        "duration_seconds": 300,
+        "rcf_min": 200,
+        "note": "to pellet the cells"
+      },
+      "reagents": [],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "Centrifuge the cell suspension at 200 x g for 5 min to pellet the cells."
+    },
+    {
+      "index": 3,
+      "phase": "procedure",
+      "text": "Aspirate and discard the supernatant, taking care not to disturb the pellet.",
+      "text_en": "Aspirate and discard the supernatant, taking care not to disturb the pellet.",
+      "kind": "action",
+      "action": "discard",
+      "container": null,
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [
+        "taking care not to disturb the pellet"
+      ],
+      "hazards_en": [
+        "taking care not to disturb the pellet"
+      ],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "Aspirate and discard the supernatant, taking care not to disturb the pellet."
+    },
+    {
+      "index": 4,
+      "phase": "procedure",
+      "text": "Gently resuspend the pellet in cold freezing medium to a density of 1-5 x 10^6 cells per mL. Keep the cells on ice.",
+      "text_en": "Gently resuspend the pellet in cold freezing medium to a density of 1-5 x 10^6 cells per mL. Keep the cells on ice.",
+      "kind": "action",
+      "action": "pour_add",
+      "container": null,
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [
+        {
+          "name": "cold freezing medium",
+          "name_en": "cold freezing medium",
+          "volume": null,
+          "volume_en": null,
+          "condition": "to a density of 1-5 x 10^6 cells per mL",
+          "condition_en": "to a density of 1-5 x 10^6 cells per mL"
+        }
+      ],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [
+        "Keep the cells on ice"
+      ],
+      "hazards_en": [
+        "Keep the cells on ice"
+      ],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "Gently resuspend the pellet in cold freezing medium to a density of 1-5 x 10^6 cells per mL. Keep the cells on ice."
+    },
+    {
+      "index": 5,
+      "phase": "procedure",
+      "text": "Aliquot 1 mL of the cell suspension into each labelled cryovial. Work quickly — prolonged exposure to DMSO at room temperature is toxic to cells.",
+      "text_en": "Aliquot 1 mL of the cell suspension into each labelled cryovial. Work quickly — prolonged exposure to DMSO at room temperature is toxic to cells.",
+      "kind": "action",
+      "action": "transfer",
+      "container": "cryovial",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [
+        {
+          "name": "cell suspension",
+          "name_en": "cell suspension",
+          "volume": "1 mL",
+          "volume_en": "1 mL",
+          "condition": null,
+          "condition_en": null
+        }
+      ],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [
+        "Work quickly — prolonged exposure to DMSO at room temperature is toxic to cells."
+      ],
+      "hazards_en": [
+        "Work quickly — prolonged exposure to DMSO at room temperature is toxic to cells."
+      ],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "Aliquot 1 mL of the cell suspension into each labelled cryovial. Work quickly — prolonged exposure to DMSO at room temperature is toxic to cells."
+    },
+    {
+      "index": 6,
+      "phase": "procedure",
+      "text": "Place the cryovials into an isopropanol freezing container and transfer to a -80°C freezer overnight to achieve a controlled cooling rate of about -1°C per min.",
+      "text_en": "Place the cryovials into an isopropanol freezing container and transfer to a -80°C freezer overnight to achieve a controlled cooling rate of about -1°C per min.",
+      "kind": "storage",
+      "action": "store",
+      "container": "cryovial",
+      "duration_seconds": 86400,
+      "spin": null,
+      "reagents": [],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "Place the cryovials into an isopropanol freezing container and transfer to a -80°C freezer overnight to achieve a controlled cooling rate of about -1°C per min."
+    },
+    {
+      "index": 7,
+      "phase": "procedure",
+      "text": "The next day, transfer the frozen cryovials into the liquid nitrogen dewar (vapor phase, below -150°C) for long-term storage.",
+      "text_en": "The next day, transfer the frozen cryovials into the liquid nitrogen dewar (vapor phase, below -150°C) for long-term storage.",
+      "kind": "storage",
+      "action": "store",
+      "container": "cryovial",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [
+        "Liquid nitrogen: vapor phase below -150°C, handle with appropriate cryogenic protection"
+      ],
+      "hazards_en": [
+        "Liquid nitrogen: vapor phase below -150°C, handle with appropriate cryogenic protection"
+      ],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "The next day, transfer the frozen cryovials into the liquid nitrogen dewar (vapor phase, below -150°C) for long-term storage."
+    }
+  ],
+  "open_parameters": [
+    {
+      "question": "What cell density within the 1-5 x 10^6 cells per mL range should be targeted?",
+      "where": "Step 4"
+    },
+    {
+      "question": "Use isopropanol freezing container (Mr. Frosty) or a controlled-rate freezer?",
+      "where": "Materials / Step 6"
+    }
+  ],
+  "reference": null
+}

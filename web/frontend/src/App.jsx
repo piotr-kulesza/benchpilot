@@ -1,104 +1,169 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import Home from './components/Home.jsx'
 import Intake from './components/Intake.jsx'
 import Runner from './components/Runner.jsx'
 import { partitionSteps } from './lib/runtime.js'
 
-// Default data source is the bundled example, so the demo renders with ZERO
-// backend. A future live-parse endpoint can be pointed at with VITE_API_BASE
-// without touching this default path.
+// Live-parse backend (uploads / paste). Empty = no backend → the bundled examples
+// still work with ZERO backend and no API key. Point at web/api.py with VITE_API_BASE.
 const API_BASE = import.meta.env.VITE_API_BASE || ''
+const STORE_KEY = 'benchpilot.session'
 
-// A run can be deep-linked (handy for sharing / demoing a specific step):
-//   ?run=1            -> jump straight into the runner
-//   ?run=1&step=5     -> ...at step index 5
-//   ?kit=mini&cells=le -> preset intake answers
-function readUrlState() {
+// ── tiny path router: '/', '/intake', '/run'. The legacy ?run=1[&step=N] deep link
+// still means "jump into the runner" (of the current / default protocol). ──
+function routeFromLocation() {
   const q = new URLSearchParams(window.location.search)
-  const answers = {}
-  for (const k of ['kit', 'cells', 'analysis', 'rin']) {
-    if (q.get(k)) answers[k] = q.get(k)
-  }
-  return {
-    phase: q.get('run') ? 'run' : 'intake',
-    step: q.get('step') ? Math.max(0, parseInt(q.get('step'), 10) - 1) : 0,
-    lang: q.get('lang') === 'orig' ? 'orig' : 'en', // default English
-    answers,
-  }
+  if (q.get('run')) return 'run'
+  const p = window.location.pathname
+  return p === '/run' ? 'run' : p === '/intake' ? 'intake' : 'home'
+}
+function urlAnswers() {
+  const q = new URLSearchParams(window.location.search)
+  const a = {}
+  for (const k of ['kit', 'cells', 'analysis', 'rin']) if (q.get(k)) a[k] = q.get(k)
+  return a
+}
+
+function loadSession() {
+  try { return JSON.parse(sessionStorage.getItem(STORE_KEY) || 'null') } catch { return null }
+}
+function saveSession(s) {
+  try { sessionStorage.setItem(STORE_KEY, JSON.stringify(s)) } catch { /* private mode */ }
 }
 
 export default function App() {
-  const initial = readUrlState()
-  const [protocol, setProtocol] = useState(null)
-  const [error, setError] = useState(null)
-  const [phase, setPhase] = useState(initial.phase) // 'intake' | 'run'
-  const [lang, setLang] = useState(initial.lang) // 'en' | 'orig'
-  const [answers, setAnswers] = useState(initial.answers)
+  const q = new URLSearchParams(window.location.search)
+  const persisted = loadSession()
 
+  const [examples, setExamples] = useState([])
+  const [protocol, setProtocol] = useState(persisted?.protocol || null)
+  const [source, setSource] = useState(persisted?.source || null)
+  const [route, setRoute] = useState('home') // resolved in the mount effect below
+  const [lang, setLang] = useState(q.get('lang') === 'orig' ? 'orig' : (persisted?.lang || 'en'))
+  const [answers, setAnswers] = useState({ ...(persisted?.answers || {}), ...urlAnswers() })
+  const [parseState, setParseState] = useState({ status: 'idle' })
+  const initialStep = q.get('step') ? Math.max(0, parseInt(q.get('step'), 10) - 1) : 0
+  const resolved = useRef(false)
+
+  // load the example index (home needs it; harmless elsewhere)
   useEffect(() => {
-    // Always load the bundled example. (The live path, if built, would POST to
-    // `${API_BASE}/api/parse` and feed the same setProtocol — see web/api.py.)
-    fetch('parsed.json')
-      .then((r) => {
-        if (!r.ok) throw new Error(`Could not load bundled protocol (${r.status})`)
-        return r.json()
-      })
-      .then(setProtocol)
-      .catch((e) => setError(e.message))
+    fetch('protocols/index.json').then((r) => (r.ok ? r.json() : [])).then(setExamples).catch(() => setExamples([]))
   }, [])
 
-  // Presentation filter: only actionable steps become 3D stations; the rest
-  // (notes / prose-only) are shown as text in the intake. No data is dropped.
-  const { stations, notes } = useMemo(() => partitionSteps(protocol?.steps || []), [protocol])
-  const runProtocol = useMemo(
-    () => (protocol ? { ...protocol, steps: stations } : protocol),
-    [protocol, stations],
-  )
+  // resolve the initial route once (handles reload-mid-run + legacy deep links)
+  useEffect(() => {
+    if (resolved.current) return
+    resolved.current = true
+    const want = routeFromLocation()
+    if (want === 'home') { setRoute('home'); return }
+    if (protocol) { setRoute(want); return } // persisted session → stay where we were
+    // a /run or /intake (or ?run=1) with no protocol: default to the RNA example so
+    // existing deep links keep working; otherwise fall back Home.
+    fetch('protocols/neutrophil_rna.json')
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((p) => {
+        setProtocol(p); setSource('Neutrophil RNA extraction')
+        saveSession({ protocol: p, source: 'Neutrophil RNA extraction', lang, answers })
+        setRoute(want)
+      })
+      .catch(() => { window.history.replaceState({}, '', '/'); setRoute('home') })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (error) {
+  // back/forward
+  useEffect(() => {
+    const onPop = () => setRoute(routeFromLocation())
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+
+  const go = (r, { replace } = {}) => {
+    const path = r === 'home' ? '/' : '/' + r
+    window.history[replace ? 'replaceState' : 'pushState']({}, '', path)
+    setRoute(r)
+  }
+
+  const adopt = (p, src) => {
+    setProtocol(p); setSource(src); setParseState({ status: 'idle' })
+    setAnswers({}) // a fresh protocol starts with fresh intake answers
+    saveSession({ protocol: p, source: src, lang, answers: {} })
+    go('intake')
+  }
+
+  const pickExample = (ex) => {
+    setParseState({ status: 'loading' })
+    fetch('protocols/' + ex.file)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`Could not load ${ex.name} (${r.status})`))))
+      .then((p) => adopt(p, ex.name))
+      .catch((e) => setParseState({ status: 'error', message: e.message }))
+  }
+
+  const parseUpload = ({ text, file }) => {
+    setParseState({ status: 'loading' })
+    const done = (p) => adopt(p, file ? file.name : 'Pasted protocol')
+    const fail = (msg) => setParseState({ status: 'error', message: msg })
+    const req = file
+      ? (() => { const fd = new FormData(); fd.append('file', file); return fetch(`${API_BASE}/api/parse-file`, { method: 'POST', body: fd }) })()
+      : fetch(`${API_BASE}/api/parse`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) })
+    req
+      .then(async (r) => {
+        // 404/405 on the parse endpoint = no backend wired (same-origin static host).
+        if (r.status === 404 || r.status === 405) throw new Error('__no_backend__')
+        if (!r.ok) {
+          let detail = `Parse failed (${r.status}).`
+          try { const j = await r.json(); if (j.detail) detail = j.detail } catch { /* non-JSON */ }
+          throw new Error(detail)
+        }
+        return r.json()
+      })
+      .then(done)
+      .catch((e) => fail(
+        e.message === '__no_backend__' || /Failed to fetch|NetworkError/i.test(e.message)
+          ? 'Live parsing needs the backend running (web/api.py) with an ANTHROPIC_API_KEY. It looks offline.'
+          : e.message,
+      ))
+  }
+
+  // keep lang persisted across reloads
+  useEffect(() => { if (protocol) saveSession({ protocol, source, lang, answers }) }, [lang]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // only actionable steps become 3D stations; the rest show as notes in the intake.
+  const { stations, notes } = useMemo(() => partitionSteps(protocol?.steps || []), [protocol])
+  const runProtocol = useMemo(() => (protocol ? { ...protocol, steps: stations } : protocol), [protocol, stations])
+
+  if (route === 'home' || !protocol) {
     return (
       <div className="app">
-        <div className="errbox">
-          <div>
-            <strong>Failed to load protocol.</strong>
-            <div style={{ marginTop: 8 }}>{error}</div>
-          </div>
+        <div className="shell">
+          <Home examples={examples} onPickExample={pickExample} onParse={parseUpload} parseState={parseState} />
         </div>
       </div>
     )
   }
 
-  if (!protocol) {
-    return (
-      <div className="app">
-        <div className="loading">Loading protocol…</div>
-      </div>
-    )
-  }
-
-  // The runner is a full-bleed immersive experience — it renders outside the
-  // padded document shell (its own top HUD carries the brand + language + setup).
-  if (phase === 'run') {
+  if (route === 'run') {
     return (
       <Runner
         protocol={runProtocol}
         answers={answers}
         setAnswers={setAnswers}
-        initialStep={initial.step}
-        onExit={() => setPhase('intake')}
+        initialStep={initialStep}
+        onExit={() => go('intake')}
         lang={lang}
         setLang={setLang}
       />
     )
   }
 
+  // intake
   return (
     <div className="app">
       <div className="shell">
         <div className="masthead">
+          <button className="ghost-btn home-back" onClick={() => go('home')}>← Home</button>
           <div className="brand">
             <span className="dot" />
             benchpilot
-            <small>&nbsp;protocol player</small>
+            {source && <small>&nbsp;· {source}</small>}
           </div>
           <span className="spacer" />
           <LangToggle lang={lang} setLang={setLang} />
@@ -109,7 +174,7 @@ export default function App() {
           notes={notes}
           answers={answers}
           setAnswers={setAnswers}
-          onStart={() => setPhase('run')}
+          onStart={() => go('run')}
           lang={lang}
         />
       </div>
@@ -117,17 +182,11 @@ export default function App() {
   )
 }
 
-// A compact EN / original language toggle. The source language name isn't in the
-// schema, so the non-English label is simply "Original".
 function LangToggle({ lang, setLang }) {
   return (
     <div className="lang-toggle" role="group" aria-label="language">
-      <button aria-pressed={lang === 'en'} onClick={() => setLang('en')}>
-        EN
-      </button>
-      <button aria-pressed={lang === 'orig'} onClick={() => setLang('orig')}>
-        Original
-      </button>
+      <button aria-pressed={lang === 'en'} onClick={() => setLang('en')}>EN</button>
+      <button aria-pressed={lang === 'orig'} onClick={() => setLang('orig')}>Original</button>
     </div>
   )
 }

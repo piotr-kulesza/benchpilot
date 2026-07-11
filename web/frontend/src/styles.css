@@ -1006,3 +1006,68 @@ kbd {
   }
   .imm-look { display: none; }
 }
+
+/* ── Home (Stage 9): hero + upload/paste + example grid ─────────────────── */
+.home { padding: 8px 2px 40px; }
+.home-hero { padding: 18px 2px 26px; border-bottom: 1px solid var(--line); margin-bottom: 26px; }
+.home-hero .brand { font-size: 18px; margin-bottom: 18px; }
+.home-hero h1 {
+  font-size: 30px; line-height: 1.18; letter-spacing: -0.02em; color: var(--ink);
+  max-width: 20ch; margin: 0 0 14px; font-weight: 700;
+}
+.home-sub { color: var(--ink-soft); font-size: 16px; line-height: 1.55; max-width: 62ch; margin: 0; }
+
+.home-panel { margin: 0 0 30px; }
+.home-h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-faint); margin: 0 0 14px; font-weight: 700; }
+.home-note { color: var(--ink-soft); font-size: 14.5px; margin: -6px 0 16px; max-width: 68ch; }
+
+.upload-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 720px) { .upload-row { grid-template-columns: 1fr; } }
+.dropzone {
+  border: 2px dashed var(--line-strong); border-radius: var(--radius); background: var(--panel-2);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 30px 18px; cursor: pointer; color: var(--ink-soft);
+  transition: border-color .15s, background .15s, transform .05s; min-height: 172px;
+}
+.dropzone:hover { border-color: var(--accent); background: var(--accent-soft); }
+.dropzone.drag { border-color: var(--accent); background: var(--accent-tint); }
+.dropzone.disabled { opacity: 0.55; pointer-events: none; }
+.dz-icon { font-size: 30px; color: var(--accent); line-height: 1; margin-bottom: 8px; }
+.dz-main { font-size: 15px; color: var(--ink); }
+.dz-main b { color: var(--accent-strong); }
+.dz-sub { font-size: 13px; color: var(--ink-faint); margin-top: 4px; }
+
+.paste-box { display: flex; flex-direction: column; gap: 10px; }
+.paste-box textarea {
+  flex: 1; min-height: 130px; resize: vertical; border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm); padding: 12px 14px; font: inherit; font-size: 14.5px;
+  color: var(--ink); background: var(--panel); box-shadow: var(--shadow-sm);
+}
+.paste-box textarea:focus { outline: none; border-color: var(--accent); }
+.parse-btn {
+  align-self: flex-start; background: var(--accent); color: #fff; border: none;
+  border-radius: 999px; padding: 10px 22px; font: inherit; font-weight: 650; font-size: 14.5px;
+  cursor: pointer; box-shadow: var(--shadow-sm);
+}
+.parse-btn:hover:not(:disabled) { background: var(--accent-strong); }
+.parse-btn:disabled { opacity: 0.45; cursor: default; }
+
+.parse-status { margin-top: 12px; font-size: 14px; padding: 10px 14px; border-radius: var(--radius-sm); }
+.parse-status.loading { background: var(--accent-soft); color: var(--accent-strong); }
+.parse-status.error { background: var(--danger-soft); color: var(--danger); border: 1px solid var(--danger-line); }
+
+.ex-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.ex-card {
+  text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 16px 16px 14px; cursor: pointer; box-shadow: var(--shadow-sm);
+  transition: border-color .15s, box-shadow .15s, transform .05s; display: flex; flex-direction: column; gap: 4px;
+}
+.ex-card:hover:not(:disabled) { border-color: var(--accent); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.ex-card:active { transform: translateY(0); }
+.ex-card:disabled { opacity: 0.5; cursor: default; }
+.ex-name { font-size: 15.5px; font-weight: 650; color: var(--ink); line-height: 1.25; }
+.ex-tech { font-size: 12.5px; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.ex-meta { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 12.5px; color: var(--ink-faint); flex-wrap: wrap; }
+.ex-steps { background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; }
+.ex-hi { color: var(--ink-soft); }
+.home-back { margin-right: 4px; }

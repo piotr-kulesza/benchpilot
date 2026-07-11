@@ -1,0 +1,431 @@
+{
+  "title": "Gram Stain",
+  "title_en": "Gram Stain",
+  "summary": "Differential staining procedure to distinguish Gram-positive from Gram-negative bacteria using crystal violet, iodine, decolorizer, and safranin counterstain.",
+  "summary_en": "Differential staining procedure to distinguish Gram-positive from Gram-negative bacteria using crystal violet, iodine, decolorizer, and safranin counterstain.",
+  "source": "Gram Stain protocol",
+  "materials": [
+    {
+      "name": "Crystal violet",
+      "note": null
+    },
+    {
+      "name": "Gram's iodine",
+      "note": null
+    },
+    {
+      "name": "95% ethanol (decolorizer)",
+      "note": null
+    },
+    {
+      "name": "Safranin counterstain",
+      "note": null
+    },
+    {
+      "name": "Glass slides, bunsen burner, light microscope with oil immersion objective",
+      "note": null
+    }
+  ],
+  "steps": [
+    {
+      "index": 1,
+      "phase": "procedure",
+      "text": "Prepare a thin smear of the bacterial culture on a clean glass slide and let it air dry.",
+      "text_en": "Prepare a thin smear of the bacterial culture on a clean glass slide and let it air dry.",
+      "kind": "action",
+      "action": "seed",
+      "container": "slide",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [
+        {
+          "name": "bacterial culture",
+          "name_en": "bacterial culture",
+          "volume": null,
+          "volume_en": null,
+          "condition": null,
+          "condition_en": null
+        }
+      ],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "Prepare a thin smear of the bacterial culture on a clean glass slide and let it air dry."
+    },
+    {
+      "index": 2,
+      "phase": "procedure",
+      "text": "Heat-fix the smear by passing the slide through a flame two or three times.",
+      "text_en": "Heat-fix the smear by passing the slide through a flame two or three times.",
+      "kind": "action",
+      "action": "heat",
+      "container": "slide",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [],
+      "conditionals": [],
+      "repeat": {
+        "count": 3,
+        "reason": "pass through flame two or three times"
+      },
+      "alternatives": [],
+      "hazards": [
+        "open flame"
+      ],
+      "hazards_en": [
+        "open flame"
+      ],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "Heat-fix the smear by passing the slide through a flame two or three times."
+    },
+    {
+      "index": 3,
+      "phase": "procedure",
+      "text": "Flood the smear with crystal violet and let it stand for 1 min.",
+      "text_en": "Flood the smear with crystal violet and let it stand for 1 min.",
+      "kind": "action",
+      "action": "stain",
+      "container": "slide",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [
+        {
+          "name": "crystal violet",
+          "name_en": "crystal violet",
+          "volume": null,
+          "volume_en": null,
+          "condition": null,
+          "condition_en": null
+        }
+      ],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "Flood the smear with crystal violet and let it stand for 1 min."
+    },
+    {
+      "index": 4,
+      "phase": "procedure",
+      "text": "Let the crystal violet stand for 1 min.",
+      "text_en": "Let the crystal violet stand for 1 min.",
+      "kind": "wait",
+      "action": "incubate_wait",
+      "container": "slide",
+      "duration_seconds": 60,
+      "spin": null,
+      "reagents": [],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "Flood the smear with crystal violet and let it stand for 1 min."
+    },
+    {
+      "index": 5,
+      "phase": "procedure",
+      "text": "Gently rinse the slide with distilled water for a few seconds.",
+      "text_en": "Gently rinse the slide with distilled water for a few seconds.",
+      "kind": "action",
+      "action": "pour_add",
+      "container": "slide",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [
+        {
+          "name": "distilled water",
+          "name_en": "distilled water",
+          "volume": null,
+          "volume_en": null,
+          "condition": null,
+          "condition_en": null
+        }
+      ],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "Gently rinse the slide with distilled water for a few seconds."
+    },
+    {
+      "index": 6,
+      "phase": "procedure",
+      "text": "Flood the smear with Gram's iodine and let it stand for 1 min.",
+      "text_en": "Flood the smear with Gram's iodine and let it stand for 1 min.",
+      "kind": "action",
+      "action": "stain",
+      "container": "slide",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [
+        {
+          "name": "Gram's iodine",
+          "name_en": "Gram's iodine",
+          "volume": null,
+          "volume_en": null,
+          "condition": null,
+          "condition_en": null
+        }
+      ],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "Flood the smear with Gram's iodine and let it stand for 1 min."
+    },
+    {
+      "index": 7,
+      "phase": "procedure",
+      "text": "Let the Gram's iodine stand for 1 min.",
+      "text_en": "Let the Gram's iodine stand for 1 min.",
+      "kind": "wait",
+      "action": "incubate_wait",
+      "container": "slide",
+      "duration_seconds": 60,
+      "spin": null,
+      "reagents": [],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "Flood the smear with Gram's iodine and let it stand for 1 min."
+    },
+    {
+      "index": 8,
+      "phase": "procedure",
+      "text": "Rinse briefly with distilled water.",
+      "text_en": "Rinse briefly with distilled water.",
+      "kind": "action",
+      "action": "pour_add",
+      "container": "slide",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [
+        {
+          "name": "distilled water",
+          "name_en": "distilled water",
+          "volume": null,
+          "volume_en": null,
+          "condition": null,
+          "condition_en": null
+        }
+      ],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "Rinse briefly with distilled water."
+    },
+    {
+      "index": 9,
+      "phase": "procedure",
+      "text": "Decolorize by adding 95% ethanol drop by drop for 10-15 s until the runoff is clear.",
+      "text_en": "Decolorize by adding 95% ethanol drop by drop for 10-15 s until the runoff is clear.",
+      "kind": "caution",
+      "action": "pour_add",
+      "container": "slide",
+      "duration_seconds": 15,
+      "spin": null,
+      "reagents": [
+        {
+          "name": "95% ethanol",
+          "name_en": "95% ethanol",
+          "volume": null,
+          "volume_en": null,
+          "condition": "drop by drop for 10-15 s until runoff is clear",
+          "condition_en": "drop by drop for 10-15 s until runoff is clear"
+        }
+      ],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [
+        "over-decolorizing gives false Gram-negative results",
+        "flammable ethanol"
+      ],
+      "hazards_en": [
+        "over-decolorizing gives false Gram-negative results",
+        "flammable ethanol"
+      ],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "Decolorize by adding 95% ethanol drop by drop for 10-15 s until the runoff is clear. CAUTION: over-decolorizing gives false Gram-negative results."
+    },
+    {
+      "index": 10,
+      "phase": "procedure",
+      "text": "Rinse immediately with distilled water to stop decolorization.",
+      "text_en": "Rinse immediately with distilled water to stop decolorization.",
+      "kind": "action",
+      "action": "pour_add",
+      "container": "slide",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [
+        {
+          "name": "distilled water",
+          "name_en": "distilled water",
+          "volume": null,
+          "volume_en": null,
+          "condition": null,
+          "condition_en": null
+        }
+      ],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [
+        "rinse immediately to stop decolorization"
+      ],
+      "hazards_en": [
+        "rinse immediately to stop decolorization"
+      ],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "Rinse immediately with distilled water to stop decolorization."
+    },
+    {
+      "index": 11,
+      "phase": "procedure",
+      "text": "Counterstain with safranin for 30-45 s.",
+      "text_en": "Counterstain with safranin for 30-45 s.",
+      "kind": "action",
+      "action": "stain",
+      "container": "slide",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [
+        {
+          "name": "safranin",
+          "name_en": "safranin",
+          "volume": null,
+          "volume_en": null,
+          "condition": null,
+          "condition_en": null
+        }
+      ],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "Counterstain with safranin for 30-45 s."
+    },
+    {
+      "index": 12,
+      "phase": "procedure",
+      "text": "Let the safranin counterstain stand for 30-45 s.",
+      "text_en": "Let the safranin counterstain stand for 30-45 s.",
+      "kind": "wait",
+      "action": "incubate_wait",
+      "container": "slide",
+      "duration_seconds": 45,
+      "spin": null,
+      "reagents": [],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "Counterstain with safranin for 30-45 s."
+    },
+    {
+      "index": 13,
+      "phase": "procedure",
+      "text": "Rinse with distilled water.",
+      "text_en": "Rinse with distilled water.",
+      "kind": "action",
+      "action": "pour_add",
+      "container": "slide",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [
+        {
+          "name": "distilled water",
+          "name_en": "distilled water",
+          "volume": null,
+          "volume_en": null,
+          "condition": null,
+          "condition_en": null
+        }
+      ],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "Rinse with distilled water and gently blot the slide dry with bibulous paper."
+    },
+    {
+      "index": 14,
+      "phase": "procedure",
+      "text": "Gently blot the slide dry with bibulous paper.",
+      "text_en": "Gently blot the slide dry with bibulous paper.",
+      "kind": "action",
+      "action": "generic",
+      "container": "slide",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "Rinse with distilled water and gently blot the slide dry with bibulous paper."
+    },
+    {
+      "index": 15,
+      "phase": "quality_control",
+      "text": "Examine the slide under the light microscope using the oil immersion (100x) objective.",
+      "text_en": "Examine the slide under the light microscope using the oil immersion (100x) objective.",
+      "kind": "measure",
+      "action": "measure",
+      "container": "slide",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "Examine the slide under the light microscope using the oil immersion (100x) objective."
+    }
+  ],
+  "open_parameters": [],
+  "reference": null
+}

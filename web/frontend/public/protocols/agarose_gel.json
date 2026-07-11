@@ -1,0 +1,323 @@
+{
+  "title": "Agarose Gel Electrophoresis of DNA (1% gel)",
+  "title_en": "Agarose Gel Electrophoresis of DNA (1% gel)",
+  "summary": "Preparation and running of a 1% agarose gel to separate DNA fragments by size, followed by visualization under UV light.",
+  "summary_en": "Preparation and running of a 1% agarose gel to separate DNA fragments by size, followed by visualization under UV light.",
+  "source": "Agarose Gel Electrophoresis of DNA (1% gel)",
+  "materials": [
+    {
+      "name": "Agarose powder",
+      "note": null
+    },
+    {
+      "name": "1X TAE buffer",
+      "note": null
+    },
+    {
+      "name": "10,000X SYBR Safe or ethidium bromide stain",
+      "note": null
+    },
+    {
+      "name": "6X DNA loading dye",
+      "note": null
+    },
+    {
+      "name": "DNA ladder",
+      "note": null
+    },
+    {
+      "name": "Casting tray, comb, gel tank, power supply",
+      "note": null
+    },
+    {
+      "name": "UV or blue-light transilluminator",
+      "note": null
+    }
+  ],
+  "steps": [
+    {
+      "index": 1,
+      "phase": "preparation",
+      "text": "Weigh 1 g of agarose and add it to 100 mL of 1X TAE buffer in a flask.",
+      "text_en": "Weigh 1 g of agarose and add it to 100 mL of 1X TAE buffer in a flask.",
+      "kind": "action",
+      "action": "pour_add",
+      "container": "flask",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [
+        {
+          "name": "Agarose powder",
+          "name_en": "Agarose powder",
+          "volume": "1 g",
+          "volume_en": "1 g",
+          "condition": null,
+          "condition_en": null
+        },
+        {
+          "name": "1X TAE buffer",
+          "name_en": "1X TAE buffer",
+          "volume": "100 mL",
+          "volume_en": "100 mL",
+          "condition": null,
+          "condition_en": null
+        }
+      ],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": true,
+      "gaps": [],
+      "verbatim": "Weigh 1 g of agarose and add it to 100 mL of 1X TAE buffer in a flask."
+    },
+    {
+      "index": 2,
+      "phase": "preparation",
+      "text": "Microwave the mixture for about 1-2 min, swirling occasionally, until the agarose is fully dissolved and the solution is clear.",
+      "text_en": "Microwave the mixture for about 1-2 min, swirling occasionally, until the agarose is fully dissolved and the solution is clear.",
+      "kind": "action",
+      "action": "heat",
+      "container": null,
+      "duration_seconds": 120,
+      "spin": null,
+      "reagents": [],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [
+        "Molten agarose is hot — handle with care"
+      ],
+      "hazards_en": [
+        "Molten agarose is hot — handle with care"
+      ],
+      "prep_ahead": true,
+      "gaps": [],
+      "verbatim": "Microwave the mixture for about 1-2 min, swirling occasionally, until the agarose is fully dissolved and the solution is clear."
+    },
+    {
+      "index": 3,
+      "phase": "preparation",
+      "text": "Let the molten agarose cool to about 55°C.",
+      "text_en": "Let the molten agarose cool to about 55°C.",
+      "kind": "wait",
+      "action": "incubate_wait",
+      "container": null,
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": true,
+      "gaps": [
+        {
+          "parameter": "cooling time",
+          "question": "How long should the agarose cool to reach ~55°C?"
+        }
+      ],
+      "verbatim": "Let the molten agarose cool to about 55°C."
+    },
+    {
+      "index": 4,
+      "phase": "preparation",
+      "text": "Add 10 µL of SYBR Safe stain and swirl to mix. CAUTION: ethidium bromide is a mutagen — wear gloves and work in the designated area.",
+      "text_en": "Add 10 µL of SYBR Safe stain and swirl to mix. CAUTION: ethidium bromide is a mutagen — wear gloves and work in the designated area.",
+      "kind": "action",
+      "action": "pour_add",
+      "container": null,
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [
+        {
+          "name": "SYBR Safe stain",
+          "name_en": "SYBR Safe stain",
+          "volume": "10 µL",
+          "volume_en": "10 µL",
+          "condition": null,
+          "condition_en": null
+        }
+      ],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [
+        "ethidium bromide is a mutagen — wear gloves and work in the designated area"
+      ],
+      "hazards_en": [
+        "ethidium bromide is a mutagen — wear gloves and work in the designated area"
+      ],
+      "prep_ahead": true,
+      "gaps": [],
+      "verbatim": "Add 10 µL of SYBR Safe stain and swirl to mix. CAUTION: ethidium bromide is a mutagen — wear gloves and work in the designated area."
+    },
+    {
+      "index": 5,
+      "phase": "preparation",
+      "text": "Pour the agarose into the casting tray with the comb in place.",
+      "text_en": "Pour the agarose into the casting tray with the comb in place.",
+      "kind": "action",
+      "action": "pour_add",
+      "container": "gel",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": true,
+      "gaps": [],
+      "verbatim": "Pour the agarose into the casting tray with the comb in place and let it solidify at room temperature for 20-30 min."
+    },
+    {
+      "index": 6,
+      "phase": "preparation",
+      "text": "Let it solidify at room temperature for 20-30 min.",
+      "text_en": "Let it solidify at room temperature for 20-30 min.",
+      "kind": "wait",
+      "action": "incubate_wait",
+      "container": null,
+      "duration_seconds": 1200,
+      "spin": null,
+      "reagents": [],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": true,
+      "gaps": [],
+      "verbatim": "Pour the agarose into the casting tray with the comb in place and let it solidify at room temperature for 20-30 min."
+    },
+    {
+      "index": 7,
+      "phase": "procedure",
+      "text": "Remove the comb and place the gel into the tank filled with 1X TAE until the buffer just covers the gel.",
+      "text_en": "Remove the comb and place the gel into the tank filled with 1X TAE until the buffer just covers the gel.",
+      "kind": "action",
+      "action": "transfer",
+      "container": "gel",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [
+        {
+          "name": "1X TAE buffer",
+          "name_en": "1X TAE buffer",
+          "volume": null,
+          "volume_en": null,
+          "condition": "until the buffer just covers the gel",
+          "condition_en": "until the buffer just covers the gel"
+        }
+      ],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "Remove the comb and place the gel into the tank filled with 1X TAE until the buffer just covers the gel."
+    },
+    {
+      "index": 8,
+      "phase": "procedure",
+      "text": "Mix each DNA sample with 6X loading dye and load the samples into the wells. Load 5 µL of DNA ladder into the first well.",
+      "text_en": "Mix each DNA sample with 6X loading dye and load the samples into the wells. Load 5 µL of DNA ladder into the first well.",
+      "kind": "action",
+      "action": "pour_add",
+      "container": "gel",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [
+        {
+          "name": "6X loading dye",
+          "name_en": "6X loading dye",
+          "volume": null,
+          "volume_en": null,
+          "condition": null,
+          "condition_en": null
+        },
+        {
+          "name": "DNA ladder",
+          "name_en": "DNA ladder",
+          "volume": "5 µL",
+          "volume_en": "5 µL",
+          "condition": "into the first well",
+          "condition_en": "into the first well"
+        }
+      ],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "Mix each DNA sample with 6X loading dye and load the samples into the wells. Load 5 µL of DNA ladder into the first well."
+    },
+    {
+      "index": 9,
+      "phase": "procedure",
+      "text": "Connect the tank to the power supply and run the gel at 100 V for 30-45 min, until the dye front has migrated about two-thirds down the gel.",
+      "text_en": "Connect the tank to the power supply and run the gel at 100 V for 30-45 min, until the dye front has migrated about two-thirds down the gel.",
+      "kind": "action",
+      "action": "electrophorese",
+      "container": "gel",
+      "duration_seconds": 2700,
+      "spin": null,
+      "reagents": [],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [
+        "High voltage — do not touch the tank while running"
+      ],
+      "hazards_en": [
+        "High voltage — do not touch the tank while running"
+      ],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "Connect the tank to the power supply and run the gel at 100 V for 30-45 min, until the dye front has migrated about two-thirds down the gel."
+    },
+    {
+      "index": 10,
+      "phase": "quality_control",
+      "text": "Turn off the power supply and place the gel on the transilluminator to visualize and photograph the DNA bands under UV light.",
+      "text_en": "Turn off the power supply and place the gel on the transilluminator to visualize and photograph the DNA bands under UV light.",
+      "kind": "measure",
+      "action": "measure",
+      "container": "gel",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [
+        "UV light — wear UV-protective eyewear/face shield"
+      ],
+      "hazards_en": [
+        "UV light — wear UV-protective eyewear/face shield"
+      ],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "Turn off the power supply and place the gel on the transilluminator to visualize and photograph the DNA bands under UV light."
+    }
+  ],
+  "open_parameters": [
+    {
+      "question": "Which stain will be used — SYBR Safe or ethidium bromide?",
+      "where": "Materials / step 4"
+    },
+    {
+      "question": "What is the run time (30-45 min) and stopping point for the gel?",
+      "where": "step 9"
+    }
+  ],
+  "reference": null
+}

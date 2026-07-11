@@ -1,0 +1,74 @@
+[
+  {
+    "id": "neutrophil_rna",
+    "file": "neutrophil_rna.json",
+    "name": "Neutrophil RNA extraction",
+    "technique": "RNA extraction",
+    "steps": 28,
+    "highlight": "spin column · NanoDrop"
+  },
+  {
+    "id": "transformation",
+    "file": "transformation.json",
+    "name": "Bacterial transformation",
+    "technique": "Cloning",
+    "steps": 10,
+    "highlight": "agar plate · spreader"
+  },
+  {
+    "id": "pcr",
+    "file": "pcr.json",
+    "name": "Standard PCR",
+    "technique": "Amplification",
+    "steps": 8,
+    "highlight": "thermocycler · 30 cycles"
+  },
+  {
+    "id": "western",
+    "file": "western.json",
+    "name": "Western blot",
+    "technique": "Protein",
+    "steps": 20,
+    "highlight": "gel rig · membrane"
+  },
+  {
+    "id": "passaging",
+    "file": "passaging.json",
+    "name": "Adherent-cell passaging",
+    "technique": "Cell culture",
+    "steps": 14,
+    "highlight": "flask · aspirate"
+  },
+  {
+    "id": "elisa",
+    "file": "elisa.json",
+    "name": "Sandwich ELISA",
+    "technique": "Immunoassay",
+    "steps": 27,
+    "highlight": "96-well plate · reader"
+  },
+  {
+    "id": "agarose_gel",
+    "file": "agarose_gel.json",
+    "name": "Agarose DNA gel",
+    "technique": "Electrophoresis",
+    "steps": 10,
+    "highlight": "gel tank · bands"
+  },
+  {
+    "id": "cryopreservation",
+    "file": "cryopreservation.json",
+    "name": "Cryopreservation",
+    "technique": "Cell storage",
+    "steps": 7,
+    "highlight": "cryovial · freezer"
+  },
+  {
+    "id": "gram_stain",
+    "file": "gram_stain.json",
+    "name": "Gram stain",
+    "technique": "Microscopy",
+    "steps": 14,
+    "highlight": "glass slide · dye"
+  }
+]

@@ -1,0 +1,643 @@
+{
+  "title": "Western Blot — gel, transfer, blocking, antibody incubation and detection",
+  "title_en": "Western Blot — gel, transfer, blocking, antibody incubation and detection",
+  "summary": "SDS-PAGE gel run, protein transfer to nitrocellulose membrane, blocking, primary and secondary antibody incubation, and chemiluminescent detection.",
+  "summary_en": "SDS-PAGE gel run, protein transfer to nitrocellulose membrane, blocking, primary and secondary antibody incubation, and chemiluminescent detection.",
+  "source": "Western Blot protocol",
+  "materials": [
+    {
+      "name": "1X TBS",
+      "note": null
+    },
+    {
+      "name": "1X TBST (wash buffer)",
+      "note": null
+    },
+    {
+      "name": "Blocking buffer: 1X TBST with 5% w/v nonfat dry milk",
+      "note": null
+    },
+    {
+      "name": "Primary antibody dilution buffer: 1X TBST with 5% BSA",
+      "note": null
+    },
+    {
+      "name": "Nitrocellulose membrane (0.2 µm)",
+      "note": null
+    },
+    {
+      "name": "HRP-conjugated secondary antibody",
+      "note": null
+    },
+    {
+      "name": "LumiGLO chemiluminescent reagent",
+      "note": null
+    }
+  ],
+  "steps": [
+    {
+      "index": 1,
+      "phase": "procedure",
+      "text": "Load the denatured protein samples and a molecular weight ladder into the wells of the SDS-PAGE gel.",
+      "text_en": "Load the denatured protein samples and a molecular weight ladder into the wells of the SDS-PAGE gel.",
+      "kind": "action",
+      "action": "pipette_mix",
+      "container": "gel",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [
+        {
+          "name": "denatured protein samples",
+          "name_en": "denatured protein samples",
+          "volume": null,
+          "volume_en": null,
+          "condition": null,
+          "condition_en": null
+        },
+        {
+          "name": "molecular weight ladder",
+          "name_en": "molecular weight ladder",
+          "volume": null,
+          "volume_en": null,
+          "condition": null,
+          "condition_en": null
+        }
+      ],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "1. Load the denatured protein samples and a molecular weight ladder into the wells of the SDS-PAGE gel."
+    },
+    {
+      "index": 2,
+      "phase": "procedure",
+      "text": "Run the gel at 120 V until the dye front reaches the bottom (approximately 90 min).",
+      "text_en": "Run the gel at 120 V until the dye front reaches the bottom (approximately 90 min).",
+      "kind": "action",
+      "action": "electrophorese",
+      "container": "gel",
+      "duration_seconds": 5400,
+      "spin": null,
+      "reagents": [],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "2. Run the gel at 120 V until the dye front reaches the bottom (approximately 90 min)."
+    },
+    {
+      "index": 3,
+      "phase": "procedure",
+      "text": "Transfer the proteins from the gel onto a nitrocellulose membrane at 100 V for 60 min in cold transfer buffer.",
+      "text_en": "Transfer the proteins from the gel onto a nitrocellulose membrane at 100 V for 60 min in cold transfer buffer.",
+      "kind": "action",
+      "action": "electrophorese",
+      "container": "membrane",
+      "duration_seconds": 3600,
+      "spin": null,
+      "reagents": [
+        {
+          "name": "cold transfer buffer",
+          "name_en": "cold transfer buffer",
+          "volume": null,
+          "volume_en": null,
+          "condition": null,
+          "condition_en": null
+        }
+      ],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [
+        "cold transfer buffer"
+      ],
+      "hazards_en": [
+        "cold transfer buffer"
+      ],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "3. Transfer the proteins from the gel onto a nitrocellulose membrane at 100 V for 60 min in cold transfer buffer."
+    },
+    {
+      "index": 4,
+      "phase": "procedure",
+      "text": "Wash the nitrocellulose membrane with 25 mL TBS for 5 min at room temperature.",
+      "text_en": "Wash the nitrocellulose membrane with 25 mL TBS for 5 min at room temperature.",
+      "kind": "action",
+      "action": "pour_add",
+      "container": "membrane",
+      "duration_seconds": 300,
+      "spin": null,
+      "reagents": [
+        {
+          "name": "TBS",
+          "name_en": "TBS",
+          "volume": "25 mL",
+          "volume_en": "25 mL",
+          "condition": null,
+          "condition_en": null
+        }
+      ],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "4. Wash the nitrocellulose membrane with 25 mL TBS for 5 min at room temperature."
+    },
+    {
+      "index": 5,
+      "phase": "procedure",
+      "text": "Drain off the TBS wash from the membrane.",
+      "text_en": "Drain off the TBS wash from the membrane.",
+      "kind": "action",
+      "action": "discard",
+      "container": "membrane",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "4. Wash the nitrocellulose membrane with 25 mL TBS for 5 min at room temperature."
+    },
+    {
+      "index": 6,
+      "phase": "procedure",
+      "text": "Add 25 mL of blocking buffer to the membrane with gentle agitation.",
+      "text_en": "Add 25 mL of blocking buffer to the membrane with gentle agitation.",
+      "kind": "action",
+      "action": "pour_add",
+      "container": "membrane",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [
+        {
+          "name": "blocking buffer",
+          "name_en": "blocking buffer",
+          "volume": "25 mL",
+          "volume_en": "25 mL",
+          "condition": null,
+          "condition_en": null
+        }
+      ],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [
+        "gentle agitation"
+      ],
+      "hazards_en": [
+        "gentle agitation"
+      ],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "5. Incubate the membrane in 25 mL of blocking buffer with gentle agitation for 1 hr at room temperature."
+    },
+    {
+      "index": 7,
+      "phase": "procedure",
+      "text": "Incubate for 1 hr at room temperature with gentle agitation.",
+      "text_en": "Incubate for 1 hr at room temperature with gentle agitation.",
+      "kind": "wait",
+      "action": "incubate_wait",
+      "container": "membrane",
+      "duration_seconds": 3600,
+      "spin": null,
+      "reagents": [],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [
+        "gentle agitation"
+      ],
+      "hazards_en": [
+        "gentle agitation"
+      ],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "5. Incubate the membrane in 25 mL of blocking buffer with gentle agitation for 1 hr at room temperature."
+    },
+    {
+      "index": 8,
+      "phase": "procedure",
+      "text": "Add 15 mL of TBST to the membrane.",
+      "text_en": "Add 15 mL of TBST to the membrane.",
+      "kind": "action",
+      "action": "pour_add",
+      "container": "membrane",
+      "duration_seconds": 300,
+      "spin": null,
+      "reagents": [
+        {
+          "name": "TBST",
+          "name_en": "TBST",
+          "volume": "15 mL",
+          "volume_en": "15 mL",
+          "condition": null,
+          "condition_en": null
+        }
+      ],
+      "conditionals": [],
+      "repeat": {
+        "count": 3,
+        "reason": "wash three times for 5 min each"
+      },
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "6. Wash three times for 5 min each with 15 mL of TBST."
+    },
+    {
+      "index": 9,
+      "phase": "procedure",
+      "text": "Drain off the TBST wash from the membrane.",
+      "text_en": "Drain off the TBST wash from the membrane.",
+      "kind": "action",
+      "action": "discard",
+      "container": "membrane",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [],
+      "conditionals": [],
+      "repeat": {
+        "count": 3,
+        "reason": "wash three times for 5 min each"
+      },
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "6. Wash three times for 5 min each with 15 mL of TBST."
+    },
+    {
+      "index": 10,
+      "phase": "procedure",
+      "text": "Add 10 mL primary antibody dilution buffer containing the primary antibody to the membrane with gentle agitation.",
+      "text_en": "Add 10 mL primary antibody dilution buffer containing the primary antibody to the membrane with gentle agitation.",
+      "kind": "action",
+      "action": "pour_add",
+      "container": "membrane",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [
+        {
+          "name": "primary antibody",
+          "name_en": "primary antibody",
+          "volume": null,
+          "volume_en": null,
+          "condition": null,
+          "condition_en": null
+        },
+        {
+          "name": "primary antibody dilution buffer",
+          "name_en": "primary antibody dilution buffer",
+          "volume": "10 mL",
+          "volume_en": "10 mL",
+          "condition": null,
+          "condition_en": null
+        }
+      ],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [
+        "gentle agitation"
+      ],
+      "hazards_en": [
+        "gentle agitation"
+      ],
+      "prep_ahead": false,
+      "gaps": [
+        {
+          "parameter": "primary antibody dilution",
+          "question": "What dilution/concentration of primary antibody should be used?"
+        }
+      ],
+      "verbatim": "7. Incubate the membrane with primary antibody in 10 mL primary antibody dilution buffer with gentle agitation overnight at 4°C."
+    },
+    {
+      "index": 11,
+      "phase": "procedure",
+      "text": "Incubate overnight at 4°C with gentle agitation.",
+      "text_en": "Incubate overnight at 4°C with gentle agitation.",
+      "kind": "wait",
+      "action": "incubate_wait",
+      "container": "membrane",
+      "duration_seconds": 57600,
+      "spin": null,
+      "reagents": [],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [
+        "4°C",
+        "gentle agitation"
+      ],
+      "hazards_en": [
+        "4°C",
+        "gentle agitation"
+      ],
+      "prep_ahead": false,
+      "gaps": [
+        {
+          "parameter": "incubation duration",
+          "question": "How many hours is 'overnight' at 4°C (assumed ~16 h)?"
+        }
+      ],
+      "verbatim": "7. Incubate the membrane with primary antibody in 10 mL primary antibody dilution buffer with gentle agitation overnight at 4°C."
+    },
+    {
+      "index": 12,
+      "phase": "procedure",
+      "text": "Add 15 mL of TBST to the membrane.",
+      "text_en": "Add 15 mL of TBST to the membrane.",
+      "kind": "action",
+      "action": "pour_add",
+      "container": "membrane",
+      "duration_seconds": 300,
+      "spin": null,
+      "reagents": [
+        {
+          "name": "TBST",
+          "name_en": "TBST",
+          "volume": "15 mL",
+          "volume_en": "15 mL",
+          "condition": null,
+          "condition_en": null
+        }
+      ],
+      "conditionals": [],
+      "repeat": {
+        "count": 3,
+        "reason": "wash three times for 5 min each"
+      },
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "8. Wash three times for 5 min each with 15 mL of TBST."
+    },
+    {
+      "index": 13,
+      "phase": "procedure",
+      "text": "Drain off the TBST wash from the membrane.",
+      "text_en": "Drain off the TBST wash from the membrane.",
+      "kind": "action",
+      "action": "discard",
+      "container": "membrane",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [],
+      "conditionals": [],
+      "repeat": {
+        "count": 3,
+        "reason": "wash three times for 5 min each"
+      },
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "8. Wash three times for 5 min each with 15 mL of TBST."
+    },
+    {
+      "index": 14,
+      "phase": "procedure",
+      "text": "Add HRP-conjugated secondary antibody at 1:2000 in 10 mL of blocking buffer to the membrane with gentle agitation.",
+      "text_en": "Add HRP-conjugated secondary antibody at 1:2000 in 10 mL of blocking buffer to the membrane with gentle agitation.",
+      "kind": "action",
+      "action": "pour_add",
+      "container": "membrane",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [
+        {
+          "name": "HRP-conjugated secondary antibody",
+          "name_en": "HRP-conjugated secondary antibody",
+          "volume": null,
+          "volume_en": null,
+          "condition": "1:2000",
+          "condition_en": "1:2000"
+        },
+        {
+          "name": "blocking buffer",
+          "name_en": "blocking buffer",
+          "volume": "10 mL",
+          "volume_en": "10 mL",
+          "condition": null,
+          "condition_en": null
+        }
+      ],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [
+        "gentle agitation"
+      ],
+      "hazards_en": [
+        "gentle agitation"
+      ],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "9. Incubate the membrane with the HRP-conjugated secondary antibody at 1:2000 in 10 mL of blocking buffer with gentle agitation for 1 hr at room temperature."
+    },
+    {
+      "index": 15,
+      "phase": "procedure",
+      "text": "Incubate for 1 hr at room temperature with gentle agitation.",
+      "text_en": "Incubate for 1 hr at room temperature with gentle agitation.",
+      "kind": "wait",
+      "action": "incubate_wait",
+      "container": "membrane",
+      "duration_seconds": 3600,
+      "spin": null,
+      "reagents": [],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [
+        "gentle agitation"
+      ],
+      "hazards_en": [
+        "gentle agitation"
+      ],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "9. Incubate the membrane with the HRP-conjugated secondary antibody at 1:2000 in 10 mL of blocking buffer with gentle agitation for 1 hr at room temperature."
+    },
+    {
+      "index": 16,
+      "phase": "procedure",
+      "text": "Add 15 mL of TBST to the membrane.",
+      "text_en": "Add 15 mL of TBST to the membrane.",
+      "kind": "action",
+      "action": "pour_add",
+      "container": "membrane",
+      "duration_seconds": 300,
+      "spin": null,
+      "reagents": [
+        {
+          "name": "TBST",
+          "name_en": "TBST",
+          "volume": "15 mL",
+          "volume_en": "15 mL",
+          "condition": null,
+          "condition_en": null
+        }
+      ],
+      "conditionals": [],
+      "repeat": {
+        "count": 3,
+        "reason": "wash three times for 5 min each"
+      },
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "10. Wash three times for 5 min each with 15 mL of TBST."
+    },
+    {
+      "index": 17,
+      "phase": "procedure",
+      "text": "Drain off the TBST wash from the membrane.",
+      "text_en": "Drain off the TBST wash from the membrane.",
+      "kind": "action",
+      "action": "discard",
+      "container": "membrane",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [],
+      "conditionals": [],
+      "repeat": {
+        "count": 3,
+        "reason": "wash three times for 5 min each"
+      },
+      "alternatives": [],
+      "hazards": [],
+      "hazards_en": [],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "10. Wash three times for 5 min each with 15 mL of TBST."
+    },
+    {
+      "index": 18,
+      "phase": "procedure",
+      "text": "Add 10 mL LumiGLO chemiluminescent reagent to the membrane with gentle agitation.",
+      "text_en": "Add 10 mL LumiGLO chemiluminescent reagent to the membrane with gentle agitation.",
+      "kind": "action",
+      "action": "pour_add",
+      "container": "membrane",
+      "duration_seconds": null,
+      "spin": null,
+      "reagents": [
+        {
+          "name": "LumiGLO chemiluminescent reagent",
+          "name_en": "LumiGLO chemiluminescent reagent",
+          "volume": "10 mL",
+          "volume_en": "10 mL",
+          "condition": null,
+          "condition_en": null
+        }
+      ],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [
+        "gentle agitation"
+      ],
+      "hazards_en": [
+        "gentle agitation"
+      ],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "11. Incubate the membrane with 10 mL LumiGLO chemiluminescent reagent with gentle agitation for 1 min at room temperature."
+    },
+    {
+      "index": 19,
+      "phase": "procedure",
+      "text": "Incubate for 1 min at room temperature with gentle agitation.",
+      "text_en": "Incubate for 1 min at room temperature with gentle agitation.",
+      "kind": "wait",
+      "action": "incubate_wait",
+      "container": "membrane",
+      "duration_seconds": 60,
+      "spin": null,
+      "reagents": [],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [
+        "gentle agitation"
+      ],
+      "hazards_en": [
+        "gentle agitation"
+      ],
+      "prep_ahead": false,
+      "gaps": [],
+      "verbatim": "11. Incubate the membrane with 10 mL LumiGLO chemiluminescent reagent with gentle agitation for 1 min at room temperature."
+    },
+    {
+      "index": 20,
+      "phase": "procedure",
+      "text": "Drain the membrane of excess developing solution (do not let it dry), wrap in plastic wrap, and expose to X-ray film. An initial 10 sec exposure should indicate the proper exposure time.",
+      "text_en": "Drain the membrane of excess developing solution (do not let it dry), wrap in plastic wrap, and expose to X-ray film. An initial 10 sec exposure should indicate the proper exposure time.",
+      "kind": "measure",
+      "action": "measure",
+      "container": "membrane",
+      "duration_seconds": 10,
+      "spin": null,
+      "reagents": [],
+      "conditionals": [],
+      "repeat": null,
+      "alternatives": [],
+      "hazards": [
+        "do not let the membrane dry"
+      ],
+      "hazards_en": [
+        "do not let the membrane dry"
+      ],
+      "prep_ahead": false,
+      "gaps": [
+        {
+          "parameter": "exposure time",
+          "question": "What is the proper X-ray film exposure time (to be determined empirically after the initial 10 sec exposure)?"
+        }
+      ],
+      "verbatim": "12. Drain the membrane of excess developing solution (do not let it dry), wrap in plastic wrap, and expose to X-ray film. An initial 10 sec exposure should indicate the proper exposure time."
+    }
+  ],
+  "open_parameters": [
+    {
+      "question": "What is the primary antibody and its working dilution/concentration?",
+      "where": "Step 7"
+    },
+    {
+      "question": "How long is the 'overnight' primary antibody incubation at 4°C?",
+      "where": "Step 7"
+    },
+    {
+      "question": "What is the proper X-ray film exposure time after the initial 10 sec exposure?",
+      "where": "Step 12"
+    }
+  ],
+  "reference": null
+}
