@@ -11,14 +11,15 @@ export default function StationCanvas({ protocol, activeIndex, answers, lang, pr
     <Canvas
       dpr={[1, 2]}
       shadows
-      gl={{ antialias: true, alpha: true, powerPreference: 'high-performance', preserveDrawingBuffer: true }}
+      // alpha:false — the demo's scene.background (makeCineBackdrop) fills the
+      // frame, exactly as the HTML demo (renderer alpha:false).
+      gl={{ antialias: true, alpha: false, powerPreference: 'high-performance', preserveDrawingBuffer: true }}
       onCreated={({ gl }) => {
-        // LINEAR, not ACES/Cineon: filmic tone maps desaturate bright surfaces
-        // toward white — the core washed-out, low-contrast bug. Linear keeps full
-        // saturation AND honours exposure, so a low exposure darkens the whole
-        // frame for real shadow-to-highlight contrast. (See the demo, verbatim.)
+        // the demo's renderer settings, verbatim: LinearToneMapping @ 0.78 +
+        // PCF soft shadows.
         gl.toneMapping = THREE.LinearToneMapping
         gl.toneMappingExposure = 0.78
+        gl.shadowMap.type = THREE.PCFSoftShadowMap
       }}
     >
       <StationScene
