@@ -862,7 +862,7 @@ function stationParams(baseStep, lang, altIdx, chain) {
   return { action: step.action, equipment, colorHex, vol, title, sub, seconds: step.duration_seconds, start, end, cycles }
 }
 
-export default function StationScene({ protocol, activeIndex = 0, lang = 'en', altByStep = {}, progress = 1, running = false, hasTimer = false, done = false }) {
+export default function StationScene({ protocol, activeIndex = 0, lang = 'en', altByStep = {}, progress = 1, running = false, hasTimer = false, done = false, chromeless = false }) {
   ensureMaps()
   // Timer state for the bench progress dial, mirrored into refs so the frame loop reads
   // the LIVE countdown without the render churn re-registering the loop. progress is the
@@ -976,17 +976,22 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       // the title sits just ABOVE the thing the step is about — the props' bbox top,
       // centred on it — not over the station origin. Its own half-height (worldH/2)
       // plus a small gap put the plate's BOTTOM edge clear of the subject.
-      const label = demo.makeLabel(o.title, o.sub)
-      const LABEL_GAP = 0.95
-      const halfH = (label.userData.worldH || 0.5) / 2
-      label.position.set(st.frame.center.x, st.frame.top + LABEL_GAP + halfH, st.frame.center.z)
-      st.group.add(label)
+      // chromeless (the Home hero): just the lit glass, no title plate, no bench number
+      if (!chromeless) {
+        const label = demo.makeLabel(o.title, o.sub)
+        const LABEL_GAP = 0.95
+        const halfH = (label.userData.worldH || 0.5) / 2
+        label.position.set(st.frame.center.x, st.frame.top + LABEL_GAP + halfH, st.frame.center.z)
+        st.group.add(label)
+      }
       scene.add(st.group)
       // the bench station number in front
-      const decal = demo.stationDecal(i + 1)
-      decal.position.set(st.x, 0.02, 2.4)
-      scene.add(decal)
-      st.decal = decal
+      if (!chromeless) {
+        const decal = demo.stationDecal(i + 1)
+        decal.position.set(st.x, 0.02, 2.4)
+        scene.add(decal)
+        st.decal = decal
+      }
       collectStationMats(st) // snapshot opacities so the unit fades as one
       // the countdown DIAL — a flat ring around the subject's base, radius MEASURED from
       // the frame footprint. Built for every station but shown only when a live timer is

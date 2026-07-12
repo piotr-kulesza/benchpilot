@@ -41,7 +41,7 @@ function labelFontsLoaded() {
   try { return LABEL_FACES.every((f) => document.fonts.check(f)) } catch { return true }
 }
 
-export default function StationView({ protocol, activeIndex = 0, answers = {}, lang = 'en', progress = 1, running = false, hasTimer = false, done = false, altByStep = {} }) {
+export default function StationView({ protocol, activeIndex = 0, answers = {}, lang = 'en', progress = 1, running = false, hasTimer = false, done = false, altByStep = {}, chromeless = false }) {
   const [use3D] = useState(() => webglAvailable())
   const [fontsReady, setFontsReady] = useState(labelFontsLoaded)
 
@@ -73,7 +73,7 @@ export default function StationView({ protocol, activeIndex = 0, answers = {}, l
             <StationCanvas
               protocol={protocol} activeIndex={activeIndex} answers={answers} lang={lang}
               progress={progress} running={running} hasTimer={hasTimer} done={done}
-              altByStep={altByStep}
+              altByStep={altByStep} chromeless={chromeless}
             />
           </GLBoundary>
         ) : fallback}

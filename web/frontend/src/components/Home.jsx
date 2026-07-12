@@ -1,14 +1,17 @@
 import { useRef, useState } from 'react'
 import { Button, Card, Panel, Textarea, Alert, Badge } from '../ui/primitives.jsx'
+import HomeHero from './HomeHero.jsx'
+import { heroThumb } from './heroThumbs.js'
 
-// The service front door: what it is → bring your own (drop / paste) as the primary
-// action → or pick a pre-parsed example. The example cards are the argument that it
-// generalises — each surfaces the distinctive equipment it renders.
+// The service front door: lead with the live bench (the most beautiful thing in the
+// product), then bring-your-own (drop / paste), then the example cards — each showing the
+// distinctive equipment it renders, the argument that this generalises.
 export default function Home({ examples, onPickExample, onParse, parseState }) {
   const [text, setText] = useState('')
   const [drag, setDrag] = useState(false)
   const fileRef = useRef(null)
   const busy = parseState?.status === 'loading'
+  const featured = examples.find((e) => e.id === 'neutrophil_rna') || examples[0]
 
   const chooseFile = (file) => { if (file) onParse({ file }) }
   const onDrop = (e) => {
@@ -16,20 +19,32 @@ export default function Home({ examples, onPickExample, onParse, parseState }) {
     const f = e.dataTransfer.files && e.dataTransfer.files[0]
     if (f) chooseFile(f)
   }
+  const scrollToUpload = () => document.getElementById('byo')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
   return (
     <div className="home">
       <header className="home-hero">
-        <div className="brand"><span className="dot" /> benchpilot</div>
-        <h1>Paste a messy lab protocol → a runnable, timed, gap-flagged 3D walkthrough you can follow at the bench.</h1>
-        <p className="home-sub">
-          Protocols are written to be archived, not to be followed. benchpilot turns the prose
-          into a run — live timers, hazards up front, the missing numbers asked about before
-          you start, and one sample moving through the real glassware.
-        </p>
+        <div className="hero-copy">
+          <div className="brand"><span className="dot" /> benchpilot</div>
+          <h1>Paste a messy lab protocol → a runnable, timed, gap-flagged 3D walkthrough you can follow at the bench.</h1>
+          <p className="home-sub">
+            Protocols are written to be archived, not to be followed. benchpilot turns the prose
+            into a run — live timers, hazards up front, the missing numbers asked about before
+            you start, and one sample moving through the real glassware.
+          </p>
+          <div className="hero-cta">
+            {featured && (
+              <Button variant="primary" size="lg" disabled={busy} onClick={() => onPickExample(featured)}>
+                Run a live example →
+              </Button>
+            )}
+            <Button variant="ghost" size="lg" onClick={scrollToUpload}>Bring your own ↓</Button>
+          </div>
+        </div>
+        <HomeHero />
       </header>
 
-      <Panel title="Bring your own" sub="Drop a file or paste the text. Usually ready in 10–20 s.">
+      <Panel id="byo" title="Bring your own" sub="Drop a file or paste the text. Usually ready in 10–20 s.">
         <div className="upload-grid">
           <div
             className={`filedrop${drag ? ' drag' : ''}${busy ? ' disabled' : ''}`}
@@ -66,16 +81,25 @@ export default function Home({ examples, onPickExample, onParse, parseState }) {
 
       <Panel title="Or run an example" sub="Eight techniques benchpilot was never tuned for, plus the RNA reference. Each one runs instantly and renders its own equipment.">
         <div className="ex-grid">
-          {examples.map((ex) => (
-            <Card as="button" className="ex-card" key={ex.id} onClick={() => onPickExample(ex)} disabled={busy}>
-              <div className="ex-name">{ex.name}</div>
-              <div className="ex-tech">{ex.technique}</div>
-              <div className="ex-meta">
-                <span className="ex-tech"><span className="num">{ex.steps}</span> steps</span>
-                <Badge tone="accent">{ex.highlight}</Badge>
-              </div>
-            </Card>
-          ))}
+          {examples.map((ex) => {
+            const thumb = heroThumb(ex.id)
+            return (
+              <Card as="button" className="ex-card" key={ex.id} onClick={() => onPickExample(ex)} disabled={busy}>
+                <div className="ex-thumb">
+                  {thumb && <img src={thumb} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none' }} />}
+                  <span className="ex-run">Run →</span>
+                </div>
+                <div className="ex-body">
+                  <div className="ex-name">{ex.name}</div>
+                  <div className="ex-tech">{ex.technique}</div>
+                  <div className="ex-meta">
+                    <span className="ex-tech"><span className="num">{ex.steps}</span> steps</span>
+                    <Badge tone="accent">{ex.highlight}</Badge>
+                  </div>
+                </div>
+              </Card>
+            )
+          })}
         </div>
       </Panel>
     </div>

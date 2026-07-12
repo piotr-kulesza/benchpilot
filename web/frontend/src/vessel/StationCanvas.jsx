@@ -6,7 +6,7 @@ import { Canvas } from '@react-three/fiber'
 import * as THREE from 'three'
 import StationScene from './StationScene.jsx'
 
-export default function StationCanvas({ protocol, activeIndex, answers, lang, progress, running, hasTimer, done, altByStep }) {
+export default function StationCanvas({ protocol, activeIndex, answers, lang, progress, running, hasTimer, done, altByStep, chromeless }) {
   return (
     <Canvas
       dpr={[1, 2]}
@@ -32,6 +32,7 @@ export default function StationCanvas({ protocol, activeIndex, answers, lang, pr
         hasTimer={hasTimer}
         done={done}
         altByStep={altByStep}
+        chromeless={chromeless}
       />
     </Canvas>
   )
