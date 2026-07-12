@@ -1,8 +1,8 @@
 {
   "title": "Standard PCR Protocol (Taq polymerase)",
   "title_en": "Standard PCR Protocol (Taq polymerase)",
-  "summary": "Reaction setup (30 µl total volume) assembled on ice, followed by a standard three-step thermocycler program with 30 cycles, and optional gel check or storage.",
-  "summary_en": "Reaction setup (30 µl total volume) assembled on ice, followed by a standard three-step thermocycler program with 30 cycles, and optional gel check or storage.",
+  "summary": "Standard PCR reaction setup (30 µl) using Taq polymerase, followed by thermocycling and optional gel verification or storage.",
+  "summary_en": "Standard PCR reaction setup (30 µl) using Taq polymerase, followed by thermocycling and optional gel verification or storage.",
   "source": "Standard PCR Protocol (Taq polymerase)",
   "materials": [
     {
@@ -52,11 +52,15 @@
     {
       "index": 1,
       "phase": "preparation",
-      "text": "Assemble the reaction (30 µl total volume) on ice: X µl Template DNA, 1.5 µl 10 µM forward primer, 1.5 µl 10 µM reverse primer, 3 µl 10x reaction buffer, 3 µl 2 mM dNTPs, 0.3 µl 5 U/µl Taq polymerase, 20.7 - X µl ddH2O.",
-      "text_en": "Assemble the reaction (30 µl total volume) on ice: X µl Template DNA, 1.5 µl 10 µM forward primer, 1.5 µl 10 µM reverse primer, 3 µl 10x reaction buffer, 3 µl 2 mM dNTPs, 0.3 µl 5 U/µl Taq polymerase, 20.7 - X µl ddH2O.",
+      "text": "Assemble the reaction (30 µl total volume) on ice: Template DNA X µl, 10 µM forward primer 1.5 µl, 10 µM reverse primer 1.5 µl, 10x reaction buffer 3 µl, 2 mM dNTPs 3 µl, 5 U/µl Taq polymerase 0.3 µl, ddH2O 20.7 - X µl.",
+      "text_en": "Assemble the reaction (30 µl total volume) on ice: Template DNA X µl, 10 µM forward primer 1.5 µl, 10 µM reverse primer 1.5 µl, 10x reaction buffer 3 µl, 2 mM dNTPs 3 µl, 5 U/µl Taq polymerase 0.3 µl, ddH2O 20.7 - X µl.",
       "kind": "prepare",
       "action": "prepare",
       "container": "microtube",
+      "target": "pcr_reaction",
+      "produces": "pcr_reaction",
+      "draws_from": null,
+      "source_index": 0,
       "duration_seconds": null,
       "spin": null,
       "reagents": [
@@ -126,23 +130,27 @@
       "hazards_en": [
         "Assemble on ice"
       ],
-      "prep_ahead": true,
+      "prep_ahead": false,
       "gaps": [
         {
-          "parameter": "Template DNA volume (X)",
-          "question": "What volume of template DNA (X µl) should be used, which also sets the ddH2O volume (20.7 - X µl)?"
+          "parameter": "template_volume",
+          "question": "What is the template DNA volume (X µl)?"
         }
       ],
       "verbatim": "Reaction setup (30 µl total volume). Assemble on ice: - Template DNA: X µl - 10 µM forward primer: 1.5 µl - 10 µM reverse primer: 1.5 µl - 10x reaction buffer: 3 µl - 2 mM dNTPs: 3 µl - 5 U/µl Taq polymerase: 0.3 µl - ddH2O: 20.7 - X µl Total: 30 µl"
     },
     {
       "index": 2,
-      "phase": "preparation",
+      "phase": "procedure",
       "text": "Gently mix by pipetting.",
       "text_en": "Gently mix by pipetting.",
       "kind": "action",
       "action": "pipette_mix",
       "container": null,
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 1,
       "duration_seconds": null,
       "spin": null,
       "reagents": [],
@@ -157,17 +165,21 @@
     },
     {
       "index": 3,
-      "phase": "preparation",
+      "phase": "procedure",
       "text": "Briefly spin down the tubes to collect the contents at the bottom.",
       "text_en": "Briefly spin down the tubes to collect the contents at the bottom.",
       "kind": "spin",
       "action": "centrifuge",
       "container": null,
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 2,
       "duration_seconds": null,
       "spin": {
         "duration_seconds": null,
         "rcf_min": null,
-        "note": "brief spin-down to collect contents at the bottom"
+        "note": "brief spin down to collect contents at the bottom"
       },
       "reagents": [],
       "conditionals": [],
@@ -187,6 +199,10 @@
       "kind": "action",
       "action": "heat",
       "container": null,
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 3,
       "duration_seconds": 300,
       "spin": null,
       "reagents": [],
@@ -207,14 +223,18 @@
       "kind": "action",
       "action": "thermocycle",
       "container": null,
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 4,
       "duration_seconds": null,
       "spin": null,
       "reagents": [],
       "conditionals": [],
       "repeat": {
         "count": 30,
-        "reason": "PCR cycles (denaturation/annealing/extension)",
-        "reason_en": "PCR cycles (denaturation/annealing/extension)"
+        "reason": "PCR amplification cycles",
+        "reason_en": "PCR amplification cycles"
       },
       "alternatives": [],
       "hazards": [],
@@ -222,8 +242,8 @@
       "prep_ahead": false,
       "gaps": [
         {
-          "parameter": "Extension time",
-          "question": "What is the length (in bp) of the longest PCR product, to set the 72°C extension time at ~1 min per 1000 bp?"
+          "parameter": "extension_time",
+          "question": "What is the extension time (~1 min per 1000 bp of the longest PCR product)?"
         }
       ],
       "verbatim": "2. 30 cycles of: - Denaturation: 94°C for 30 s - Annealing: 55°C for 30 s - Extension: 72°C for 1 min per 1000 bp of product"
@@ -236,6 +256,10 @@
       "kind": "action",
       "action": "heat",
       "container": null,
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 5,
       "duration_seconds": 420,
       "spin": null,
       "reagents": [],
@@ -256,6 +280,10 @@
       "kind": "storage",
       "action": "store",
       "container": null,
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 6,
       "duration_seconds": null,
       "spin": null,
       "reagents": [],
@@ -273,15 +301,19 @@
       "phase": "quality_control",
       "text": "After cycling, run 5 µl of the product on an agarose gel to check the size.",
       "text_en": "After cycling, run 5 µl of the product on an agarose gel to check the size.",
-      "kind": "action",
+      "kind": "measure",
       "action": "electrophorese",
       "container": "gel",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 7,
       "duration_seconds": null,
       "spin": null,
       "reagents": [
         {
-          "name": "product",
-          "name_en": "product",
+          "name": "PCR product",
+          "name_en": "PCR product",
           "volume": "5 µl",
           "volume_en": "5 µl",
           "condition": null,
@@ -296,21 +328,16 @@
           "phase": "quality_control",
           "text": "Run 5 µl of the product on an agarose gel to check the size.",
           "text_en": "Run 5 µl of the product on an agarose gel to check the size.",
-          "kind": "action",
+          "kind": "measure",
           "action": "electrophorese",
           "container": "gel",
+          "target": "sample",
+          "produces": null,
+          "draws_from": null,
+          "source_index": null,
           "duration_seconds": null,
           "spin": null,
-          "reagents": [
-            {
-              "name": "product",
-              "name_en": "product",
-              "volume": "5 µl",
-              "volume_en": "5 µl",
-              "condition": null,
-              "condition_en": null
-            }
-          ],
+          "reagents": [],
           "conditionals": [],
           "repeat": null,
           "alternatives": [],
@@ -322,12 +349,16 @@
         },
         {
           "index": 8,
-          "phase": "quality_control",
-          "text": "Store at -20°C.",
-          "text_en": "Store at -20°C.",
+          "phase": "storage",
+          "text": "Store the product at -20°C.",
+          "text_en": "Store the product at -20°C.",
           "kind": "storage",
           "action": "store",
           "container": null,
+          "target": "sample",
+          "produces": null,
+          "draws_from": null,
+          "source_index": null,
           "duration_seconds": null,
           "spin": null,
           "reagents": [],
@@ -350,15 +381,15 @@
   ],
   "open_parameters": [
     {
-      "question": "What volume of template DNA (X µl) should be used? This determines the ddH2O volume (20.7 - X µl).",
+      "question": "What is the template DNA volume (X µl), and thus the ddH2O volume (20.7 - X µl)?",
       "where": "Template DNA: X µl; ddH2O: 20.7 - X µl",
       "where_en": "Template DNA: X µl; ddH2O: 20.7 - X µl"
     },
     {
-      "question": "What is the length of the longest PCR product (bp), setting the 72°C extension time at ~1 min per 1000 bp?",
+      "question": "What is the length of the longest PCR product, to set the 72°C extension time (~1 min per 1000 bp)?",
       "where": "Extension: 72°C for 1 min per 1000 bp of product",
       "where_en": "Extension: 72°C for 1 min per 1000 bp of product"
     }
   ],
-  "reference": null
+  "reference": "Note: the 72°C elongation step should be roughly 1 minute for every 1000 bp of the longest PCR product."
 }

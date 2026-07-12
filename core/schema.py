@@ -247,6 +247,10 @@ class Step:
     kind: str = "action"
     action: str = "generic"             # animation vocabulary (see ACTIONS)
     container: Optional[str] = None     # WHERE THE SAMPLE SITS (see CONTAINERS); None = persist previous
+    target: str = "sample"              # WHAT this step acts on: "sample" or a named prep vessel id
+    produces: Optional[str] = None      # a `prepare` step's product id (e.g. "dnase_mix"); consumed via `draws_from`
+    draws_from: Optional[str] = None    # a step that USES a prepared mixture names its product id here
+    source_index: Optional[int] = None  # original emitted position — audit trail after just-in-time reordering
     duration_seconds: Optional[float] = None
     spin: Optional[Spin] = None
     reagents: list[Reagent] = field(default_factory=list)
@@ -279,6 +283,11 @@ class Step:
             kind=kind,
             action=_action(d.get("action")),
             container=_container(d.get("container")),
+            target=_s(d.get("target")) or "sample",
+            produces=_opt_s(d.get("produces")),
+            draws_from=_opt_s(d.get("draws_from")),
+            source_index=(int(_opt_num(d.get("source_index")))
+                          if _opt_num(d.get("source_index")) is not None else None),
             duration_seconds=_opt_num(d.get("duration_seconds")),
             spin=Spin.from_dict(d.get("spin")),
             reagents=[Reagent.from_dict(r) for r in _list(d.get("reagents"))],

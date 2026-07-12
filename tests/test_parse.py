@@ -146,6 +146,44 @@ def test_normalize_reclassifies_drain_measure_to_discard():
     assert out["steps"][1]["action"] == "measure"  # a genuine reading is untouched
 
 
+def test_arrange_moves_just_in_time_prep_before_its_consumer():
+    from core.parse import arrange_preparations
+    data = {"steps": [
+        {"index": 1, "action": "prepare", "produces": "dnase_mix", "prep_ahead": False,
+         "text": "Prepare the DNase I mixture"},
+        {"index": 2, "action": "pour_add", "text": "Add RLT buffer"},
+        {"index": 3, "action": "centrifuge", "text": "Spin"},
+        {"index": 4, "action": "pour_add", "draws_from": "dnase_mix",
+         "text": "Apply the DNase I mixture onto the column"},
+    ]}
+    out = arrange_preparations(data)
+    texts = [s["text"] for s in out["steps"]]
+    # the enzyme mix is made JUST BEFORE it is applied, not up front
+    assert texts == ["Add RLT buffer", "Spin",
+                     "Prepare the DNase I mixture",
+                     "Apply the DNase I mixture onto the column"]
+    prep = next(s for s in out["steps"] if s["action"] == "prepare")
+    assert prep["source_index"] == 0            # original emitted order is still recoverable
+    assert prep["target"] == "dnase_mix"        # a prepare targets its own product
+    assert prep["phase"] == "procedure"         # it now lives inside the timed run
+    sample_step = next(s for s in out["steps"] if s["action"] == "centrifuge")
+    assert sample_step["target"] == "sample"    # everything else defaults to the sample
+
+
+def test_arrange_leaves_do_ahead_prep_in_place_and_names_products():
+    from core.parse import arrange_preparations
+    data = {"steps": [
+        {"index": 1, "action": "prepare", "prep_ahead": True, "text": "Add 2-ME to RLT"},
+        {"index": 2, "action": "pour_add", "text": "Lyse the pellet"},
+    ]}
+    out = arrange_preparations(data)
+    # a do-ahead (shelf-stable) prep is NOT reordered into the run
+    assert [s["text"] for s in out["steps"]] == ["Add 2-ME to RLT", "Lyse the pellet"]
+    # every prepare names a product even when the model forgot to
+    assert out["steps"][0]["produces"]
+    assert out["steps"][0]["target"] == out["steps"][0]["produces"]
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

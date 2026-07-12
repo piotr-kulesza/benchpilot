@@ -39,6 +39,10 @@ PROSE = {"generic"}
 def actionable(s: dict) -> bool:
     if (s.get("phase")) == "notes":
         return False
+    # a DO-AHEAD preparation is lifted into the intake checklist, not a 3D station —
+    # mirror the frontend's isActionableStep so the home-page count matches the run.
+    if s.get("prep_ahead"):
+        return False
     a = s.get("action") or "generic"
     if a not in PROSE:
         return True

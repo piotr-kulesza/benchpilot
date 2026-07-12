@@ -164,6 +164,19 @@ def test_prepare_never_targets_the_sample_vessel(parsed, name):
     assert not offenders, f"{name}: prepare steps aimed at the sample vessel: {offenders}"
 
 
+@pytest.mark.parametrize("name", NAMES)
+def test_every_prepare_names_a_product_and_every_draw_resolves(parsed, name):
+    # Stage 34: once the bench holds more than one vessel, a `prepare` must name what it
+    # PRODUCES, and any step that draws from a mixture must name a source that exists.
+    p = parsed[name]
+    produced = {s.produces for s in p.steps if s.action == "prepare" and s.produces}
+    no_product = [s.index for s in p.steps if s.action == "prepare" and not s.produces]
+    assert not no_product, f"{name}: prepare steps with no product id: {no_product}"
+    dangling = [(s.index, s.draws_from) for s in p.steps
+                if s.draws_from and s.draws_from not in produced]
+    assert not dangling, f"{name}: draws_from with no matching product: {dangling}"
+
+
 def test_western_drain_is_discard_not_measure(parsed):
     # "Drain the membrane of excess developing solution" is a discard, not a reading
     drains = [s for s in parsed["western"].steps

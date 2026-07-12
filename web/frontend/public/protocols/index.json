@@ -4,7 +4,7 @@
     "file": "neutrophil_rna.json",
     "name": "Neutrophil RNA extraction",
     "technique": "RNA extraction",
-    "steps": 28,
+    "steps": 26,
     "highlight": "spin column · NanoDrop"
   },
   {
@@ -12,7 +12,7 @@
     "file": "transformation.json",
     "name": "Bacterial transformation",
     "technique": "Cloning",
-    "steps": 10,
+    "steps": 9,
     "highlight": "agar plate · spreader"
   },
   {

@@ -1,11 +1,11 @@
 {
   "title": "Sandwich ELISA",
   "title_en": "Sandwich ELISA",
-  "summary": "Sandwich ELISA protocol covering sample preparation, capture antibody coating, blocking, sample addition, detection, and absorbance reading at 450 nm.",
-  "summary_en": "Sandwich ELISA protocol covering sample preparation, capture antibody coating, blocking, sample addition, detection, and absorbance reading at 450 nm.",
+  "summary": "Protocol for sandwich ELISA including sample preparation, capture antibody coating, blocking, sample addition, detection, and absorbance reading.",
+  "summary_en": "Protocol for sandwich ELISA including sample preparation, capture antibody coating, blocking, sample addition, detection, and absorbance reading.",
   "source": "Sandwich ELISA protocol",
   "materials": [
-    {"name": "anti-coagulant tubes", "name_en": "anti-coagulant tubes", "note": null, "note_en": null},
+    {"name": "anti-coagulant", "name_en": "anti-coagulant", "note": null, "note_en": null},
     {"name": "capture antibody", "name_en": "capture antibody", "note": null, "note_en": null},
     {"name": "coating buffer", "name_en": "coating buffer", "note": null, "note_en": null},
     {"name": "wash buffer", "name_en": "wash buffer", "note": null, "note_en": null},
@@ -23,11 +23,16 @@
       "text": "Collect blood samples in tubes with anti-coagulant.",
       "text_en": "Collect blood samples in tubes with anti-coagulant.",
       "kind": "action",
-      "action": "generic",
+      "action": "pour_add",
       "container": "tube",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
       "duration_seconds": null,
       "spin": null,
-      "reagents": [{"name": "anti-coagulant", "name_en": "anti-coagulant", "volume": null, "volume_en": null, "condition": null, "condition_en": null}],
+      "reagents": [
+        {"name": "anti-coagulant", "name_en": "anti-coagulant", "volume": null, "volume_en": null, "condition": null, "condition_en": null}
+      ],
       "conditionals": [],
       "repeat": null,
       "alternatives": [],
@@ -35,7 +40,7 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Collect blood samples in tubes with anti-coagulant."
+      "verbatim": "1. Collect blood samples in tubes with anti-coagulant."
     },
     {
       "index": 2,
@@ -45,6 +50,9 @@
       "kind": "spin",
       "action": "centrifuge",
       "container": null,
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
       "duration_seconds": 600,
       "spin": {"duration_seconds": 600, "rcf_min": 1000, "note": "1,000-10,000 x g at 4°C; remove the pellet"},
       "reagents": [],
@@ -55,7 +63,7 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Centrifuge the samples at 1,000-10,000 x g for 10 min at 4°C and remove the pellet."
+      "verbatim": "2. Centrifuge the samples at 1,000-10,000 x g for 10 min at 4°C and remove the pellet."
     },
     {
       "index": 3,
@@ -65,6 +73,9 @@
       "kind": "action",
       "action": "transfer",
       "container": "tube",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
       "duration_seconds": null,
       "spin": null,
       "reagents": [],
@@ -75,7 +86,7 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Aliquot the supernatant into several tubes (minimum 50 µL each)."
+      "verbatim": "3. Aliquot the supernatant into several tubes (minimum 50 µL each)."
     },
     {
       "index": 4,
@@ -85,6 +96,9 @@
       "kind": "prepare",
       "action": "prepare",
       "container": "tube",
+      "target": "diluted_capture_antibody",
+      "produces": "diluted_capture_antibody",
+      "draws_from": null,
       "duration_seconds": null,
       "spin": null,
       "reagents": [
@@ -96,9 +110,11 @@
       "alternatives": [],
       "hazards": [],
       "hazards_en": [],
-      "prep_ahead": true,
-      "gaps": [],
-      "verbatim": "Dilute the capture antibody in coating buffer to 1-10 µg/mL."
+      "prep_ahead": false,
+      "gaps": [
+        {"parameter": "capture antibody concentration", "question": "What final concentration (1-10 µg/mL) should the capture antibody be diluted to?"}
+      ],
+      "verbatim": "4. Dilute the capture antibody in coating buffer to 1-10 µg/mL."
     },
     {
       "index": 5,
@@ -108,9 +124,14 @@
       "kind": "action",
       "action": "pour_add",
       "container": "well_plate",
+      "target": "sample",
+      "produces": null,
+      "draws_from": "diluted_capture_antibody",
       "duration_seconds": null,
       "spin": null,
-      "reagents": [{"name": "diluted capture antibody", "name_en": "diluted capture antibody", "volume": "~50 µL", "volume_en": "~50 µL", "condition": null, "condition_en": null}],
+      "reagents": [
+        {"name": "diluted capture antibody", "name_en": "diluted capture antibody", "volume": "~50 µL", "volume_en": "~50 µL", "condition": null, "condition_en": null}
+      ],
       "conditionals": [],
       "repeat": null,
       "alternatives": [],
@@ -118,7 +139,7 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Add ~50 µL of diluted capture antibody to each well and cover the plate. Incubate with gentle agitation for 2 h at room temperature, or overnight at 4°C."
+      "verbatim": "5. Add ~50 µL of diluted capture antibody to each well and cover the plate. Incubate with gentle agitation for 2 h at room temperature, or overnight at 4°C."
     },
     {
       "index": 6,
@@ -128,17 +149,23 @@
       "kind": "wait",
       "action": "incubate_wait",
       "container": null,
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
       "duration_seconds": 7200,
       "spin": null,
       "reagents": [],
-      "conditionals": [{"condition": "overnight at 4°C", "condition_en": "overnight at 4°C", "then": "incubate overnight at 4°C instead of 2 h at room temperature", "then_en": "incubate overnight at 4°C instead of 2 h at room temperature"}],
+      "conditionals": [
+        {"condition": "room temperature", "condition_en": "room temperature", "then": "incubate with gentle agitation for 2 h", "then_en": "incubate with gentle agitation for 2 h"},
+        {"condition": "4°C", "condition_en": "4°C", "then": "incubate overnight", "then_en": "incubate overnight"}
+      ],
       "repeat": null,
       "alternatives": [],
       "hazards": [],
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Add ~50 µL of diluted capture antibody to each well and cover the plate. Incubate with gentle agitation for 2 h at room temperature, or overnight at 4°C."
+      "verbatim": "5. Add ~50 µL of diluted capture antibody to each well and cover the plate. Incubate with gentle agitation for 2 h at room temperature, or overnight at 4°C."
     },
     {
       "index": 7,
@@ -148,37 +175,45 @@
       "kind": "action",
       "action": "pour_add",
       "container": "well_plate",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
       "duration_seconds": null,
       "spin": null,
-      "reagents": [{"name": "wash buffer", "name_en": "wash buffer", "volume": null, "volume_en": null, "condition": null, "condition_en": null}],
+      "reagents": [
+        {"name": "wash buffer", "name_en": "wash buffer", "volume": null, "volume_en": null, "condition": null, "condition_en": null}
+      ],
       "conditionals": [],
-      "repeat": {"count": 3, "reason": "wash each well three times", "reason_en": "wash each well three times"},
+      "repeat": {"count": 3, "reason": null, "reason_en": null},
       "alternatives": [],
       "hazards": [],
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Wash each well three times with wash buffer."
+      "verbatim": "6. Wash each well three times with wash buffer."
     },
     {
       "index": 8,
       "phase": "procedure",
-      "text": "Pour off the wash buffer from each well.",
-      "text_en": "Pour off the wash buffer from each well.",
+      "text": "Discard the wash buffer from each well.",
+      "text_en": "Discard the wash buffer from each well.",
       "kind": "action",
       "action": "discard",
       "container": null,
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
       "duration_seconds": null,
       "spin": null,
       "reagents": [],
       "conditionals": [],
-      "repeat": {"count": 3, "reason": "wash each well three times", "reason_en": "wash each well three times"},
+      "repeat": {"count": 3, "reason": null, "reason_en": null},
       "alternatives": [],
       "hazards": [],
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Wash each well three times with wash buffer."
+      "verbatim": "6. Wash each well three times with wash buffer."
     },
     {
       "index": 9,
@@ -188,9 +223,14 @@
       "kind": "action",
       "action": "pour_add",
       "container": "well_plate",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
       "duration_seconds": null,
       "spin": null,
-      "reagents": [{"name": "blocking buffer", "name_en": "blocking buffer", "volume": "200 µL", "volume_en": "200 µL", "condition": null, "condition_en": null}],
+      "reagents": [
+        {"name": "blocking buffer", "name_en": "blocking buffer", "volume": "200 µL", "volume_en": "200 µL", "condition": null, "condition_en": null}
+      ],
       "conditionals": [],
       "repeat": null,
       "alternatives": [],
@@ -198,7 +238,7 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Add 200 µL of blocking buffer to each well and cover the plate. Block with gentle agitation for 1-2 h at room temperature."
+      "verbatim": "7. Add 200 µL of blocking buffer to each well and cover the plate. Block with gentle agitation for 1-2 h at room temperature."
     },
     {
       "index": 10,
@@ -208,6 +248,9 @@
       "kind": "wait",
       "action": "incubate_wait",
       "container": null,
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
       "duration_seconds": 3600,
       "spin": null,
       "reagents": [],
@@ -217,8 +260,8 @@
       "hazards": [],
       "hazards_en": [],
       "prep_ahead": false,
-      "gaps": [{"parameter": "blocking time", "question": "Block for 1 h or 2 h at room temperature?"}],
-      "verbatim": "Add 200 µL of blocking buffer to each well and cover the plate. Block with gentle agitation for 1-2 h at room temperature."
+      "gaps": [],
+      "verbatim": "7. Add 200 µL of blocking buffer to each well and cover the plate. Block with gentle agitation for 1-2 h at room temperature."
     },
     {
       "index": 11,
@@ -228,17 +271,24 @@
       "kind": "prepare",
       "action": "prepare",
       "container": "tube",
+      "target": "diluted_samples",
+      "produces": "diluted_samples",
+      "draws_from": null,
       "duration_seconds": null,
       "spin": null,
-      "reagents": [{"name": "dilution buffer", "name_en": "dilution buffer", "volume": null, "volume_en": null, "condition": null, "condition_en": null}],
+      "reagents": [
+        {"name": "dilution buffer", "name_en": "dilution buffer", "volume": null, "volume_en": null, "condition": null, "condition_en": null}
+      ],
       "conditionals": [],
       "repeat": null,
       "alternatives": [],
       "hazards": [],
       "hazards_en": [],
       "prep_ahead": false,
-      "gaps": [],
-      "verbatim": "Dilute the samples, controls and standards in dilution buffer."
+      "gaps": [
+        {"parameter": "dilution factor", "question": "What dilution factor should be used for the samples, controls and standards?"}
+      ],
+      "verbatim": "8. Dilute the samples, controls and standards in dilution buffer."
     },
     {
       "index": 12,
@@ -248,9 +298,14 @@
       "kind": "action",
       "action": "pour_add",
       "container": "well_plate",
+      "target": "sample",
+      "produces": null,
+      "draws_from": "diluted_samples",
       "duration_seconds": null,
       "spin": null,
-      "reagents": [{"name": "diluted samples and standards", "name_en": "diluted samples and standards", "volume": "100 µL", "volume_en": "100 µL", "condition": null, "condition_en": null}],
+      "reagents": [
+        {"name": "diluted samples and standards", "name_en": "diluted samples and standards", "volume": "100 µL", "volume_en": "100 µL", "condition": null, "condition_en": null}
+      ],
       "conditionals": [],
       "repeat": null,
       "alternatives": [],
@@ -258,7 +313,7 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Add 100 µL of diluted samples and standards to the wells and cover the plate. Incubate with gentle agitation for 2 h at room temperature."
+      "verbatim": "9. Add 100 µL of diluted samples and standards to the wells and cover the plate. Incubate with gentle agitation for 2 h at room temperature."
     },
     {
       "index": 13,
@@ -268,6 +323,9 @@
       "kind": "wait",
       "action": "incubate_wait",
       "container": null,
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
       "duration_seconds": 7200,
       "spin": null,
       "reagents": [],
@@ -278,7 +336,7 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Add 100 µL of diluted samples and standards to the wells and cover the plate. Incubate with gentle agitation for 2 h at room temperature."
+      "verbatim": "9. Add 100 µL of diluted samples and standards to the wells and cover the plate. Incubate with gentle agitation for 2 h at room temperature."
     },
     {
       "index": 14,
@@ -288,37 +346,45 @@
       "kind": "action",
       "action": "pour_add",
       "container": "well_plate",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
       "duration_seconds": null,
       "spin": null,
-      "reagents": [{"name": "wash buffer", "name_en": "wash buffer", "volume": null, "volume_en": null, "condition": null, "condition_en": null}],
+      "reagents": [
+        {"name": "wash buffer", "name_en": "wash buffer", "volume": null, "volume_en": null, "condition": null, "condition_en": null}
+      ],
       "conditionals": [],
-      "repeat": {"count": 3, "reason": "wash each well three times", "reason_en": "wash each well three times"},
+      "repeat": {"count": 3, "reason": null, "reason_en": null},
       "alternatives": [],
       "hazards": [],
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Wash each well three times with wash buffer."
+      "verbatim": "10. Wash each well three times with wash buffer."
     },
     {
       "index": 15,
       "phase": "procedure",
-      "text": "Pour off the wash buffer from each well.",
-      "text_en": "Pour off the wash buffer from each well.",
+      "text": "Discard the wash buffer from each well.",
+      "text_en": "Discard the wash buffer from each well.",
       "kind": "action",
       "action": "discard",
       "container": null,
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
       "duration_seconds": null,
       "spin": null,
       "reagents": [],
       "conditionals": [],
-      "repeat": {"count": 3, "reason": "wash each well three times", "reason_en": "wash each well three times"},
+      "repeat": {"count": 3, "reason": null, "reason_en": null},
       "alternatives": [],
       "hazards": [],
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Wash each well three times with wash buffer."
+      "verbatim": "10. Wash each well three times with wash buffer."
     },
     {
       "index": 16,
@@ -328,9 +394,14 @@
       "kind": "action",
       "action": "pour_add",
       "container": "well_plate",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
       "duration_seconds": null,
       "spin": null,
-      "reagents": [{"name": "pre-diluted detection antibody", "name_en": "pre-diluted detection antibody", "volume": "100 µL", "volume_en": "100 µL", "condition": null, "condition_en": null}],
+      "reagents": [
+        {"name": "pre-diluted detection antibody", "name_en": "pre-diluted detection antibody", "volume": "100 µL", "volume_en": "100 µL", "condition": null, "condition_en": null}
+      ],
       "conditionals": [],
       "repeat": null,
       "alternatives": [],
@@ -338,7 +409,7 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Add 100 µL of pre-diluted detection antibody to each well and cover the plate. Incubate for 2 h at room temperature."
+      "verbatim": "11. Add 100 µL of pre-diluted detection antibody to each well and cover the plate. Incubate for 2 h at room temperature."
     },
     {
       "index": 17,
@@ -348,6 +419,9 @@
       "kind": "wait",
       "action": "incubate_wait",
       "container": null,
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
       "duration_seconds": 7200,
       "spin": null,
       "reagents": [],
@@ -358,7 +432,7 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Add 100 µL of pre-diluted detection antibody to each well and cover the plate. Incubate for 2 h at room temperature."
+      "verbatim": "11. Add 100 µL of pre-diluted detection antibody to each well and cover the plate. Incubate for 2 h at room temperature."
     },
     {
       "index": 18,
@@ -368,37 +442,45 @@
       "kind": "action",
       "action": "pour_add",
       "container": "well_plate",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
       "duration_seconds": null,
       "spin": null,
-      "reagents": [{"name": "wash buffer", "name_en": "wash buffer", "volume": null, "volume_en": null, "condition": null, "condition_en": null}],
+      "reagents": [
+        {"name": "wash buffer", "name_en": "wash buffer", "volume": null, "volume_en": null, "condition": null, "condition_en": null}
+      ],
       "conditionals": [],
-      "repeat": {"count": 3, "reason": "wash each well three times", "reason_en": "wash each well three times"},
+      "repeat": {"count": 3, "reason": null, "reason_en": null},
       "alternatives": [],
       "hazards": [],
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Wash each well three times with wash buffer."
+      "verbatim": "12. Wash each well three times with wash buffer."
     },
     {
       "index": 19,
       "phase": "procedure",
-      "text": "Pour off the wash buffer from each well.",
-      "text_en": "Pour off the wash buffer from each well.",
+      "text": "Discard the wash buffer from each well.",
+      "text_en": "Discard the wash buffer from each well.",
       "kind": "action",
       "action": "discard",
       "container": null,
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
       "duration_seconds": null,
       "spin": null,
       "reagents": [],
       "conditionals": [],
-      "repeat": {"count": 3, "reason": "wash each well three times", "reason_en": "wash each well three times"},
+      "repeat": {"count": 3, "reason": null, "reason_en": null},
       "alternatives": [],
       "hazards": [],
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Wash each well three times with wash buffer."
+      "verbatim": "12. Wash each well three times with wash buffer."
     },
     {
       "index": 20,
@@ -408,9 +490,14 @@
       "kind": "action",
       "action": "pour_add",
       "container": "well_plate",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
       "duration_seconds": null,
       "spin": null,
-      "reagents": [{"name": "HRP-conjugated secondary antibody", "name_en": "HRP-conjugated secondary antibody", "volume": "100 µL", "volume_en": "100 µL", "condition": null, "condition_en": null}],
+      "reagents": [
+        {"name": "HRP-conjugated secondary antibody", "name_en": "HRP-conjugated secondary antibody", "volume": "100 µL", "volume_en": "100 µL", "condition": null, "condition_en": null}
+      ],
       "conditionals": [],
       "repeat": null,
       "alternatives": [],
@@ -418,7 +505,7 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Add 100 µL of HRP-conjugated secondary antibody to each well and incubate for 1-2 h at room temperature."
+      "verbatim": "13. Add 100 µL of HRP-conjugated secondary antibody to each well and incubate for 1-2 h at room temperature."
     },
     {
       "index": 21,
@@ -428,6 +515,9 @@
       "kind": "wait",
       "action": "incubate_wait",
       "container": null,
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
       "duration_seconds": 3600,
       "spin": null,
       "reagents": [],
@@ -437,8 +527,8 @@
       "hazards": [],
       "hazards_en": [],
       "prep_ahead": false,
-      "gaps": [{"parameter": "incubation time", "question": "Incubate for 1 h or 2 h at room temperature?"}],
-      "verbatim": "Add 100 µL of HRP-conjugated secondary antibody to each well and incubate for 1-2 h at room temperature."
+      "gaps": [],
+      "verbatim": "13. Add 100 µL of HRP-conjugated secondary antibody to each well and incubate for 1-2 h at room temperature."
     },
     {
       "index": 22,
@@ -448,37 +538,45 @@
       "kind": "action",
       "action": "pour_add",
       "container": "well_plate",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
       "duration_seconds": null,
       "spin": null,
-      "reagents": [{"name": "wash buffer", "name_en": "wash buffer", "volume": null, "volume_en": null, "condition": null, "condition_en": null}],
+      "reagents": [
+        {"name": "wash buffer", "name_en": "wash buffer", "volume": null, "volume_en": null, "condition": null, "condition_en": null}
+      ],
       "conditionals": [],
-      "repeat": {"count": 3, "reason": "wash each well three times", "reason_en": "wash each well three times"},
+      "repeat": {"count": 3, "reason": null, "reason_en": null},
       "alternatives": [],
       "hazards": [],
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Wash each well three times with wash buffer."
+      "verbatim": "14. Wash each well three times with wash buffer."
     },
     {
       "index": 23,
       "phase": "procedure",
-      "text": "Pour off the wash buffer from each well.",
-      "text_en": "Pour off the wash buffer from each well.",
+      "text": "Discard the wash buffer from each well.",
+      "text_en": "Discard the wash buffer from each well.",
       "kind": "action",
       "action": "discard",
       "container": null,
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
       "duration_seconds": null,
       "spin": null,
       "reagents": [],
       "conditionals": [],
-      "repeat": {"count": 3, "reason": "wash each well three times", "reason_en": "wash each well three times"},
+      "repeat": {"count": 3, "reason": null, "reason_en": null},
       "alternatives": [],
       "hazards": [],
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Wash each well three times with wash buffer."
+      "verbatim": "14. Wash each well three times with wash buffer."
     },
     {
       "index": 24,
@@ -488,17 +586,22 @@
       "kind": "action",
       "action": "pour_add",
       "container": "well_plate",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
       "duration_seconds": null,
       "spin": null,
-      "reagents": [{"name": "TMB enzyme substrate", "name_en": "TMB enzyme substrate", "volume": "50-100 µL", "volume_en": "50-100 µL", "condition": null, "condition_en": null}],
+      "reagents": [
+        {"name": "TMB enzyme substrate", "name_en": "TMB enzyme substrate", "volume": "50-100 µL", "volume_en": "50-100 µL", "condition": null, "condition_en": null}
+      ],
       "conditionals": [],
       "repeat": null,
       "alternatives": [],
       "hazards": [],
       "hazards_en": [],
       "prep_ahead": false,
-      "gaps": [{"parameter": "TMB substrate volume", "question": "Add 50 µL or 100 µL of TMB substrate per well?"}],
-      "verbatim": "Add 50-100 µL of TMB enzyme substrate to each well and incubate with gentle agitation on a plate shaker."
+      "gaps": [],
+      "verbatim": "15. Add 50-100 µL of TMB enzyme substrate to each well and incubate with gentle agitation on a plate shaker."
     },
     {
       "index": 25,
@@ -508,6 +611,9 @@
       "kind": "wait",
       "action": "incubate_wait",
       "container": null,
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
       "duration_seconds": null,
       "spin": null,
       "reagents": [],
@@ -517,8 +623,10 @@
       "hazards": [],
       "hazards_en": [],
       "prep_ahead": false,
-      "gaps": [{"parameter": "TMB incubation time", "question": "How long should the TMB substrate develop on the plate shaker?"}],
-      "verbatim": "Add 50-100 µL of TMB enzyme substrate to each well and incubate with gentle agitation on a plate shaker."
+      "gaps": [
+        {"parameter": "TMB incubation time", "question": "How long should the TMB substrate be incubated (until desired color development)?"}
+      ],
+      "verbatim": "15. Add 50-100 µL of TMB enzyme substrate to each well and incubate with gentle agitation on a plate shaker."
     },
     {
       "index": 26,
@@ -528,9 +636,14 @@
       "kind": "action",
       "action": "pour_add",
       "container": "well_plate",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
       "duration_seconds": 60,
       "spin": null,
-      "reagents": [{"name": "stop solution", "name_en": "stop solution", "volume": "100 µL", "volume_en": "100 µL", "condition": null, "condition_en": null}],
+      "reagents": [
+        {"name": "stop solution", "name_en": "stop solution", "volume": "100 µL", "volume_en": "100 µL", "condition": null, "condition_en": null}
+      ],
       "conditionals": [],
       "repeat": null,
       "alternatives": [],
@@ -538,7 +651,7 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Add 100 µL of stop solution to each well and shake for 1 min to mix."
+      "verbatim": "16. Add 100 µL of stop solution to each well and shake for 1 min to mix."
     },
     {
       "index": 27,
@@ -547,7 +660,10 @@
       "text_en": "Read the absorbance in the plate reader at 450 nm.",
       "kind": "measure",
       "action": "measure",
-      "container": "well_plate",
+      "container": null,
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
       "duration_seconds": null,
       "spin": null,
       "reagents": [],
@@ -558,14 +674,16 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Read the absorbance in the plate reader at 450 nm."
+      "verbatim": "17. Read the absorbance in the plate reader at 450 nm."
     }
   ],
   "open_parameters": [
-    {"question": "What centrifugation speed within 1,000-10,000 x g should be used to separate plasma/serum?", "where": "Sample preparation, step 2", "where_en": "Sample preparation, step 2"},
-    {"question": "What concentration (1-10 µg/mL) should the capture antibody be diluted to?", "where": "Capture antibody coating, step 4", "where_en": "Capture antibody coating, step 4"},
-    {"question": "Coat capture antibody for 2 h at room temperature or overnight at 4°C?", "where": "Capture antibody coating, step 5", "where_en": "Capture antibody coating, step 5"},
-    {"question": "What dilution factors should be used for samples, controls and standards?", "where": "Blocking and sample addition, step 8", "where_en": "Blocking and sample addition, step 8"}
+    {"question": "What concentration (1-10 µg/mL) should the capture antibody coating be?", "where": "step 4", "where_en": "step 4"},
+    {"question": "Coating incubation: 2 h at room temperature or overnight at 4°C?", "where": "step 5", "where_en": "step 5"},
+    {"question": "What dilution factor for samples, controls and standards?", "where": "step 8", "where_en": "step 8"},
+    {"question": "Blocking time: 1 or 2 h?", "where": "step 7", "where_en": "step 7"},
+    {"question": "Secondary antibody incubation time: 1 or 2 h?", "where": "step 13", "where_en": "step 13"},
+    {"question": "TMB substrate volume (50-100 µL) and incubation time?", "where": "step 15", "where_en": "step 15"}
   ],
   "reference": null
 }

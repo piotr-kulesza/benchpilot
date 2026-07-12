@@ -75,28 +75,23 @@
       "kind": "action",
       "action": "cool_ice",
       "container": "microtube",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 0,
       "duration_seconds": 1500,
       "spin": null,
-      "reagents": [
-        {
-          "name": "Competent cells",
-          "name_en": "Competent cells",
-          "volume": null,
-          "volume_en": null,
-          "condition": null,
-          "condition_en": null
-        }
-      ],
+      "reagents": [],
       "conditionals": [],
       "repeat": null,
       "alternatives": [],
       "hazards": [
-        "thaw on ice"
+        "keep on ice"
       ],
       "hazards_en": [
-        "thaw on ice"
+        "keep on ice"
       ],
-      "prep_ahead": true,
+      "prep_ahead": false,
       "gaps": [],
       "verbatim": "Take competent cells out of -80°C and thaw on ice (approximately 20-30 mins)."
     },
@@ -108,6 +103,10 @@
       "kind": "prepare",
       "action": "prepare",
       "container": "agar_plate",
+      "target": "agar_plate_warmed",
+      "produces": "agar_plate_warmed",
+      "draws_from": null,
+      "source_index": 1,
       "duration_seconds": null,
       "spin": null,
       "reagents": [
@@ -144,6 +143,10 @@
       "kind": "action",
       "action": "pour_add",
       "container": "microtube",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 2,
       "duration_seconds": null,
       "spin": null,
       "reagents": [
@@ -156,8 +159,8 @@
           "condition_en": "usually 10 pg - 100 ng"
         },
         {
-          "name": "Competent cells",
-          "name_en": "Competent cells",
+          "name": "competent cells",
+          "name_en": "competent cells",
           "volume": "20-50 µL",
           "volume_en": "20-50 µL",
           "condition": null,
@@ -168,10 +171,10 @@
       "repeat": null,
       "alternatives": [],
       "hazards": [
-        "GENTLY mix by flicking, do not vortex"
+        "GENTLY mix by flicking; do not vortex"
       ],
       "hazards_en": [
-        "GENTLY mix by flicking, do not vortex"
+        "GENTLY mix by flicking; do not vortex"
       ],
       "prep_ahead": false,
       "gaps": [],
@@ -184,7 +187,11 @@
       "text_en": "Incubate the competent cell/DNA mixture on ice for 20-30 mins.",
       "kind": "wait",
       "action": "incubate_wait",
-      "container": null,
+      "container": "microtube",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 3,
       "duration_seconds": 1500,
       "spin": null,
       "reagents": [],
@@ -208,7 +215,11 @@
       "text_en": "Heat shock each transformation tube by placing the bottom 1/2 to 2/3 of the tube into a 42°C water bath for 30-60 secs (45 secs is usually ideal, but this varies depending on the competent cells you are using).",
       "kind": "action",
       "action": "heat",
-      "container": null,
+      "container": "microtube",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 4,
       "duration_seconds": 45,
       "spin": null,
       "reagents": [],
@@ -216,16 +227,16 @@
       "repeat": null,
       "alternatives": [],
       "hazards": [
-        "do not exceed 30-60 secs; timing varies by competent cells"
+        "do not exceed 30-60 secs; timing varies by competent cell type"
       ],
       "hazards_en": [
-        "do not exceed 30-60 secs; timing varies by competent cells"
+        "do not exceed 30-60 secs; timing varies by competent cell type"
       ],
       "prep_ahead": false,
       "gaps": [
         {
           "parameter": "heat shock duration",
-          "question": "What exact heat shock duration (30-60 s, 45 s typical) suits the specific competent cells used?"
+          "question": "What is the optimal heat shock time for the specific competent cells being used (30-60 secs, typically 45 secs)?"
         }
       ],
       "verbatim": "Heat shock each transformation tube by placing the bottom 1/2 to 2/3 of the tube into a 42°C water bath for 30-60 secs (45 secs is usually ideal, but this varies depending on the competent cells you are using)."
@@ -236,8 +247,12 @@
       "text": "Put the tubes back on ice for 2 min.",
       "text_en": "Put the tubes back on ice for 2 min.",
       "kind": "wait",
-      "action": "incubate_wait",
-      "container": null,
+      "action": "cool_ice",
+      "container": "microtube",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 5,
       "duration_seconds": 120,
       "spin": null,
       "reagents": [],
@@ -261,7 +276,11 @@
       "text_en": "Add 250-1,000 µl LB or SOC media (without antibiotic) to the bacteria.",
       "kind": "action",
       "action": "pour_add",
-      "container": null,
+      "container": "microtube",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 6,
       "duration_seconds": null,
       "spin": null,
       "reagents": [
@@ -277,12 +296,8 @@
       "conditionals": [],
       "repeat": null,
       "alternatives": [],
-      "hazards": [
-        "media must be without antibiotic"
-      ],
-      "hazards_en": [
-        "media must be without antibiotic"
-      ],
+      "hazards": [],
+      "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
       "verbatim": "Add 250-1,000 µl LB or SOC media (without antibiotic) to the bacteria and grow in 37°C shaking incubator for 45 min."
@@ -294,7 +309,11 @@
       "text_en": "Grow in 37°C shaking incubator for 45 min.",
       "kind": "wait",
       "action": "incubate_wait",
-      "container": null,
+      "container": "microtube",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 7,
       "duration_seconds": 2700,
       "spin": null,
       "reagents": [],
@@ -315,6 +334,10 @@
       "kind": "action",
       "action": "seed",
       "container": "agar_plate",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 8,
       "duration_seconds": null,
       "spin": null,
       "reagents": [],
@@ -340,6 +363,10 @@
       "kind": "wait",
       "action": "incubate_wait",
       "container": "agar_plate",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 9,
       "duration_seconds": 57600,
       "spin": null,
       "reagents": [],
@@ -355,29 +382,29 @@
   ],
   "open_parameters": [
     {
-      "question": "How much DNA (1-5 µl, 10 pg - 100 ng) should be used?",
-      "where": "Procedure step 3",
-      "where_en": "Procedure step 3"
+      "question": "What amount of DNA to use (1-5 µl, usually 10 pg - 100 ng)?",
+      "where": "step 3",
+      "where_en": "step 3"
     },
     {
-      "question": "What volume of competent cells (20-50 µL) should be used?",
-      "where": "Procedure step 3",
-      "where_en": "Procedure step 3"
+      "question": "What volume of competent cells to use (20-50 µL)?",
+      "where": "step 3",
+      "where_en": "step 3"
     },
     {
-      "question": "Which recovery media, LB or SOC, and what volume (250-1,000 µl)?",
-      "where": "Procedure step 7",
-      "where_en": "Procedure step 7"
+      "question": "Which recovery media to use (LB or SOC) and what volume (250-1,000 µl)?",
+      "where": "step 7",
+      "where_en": "step 7"
     },
     {
-      "question": "How much of the transformation should be plated?",
-      "where": "Procedure step 8",
-      "where_en": "Procedure step 8"
+      "question": "How much of the transformation to plate (some or all)?",
+      "where": "step 8",
+      "where_en": "step 8"
     },
     {
-      "question": "What heat shock duration (30-60 s) is optimal for the specific competent cells?",
-      "where": "Procedure step 5",
-      "where_en": "Procedure step 5"
+      "question": "Which antibiotic is appropriate for the selection?",
+      "where": "reagents / agar plate",
+      "where_en": "reagents / agar plate"
     }
   ],
   "reference": null

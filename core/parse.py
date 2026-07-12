@@ -18,7 +18,7 @@ import os
 import re
 from typing import Callable, Optional
 
-from .schema import Protocol
+from .schema import Protocol, _s
 
 # An `llm` is any callable (system_prompt, user_prompt) -> raw model text.
 LLM = Callable[[str, str], str]
@@ -193,6 +193,25 @@ CONTAINER (where the SAMPLE now sits) — set `container` per step:
   Set `container` on the FIRST step too — the sample must not depend on a default;
   name where the very first sample sits (e.g. microtube, flask, tube).
 
+WHICH VESSEL A STEP ACTS ON (`target`, `produces`, `draws_from`)
+  Once a `prepare` step is on the bench there are TWO vessels — the travelling sample
+  and the mixture that prep made — so every instruction must say which one it touches:
+  - target: what THIS step acts on. "sample" for the overwhelming majority — anything
+    that adds to, mixes, moves, spins, incubates, cools, reads or stores the sample.
+    A `prepare` step is the exception: its target is the mixture it makes, and MUST equal
+    its own `produces` id.
+  - produces: on a `prepare` step ONLY — a short snake_case id naming the product
+    ("dnase_mix", "master_mix", "coating_antibody", "blocking_buffer").
+  - draws_from: on a step that USES a previously-prepared mixture — set it to that
+    mixture's `produces` id. The mix is applied TO the sample, so `target` stays
+    "sample" and `draws_from` names the source vessel it is drawn from:
+      "Apply 80 µl of the DNase I mixture onto the column membrane"
+          -> pour_add ; target: sample ; draws_from: dnase_mix
+      "Add 20 µl of the master mix to each template"
+          -> pour_add ; target: sample ; draws_from: master_mix
+  A `prepare` step's product NEVER enters the sample's `container` chain and is NEVER
+  the sample — it is a separate vessel, and the sample is untouched by it.
+
 WASHES that do NOT spin (well plate, membrane, slide, flask — no centrifuge) must
   decompose into pour_add (the wash buffer) + discard (pour/aspirate it off),
   mirroring the spin-wash rule (pour_add + centrifuge). A wash NEVER just fills; the
@@ -247,8 +266,23 @@ For each step extract, when present:
     plain condition: "cold transfer buffer" is a REAGENT (it belongs in `reagents`),
     "at 100 V" is a CONDITION (it belongs in the step text) — NEITHER is a hazard.
     Never put a bare reagent/material name in `hazards`.
-  - prep_ahead: true if this should be done BEFORE the procedure clock starts
-    (making fresh buffer, premixing DNase I + RDD, etc.).
+  - prep_ahead: WHEN a preparation is made. TWO kinds, and the difference is real
+    protocol knowledge the source text never states outright:
+      • DO-AHEAD (prep_ahead: true) — a SHELF-STABLE mixture/buffer made ONCE before you
+        start and good for the whole session: adding 2-mercaptoethanol to RLT lysis
+        buffer, adding ethanol to the RPE/wash buffer, making up a fixative or a stock.
+        These are lifted OUT of the timed run into the "before you start" checklist.
+      • JUST-IN-TIME (prep_ahead: false) — made FRESH, immediately before the step that
+        uses it, because it is unstable, ENZYMATIC, or the protocol implies freshness:
+        a DNase I / RDD mix, any master mix CONTAINING enzyme, a reducing-agent mix, or
+        anything marked "prepare fresh" / "use immediately" / light- or heat-sensitive.
+        It STAYS in the run (shown right before its consumer) — give it `produces` and
+        give the consuming step the matching `draws_from`. You do NOT make an enzyme mix
+        and leave it on the bench for forty minutes; you make it when you need it.
+    When in doubt choose JUST-IN-TIME (false): a prep shown a little early is a small
+    error; one hidden in a checklist the user needed at the bench is a real one. Only
+    preparations are ever prep_ahead — a step that acts on the sample (adds to it, keeps
+    it on ice) is part of the run and is NEVER prep_ahead.
   - gaps: [{parameter, question}] for any value left underspecified / "to be
     determined" AT THIS STEP. Surface it as an answerable question (English is fine).
   - verbatim: the original source sentence(s) this step came from (audit trail).
@@ -285,6 +319,9 @@ Return JSON of exactly this shape:
     "index": int, "phase": str, "text": str, "text_en": str,
     "kind": str, "action": str,
     "container": str|null,   // where the SAMPLE sits (see CONTAINER rule); omit if unchanged
+    "target": str,           // "sample" (default) or, for a `prepare` step, its own `produces` id
+    "produces": str|null,    // `prepare` step only: snake_case id of the mixture it makes
+    "draws_from": str|null,  // a step USING a prepared mixture: that mixture's `produces` id
     "duration_seconds": number|null,
     "spin": {"duration_seconds": number|null, "rcf_min": number|null, "note": str|null}|null,
     "reagents": [{"name": str, "name_en": str|null, "volume": str|null, "volume_en": str|null, "condition": str|null, "condition_en": str|null}],
@@ -458,6 +495,82 @@ def normalize_parsed(data: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# preparations: a WHICH-vessel and a WHEN (Stage 34). Pure + idempotent.
+# ---------------------------------------------------------------------------
+
+def _slug(text: str) -> str:
+    """snake_case id for matching a `produces` to a `draws_from` loosely."""
+    return re.sub(r"[^a-z0-9]+", "_", _s(text).lower()).strip("_")
+
+
+def arrange_preparations(data: dict) -> dict:
+    """Give every step a `target`, name every preparation's product, and move each
+    JUST-IN-TIME preparation to sit immediately before the step that consumes it.
+
+    Once the bench can hold more than one vessel (the sample + any mix a `prepare`
+    step makes), an instruction is ambiguous unless it says WHICH vessel it acts on
+    (Part 1), and an enzyme mix made forty minutes early is a lie about HOW you work
+    (Part 2). Both are fixed here, deterministically:
+
+    1. Every step declares a `target`: "sample" by default; a `prepare` step targets
+       its OWN product (never the sample). Every `prepare` names that product in
+       `produces` (synthesized if the model forgot, so the invariant always holds).
+    2. A just-in-time prep (`prepare`, prep_ahead=false) is moved to immediately before
+       the FIRST later step that `draws_from` its product. Do-ahead preps (prep_ahead=
+       true) stay put — the UI lifts them into the before-you-start checklist. NOTHING
+       else moves, and `source_index` keeps the emitted order recoverable.
+    """
+    if not isinstance(data, dict):
+        return data
+    steps = data.get("steps")
+    if not isinstance(steps, list) or not steps:
+        return data
+
+    # 1 — audit trail: remember the emitted (source) order before any reordering.
+    for i, s in enumerate(steps):
+        if isinstance(s, dict) and s.get("source_index") is None:
+            s["source_index"] = i
+
+    # 2 — every step says WHAT it acts on. A `prepare` acts on its own product; the
+    #     product NEVER becomes the sample's target.
+    for s in steps:
+        if not isinstance(s, dict):
+            continue
+        if s.get("action") == "prepare":
+            prod = _s(s.get("produces")) or f"prep_{int(s.get('source_index') or 0) + 1}"
+            s["produces"] = prod
+            s["target"] = prod
+        elif not _s(s.get("target")):
+            s["target"] = "sample"
+
+    # 3 — move each just-in-time prep to immediately before its first consumer.
+    def _consumer_index(prod: str, start: int) -> int:
+        key = _slug(prod)
+        for j in range(start, len(steps)):
+            s = steps[j]
+            if isinstance(s, dict) and s.get("action") != "prepare":
+                df = s.get("draws_from")
+                if df and (_s(df) == prod or _slug(df) == key):
+                    return j
+        return -1
+
+    i = 0
+    while i < len(steps):
+        s = steps[i]
+        if (isinstance(s, dict) and s.get("action") == "prepare"
+                and not bool(s.get("prep_ahead"))):
+            j = _consumer_index(s.get("produces"), i + 1)
+            if j > i + 1:                 # a consumer exists, and it is NOT already adjacent
+                steps.pop(i)
+                steps.insert(j - 1, s)    # pop shifted the consumer to j-1; land just before it
+                s["phase"] = "procedure"  # it now lives inside the timed run, not the prep block
+                continue                  # re-examine whatever slid into position i
+        i += 1
+
+    return data
+
+
+# ---------------------------------------------------------------------------
 # public API
 # ---------------------------------------------------------------------------
 
@@ -484,5 +597,5 @@ def parse_protocol(
         if use_cache:
             _cache_put(key, raw)
 
-    data = normalize_parsed(_extract_json(raw))
+    data = arrange_preparations(normalize_parsed(_extract_json(raw)))
     return Protocol.from_dict(data, source=source)

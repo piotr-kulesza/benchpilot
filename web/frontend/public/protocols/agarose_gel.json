@@ -1,8 +1,8 @@
 {
   "title": "Agarose Gel Electrophoresis of DNA (1% gel)",
   "title_en": "Agarose Gel Electrophoresis of DNA (1% gel)",
-  "summary": "Preparation and running of a 1% agarose gel for DNA separation, including casting, loading, electrophoresis, and visualization.",
-  "summary_en": "Preparation and running of a 1% agarose gel for DNA separation, including casting, loading, electrophoresis, and visualization.",
+  "summary": "Protocol for preparing and running a 1% agarose gel to separate DNA fragments and visualize them under UV light.",
+  "summary_en": "Protocol for preparing and running a 1% agarose gel to separate DNA fragments and visualize them under UV light.",
   "source": "Agarose Gel Electrophoresis of DNA (1% gel)",
   "materials": [
     {
@@ -51,12 +51,16 @@
   "steps": [
     {
       "index": 1,
-      "phase": "preparation",
+      "phase": "procedure",
       "text": "Weigh 1 g of agarose and add it to 100 mL of 1X TAE buffer in a flask.",
       "text_en": "Weigh 1 g of agarose and add it to 100 mL of 1X TAE buffer in a flask.",
-      "kind": "prepare",
-      "action": "prepare",
+      "kind": "action",
+      "action": "pour_add",
       "container": "flask",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 0,
       "duration_seconds": null,
       "spin": null,
       "reagents": [
@@ -82,19 +86,23 @@
       "alternatives": [],
       "hazards": [],
       "hazards_en": [],
-      "prep_ahead": true,
+      "prep_ahead": false,
       "gaps": [],
       "verbatim": "Weigh 1 g of agarose and add it to 100 mL of 1X TAE buffer in a flask."
     },
     {
       "index": 2,
-      "phase": "preparation",
+      "phase": "procedure",
       "text": "Microwave the mixture for about 1-2 min, swirling occasionally, until the agarose is fully dissolved and the solution is clear.",
       "text_en": "Microwave the mixture for about 1-2 min, swirling occasionally, until the agarose is fully dissolved and the solution is clear.",
       "kind": "action",
       "action": "heat",
       "container": null,
-      "duration_seconds": 120,
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 1,
+      "duration_seconds": 90,
       "spin": null,
       "reagents": [],
       "conditionals": [],
@@ -102,18 +110,22 @@
       "alternatives": [],
       "hazards": [],
       "hazards_en": [],
-      "prep_ahead": true,
+      "prep_ahead": false,
       "gaps": [],
       "verbatim": "Microwave the mixture for about 1-2 min, swirling occasionally, until the agarose is fully dissolved and the solution is clear."
     },
     {
       "index": 3,
-      "phase": "preparation",
+      "phase": "procedure",
       "text": "Let the molten agarose cool to about 55°C.",
       "text_en": "Let the molten agarose cool to about 55°C.",
       "kind": "wait",
       "action": "incubate_wait",
       "container": null,
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 2,
       "duration_seconds": null,
       "spin": null,
       "reagents": [],
@@ -122,18 +134,22 @@
       "alternatives": [],
       "hazards": [],
       "hazards_en": [],
-      "prep_ahead": true,
+      "prep_ahead": false,
       "gaps": [],
       "verbatim": "Let the molten agarose cool to about 55°C."
     },
     {
       "index": 4,
-      "phase": "preparation",
+      "phase": "procedure",
       "text": "Add 10 µL of SYBR Safe stain and swirl to mix.",
       "text_en": "Add 10 µL of SYBR Safe stain and swirl to mix.",
       "kind": "action",
       "action": "pour_add",
       "container": null,
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 3,
       "duration_seconds": null,
       "spin": null,
       "reagents": [
@@ -150,12 +166,12 @@
       "repeat": null,
       "alternatives": [],
       "hazards": [
-        "ethidium bromide is a mutagen — wear gloves and work in the designated area."
+        "CAUTION: ethidium bromide is a mutagen — wear gloves and work in the designated area."
       ],
       "hazards_en": [
-        "ethidium bromide is a mutagen — wear gloves and work in the designated area."
+        "CAUTION: ethidium bromide is a mutagen — wear gloves and work in the designated area."
       ],
-      "prep_ahead": true,
+      "prep_ahead": false,
       "gaps": [],
       "verbatim": "Add 10 µL of SYBR Safe stain and swirl to mix. CAUTION: ethidium bromide is a mutagen — wear gloves and work in the designated area."
     },
@@ -167,6 +183,10 @@
       "kind": "action",
       "action": "pour_add",
       "container": "gel",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 4,
       "duration_seconds": null,
       "spin": null,
       "reagents": [],
@@ -182,11 +202,15 @@
     {
       "index": 6,
       "phase": "procedure",
-      "text": "Let it solidify at room temperature for 20-30 min.",
-      "text_en": "Let it solidify at room temperature for 20-30 min.",
+      "text": "Let the gel solidify at room temperature for 20-30 min.",
+      "text_en": "Let the gel solidify at room temperature for 20-30 min.",
       "kind": "wait",
       "action": "incubate_wait",
       "container": null,
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 5,
       "duration_seconds": 1200,
       "spin": null,
       "reagents": [],
@@ -207,6 +231,10 @@
       "kind": "action",
       "action": "transfer",
       "container": "gel",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 6,
       "duration_seconds": null,
       "spin": null,
       "reagents": [
@@ -235,7 +263,11 @@
       "text_en": "Mix each DNA sample with 6X loading dye.",
       "kind": "action",
       "action": "pour_add",
-      "container": "microtube",
+      "container": null,
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 7,
       "duration_seconds": null,
       "spin": null,
       "reagents": [
@@ -265,6 +297,10 @@
       "kind": "action",
       "action": "transfer",
       "container": "gel",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 8,
       "duration_seconds": null,
       "spin": null,
       "reagents": [],
@@ -285,6 +321,10 @@
       "kind": "action",
       "action": "transfer",
       "container": "gel",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 9,
       "duration_seconds": null,
       "spin": null,
       "reagents": [
@@ -314,6 +354,10 @@
       "kind": "action",
       "action": "electrophorese",
       "container": "gel",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 10,
       "duration_seconds": 1800,
       "spin": null,
       "reagents": [],
@@ -334,6 +378,10 @@
       "kind": "measure",
       "action": "measure",
       "container": "gel",
+      "target": "sample",
+      "produces": null,
+      "draws_from": null,
+      "source_index": 11,
       "duration_seconds": null,
       "spin": null,
       "reagents": [],
@@ -341,10 +389,10 @@
       "repeat": null,
       "alternatives": [],
       "hazards": [
-        "work under UV light with appropriate eye/skin protection"
+        "UV light — wear appropriate eye/skin protection."
       ],
       "hazards_en": [
-        "work under UV light with appropriate eye/skin protection"
+        "UV light — wear appropriate eye/skin protection."
       ],
       "prep_ahead": false,
       "gaps": [],
@@ -353,14 +401,9 @@
   ],
   "open_parameters": [
     {
-      "question": "Which stain will be used — SYBR Safe or ethidium bromide?",
+      "question": "Which stain will be used: SYBR Safe or ethidium bromide?",
       "where": "10,000X SYBR Safe or ethidium bromide stain",
       "where_en": "10,000X SYBR Safe or ethidium bromide stain"
-    },
-    {
-      "question": "Which transilluminator (UV or blue-light) will be used for visualization?",
-      "where": "UV or blue-light transilluminator",
-      "where_en": "UV or blue-light transilluminator"
     }
   ],
   "reference": null
