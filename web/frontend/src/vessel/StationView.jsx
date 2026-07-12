@@ -3,7 +3,7 @@
 // to a calm static <Fallback>. NOTHING floats over the scene — the pane is pure 3D.
 // All step data lives in the left column.
 
-import { Component, useEffect, useMemo, useState } from 'react'
+import { Component, memo, useEffect, useMemo, useState } from 'react'
 import './vessel.css'
 import Fallback from './Fallback.jsx'
 import StationCanvas from './StationCanvas.jsx'
@@ -41,7 +41,11 @@ function labelFontsLoaded() {
   try { return LABEL_FACES.every((f) => document.fonts.check(f)) } catch { return true }
 }
 
-export default function StationView({ protocol, activeIndex = 0, answers = {}, lang = 'en', progress = 1, running = false, hasTimer = false, done = false, altByStep = {}, chromeless = false, bench = 'dark' }) {
+// Memoised: the runner re-renders at 10 Hz while a timer runs, but the scene reads the
+// clock from the stable `timerRef` (mutated in place), so none of these props change on a
+// tick and the whole 3D subtree is skipped. It re-renders only on a real change — a new
+// step, a chosen alternative, a bench flip.
+function StationView({ protocol, activeIndex = 0, answers = {}, lang = 'en', timerRef, altByStep = {}, chromeless = false, bench = 'dark' }) {
   const [use3D] = useState(() => webglAvailable())
   const [fontsReady, setFontsReady] = useState(labelFontsLoaded)
 
@@ -72,7 +76,7 @@ export default function StationView({ protocol, activeIndex = 0, answers = {}, l
           <GLBoundary fallback={fallback}>
             <StationCanvas
               protocol={protocol} activeIndex={activeIndex} answers={answers} lang={lang}
-              progress={progress} running={running} hasTimer={hasTimer} done={done}
+              timerRef={timerRef}
               altByStep={altByStep} chromeless={chromeless} bench={bench}
             />
           </GLBoundary>
@@ -81,3 +85,5 @@ export default function StationView({ protocol, activeIndex = 0, answers = {}, l
     </div>
   )
 }
+
+export default memo(StationView)

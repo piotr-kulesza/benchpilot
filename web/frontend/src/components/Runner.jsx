@@ -74,6 +74,17 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
     : null
   // ring fill == digits, one clock: both read countdown.remaining against `timed`.
   const elapsed = timer ? elapsedFraction(countdown.remaining, timed) : 1
+  // The 3D scene reads the clock from a STABLE ref, never from changing props: the
+  // countdown ticks at 10 Hz, and if that flowed into the scene as props it would
+  // reconcile the whole R3F tree ten times a second while three.js is holding 60 fps.
+  // We mutate .current in place (identity never changes) so the memoised <StationView>
+  // never re-renders on a tick; useFrame pulls the live value. The left-panel digits
+  // stay on state — that re-render is cheap DOM.
+  const sceneTimer = useRef({ progress: 1, running: false, hasTimer: false, done: false })
+  sceneTimer.current.progress = elapsed
+  sceneTimer.current.running = !!timer?.running
+  sceneTimer.current.hasTimer = !!timer
+  sceneTimer.current.done = !!timer?.done
   const eff = effectiveStep(step, altIndex)
   const temp = extractTemperature(eff, lang)
 
@@ -282,7 +293,7 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
         <section className="stage-col" aria-label="3D scene">
           <StationView
             protocol={protocol} activeIndex={i} answers={answers} lang={lang}
-            progress={elapsed} running={!!timer?.running} hasTimer={!!timer} done={!!timer?.done}
+            timerRef={sceneTimer}
             altByStep={altByStep} bench={bench} fill
           />
         </section>

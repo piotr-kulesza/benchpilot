@@ -949,16 +949,16 @@ function stationParams(baseStep, lang, altIdx, chain, producedInRun) {
            target: step.target || 'sample', produces: step.produces || null, drawsFrom }
 }
 
-export default function StationScene({ protocol, activeIndex = 0, lang = 'en', altByStep = {}, progress = 1, running = false, hasTimer = false, done = false, chromeless = false, bench = 'dark' }) {
+export default function StationScene({ protocol, activeIndex = 0, lang = 'en', altByStep = {}, timerRef: timerProp, chromeless = false, bench = 'dark' }) {
   ensureMaps()
   // the active scene preset (surfaces + backdrop + fog + lights as one coherent set)
   const preset = useMemo(() => resolveScenePreset(bench), [bench])
   const presetRef = useRef(preset); presetRef.current = preset
-  // Timer state for the bench progress dial, mirrored into refs so the frame loop reads
-  // the LIVE countdown without the render churn re-registering the loop. progress is the
-  // shared elapsed fraction (== the digits); hasTimer/running/done gate visibility + look.
-  const timerRef = useRef({ progress: 1, running: false, hasTimer: false, done: false })
-  timerRef.current = { progress, running, hasTimer, done }
+  // The countdown lives in a STABLE ref owned by the runner (mutated in place at 10 Hz),
+  // so the frame loop reads the live clock WITHOUT this component ever re-rendering on a
+  // tick. Fall back to a local idle ref when none is supplied (the dev matrix harness).
+  const localTimer = useRef({ progress: 1, running: false, hasTimer: false, done: false })
+  const timerRef = timerProp || localTimer
   const { gl, scene } = useThree()
   const steps = protocol?.steps || []
   const containers = useContainers(steps)
