@@ -18,8 +18,8 @@
 .btn-sm { min-height: 32px; padding: 0 var(--sp-3); font-size: var(--fs-meta); }
 
 .btn-primary { background: var(--c-accent); color: var(--c-accent-ink); font-weight: 600; }
-.btn-primary:hover:not(:disabled) { background: #67c3b3; }
-.btn-primary:active:not(:disabled) { background: #4fa596; }
+.btn-primary:hover:not(:disabled) { background: var(--c-accent-hover); }
+.btn-primary:active:not(:disabled) { background: var(--c-accent-active); }
 
 .btn-secondary { background: var(--c-raised-2); color: var(--c-ink); border-color: var(--c-border); }
 .btn-secondary:hover:not(:disabled) { background: var(--c-raised-3); border-color: var(--c-border-str); }
@@ -28,7 +28,7 @@
 .btn-ghost:hover:not(:disabled) { background: var(--c-raised-2); color: var(--c-ink); }
 
 .btn-danger { background: var(--c-danger-dim); color: var(--c-danger); border-color: transparent; }
-.btn-danger:hover:not(:disabled) { background: #5a332b; }
+.btn-danger:hover:not(:disabled) { background: var(--c-danger-hover); }
 
 /* ── segmented control (a group of mutually-exclusive choices) ───────────────── */
 .segmented { display: inline-flex; gap: 2px; padding: 2px; background: var(--c-sunken); border: 1px solid var(--c-border); border-radius: var(--r-3); }
@@ -68,6 +68,7 @@
 .card {
   background: var(--c-raised); border: 1px solid var(--c-border); border-radius: var(--r-4);
   padding: var(--sp-5);
+  box-shadow: var(--shadow-raised); /* dark: none (borders carry it); light: a soft shadow */
 }
 .card-btn { text-align: left; cursor: pointer; transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease), transform var(--dur-fast) var(--ease); }
 .card-btn:hover:not(:disabled) { border-color: var(--c-border-str); background: var(--c-raised-2); }

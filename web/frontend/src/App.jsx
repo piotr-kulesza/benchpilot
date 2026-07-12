@@ -2,6 +2,8 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import Home from './components/Home.jsx'
 import Intake from './components/Intake.jsx'
 import Runner from './components/Runner.jsx'
+import ThemeToggle from './components/ThemeToggle.jsx'
+import { useTheme } from './hooks/useTheme.js'
 import { partitionSteps } from './lib/runtime.js'
 
 // Dev-only harness routes: ?models=1 (model gallery) and ?matrix=1 (animation
@@ -53,6 +55,7 @@ export default function App() {
 function MainApp() {
   const q = new URLSearchParams(window.location.search)
   const persisted = loadSession()
+  const { theme, toggle } = useTheme()
 
   const [examples, setExamples] = useState([])
   const [protocol, setProtocol] = useState(persisted?.protocol || null)
@@ -149,16 +152,15 @@ function MainApp() {
   const { stations, notes } = useMemo(() => partitionSteps(protocol?.steps || []), [protocol])
   const runProtocol = useMemo(() => (protocol ? { ...protocol, steps: stations } : protocol), [protocol, stations])
 
+  let page
   if (route === 'home' || !protocol) {
-    return (
+    page = (
       <div className="app">
         <Home examples={examples} onPickExample={pickExample} onParse={parseUpload} parseState={parseState} />
       </div>
     )
-  }
-
-  if (route === 'run') {
-    return (
+  } else if (route === 'run') {
+    page = (
       <Runner
         protocol={runProtocol}
         answers={answers}
@@ -167,19 +169,25 @@ function MainApp() {
         onExit={() => go('intake')}
       />
     )
+  } else {
+    page = (
+      <div className="app">
+        <div className="topbar">
+          <button type="button" className="brand brand-btn" onClick={() => go('home')} title="Back to home">
+            <span className="dot" /> benchpilot
+            {source && <small>&nbsp;· {source}</small>}
+          </button>
+          <span className="spacer" />
+        </div>
+        <Intake protocol={protocol} notes={notes} answers={answers} setAnswers={setAnswers} onStart={() => go('run')} lang={lang} />
+      </div>
+    )
   }
 
-  // intake
   return (
-    <div className="app">
-      <div className="topbar">
-        <button type="button" className="brand brand-btn" onClick={() => go('home')} title="Back to home">
-          <span className="dot" /> benchpilot
-          {source && <small>&nbsp;· {source}</small>}
-        </button>
-        <span className="spacer" />
-      </div>
-      <Intake protocol={protocol} notes={notes} answers={answers} setAnswers={setAnswers} onStart={() => go('run')} lang={lang} />
-    </div>
+    <>
+      {page}
+      <ThemeToggle theme={theme} onToggle={toggle} />
+    </>
   )
 }

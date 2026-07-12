@@ -24,16 +24,24 @@
   --c-ink-dim:    #b3ada2;   /* secondary text, labels */
   --c-ink-faint:  #7d776c;   /* tertiary, placeholders, disabled */
 
-  --c-accent:     #58b6a6;   /* the demo's teal — used only where it means something */
-  --c-accent-ink: #0f1a18;   /* text on an accent fill */
-  --c-accent-dim: #2f4a45;   /* accent border / faint fill */
+  --c-accent:      #58b6a6;  /* the demo's teal — used only where it means something */
+  --c-accent-ink:  #0f1a18;  /* text on an accent fill */
+  --c-accent-dim:  #2f4a45;  /* accent border / faint fill */
+  --c-accent-hover: #67c3b3; /* primary button hover */
+  --c-accent-active:#4fa596;  /* primary button active */
 
-  --c-danger:     #e07a63;   /* critical hazard (negatives, "do NOT …") */
-  --c-danger-dim: #4a2a24;
-  --c-warn:       #d7a24a;   /* caution / warning */
-  --c-warn-dim:   #453820;
-  --c-info:       #6fa6cf;   /* neutral info / decide */
-  --c-info-dim:   #263a48;
+  --c-danger:      #e07a63;  /* critical hazard (negatives, "do NOT …") */
+  --c-danger-dim:  #4a2a24;
+  --c-danger-hover:#5a332b;
+  --c-warn:        #d7a24a;  /* caution / warning */
+  --c-warn-dim:    #453820;
+  --c-info:        #6fa6cf;  /* neutral info / decide */
+  --c-info-dim:    #263a48;
+
+  /* the 3D stage stays DARK in both themes — a viewport into a lab, never the page colour */
+  --c-stage:   #17130f;
+  --c-stage-2: #23201a;      /* the lit centre of the stage gradient */
+  --c-scrim:   rgba(0,0,0,.5); /* modal backdrop */
 
   /* phase accents (quiet — a dot / left edge, never a fill) */
   --c-phase-preparation:     #8f9bb0;
@@ -64,9 +72,15 @@
   /* ── radii (rounded rectangles, one language — no stray pills) ───────────── */
   --r-1: 4px; --r-2: 6px; --r-3: 8px; --r-4: 12px; --r-pill: 999px;
 
-  /* ── elevation (dark: a hairline + a soft, low shadow) ───────────────────── */
+  /* ── elevation ───────────────────────────────────────────────────────────
+     DARK: structure is carried by borders; shadows are low and dark.
+     LIGHT (overridden below): structure is carried by SHADOW, borders go quiet. */
   --elev-1: 0 0 0 1px var(--c-border);
   --elev-2: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.28);
+  --elev-2-hover: 0 2px 4px rgba(0,0,0,.35), 0 14px 34px rgba(0,0,0,.4);
+  --elev-3: 0 24px 70px rgba(0,0,0,.55);          /* modals */
+  --shadow-pop: 0 8px 30px rgba(0,0,0,.4);         /* popovers / HUD */
+  --shadow-raised: none;                            /* dark: borders do the work */
 
   /* ── motion ──────────────────────────────────────────────────────────────── */
   --dur-fast: 120ms; --dur: 190ms; --dur-slow: 320ms;
@@ -78,6 +92,52 @@
 
   /* control sizing (≥40px hit targets) */
   --control-h: 40px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   LIGHT THEME — clean, bright, precise; an instrument, not a marketing page.
+   Elevation is carried by SHADOW, borders are hairline and quiet. The 3D stage
+   stays dark (--c-stage / --c-scrim are NOT overridden). Only colour + elevation
+   tokens change; everything downstream flips because it reads these vars.
+   ───────────────────────────────────────────────────────────────────────────── */
+:root[data-theme='light'] {
+  --c-surface:    #f5f3ee;   /* soft, faintly-warm off-white page — never pure #fff */
+  --c-sunken:     #e9e6df;   /* recessed: inputs, the paste box */
+  --c-raised:     #ffffff;   /* white panels/cards sitting above the page */
+  --c-raised-2:   #f1efe9;   /* chips / inputs / hover */
+  --c-raised-3:   #e6e2d9;   /* active / pressed */
+  --c-border:     #e6e2da;   /* hairline, quiet */
+  --c-border-2:   #1c1a1614;
+  --c-border-str: #d0cbc0;   /* emphasised edge */
+
+  --c-ink:        #1b1914;   /* near-black warm ink, high contrast, unafraid */
+  --c-ink-dim:    #56514a;   /* secondary — well past AA on white */
+  --c-ink-faint:  #8a847a;   /* tertiary / placeholder */
+
+  /* accent re-picked for white: a teal that reads on black is washed on white — deeper + more saturated */
+  --c-accent:      #0d8271;
+  --c-accent-ink:  #ffffff;
+  --c-accent-dim:  #b7e0d8;
+  --c-accent-hover:#0b7264;
+  --c-accent-active:#096255;
+
+  --c-danger:      #c0402a;  /* deeper hazard red for white */
+  --c-danger-dim:  #f4dbd4;
+  --c-danger-hover:#a83722;
+  --c-warn:        #a5700e;
+  --c-warn-dim:    #f2e4c4;
+  --c-info:        #2b6aa2;
+  --c-info-dim:    #d6e5f1;
+
+  --c-phase-preparation: #6a7488;
+
+  /* elevation via shadow (borders go quiet) */
+  --elev-1: 0 1px 2px rgba(28,26,22,.08);
+  --elev-2: 0 1px 2px rgba(28,26,22,.06), 0 8px 22px rgba(28,26,22,.10);
+  --elev-2-hover: 0 3px 8px rgba(28,26,22,.10), 0 16px 36px rgba(28,26,22,.16);
+  --elev-3: 0 24px 60px rgba(28,26,22,.22);
+  --shadow-pop: 0 10px 30px rgba(28,26,22,.16);
+  --shadow-raised: 0 1px 2px rgba(28,26,22,.05), 0 4px 14px rgba(28,26,22,.07);
 }
 
 @media (prefers-reduced-motion: reduce) {
