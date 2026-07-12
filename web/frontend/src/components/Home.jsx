@@ -23,13 +23,13 @@ export default function Home({ examples, onPickExample, onParse, parseState }) {
         <div className="brand"><span className="dot" /> benchpilot</div>
         <h1>Paste a messy lab protocol → a runnable, timed, gap-flagged 3D walkthrough you can follow at the bench.</h1>
         <p className="home-sub">
-          Any protocol, any technique. A single Claude call turns the prose into steps, timers,
-          hazards, choices and gaps — then one sample travels the real glassware. The original
-          language is kept verbatim; English shows by default.
+          Protocols are written to be archived, not to be followed. benchpilot turns the prose
+          into a run — live timers, hazards up front, the missing numbers asked about before
+          you start, and one sample moving through the real glassware.
         </p>
       </header>
 
-      <Panel title="Bring your own" sub="Drop a file or paste text — any language. One Claude call, usually 10–20 s.">
+      <Panel title="Bring your own" sub="Drop a file or paste the text. Usually ready in 10–20 s.">
         <div className="upload-grid">
           <div
             className={`filedrop${drag ? ' drag' : ''}${busy ? ' disabled' : ''}`}
@@ -49,22 +49,22 @@ export default function Home({ examples, onPickExample, onParse, parseState }) {
           <div className="paste-box">
             <Textarea value={text} disabled={busy} aria-label="Paste protocol text"
               onChange={(e) => setText(e.target.value)}
-              placeholder="…or paste raw protocol text (any language)" />
+              placeholder="…or paste the protocol text" />
             <Button variant="primary" disabled={busy || !text.trim()} onClick={() => onParse({ text })}>
-              {busy ? 'Reading…' : 'Parse protocol'}
+              {busy ? 'Reading…' : 'Build the run'}
             </Button>
           </div>
         </div>
         {busy && (
           <div className="state inline"><span className="spinner" aria-hidden="true" />
-            <span>Reading your protocol… one Claude call, usually 10–20&nbsp;s.</span></div>
+            <span>Reading your protocol… usually 10–20&nbsp;s.</span></div>
         )}
         {parseState?.status === 'error' && (
-          <Alert tone="warn">{parseState.message} The examples below still run with no backend.</Alert>
+          <Alert tone="warn">{parseState.message} The examples below still run.</Alert>
         )}
       </Panel>
 
-      <Panel title="Or run an example" sub="Eight techniques benchpilot was never tuned for, plus the RNA reference. Each is pre-parsed — instant, offline — and renders its own equipment.">
+      <Panel title="Or run an example" sub="Eight techniques benchpilot was never tuned for, plus the RNA reference. Each one runs instantly and renders its own equipment.">
         <div className="ex-grid">
           {examples.map((ex) => (
             <Card as="button" className="ex-card" key={ex.id} onClick={() => onPickExample(ex)} disabled={busy}>
