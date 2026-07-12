@@ -4,8 +4,20 @@
 /* ── shared shells ───────────────────────────────────────────────────────────── */
 .app { min-height: 100%; background: var(--c-surface); }
 .brand { display: inline-flex; align-items: center; gap: var(--sp-2); font-weight: 600; color: var(--c-ink); letter-spacing: -0.01em; }
-.brand .dot { width: 9px; height: 9px; border-radius: var(--r-pill); background: var(--c-accent); }
-.brand small { font-weight: 400; color: var(--c-ink-faint); }
+.brand small { font-weight: 400; color: var(--c-ink-faint); font-size: var(--fs-meta); align-self: center; }
+
+/* The benchpilot WORDMARK — deliberately not generic body text. Bigger, heavier, two-tone
+   (bench inherits the current colour so it responds to hover; pilot is always accent), with
+   a glowing accent dot sized in em so it scales with the type. Size is set on .wordmark. */
+.wordmark { display: inline-flex; align-items: center; gap: 0.42ch; font-size: 1.375rem; line-height: 1; }
+.wordmark-dot { flex: none; width: 0.52em; height: 0.52em; border-radius: 50%; background: var(--c-accent);
+  box-shadow: 0 0 0 0.12em color-mix(in srgb, var(--c-accent) 22%, transparent),
+              0 0 0.7em color-mix(in srgb, var(--c-accent) 60%, transparent); }
+.wordmark-text { font-weight: 700; letter-spacing: -0.03em; color: currentColor; }
+.wordmark-accent { color: var(--c-accent); }
+.brand-btn:hover .wordmark-accent { color: var(--c-accent-hover); }
+.home-brand { margin-bottom: var(--sp-1); }
+.home-brand .wordmark { font-size: 1.875rem; }
 
 /* top strip shared by Intake + Home back */
 .topbar {

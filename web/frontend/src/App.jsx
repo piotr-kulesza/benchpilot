@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import Home from './components/Home.jsx'
 import Intake from './components/Intake.jsx'
+import BrandWord from './ui/BrandWord.jsx'
 import Runner from './components/Runner.jsx'
 import ThemeToggle from './components/ThemeToggle.jsx'
 import BenchToggle from './components/BenchToggle.jsx'
@@ -204,7 +205,7 @@ function MainApp() {
       <div className="app">
         <div className="topbar">
           <button type="button" className="brand brand-btn" onClick={() => go('home')} title="Back to home">
-            <span className="dot" /> benchpilot
+            <BrandWord />
             {source && <small>&nbsp;· {source}</small>}
           </button>
           <span className="spacer" />

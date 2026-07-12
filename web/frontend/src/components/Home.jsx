@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { Button, Card, Panel, Textarea, Alert, Badge } from '../ui/primitives.jsx'
 import HomeHero from './HomeHero.jsx'
+import BrandWord from '../ui/BrandWord.jsx'
 import { heroThumb } from './heroThumbs.js'
 
 // The service front door: lead with the live bench (the most beautiful thing in the
@@ -25,7 +26,7 @@ export default function Home({ examples, onPickExample, onParse, parseState, ben
     <div className="home">
       <header className="home-hero">
         <div className="hero-copy">
-          <div className="brand"><span className="dot" /> benchpilot</div>
+          <div className="brand home-brand"><BrandWord /></div>
           <h1>Paste a messy lab protocol → a runnable, timed, gap-flagged 3D walkthrough you can follow at the bench.</h1>
           <p className="home-sub">
             Protocols are written to be archived, not to be followed. benchpilot turns the prose

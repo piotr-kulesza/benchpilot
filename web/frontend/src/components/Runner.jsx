@@ -3,6 +3,7 @@ import StepCard from './StepCard.jsx'
 import Complete from './Complete.jsx'
 import StationView from '../vessel/StationView.jsx'
 import VoiceControl from './VoiceControl.jsx'
+import BrandWord from '../ui/BrandWord.jsx'
 import NoteComposer from './NoteComposer.jsx'
 import NoteDictation from './NoteDictation.jsx'
 import RunRecord from './RunRecord.jsx'
@@ -247,7 +248,7 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
     <div className="runner" data-phase={step.phase}>
       <header className="runner-top">
         <button type="button" className="brand rt-brand" onClick={handleExit} title="Back to home">
-          <span className="dot" /> benchpilot
+          <BrandWord />
         </button>
         <StepTimeline steps={steps} current={i} onJump={setI} />
         <button className="log-btn" type="button" onClick={() => setRecordOpen(true)} title="Run record">
