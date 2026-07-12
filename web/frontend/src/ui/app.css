@@ -94,7 +94,6 @@
 .stl-label { font-size: 11px; line-height: 1.2; text-align: center; max-width: 80px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; color: var(--c-ink-faint); }
 .stl-done .stl-label { color: var(--c-ink-dim); }
 .stl-now .stl-label { color: var(--c-ink); font-weight: 600; }
-.stl-hint { text-align: center; font-size: var(--fs-micro); color: var(--c-ink-faint); margin-top: 2px; }
 
 .runner-body { flex: 1; display: grid; grid-template-columns: clamp(360px, 33vw, 470px) 1fr; min-height: 0; }
 

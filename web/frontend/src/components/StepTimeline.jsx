@@ -36,7 +36,6 @@ export default function StepTimeline({ steps = [], current = 0, onJump }) {
           )
         })}
       </div>
-      <div className="stl-hint">Click any step to jump.</div>
     </div>
   )
 }
