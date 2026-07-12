@@ -9,7 +9,7 @@ import { useCountdown } from '../hooks/useCountdown.js'
 import { useRunLog } from '../hooks/useRunLog.js'
 import { useRunState } from '../hooks/useRunState.js'
 import { createSoundboard } from '../lib/sounds.js'
-import { Button, Badge } from '../ui/primitives.jsx'
+import { Button } from '../ui/primitives.jsx'
 import StepTimeline from './StepTimeline.jsx'
 import {
   selectAlternative, hasAlternatives, stepText, shortLabel,
@@ -17,7 +17,6 @@ import {
   stepHazards, isCriticalHazard, resolveConditionals,
 } from '../lib/runtime.js'
 
-const KIND_LABEL = { action: 'Action', wait: 'Wait', spin: 'Spin', prepare: 'Prep', measure: 'Measure', caution: 'Caution', storage: 'Storage' }
 
 // human labels for the intake parameters we log (fall back to raw key/value otherwise)
 const ANSWER_LABEL = { cells: 'Cell count', kit: 'Kit' }
@@ -235,12 +234,6 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
 
       <div className="runner-body">
         <section className="step-col" aria-label="Current step">
-          <div className="step-col-head">
-            <div className="sc-badges">
-              <Badge>{KIND_LABEL[eff.kind] || eff.kind}</Badge>
-            </div>
-          </div>
-
           <div className="step-col-scroll">
             <StepCard
               key={step.index}
