@@ -9,7 +9,10 @@ import StationScene from './StationScene.jsx'
 export default function StationCanvas({ protocol, activeIndex, answers, lang, progress, running, hasTimer, done, altByStep, chromeless, bench }) {
   return (
     <Canvas
-      dpr={[1, 2]}
+      // Cap the pixel ratio at 1.5: on a retina display dpr=2 renders 4× the pixels
+      // (2880×1800 for a 1440×900 canvas) for no visible benefit on a stylised, fog-soft
+      // scene — capping to 1.5 cuts ~44% of the fill-rate cost. The single cheapest win.
+      dpr={[1, 1.5]}
       shadows
       // alpha:false — the demo's scene.background (makeCineBackdrop) fills the
       // frame, exactly as the HTML demo (renderer alpha:false).
