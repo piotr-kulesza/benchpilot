@@ -1,67 +1,96 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 
-// A wall-clock countdown. All the impure timer stuff lives here so the runtime
-// logic stays pure/testable. Resets whenever `seconds` changes (i.e. new step).
-export function useCountdown(seconds) {
-  const [remaining, setRemaining] = useState(seconds || 0)
-  const [running, setRunning] = useState(false)
-  const [done, setDone] = useState(false)
-  const endRef = useRef(null)
-  const rafRef = useRef(null)
+// TICK_MS: how often the display value refreshes. The wall-clock itself is EXACT
+// (remaining is derived from an absolute end-time, not accumulated), so this only sets
+// the readout cadence. It is deliberately NOT rAF: the old rAF loop refreshed at 60 Hz,
+// which re-rendered the whole runner (and, since the 3D dial started reading the timer,
+// the entire 3D react tree) every frame — heavy enough to stall the clock under load.
+// A plain interval, owned in a ref, is decoupled from the render loop and never torn
+// down by a re-render. 100 ms keeps the seconds digit and the dial smooth at ~1/6th the
+// churn.
+const TICK_MS = 100
 
-  // reset on step change
-  useEffect(() => {
-    setRemaining(seconds || 0)
-    setRunning(false)
-    setDone(false)
-    endRef.current = null
-  }, [seconds])
+// A pure, framework-agnostic wall-clock countdown — no React, so it is unit-testable
+// with vi.useFakeTimers(). It owns exactly one interval and derives `remaining` from an
+// absolute end-time, so it can't drift and the interval is cleared in exactly one place.
+export function createCountdown(seconds, onChange) {
+  let duration = seconds || 0
+  let remaining = duration
+  let running = false
+  let done = false
+  let endAt = null      // absolute wall-clock end (ms) while running
+  let interval = null
 
-  const tick = useCallback(() => {
-    if (endRef.current == null) return
-    const left = Math.max(0, (endRef.current - Date.now()) / 1000)
-    setRemaining(left)
-    if (left <= 0) {
-      setRunning(false)
-      setDone(true)
-      endRef.current = null
-      beep()
-      return
+  const emit = () => onChange({ remaining, running, done })
+  const clear = () => { if (interval != null) { clearInterval(interval); interval = null } }
+
+  function tick() {
+    if (endAt == null) return
+    remaining = Math.max(0, (endAt - Date.now()) / 1000)
+    if (remaining <= 0) {
+      remaining = 0; running = false; done = true; endAt = null; clear()
     }
-    rafRef.current = requestAnimationFrame(tick)
-  }, [])
+    emit()
+  }
 
-  const start = useCallback(() => {
-    if (remaining <= 0) return
-    endRef.current = Date.now() + remaining * 1000
-    setRunning(true)
-    setDone(false)
-    rafRef.current = requestAnimationFrame(tick)
-  }, [remaining, tick])
-
-  const pause = useCallback(() => {
-    setRunning(false)
-    if (rafRef.current) cancelAnimationFrame(rafRef.current)
-    endRef.current = null
-  }, [])
-
-  const reset = useCallback(() => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current)
-    setRemaining(seconds || 0)
-    setRunning(false)
-    setDone(false)
-    endRef.current = null
-  }, [seconds])
-
-  useEffect(() => () => rafRef.current && cancelAnimationFrame(rafRef.current), [])
-
-  return { remaining, running, done, start, pause, reset }
+  return {
+    get state() { return { remaining, running, done } },
+    start() {
+      const from = remaining > 0 ? remaining : duration
+      if (from <= 0) return
+      remaining = from; running = true; done = false
+      endAt = Date.now() + from * 1000
+      clear(); interval = setInterval(tick, TICK_MS)
+      emit()
+    },
+    // Pause freezes at the current value (resume continues from here); Reset returns to
+    // the full duration. Both clear the single interval — the ONLY teardown points.
+    pause() { clear(); endAt = null; running = false; emit() },
+    reset() { clear(); endAt = null; remaining = duration; running = false; done = false; emit() },
+    // A genuine step change swaps the duration and returns to a fresh ready state.
+    setDuration(s) { clear(); endAt = null; duration = s || 0; remaining = duration; running = false; done = false; emit() },
+    destroy() { clear() },
+  }
 }
 
-// A short two-tone chime via WebAudio — no asset, no network.
+// A wall-clock countdown hook. The clock lives in a ref built ONCE, so no re-render of
+// this component or anything around it re-creates it or tears down its interval. Resets
+// only when `seconds` actually changes (a new step), never on an incidental re-render.
+export function useCountdown(seconds) {
+  const [state, setState] = useState(() => ({ remaining: seconds || 0, running: false, done: false }))
+  const clockRef = useRef(null)
+  if (clockRef.current == null) clockRef.current = createCountdown(seconds, setState)
+
+  // new step → new duration (a same-value re-render leaves a running clock untouched
+  // because the effect only fires when the number `seconds` truly changes).
+  const firstRun = useRef(true)
+  useEffect(() => {
+    if (firstRun.current) { firstRun.current = false; return } // built with this duration already
+    clockRef.current.setDuration(seconds || 0)
+  }, [seconds])
+
+  useEffect(() => () => clockRef.current.destroy(), [])
+
+  // chime once on the false→true completion edge (kept out of the pure clock so it stays
+  // WebAudio-free and node-testable).
+  const wasDone = useRef(false)
+  useEffect(() => {
+    if (state.done && !wasDone.current) beep()
+    wasDone.current = state.done
+  }, [state.done])
+
+  const start = useCallback(() => clockRef.current.start(), [])
+  const pause = useCallback(() => clockRef.current.pause(), [])
+  const reset = useCallback(() => clockRef.current.reset(), [])
+
+  return { remaining: state.remaining, running: state.running, done: state.done, start, pause, reset }
+}
+
+// A short two-tone chime via WebAudio — no asset, no network. No-op anywhere `window`
+// or WebAudio is absent (e.g. node tests), so it never breaks the clock.
 function beep() {
   try {
-    const Ctx = window.AudioContext || window.webkitAudioContext
+    const Ctx = typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext)
     if (!Ctx) return
     const ctx = new Ctx()
     const now = ctx.currentTime
