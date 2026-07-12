@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   formatDuration,
+  elapsedFraction,
   humanDuration,
   conditionMatchesAnswers,
   resolveConditionals,
@@ -39,6 +40,42 @@ describe('formatDuration -> m:ss / h:mm:ss', () => {
     expect(formatDuration(null)).toBe('')
     expect(formatDuration(undefined)).toBe('')
     expect(formatDuration(-5)).toBe('')
+  })
+})
+
+describe('elapsedFraction — the ring and the digits are ONE clock', () => {
+  // The 3D progress ring fills `elapsedFraction(remaining, duration)`; the digits render
+  // `formatDuration(remaining)`. Both read the SAME `remaining`, so at every sampled point
+  // the ring's fill must equal elapsed/duration — a dial that drifts from its own digits
+  // would be worse than none. This is the assertion the prompt asks for.
+  it('is 0 at the start (digits show the full duration)', () => {
+    expect(elapsedFraction(900, 900)).toBe(0)
+    expect(formatDuration(900)).toBe('15:00')
+  })
+  it('is exactly half when the digits read half', () => {
+    expect(elapsedFraction(450, 900)).toBe(0.5)
+    expect(formatDuration(450)).toBe('7:30')
+  })
+  it('agrees with the digits at several sampled points of a 15:00 timer', () => {
+    // (remaining, expected fill, expected digits) sampled across the countdown
+    const samples = [
+      [900, 0, '15:00'],
+      [810, 0.1, '13:30'],
+      [450, 0.5, '7:30'],
+      [45, 0.95, '0:45'],
+      [0, 1, '0:00'],
+    ]
+    for (const [remaining, fill, digits] of samples) {
+      expect(elapsedFraction(remaining, 900)).toBeCloseTo(fill, 10)
+      expect(formatDuration(remaining)).toBe(digits)
+    }
+  })
+  it('clamps to [0,1] and treats a missing duration as 0 (an untimed step shows nothing)', () => {
+    expect(elapsedFraction(950, 900)).toBe(0)   // remaining > duration → 0
+    expect(elapsedFraction(-5, 900)).toBe(1)    // past zero → full
+    expect(elapsedFraction(10, 0)).toBe(0)
+    expect(elapsedFraction(10, null)).toBe(0)
+    expect(elapsedFraction(10, undefined)).toBe(0)
   })
 })
 

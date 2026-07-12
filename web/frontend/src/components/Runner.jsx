@@ -6,7 +6,7 @@ import { useCountdown } from '../hooks/useCountdown.js'
 import { Button, Badge, Progress } from '../ui/primitives.jsx'
 import {
   PHASE_LABEL, selectAlternative, hasAlternatives, stepText,
-  effectiveStep, timerSeconds, extractTemperature,
+  effectiveStep, timerSeconds, extractTemperature, elapsedFraction,
 } from '../lib/runtime.js'
 
 const KIND_LABEL = { action: 'Action', wait: 'Wait', spin: 'Spin', prepare: 'Prep', measure: 'Measure', caution: 'Caution', storage: 'Storage' }
@@ -32,7 +32,8 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
   const timer = timed
     ? { remaining: countdown.remaining, fraction: timed > 0 ? countdown.remaining / timed : 1, running: countdown.running, done: countdown.done }
     : null
-  const elapsed = timer ? 1 - timer.fraction : 1
+  // ring fill == digits, one clock: both read countdown.remaining against `timed`.
+  const elapsed = timer ? elapsedFraction(countdown.remaining, timed) : 1
   const eff = effectiveStep(step, altIndex)
   const temp = extractTemperature(eff, lang)
 
@@ -113,7 +114,8 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
         <section className="stage-col" aria-label="3D scene">
           <StationView
             protocol={protocol} activeIndex={i} answers={answers} lang={lang}
-            progress={elapsed} running={!!timer?.running} altByStep={altByStep} fill
+            progress={elapsed} running={!!timer?.running} hasTimer={!!timer} done={!!timer?.done}
+            altByStep={altByStep} fill
           />
         </section>
       </div>

@@ -137,6 +137,17 @@ export function formatDuration(totalSeconds) {
   return `${minutes}:${pad(seconds)}`
 }
 
+// The countdown's ELAPSED fraction (0→1) — the SINGLE source of truth shared by the
+// digits and the 3D progress ring. The digits render `formatDuration(remaining)`; the
+// ring fills `elapsedFraction(remaining, duration)`. Both read the SAME `remaining`, so
+// when the digits say 7:30 of 15:00 the ring is at exactly 0.5 — by construction, not
+// by tuning. No duration (or a non-positive one) → 0, so an untimed step shows nothing.
+export function elapsedFraction(remaining, duration) {
+  if (!duration || duration <= 0) return 0
+  const f = (duration - remaining) / duration
+  return f < 0 ? 0 : f > 1 ? 1 : f
+}
+
 // A short human label for badges: "15 s", "2 min", "24 h".
 export function humanDuration(totalSeconds) {
   if (totalSeconds == null || isNaN(totalSeconds) || totalSeconds < 0) return ''

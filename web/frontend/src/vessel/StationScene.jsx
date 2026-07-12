@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera, OrthographicCamera } from '@react-three/drei'
-import { FogExp2, Color, Vector3, Box3, Group, Mesh, TorusGeometry, SphereGeometry, MeshStandardMaterial, PointLight } from 'three'
+import { FogExp2, Color, Vector3, Box3, Group, Mesh, RingGeometry, SphereGeometry, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
 import { resolveRecipe, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects } from './sceneRecipe.js'
 import { containerContract, resolveInstrument, nestsInto } from './containerContract.js'
@@ -110,11 +110,54 @@ function computeStationFrame(st) {
   const center = _frameBox.getCenter(new Vector3())
   _frameBox.getSize(_frameSize)
   const radius = 0.5 * Math.max(_frameSize.x, _frameSize.y, _frameSize.z)
-  // top = the props' bbox ceiling, so the label can sit just ABOVE the thing it names
-  // (centred on center.x), instead of floating over the station origin.
-  return { center, radius, top: _frameBox.max.y }
+  // top = the props' bbox ceiling, so the label can sit just ABOVE the thing it names.
+  // footprint = the HORIZONTAL extent (x/z), so the bench dial can encircle the subject's
+  // base with a radius measured from it — same measure-don't-assume principle as the fit.
+  const footprint = { cx: center.x, cz: center.z, r: 0.5 * Math.max(_frameSize.x, _frameSize.z) }
+  return { center, radius, top: _frameBox.max.y, footprint }
 }
 const DEFAULT_FRAME = { center: new Vector3(0, LOOK_Y, 0), radius: R_REF }
+
+// ── the countdown progress DIAL — the one piece of non-diegetic UI in the scene.
+// A FLAT ring on the bench (XZ plane) around the subject's base, sweeping 0→360°
+// clockwise from 12 o'clock as the timer counts down. Unlit (MeshBasic, toneMapped
+// off) so it reads instantly regardless of scene light, and sits proud of the bench
+// so it never z-fights the floor, decal or shadow.
+const DIAL_Y = 0.06          // proud of the bench (decal sits at y≈0.02) — no z-fighting
+const DIAL_MARGIN = 0.38     // the ring clears the subject footprint by this much
+const DIAL_ACCENT = 0x58b6a6 // the demo's teal (matches the UI timer/accent)
+const DIAL_TRACK = 0x2b333d  // dim remaining-track slate
+// RingGeometry authors in the XY plane; rotation.x = -π/2 lays it flat in XZ. After
+// that flatten, XY-angle θ maps to world (cosθ, 0, -sinθ): θ=π/2 → -Z (the dial's TOP
+// as the camera reads it). A CLOCKWISE fill from the top grows by DECREASING θ, so the
+// arc spans [π/2 - len, π/2] with len = fraction·2π.
+function makeBenchDial(radius) {
+  const th = Math.max(0.15, radius * 0.11)      // legible thickness, scales with the dial
+  const rOut = radius, rIn = Math.max(0.06, radius - th)
+  const g = new Group()
+  const trackMat = new MeshBasicMaterial({ color: DIAL_TRACK, transparent: true, opacity: 0.9, toneMapped: false, depthWrite: false })
+  const fillMat = new MeshBasicMaterial({ color: DIAL_ACCENT, transparent: true, opacity: 1, toneMapped: false, depthWrite: false })
+  const track = new Mesh(new RingGeometry(rIn, rOut, 96), trackMat)
+  const fill = new Mesh(new RingGeometry(rIn, rOut, 96, 1, Math.PI / 2, 0.0001), fillMat)
+  track.rotation.x = -Math.PI / 2
+  fill.rotation.x = -Math.PI / 2
+  track.renderOrder = 1; fill.renderOrder = 2
+  g.add(track, fill)
+  g.visible = false
+  let cur = -1
+  g.userData.trackMat = trackMat
+  g.userData.fillMat = fillMat
+  g.userData.setFraction = (f) => {
+    f = f < 0 ? 0 : f > 1 ? 1 : f
+    if (Math.abs(f - cur) < 0.004) return // throttle the geometry rebuild
+    cur = f
+    fill.geometry.dispose()
+    const len = Math.max(0.0001, f * Math.PI * 2)
+    fill.geometry = new RingGeometry(rIn, rOut, 96, 1, Math.PI / 2 - len, len)
+    fill.rotation.x = -Math.PI / 2
+  }
+  return g
+}
 
 // The ONE sample persists across every step, carrying its contents. Its state at
 // the start of step N is exactly its state at the end of step N-1 (chained). We
@@ -381,14 +424,8 @@ export function configureStation(st, o) {
     // flasks/dishes. If nothing accepts it, fall back to the bench (never a wrong
     // instrument). A compact progress-timer dial rides over the sample in every case.
     const inst = resolveInstrument('incubate', container)
-    st.ring = new Mesh(new TorusGeometry(0.4, 0.02, 12, 64), new MeshStandardMaterial({ color: 0x5a636e, roughness: 0.6 }))
-    st.ring.position.set(0, 1.25, 0)
-    st.group.add(st.ring)
-    st.arc = new Mesh(new TorusGeometry(0.4, 0.05, 14, 64, 0.001), new MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.8, toneMapped: false }))
-    st.arc.position.set(0, 1.25, 0)
-    st.arc.rotation.set(0, 0, Math.PI / 2)
-    st.group.add(st.arc)
-    st._arcP = -1
+    // (the countdown progress dial is built generically for every station below and
+    // driven by the real timer — no per-action ring here.)
     let seatFn = () => S.at(S[vessel], st.x, SEAT_Y, 0)
     let motionFn = null
     if (inst === 'plate_shaker') {
@@ -400,7 +437,6 @@ export function configureStation(st, o) {
       const inc = demo.buildCO2Incubator(); inc.position.set(0, 0, -1.1)
       st.group.add(inc); st.updatables.push(inc)
       seatFn = () => { S.at(S[vessel], st.x, 0.66, -1.25); inc.userData.setDoor(false) } // flask on the lower shelf, inside
-      st.ring.position.set(0, 2.05, 0); st.arc.position.set(0, 2.05, 0) // timer above the cabinet
       // The DETACHMENT is the whole point of the step but it's small + behind glass.
       // As the step resolves: OPEN the door and PUSH the camera in close on the flask
       // (contract framing 'wide' → a low, close frame) so the detached cells read.
@@ -416,11 +452,6 @@ export function configureStation(st, o) {
     }
     st.enter = () => { seat(0, SEAT_Y, 0); seatFn(); const v = S[vessel]; if (v.userData.setMono) v.userData.setMono(1) }
     st.timeline = (p) => {
-      if (Math.abs(p - st._arcP) > 0.02) {
-        st._arcP = p
-        st.arc.geometry.dispose()
-        st.arc.geometry = new TorusGeometry(0.4, 0.05, 14, 64, Math.max(0.001, p * Math.PI * 2))
-      }
       const v = S[vessel]
       // contentsState (passaging hero): during a flask incubation the adherent
       // MONOLAYER visibly DETACHES (trypsinisation) — confluent → cleared.
@@ -769,8 +800,13 @@ function stationParams(baseStep, lang, altIdx, chain) {
   return { action: step.action, equipment, colorHex, vol, title, sub, seconds: step.duration_seconds, start, end, cycles }
 }
 
-export default function StationScene({ protocol, activeIndex = 0, lang = 'en', view = 'cinematic', altByStep = {} }) {
+export default function StationScene({ protocol, activeIndex = 0, lang = 'en', view = 'cinematic', altByStep = {}, progress = 1, running = false, hasTimer = false, done = false }) {
   ensureMaps()
+  // Timer state for the bench progress dial, mirrored into refs so the frame loop reads
+  // the LIVE countdown without the render churn re-registering the loop. progress is the
+  // shared elapsed fraction (== the digits); hasTimer/running/done gate visibility + look.
+  const timerRef = useRef({ progress: 1, running: false, hasTimer: false, done: false })
+  timerRef.current = { progress, running, hasTimer, done }
   const { gl, scene, size } = useThree()
   const steps = protocol?.steps || []
   const containers = useContainers(steps)
@@ -891,6 +927,14 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
       scene.add(decal)
       st.decal = decal
       collectStationMats(st) // snapshot opacities so the unit fades as one
+      // the countdown DIAL — a flat ring around the subject's base, radius MEASURED from
+      // the frame footprint. Built for every station but shown only when a live timer is
+      // engaged (driven in the frame loop). Added AFTER collectStationMats so the vis-fade
+      // never clobbers the opacity the timer driver sets (paused-dim / done-fade).
+      const dial = makeBenchDial(st.frame.footprint.r + DIAL_MARGIN)
+      dial.position.set(st.frame.footprint.cx, DIAL_Y, st.frame.footprint.cz)
+      st.group.add(dial)
+      st.dial = dial
       stations.push(st)
     })
     stationsRef.current = stations
@@ -1009,6 +1053,34 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
       act.timeline?.(pRef.current)
     }
     for (const st of stations) for (const u of st.updatables) u.userData?.update?.(dt)
+
+    // 4b · the countdown DIAL reads the SAME clock as the digits (timerRef.progress ==
+    // elapsedFraction), NOT the choreography p. Shown only on the active station and only
+    // while a timer is engaged (running, paused mid-way, or just completed). Paused dims
+    // vs running; on completion it holds full, then fades out so it isn't left as furniture.
+    {
+      const t = timerRef.current
+      for (const st of stations) {
+        const dial = st.dial
+        if (!dial) continue
+        const isActive = st === act
+        const engaged = isActive && t.hasTimer && (t.running || t.done || t.progress > 0.001)
+        if (!engaged) { if (dial.visible) dial.visible = false; st._dialFade = 1; continue }
+        dial.visible = true
+        dial.userData.setFraction(t.progress)
+        if (t.done) { // hold full, then fade the whole dial away
+          st._dialFade = Math.max(0, (st._dialFade == null ? 1 : st._dialFade) - dt / 1.3)
+          dial.userData.fillMat.opacity = st._dialFade
+          dial.userData.trackMat.opacity = st._dialFade * 0.9
+          if (st._dialFade <= 0.002) dial.visible = false
+        } else { // running is bright; paused is visibly dimmer (a frozen ring must look frozen)
+          st._dialFade = 1
+          const paused = !t.running
+          dial.userData.fillMat.opacity = paused ? 0.45 : 1
+          dial.userData.trackMat.opacity = paused ? 0.6 : 0.9
+        }
+      }
+    }
 
     // 5 · the ONE sample eases toward its world target — glides station→station.
     // While docked in a centrifuge rotor slot the rotor owns its transform, so skip
