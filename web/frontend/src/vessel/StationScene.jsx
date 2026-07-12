@@ -12,10 +12,10 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera, OrthographicCamera } from '@react-three/drei'
-import { FogExp2, Color, Vector3, Box3, Group, Mesh, TorusGeometry, SphereGeometry, MeshStandardMaterial, PointLight } from 'three'
+import { FogExp2, Color, Vector3, Box3, Group, Mesh, TorusGeometry, SphereGeometry, CylinderGeometry, MeshStandardMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
 import { resolveRecipe, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects } from './sceneRecipe.js'
-import { containerContract, resolveInstrument } from './containerContract.js'
+import { containerContract, resolveInstrument, nestsInto } from './containerContract.js'
 import { reagentName, reagentVolume, effectiveStep, selectAlternative, hasAlternatives } from '../lib/runtime.js'
 import * as demo from '../scene/demoScene.js'
 
@@ -84,11 +84,14 @@ function applyStationVis(st) {
 // side, a wide CO₂ incubator, and a lone tube all sit centred and correctly sized.
 const _frameBox = new Box3()
 const _frameSize = new Vector3()
-function computeStationFrame(group) {
-  group.updateMatrixWorld(true)
-  _frameBox.setFromObject(group)
+function computeStationFrame(st) {
+  st.group.updateMatrixWorld(true)
+  _frameBox.setFromObject(st.group)
   _frameBox.expandByPoint(new Vector3(0, 0, 0))   // always include the sample's
   _frameBox.expandByPoint(new Vector3(0, 1.7, 0)) // resting column at local origin
+  // stations that place the sample AWAY from the origin (a side-by-side contents pour)
+  // declare anchor points so both vessels stay in frame.
+  for (const a of st.frameAnchors || []) _frameBox.expandByPoint(a)
   const center = _frameBox.getCenter(new Vector3())
   _frameBox.getSize(_frameSize)
   const radius = 0.5 * Math.max(_frameSize.x, _frameSize.y, _frameSize.z)
@@ -321,13 +324,26 @@ export function configureStation(st, o) {
       }
     }
   } else if (action === 'transfer') {
-    // A transfer is simply a step whose container DIFFERS from the previous one: the
-    // sample moves from container A into container B. The destination is B = this
-    // step's container (from the sample-follow sequence) — NEVER a hardcoded recipe.
-    // The A→B motion (lift out of A's exit, settle into B's entry) is played by the
-    // shared hand-off wrapper below; here we only declare the resting state in B.
-    st.enter = () => seat(0, BT, 0)
-    st.timeline = (p) => { evolve(p) }
+    // A transfer moves the sample from container A (prev) into B (this step). TWO kinds,
+    // told apart by the CONTRACT (nestsInto), never by a hardcoded pair:
+    //  • VESSEL MOVE — A nests into B (a spin column into a clean tube): lift & seat A
+    //    into B. Played by the shared hand-off wrapper below; here we just rest in B.
+    //  • CONTENTS POUR — A does NOT nest into B (tube→column, flask→tube): the LIQUID
+    //    moves, both vessels side by side, A drains as B fills. This is the whole point
+    //    of the step, so we choreograph it here and SKIP the vessel-swap wrapper.
+    const prevC2 = prevContainer ? containerContract(prevContainer) : null
+    const isNestMove = prevContainer && nestsInto(prevContainer, container)
+    if (prevC2 && prevC2.vessel !== vessel && !isNestMove) {
+      configureContentsPour(st, S, {
+        fromKey: prevC2.vessel, toKey: vessel, srcFlat: prevC2.flat, dstFlat: FLAT,
+        aspirate: prevC2.emptyMotion === 'aspirate',
+        startColor, startLevel, endColor, endLevel, name, vol,
+      })
+      st._skipHandoff = true // the pour IS the transition; no lift/settle swap
+    } else {
+      st.enter = () => seat(0, BT, 0)
+      st.timeline = (p) => { evolve(p) }
+    }
   } else if (equipment === 'centrifuge' || action === 'elute') {
     // benchtop centrifuge, rotor spins over p (verbatim stationSpin). The sample
     // arrives at its carried level and spins down to the chained end level.
@@ -586,7 +602,7 @@ export function configureStation(st, o) {
   // `transfer` is now handled BY the hand-off wrapper (it IS an A→B move). Only the
   // actions that run their own vessel choreography stay excluded.
   const custom = action === 'store' || equipment === 'centrifuge'
-  if (prevVessel && prevVessel !== vessel && !custom) {
+  if (prevVessel && prevVessel !== vessel && !custom && !st._skipHandoff) {
     wrapHandoff(st, S, prevVessel, vessel, startColor, startLevel)
   }
   hideLabels(st.group)
@@ -641,6 +657,87 @@ function wrapHandoff(st, S, fromKey, toKey, color, level) {
       }
       baseTimeline && baseTimeline((p - TR) / (1 - TR))
     }
+  }
+}
+
+// A CONTENTS POUR (Stage-12): a transfer where the source does NOT nest into the
+// destination. Both vessels sit on the bench SIDE BY SIDE and the LIQUID moves A→B — A
+// drains as B fills, colour carried across (the demo's LOAD choreography, generalized).
+// The source's removal motion picks HOW the liquid leaves: a tube/column POURS (tips
+// toward B); a flask/plate is ASPIRATED (a pipette shuttles the liquid over). The one
+// travelling sample is really two vessels for this step; we reveal both, then lock to B.
+function configureContentsPour(st, S, o) {
+  const { fromKey, toKey, srcFlat, dstFlat, aspirate, startColor, startLevel, endColor, endLevel, name, vol } = o
+  const BT = demo.BLOCK_TOP
+  const AX = -0.95, BX = 0.85, Z = 0.1
+  const aY = srcFlat ? 0 : BT, bY = dstFlat ? 0 : BT
+  const aTop = aY + (srcFlat ? 0.9 : 1.35), bTop = bY + (dstFlat ? 0.5 : 1.05)
+  st.frameAnchors = [new Vector3(AX - 0.3, aTop + 0.2, Z), new Vector3(BX + 0.3, bY, Z)]
+
+  // pour progress (both modes): A drains, B fills, colour carried across
+  const fillOf = (p) => demo.easeInOut(demo.clamp((p - 0.18) / 0.62, 0, 1))
+
+  let stream = null
+  if (aspirate) {
+    demo.addPipetteRig(st)
+  } else {
+    // a thin liquid stream that appears while the tube pours into B
+    stream = new Mesh(new CylinderGeometry(0.035, 0.028, 1, 10),
+      new MeshStandardMaterial({ color: endColor, emissive: endColor, emissiveIntensity: 0.12, roughness: 0.3, transparent: true, opacity: 0 }))
+    st.group.add(stream)
+  }
+
+  st.enter = () => {
+    S.only(toKey)
+    const a = S[fromKey], b = S[toKey]
+    a.visible = true; b.visible = true
+    a.rotation.set(0, 0, 0); b.rotation.set(0, 0, 0)
+    if (name) a.userData.setLabel?.(name, vol || '')
+    a.userData.setColor?.(startColor); a.userData.setLevel?.(startLevel)
+    b.userData.setColor?.(startColor); b.userData.setLevel?.(0.03)
+    S.snapTo(a, st.x + AX, aY, Z)
+    S.snapTo(b, st.x + BX, bY, Z)
+    if (st.pip) { st.pip.position.set(AX, aTop + 0.7, Z); st.pip.userData.setFluid(0); st.pip.rotation.set(0, 0, 0) }
+    if (stream) stream.material.opacity = 0
+  }
+
+  st.timeline = (p) => {
+    const a = S[fromKey], b = S[toKey]
+    const f = fillOf(p)
+    a.userData.setLevel?.(demo.lerp(startLevel, 0.04, f))
+    b.userData.setColor?.(endColor)                 // colour carried into B
+    b.userData.setLevel?.(demo.lerp(0.03, endLevel, f))
+    S.snapTo(a, st.x + AX, aY, Z)
+    S.snapTo(b, st.x + BX, bY, Z)
+
+    if (aspirate && st.pip) {
+      // pipette shuttles A→B twice, carrying the liquid over (never tip a flask/plate)
+      const g = demo.clamp((p - 0.12) / 0.74, 0, 1)
+      const c = (g * 2) % 1
+      const xt = 0.5 - 0.5 * Math.cos(c * Math.PI * 2)       // 0=at A, 1=at B
+      const dip = Math.abs(Math.cos(c * Math.PI * 2))         // 1 at each end (dip in), 0 mid (travel high)
+      const highY = Math.max(aTop, bTop) + 0.7
+      st.pip.position.set(demo.lerp(AX, BX, xt), demo.lerp(highY, Math.min(aTop, bTop) + 0.35, dip), Z)
+      st.pip.userData.setColor?.(endColor)
+      st.pip.userData.setFluid?.(Math.sin(c * Math.PI * 2) > 0 ? 0.7 : 0.08) // full A→B, empty B→A
+    } else if (stream) {
+      // tip A toward B and run a stream from its mouth into B while pouring
+      const pour = demo.clamp((p - 0.18) / 0.62, 0, 1)
+      a.rotation.z = -demo.easeInOut(pour) * 0.5
+      const on = p > 0.2 && p < 0.86
+      stream.material.opacity = on ? 0.72 : 0
+      if (on) {
+        const am = new Vector3(AX + 0.28, aTop - 0.05, Z)   // A's tilted mouth
+        const bm = new Vector3(BX, bTop + 0.15, Z)          // B's mouth
+        const dir = bm.clone().sub(am)
+        const len = dir.length()
+        stream.position.copy(am).add(bm).multiplyScalar(0.5)
+        stream.scale.set(1, len, 1)
+        stream.rotation.z = Math.atan2(-dir.x, dir.y)
+      }
+    }
+
+    if (p > 0.92) { a.visible = false; S.only(toKey); S.snapTo(b, st.x + BX, bY, Z) }
   }
 }
 
@@ -770,7 +867,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
       // MEASURE the framing from the equipment now — group is still at the origin and
       // carries only the instrument (not the label/decal added below), so this is the
       // station's true content extent in local coords.
-      st.frame = computeStationFrame(st.group)
+      st.frame = computeStationFrame(st)
       st.group.position.set(st.x, 0, 0)
       // a floating title that travels with its station
       const label = demo.makeLabel(o.title, o.sub)
@@ -943,7 +1040,7 @@ const ACTION_LABEL = {
   incubate_wait: 'Incubate',
   heat: 'Heat',
   cool_ice: 'On ice',
-  transfer: 'Load column',
+  transfer: 'Transfer',
   wash: 'Wash',
   discard: 'Discard',
   elute: 'Elute',

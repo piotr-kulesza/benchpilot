@@ -17,13 +17,19 @@
 //  emptyMotion   — 'tip' (tilt & pour) | 'aspirate' (pipette out — NEVER tip)
 //  framing       — 'tall' | 'wide' (a tube and a T-flask can't share one camera)
 //  contentsState — optional richer state (e.g. flask 'monolayer')
+//  nestsIn       — [containers this vessel can DROP INTO as a nested insert]. This is
+//                   what distinguishes the two kinds of "transfer": if the sample's
+//                   SOURCE vessel nests into the DESTINATION, the transfer is a VESSEL
+//                   MOVE (lift the insert and seat it — a spin column into a fresh
+//                   collection tube). Otherwise it is a CONTENTS POUR: two vessels on
+//                   the bench, the liquid carried A→B. Declared here, never hardcoded.
 
 const BT = 0.45 // demo.BLOCK_TOP — tubes seat here; flat vessels at 0
 
 export const CONTAINER_CONTRACT = {
   microtube:   { vessel: 'tube',      orientation: 'upright', flat: false, seat: { x: 0, y: BT, z: 0 }, dispense: { x: 0, y: BT + 0.9, z: 0, approach: 'top' }, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
   tube:        { vessel: 'tube',      orientation: 'upright', flat: false, seat: { x: 0, y: BT, z: 0 }, dispense: { x: 0, y: BT + 0.9, z: 0, approach: 'top' }, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
-  spin_column: { vessel: 'column',    orientation: 'upright', flat: false, seat: { x: 0, y: BT, z: 0 }, dispense: { x: 0, y: BT + 0.9, z: 0, approach: 'top' }, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
+  spin_column: { vessel: 'column',    orientation: 'upright', flat: false, seat: { x: 0, y: BT, z: 0 }, dispense: { x: 0, y: BT + 0.9, z: 0, approach: 'top' }, liquid: 'column', emptyMotion: 'tip', framing: 'tall', nestsIn: ['tube', 'eluate_tube', 'microtube'] },
   eluate_tube: { vessel: 'elu',       orientation: 'upright', flat: false, seat: { x: 0, y: BT, z: 0 }, dispense: { x: 0, y: BT + 0.7, z: 0, approach: 'top' }, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
   cryovial:    { vessel: 'cryovial',  orientation: 'upright', flat: false, seat: { x: 0, y: BT, z: 0 }, dispense: { x: 0, y: BT + 0.7, z: 0, approach: 'top' }, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
   bottle:      { vessel: 'tube',      orientation: 'upright', flat: false, seat: { x: 0, y: BT, z: 0 }, dispense: { x: 0, y: BT + 0.9, z: 0, approach: 'top' }, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
@@ -31,7 +37,7 @@ export const CONTAINER_CONTRACT = {
   well_plate:  { vessel: 'wellplate', orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: -0.98, y: 0.55, z: 0.77, approach: 'top' }, liquid: 'well', emptyMotion: 'aspirate', framing: 'wide' },
   flask:       { vessel: 'flask',     orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 1.45, y: 1.0, z: 0.41, approach: 'angled', tilt: -0.62, depth: 0.95 }, liquid: 'shallow', emptyMotion: 'aspirate', framing: 'wide', contentsState: 'monolayer' },
   dish:        { vessel: 'dish',      orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.35, z: 0, approach: 'top' }, liquid: 'shallow', emptyMotion: 'aspirate', framing: 'wide' },
-  slide:       { vessel: 'slide',     orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0.35, y: 0.35, z: 0, approach: 'top' }, liquid: 'film', emptyMotion: 'aspirate', framing: 'wide' },
+  slide:       { vessel: 'slide',     orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0.35, y: 0.35, z: 0, approach: 'top' }, liquid: 'film', emptyMotion: 'aspirate', framing: 'wide', nestsIn: ['staining_tray'] },
   membrane:    { vessel: 'membrane',  orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.35, z: 0, approach: 'top' }, liquid: 'bands', emptyMotion: 'aspirate', framing: 'wide' },
   gel:         { vessel: 'gel',       orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: -0.36, y: 0.45, z: -0.4, approach: 'top' }, liquid: 'band', emptyMotion: 'aspirate', framing: 'wide' },
   agar_plate:  { vessel: 'agarplate', orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.5, z: 0, approach: 'top' }, liquid: 'film', emptyMotion: 'aspirate', framing: 'wide' },
@@ -40,6 +46,14 @@ export const CONTAINER_CONTRACT = {
 
 export function containerContract(token) {
   return CONTAINER_CONTRACT[token] || CONTAINER_CONTRACT.generic
+}
+
+// Does the sample's SOURCE container drop into the DESTINATION as a nested insert?
+// True → a transfer is a VESSEL MOVE (lift & seat); false → a CONTENTS POUR (liquid
+// carried A→B). Purely a lookup on the declared `nestsIn` — no hardcoded pairs.
+export function nestsInto(sourceToken, destToken) {
+  const src = CONTAINER_CONTRACT[sourceToken]
+  return !!(src && src.nestsIn && src.nestsIn.includes(destToken))
 }
 
 // Equipment declares where a container sits inside it and the PATH the container
