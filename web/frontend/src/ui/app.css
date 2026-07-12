@@ -76,22 +76,22 @@
 .rt-brand:focus-visible { outline: none; box-shadow: var(--focus); border-radius: var(--r-2); }
 
 /* ── step timeline (numbered, clickable stepper band) ─────────────────────────── */
-.step-timeline { flex: 1; min-width: 0; padding: var(--sp-2) 0 var(--sp-1); background: var(--c-surface); }
+.step-timeline { flex: 1; min-width: 0; padding: 5px 0 4px; background: var(--c-surface); }
 .stl-rail { display: flex; align-items: flex-start; justify-content: safe center; gap: var(--sp-1); overflow-x: auto; scrollbar-width: none; padding: 0 var(--sp-4); }
 .stl-rail::-webkit-scrollbar { display: none; }
-.stl-node { position: relative; flex: 0 0 auto; width: 80px; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 4px 2px 0; background: none; border: 0; cursor: pointer; color: inherit; }
+.stl-node { position: relative; flex: 0 0 auto; width: 76px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 3px 2px 0; background: none; border: 0; cursor: pointer; color: inherit; }
 /* connector: spans one node width, centred on the circle row, BEHIND every circle */
-.stl-node::before { content: ''; position: absolute; top: 17px; left: -50%; width: 100%; height: 2px; background: var(--c-border); z-index: 0; }
+.stl-node::before { content: ''; position: absolute; top: 13px; left: -50%; width: 100%; height: 2px; background: var(--c-border); z-index: 0; }
 .stl-node:first-child::before { display: none; }
 .stl-done::before, .stl-now::before { background: var(--c-accent); }
-.stl-circle { position: relative; z-index: 1; width: 28px; height: 28px; border-radius: var(--r-pill); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; transition: transform 0.15s, box-shadow 0.15s, background 0.15s; }
+.stl-circle { position: relative; z-index: 1; width: 22px; height: 22px; border-radius: var(--r-pill); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; transition: transform 0.15s, box-shadow 0.15s, background 0.15s; }
 .stl-upcoming .stl-circle { background: var(--c-surface); border: 1px solid var(--c-border); color: var(--c-ink-dim); }
 .stl-done .stl-circle { background: var(--c-accent); color: var(--c-accent-ink); }
-.stl-now .stl-circle { background: var(--c-accent); color: var(--c-accent-ink); transform: scale(1.08); box-shadow: 0 0 0 5px color-mix(in srgb, var(--c-accent) 22%, transparent); }
+.stl-now .stl-circle { background: var(--c-accent); color: var(--c-accent-ink); transform: scale(1.08); box-shadow: 0 0 0 4px color-mix(in srgb, var(--c-accent) 22%, transparent); }
 .stl-node:hover:not(.stl-now) .stl-circle { border-color: var(--c-border-str); background: var(--c-raised, var(--c-surface)); }
 .stl-node:focus-visible { outline: none; }
 .stl-node:focus-visible .stl-circle { box-shadow: var(--focus); }
-.stl-label { font-size: 11px; line-height: 1.2; text-align: center; max-width: 80px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; color: var(--c-ink-faint); }
+.stl-label { font-size: 10px; line-height: 1.15; text-align: center; max-width: 76px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; color: var(--c-ink-faint); }
 .stl-done .stl-label { color: var(--c-ink-dim); }
 .stl-now .stl-label { color: var(--c-ink); font-weight: 600; }
 
