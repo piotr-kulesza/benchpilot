@@ -243,7 +243,6 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
           <LogGlyph /><span className="log-btn-label">Run log</span>
           {log.events.length > 0 && <span className="log-count num">{log.events.length}</span>}
         </button>
-        <VoiceControl controls={controls} context={voiceContext} board={board} note={note} />
       </header>
 
       <div className="runner-body">
@@ -265,6 +264,8 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
             />
             <NoteComposer onAdd={controls.addNote} step={i + 1} />
           </div>
+
+          <VoiceControl controls={controls} context={voiceContext} board={board} note={note} />
 
           <div className="step-col-foot">
             <div className="look-ahead">

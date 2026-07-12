@@ -116,53 +116,59 @@ export default function VoiceControl({ controls, context, board: boardProp, note
 
   if (!supported) {
     return (
-      <button className="mic-btn mic-off" type="button" disabled
-        title="Voice needs a Chromium browser (Chrome/Edge)">
-        <MicIcon muted /> <span className="mic-label">Voice n/a</span>
-      </button>
+      <div className="voice-dock voice-na">
+        <div className="vd-main"><span className="vd-ico"><MicIcon muted /></span>
+          <span className="vd-text"><b>Voice unavailable</b><small>Needs Chrome or Edge</small></span></div>
+      </div>
     )
   }
 
   const denied = error === 'mic-denied' || error === 'no-mic'
   const noteActive = !!note?.active
   const state = denied ? 'denied' : noteActive ? 'note' : armed ? 'armed' : listening ? 'live' : 'off'
-  const label = denied ? 'Mic blocked' : noteActive ? 'Recording note' : armed ? 'Ready — speak' : listening ? 'Listening' : 'Voice'
-  return (
-    <>
-      <button
-        className={`mic-btn mic-${state}`}
-        type="button" onClick={onToggle} aria-pressed={listening}
-        title={denied ? 'Microphone blocked — allow it in the browser'
-          : armed ? 'Armed — say a command' : listening ? 'Listening — click to stop' : 'Enable voice control'}
-      >
-        <MicIcon muted={!listening} />
-        <span className="mic-label">{label}</span>
-        {listening && !armed && !noteActive && <span className="mic-pulse" aria-hidden="true" />}
-      </button>
 
-      {/* the note surface (step panel) owns the display while dictating — don't compete here */}
-      {!noteActive && (listening || line) && (
-        <div className={`voice-hud${armed ? ' vh-armed' : ''}${line ? (line.ok ? ' vh-ok' : ' vh-no') : ''}`} role="status" aria-live="polite">
-          {line ? (
-            <>
-              <span className="vh-heard">“{line.heard}”</span>
-              <span className="vh-arrow">→</span>
-              <span className="vh-msg">{line.message}</span>
-            </>
-          ) : armed ? (
-            <span className="vh-idle vh-live">{interim ? `“${interim}”` : 'Ready — say a command…'}</span>
-          ) : interim ? (
-            <span className="vh-idle vh-live">“{interim}”</span>
-          ) : (
-            // nobody guesses a voice UI's vocabulary — show the few things it knows
-            <span className="vh-vocab">
-              Say <b>“benchpilot”</b>, then:
-              <em>next</em><em>start the timer</em><em>how long is left</em><em>note: …</em>
+  // A prominent, full-width VOICE DOCK — the product's most distinctive capability lives here,
+  // not in a corner. Off = an inviting CTA; on = a loud state + the vocabulary + the transcript.
+  return (
+    <div className={`voice-dock voice-${state}`} role="region" aria-label="Voice control">
+      {!listening ? (
+        <button className="vd-main vd-enable" type="button" onClick={onToggle}>
+          <span className="vd-ico"><MicIcon muted /></span>
+          <span className="vd-text">
+            <b>{denied ? 'Microphone blocked' : 'Run hands-free with voice'}</b>
+            <small>{denied ? 'Allow the mic in your browser, then tap to enable'
+              : 'Tap to enable, then say “benchpilot, next”'}</small>
+          </span>
+          {!denied && <span className="vd-cta">Enable voice</span>}
+        </button>
+      ) : (
+        <>
+          <div className="vd-state" role="status" aria-live="polite">
+            <span className="vd-ico"><MicIcon /></span>
+            <span className="vd-big">
+              {noteActive ? 'Recording a note' : armed ? 'Ready — speak now' : 'Listening for “benchpilot”'}
             </span>
+            {listening && !armed && !noteActive && <span className="mic-pulse" aria-hidden="true" />}
+            <button className="vd-stop" type="button" onClick={onToggle} title="Turn off voice">Stop</button>
+          </div>
+
+          {/* the note surface (step panel) owns the display while dictating — don't compete here */}
+          {!noteActive && (
+            <div className="vd-hud">
+              {line ? (
+                <><span className="vd-heard">“{line.heard}”</span><span className="vd-arrow">→</span><span className={`vd-msg${line.ok ? ' vd-ok' : ' vd-no'}`}>{line.message}</span></>
+              ) : armed ? (
+                <span className="vd-live">{interim ? `“${interim}”` : 'Say a command…'}</span>
+              ) : interim ? (
+                <span className="vd-live">“{interim}”</span>
+              ) : (
+                <span className="vd-vocab">Try: <em>next</em><em>start the timer</em><em>how long is left</em><em>note: …</em></span>
+              )}
+            </div>
           )}
-        </div>
+        </>
       )}
-    </>
+    </div>
   )
 }
 
