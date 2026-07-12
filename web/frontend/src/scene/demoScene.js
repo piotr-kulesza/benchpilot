@@ -710,38 +710,41 @@ export function undockSample() {
     var frontW=new THREE.Mesh(new THREE.BoxGeometry(2.4,FRONT,0.1), steel); frontW.position.set(0,FRONT/2,0.85); grp.add(frontW);
     for(var sw=0;sw<2;sw++){ var side=new THREE.Mesh(new THREE.BoxGeometry(0.1,WALL,1.8), steel);
       side.position.set(-1.15+sw*2.3, WALL/2, 0); side.castShadow=true; grp.add(side); }
-    // TEAL inner liner behind the water so the basin reads as water-filled, not metal
-    var innerMat=new THREE.MeshStandardMaterial({ color:0x2c7f9c, roughness:0.4, metalness:0.1, emissive:0x1c5266, emissiveIntensity:0.4, side:THREE.DoubleSide });
+    // muted stainless inner liner (NOT a teal glow)
+    var innerMat=new THREE.MeshStandardMaterial({ color:0x6b7580, roughness:0.5, metalness:0.25, side:THREE.DoubleSide });
     var inner=new THREE.Mesh(new THREE.BoxGeometry(2.24,SURFY,1.64), innerMat); inner.position.y=SURFY/2+0.04; grp.add(inner);
-    // WARM WATER body — translucent (NO transmission: stylized opacity per the art rules)
-    var waterMat=new THREE.MeshPhysicalMaterial({ color:0x5cc6ea, roughness:0.1, metalness:0,
-      transparent:true, opacity:0.72, emissive:0x2f88a6, emissiveIntensity:0.28, clearcoat:0.7, clearcoatRoughness:0.2, envMapIntensity:1.0 });
+    // WATER — RESTRAINED: a muted blue-grey, mostly transparent, NO emissive glow, NO
+    // toneMapped bypass. Reads as real water in a stainless bath beside the centrifuge.
+    var waterMat=new THREE.MeshPhysicalMaterial({ color:0x93b2c2, roughness:0.16, metalness:0,
+      transparent:true, opacity:0.36, clearcoat:0.5, clearcoatRoughness:0.3, envMapIntensity:0.9 });
     var water=new THREE.Mesh(new THREE.BoxGeometry(2.24,SURFY-0.02,1.64), waterMat); water.position.y=(SURFY-0.02)/2+0.05; grp.add(water);
-    // the bright cyan water SURFACE pool at the top of the basin
-    var surfMat=new THREE.MeshPhysicalMaterial({ color:0x54c4e8, roughness:0.05, metalness:0,
-      transparent:true, opacity:0.95, emissive:0x2f9fc8, emissiveIntensity:0.45, envMapIntensity:1.2, toneMapped:false });
-    var surf=new THREE.Mesh(new THREE.BoxGeometry(2.22,0.04,1.62), surfMat); surf.position.y=SURFY; grp.add(surf);
-    // brushed rim capping the tall walls (front stays open)
-    var rim=new THREE.Mesh(new THREE.BoxGeometry(2.5,0.05,1.9), matBrushed(0xcfd5db)); rim.position.y=WALL+0.02; rim.visible=false; grp.add(rim);
-    // steam wisps (additive) rising off the surface + a warm surface glow
-    var steamMat=new THREE.MeshBasicMaterial({ color:0xf0f4f6, transparent:true, opacity:0.0, depthWrite:false, blending:THREE.AdditiveBlending, fog:false });
-    var wisps=[]; for(var w=0;w<7;w++){ var s=new THREE.Mesh(new THREE.SphereGeometry(0.18,10,8), steamMat.clone());
-      s.userData.seed={ x:(Math.random()-0.5)*1.7, z:(Math.random()-0.5)*1.1, off:Math.random(), sp:0.35+Math.random()*0.4 };
+    // faint surface sheen — a reflective meniscus, not a glowing cap
+    var surfMat=new THREE.MeshPhysicalMaterial({ color:0xb6ccd6, roughness:0.09, metalness:0.15, transparent:true, opacity:0.3, envMapIntensity:1.1 });
+    var surf=new THREE.Mesh(new THREE.BoxGeometry(2.22,0.02,1.62), surfMat); surf.position.y=SURFY; grp.add(surf);
+    // temperature DIAL on the front face (a real water bath's defining control)
+    var dialRim=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,0.05,24), matBrushed(0xcfd5db));
+    dialRim.rotation.x=Math.PI/2; dialRim.position.set(0.72,0.28,0.92); grp.add(dialRim);
+    var dialFace=new THREE.Mesh(new THREE.CircleGeometry(0.16,24), new THREE.MeshStandardMaterial({ color:0xeef1f4, roughness:0.55, metalness:0 }));
+    dialFace.position.set(0.72,0.28,0.951); grp.add(dialFace);
+    var needle=new THREE.Mesh(new THREE.BoxGeometry(0.018,0.13,0.008), matPlastic(0x33383e));
+    needle.position.set(0.72,0.28,0.965); needle.rotation.z=0.7; grp.add(needle);
+    // steam wisps rise ONLY when warm (at rest: none) — very subtle, no colour cast
+    var steamMat=new THREE.MeshBasicMaterial({ color:0xeef2f4, transparent:true, opacity:0.0, depthWrite:false, blending:THREE.AdditiveBlending, fog:false });
+    var wisps=[]; for(var w=0;w<6;w++){ var s=new THREE.Mesh(new THREE.SphereGeometry(0.16,10,8), steamMat.clone());
+      s.userData.seed={ x:(Math.random()-0.5)*1.7, z:(Math.random()-0.5)*1.1, off:Math.random(), sp:0.3+Math.random()*0.35 };
       grp.add(s); wisps.push(s); }
-    var label=makeLabel("Water bath","42 °C"); label.position.set(0,1.7,0); grp.add(label);
+    var label=makeLabel("Water bath","37 °C"); label.position.set(0,1.6,0); grp.add(label);
     var wst={ t:0, warmth:0, tWarmth:0 };
     grp.userData.label=label;
     grp.userData.setWarmth=function(v){ wst.tWarmth=clamp(v,0,1); };
     grp.userData.update=function(dt){
       wst.t+=dt; wst.warmth=lerp(wst.warmth,wst.tWarmth,1-Math.pow(0.05,dt));
-      var bob=Math.sin(wst.t*1.6)*0.006;
-      surf.position.y=SURFY+bob;                              // gentle surface bob
-      waterMat.emissiveIntensity=0.2+wst.warmth*0.14; surfMat.emissiveIntensity=0.24+wst.warmth*0.16;
+      surf.position.y=SURFY+Math.sin(wst.t*1.6)*0.005;         // gentle meniscus bob
       for(var i=0;i<wisps.length;i++){ var sd=wisps[i].userData.seed;
         var yy=((wst.t*sd.sp+sd.off)%1);
-        wisps[i].position.set(sd.x, 0.85+yy*1.1, sd.z);
-        wisps[i].scale.setScalar(0.4+yy*1.1);
-        wisps[i].material.opacity=wst.warmth*0.32*(1-yy)*(yy<0.1?yy*10:1);
+        wisps[i].position.set(sd.x, SURFY+0.05+yy*0.9, sd.z);
+        wisps[i].scale.setScalar(0.35+yy*0.9);
+        wisps[i].material.opacity=wst.warmth*0.22*(1-yy)*(yy<0.1?yy*10:1);
       }
     };
     return grp;
@@ -759,27 +762,25 @@ export function undockSample() {
     base.position.y=0.35; base.castShadow=true; base.receiveShadow=true; grp.add(base);
     var deck = new THREE.Mesh(new THREE.BoxGeometry(2.3,0.06,1.5), shellTop);
     deck.position.set(0,0.72,0.05); grp.add(deck);
-    // sunken 8-well plate seat (where the sample rides)
+    // raised heated BLOCK proud of the deck (avoids coplanar z-fighting) with a
+    // 2×6 array of recessed well bores sunk into it.
     var boreMat = new THREE.MeshStandardMaterial({ color:0x1b2128, metalness:0.4, roughness:0.7, side:THREE.DoubleSide });
-    var seat = new THREE.Mesh(new THREE.BoxGeometry(1.5,0.12,0.9), boreMat);
-    seat.position.set(0,0.7,0.05); grp.add(seat);
-    for(var i=0;i<4;i++){ var bx=-0.6+i*0.4;
-      var bore=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.09,0.3,18,1,true), boreMat);
-      bore.position.set(bx,0.66,0.05); grp.add(bore); }
-    // HEATED LID that presses STRAIGHT DOWN onto the sample. It travels VERTICALLY
-    // (not a hinge sweep — a sweep passes through a tall tube) and its closed rest
-    // height clears the seated tube's top, so it clamps ABOVE the sample, never through
-    // it. LID_CLOSED must stay above the thermocycle branch's seated-tube top (~1.1).
-    var LID_CLOSED=1.28, LID_OPEN=2.2;
-    var lidPivot = new THREE.Group(); lidPivot.position.set(0,LID_OPEN,0); grp.add(lidPivot);
-    var lid = new THREE.Mesh(new THREE.BoxGeometry(2.2,0.22,1.4), matPainted(0x3a3f47,0.5));
-    lid.position.set(0,0.11,0.05); lidPivot.add(lid);
-    var lidGrip = new THREE.Mesh(new THREE.BoxGeometry(1.4,0.08,0.16), matPlastic(0x22272e));
-    lidGrip.position.set(0,0.26,0.62); lidPivot.add(lidGrip);
-    // four posts the lid rides down on, so the raised lid reads as a press mechanism
-    var postMat=matBrushed(0x8f99a4);
-    for(var lp=0;lp<2;lp++){ var post=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.6,12), postMat);
-      post.position.set(-1.0+lp*2.0,1.5,-0.6); grp.add(post); }
+    var block = new THREE.Mesh(new THREE.BoxGeometry(1.95,0.12,1.05), matAnodized(0x23272e));
+    block.position.set(0,0.81,0.0); grp.add(block);
+    for(var wr=0; wr<2; wr++) for(var wc=0; wc<6; wc++){
+      var bx=-0.75+wc*0.3, bz=-0.24+wr*0.48;
+      var bore=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.085,0.28,16,1,true), boreMat);
+      bore.position.set(bx,0.72,bz); grp.add(bore);                 // top ~0.86 (block top), sinks down
+      var bbot=new THREE.Mesh(new THREE.CircleGeometry(0.085,16), boreMat);
+      bbot.rotation.x=-Math.PI/2; bbot.position.set(bx,0.58,bz); grp.add(bbot);
+    }
+    // HINGED CLAMSHELL LID (back hinge). Raised at rest so the wells read; lowers flat
+    // over the block during cycling. No posts, no bench glow — restrained.
+    var lidPivot = new THREE.Group(); lidPivot.position.set(0,0.76,-0.72); grp.add(lidPivot);
+    var lid = new THREE.Mesh(new THREE.BoxGeometry(2.2,0.2,1.5), matPainted(0x3a3f47,0.5));
+    lid.position.set(0,0.1,0.72); lidPivot.add(lid);
+    var lidGrip = new THREE.Mesh(new THREE.BoxGeometry(1.5,0.07,0.14), matPlastic(0x22272e));
+    lidGrip.position.set(0,0.2,1.4); lidPivot.add(lidGrip);
     // slanted control display
     var dc=document.createElement("canvas"); dc.width=256; dc.height=128; var dg=dc.getContext("2d");
     var dTex=new THREE.CanvasTexture(dc); dTex.anisotropy=MAX_ANISO;
@@ -797,27 +798,24 @@ export function undockSample() {
     disp.position.set(0,0.5,0.96); disp.rotation.x=-0.35; grp.add(disp);
     var dispFrame=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.44,0.05), matPainted(0x22262c,0.5));
     dispFrame.position.set(0,0.5,0.94); dispFrame.rotation.x=-0.35; grp.add(dispFrame);
-    // heat glow over the block
-    var glow=new THREE.PointLight(0xff8a3d,0,4); glow.position.set(0,1.1,0.05); grp.add(glow);
 
     var label=makeLabel("Thermocycler",""); label.position.set(0,1.7,0); grp.add(label);
     var st={ lid:1, tLid:1 };
     grp.userData.label=label;
     grp.userData.setLid=function(open){ st.tLid=open?1:0; };
-    // p in [0,1] over the whole step; `cycles` = repeat.count. Cycles hot->cool and
-    // steps the CYCLE readout; a warm glow pulses on the denature (hot) phase.
+    // p in [0,1] over the whole step; `cycles` = repeat.count. Steps the CYCLE readout
+    // and its hot/cool temperature — the ONLY heat cue (no bench-blooming glow light).
     grp.userData.setProgress=function(p, cycles){
       cycles=Math.max(1, cycles||30);
       var cyc=Math.min(cycles, Math.floor(p*cycles)+1);
       var cp=(p*cycles)%1;                     // progress within the current cycle
       var hot=cp<0.4;                            // denature (hot) then anneal/extend (cooler)
       var tempC = hot ? 95 : (cp<0.7 ? 58 : 72);
-      glow.intensity = hot ? 2.6 : 0.5;
       drawDisp(cyc, cycles, tempC, hot);
     };
     grp.userData.update=function(dt){
       st.lid=lerp(st.lid, st.tLid, 1-Math.pow(0.02,dt));
-      lidPivot.position.y = lerp(LID_CLOSED, LID_OPEN, easeInOut(st.lid)); // 1=open(high), 0=closed(low)
+      lidPivot.rotation.x = -easeInOut(st.lid)*1.15; // 1=open(raised), 0=closed(flat over the block)
     };
     grp.userData.setProgress(0,30);
     return grp;
@@ -828,13 +826,20 @@ export function undockSample() {
      voltage readout. Stylized to match the bench (matFrosted tank, matPainted box). */
   function buildGelRig(){
     var grp = new THREE.Group();
-    // buffer tank (clear frosted box)
-    var tankMat = matFrosted(0xdfe6ee); tankMat.opacity=0.4;
+    // buffer tank (clear box) — solid enough to read as a vessel, with a dark frame
+    var tankMat = new THREE.MeshPhysicalMaterial({ color:0xcdd6de, roughness:0.2, metalness:0, transparent:true, opacity:0.5, clearcoat:0.6, envMapIntensity:0.8 });
     var tank = new THREE.Mesh(new THREE.BoxGeometry(2.6,0.7,1.6), tankMat);
     tank.position.y=0.55; tank.castShadow=true; grp.add(tank);
+    var frameMat = matPlastic(0x2b3038);
+    // base + top rim frames so the tank reads as a solid moulded vessel, not a haze
+    var tbase = new THREE.Mesh(new THREE.BoxGeometry(2.66,0.1,1.66), frameMat); tbase.position.y=0.24; grp.add(tbase);
+    var trim = new THREE.Mesh(new THREE.BoxGeometry(2.66,0.08,1.66), frameMat); trim.position.y=0.86; grp.add(trim);
     var lidMat = matPlastic(0x2b3038);
-    var tankLid = new THREE.Mesh(new THREE.BoxGeometry(2.7,0.08,1.7), lidMat);
-    tankLid.position.y=0.95; grp.add(tankLid);
+    var tankLid = new THREE.Mesh(new THREE.BoxGeometry(2.7,0.09,1.7), lidMat);
+    tankLid.position.y=0.96; grp.add(tankLid);
+    // electrode TERMINALS on the lid (red +, black −) + CABLES running to the power box
+    var termR = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.12,12), matPlastic(0xc0392b)); termR.position.set(-0.5,1.06,0.6); grp.add(termR);
+    var termB = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.12,12), matPlastic(0x22272e)); termB.position.set(-0.2,1.06,0.6); grp.add(termB);
     // running buffer
     var buf = new THREE.Mesh(new THREE.BoxGeometry(2.5,0.5,1.5),
       new THREE.MeshPhysicalMaterial({ color:0xdfe6c0, roughness:0.3, transparent:true, opacity:0.35, envMapIntensity:0.6 }));
@@ -860,6 +865,14 @@ export function undockSample() {
     drawV(0);
     var vDisp=new THREE.Mesh(new THREE.PlaneGeometry(0.5,0.3), new THREE.MeshBasicMaterial({map:vTex,transparent:true}));
     vDisp.position.set(1.9,0.5,0.41); grp.add(vDisp);
+    // cables running from the lid terminals to the power-supply box (arched, connected)
+    function gelCable(from,to,color){
+      var mid=new THREE.Vector3((from.x+to.x)/2,Math.max(from.y,to.y)+0.32,(from.z+to.z)/2);
+      var curve=new THREE.CatmullRomCurve3([from,mid,to]);
+      return new THREE.Mesh(new THREE.TubeGeometry(curve,22,0.028,8,false), matRubber(color));
+    }
+    grp.add(gelCable(new THREE.Vector3(-0.5,1.1,0.6), new THREE.Vector3(1.55,0.72,0.32), 0xc0392b));
+    grp.add(gelCable(new THREE.Vector3(-0.2,1.1,0.6), new THREE.Vector3(1.66,0.72,0.02), 0x22272e));
 
     var label=makeLabel("Electrophoresis",""); label.position.set(0,1.5,0); grp.add(label);
     grp.userData.label=label;
@@ -883,7 +896,7 @@ export function undockSample() {
     wall.position.y=0.3; wall.castShadow=true; wall.receiveShadow=true; grp.add(wall);
     var rim = new THREE.Mesh(new THREE.TorusGeometry(0.74,0.03,14,48), steelDk);
     rim.rotation.x=Math.PI/2; rim.position.y=0.6; grp.add(rim);
-    var innerMat = new THREE.MeshStandardMaterial({ color:0x3f86bf, metalness:0.25, roughness:0.5, envMapIntensity:0.8, side:THREE.DoubleSide });
+    var innerMat = new THREE.MeshStandardMaterial({ color:0x6f7d89, metalness:0.3, roughness:0.55, envMapIntensity:0.7, side:THREE.DoubleSide }); // muted cool-grey interior (not a saturated blue pool)
     var inner = new THREE.Mesh(new THREE.CylinderGeometry(0.7,0.58,0.6,44,1,true), innerMat);
     inner.position.y=0.3; grp.add(inner);
     var floor = new THREE.Mesh(new THREE.CircleGeometry(0.58,44), innerMat);
@@ -1480,8 +1493,9 @@ export {
   // Shared liquid state matching buildTube's contract: setLevel/setColor/setLabel +
   // an update() that lerps and calls apply(liq, level, color). Stylized (no
   // transmission, no postprocessing) — reuses the demo's mat* helpers throughout.
-  function attachSampleLiquid(grp, liq, apply, label){
-    var st={ level:0.35, tLevel:0.35, color:new THREE.Color(COL.lysis), tColor:new THREE.Color(COL.lysis) };
+  function attachSampleLiquid(grp, liq, apply, label, level0){
+    var L0=(level0==null?0.35:level0);
+    var st={ level:L0, tLevel:L0, color:new THREE.Color(COL.lysis), tColor:new THREE.Color(COL.lysis) };
     grp.userData.label=label||null;
     grp.userData.setLevel=function(v){ st.tLevel=clamp(v,0,1); };
     grp.userData.setColor=function(h){ st.tColor.set(h); };
@@ -1498,74 +1512,125 @@ export {
       emissive:COL.lysis, emissiveIntensity:0.12, clearcoat:0.3, clearcoatRoughness:0.4, envMapIntensity:0.6 });
   }
 
-  /* screw-cap cryovial — a short PP vial with a colour-coded cap + star foot */
+  /* screw-cap cryovial — short PP vial: a SKIRTED CONICAL base so it self-stands,
+     EXTERNAL screw THREAD on the upper body, and a colour-coded ribbed cap. */
   function buildCryovial(){
-    var grp=new THREE.Group(); var R=0.22, H=1.05;
-    var body=new THREE.Mesh(new THREE.CylinderGeometry(R,R*0.92,H,32,1,true), matFrosted(0xe7ecf1));
-    body.position.y=H/2; body.castShadow=true; grp.add(body);
-    var round=new THREE.Mesh(new THREE.SphereGeometry(R*0.92,24,12,0,Math.PI*2,Math.PI*0.5,Math.PI*0.5), matFrosted(0xe7ecf1));
-    round.position.y=0.02; grp.add(round);
-    var foot=new THREE.Mesh(new THREE.CylinderGeometry(R*0.9,R*0.9,0.05,6), matPlastic(0x59616c));
-    foot.position.y=0.02; grp.add(foot);
+    var grp=new THREE.Group(); var R=0.22;
+    var pp=matFrosted(0xe7ecf1);
+    var skirt=new THREE.Mesh(new THREE.CylinderGeometry(R*1.02,R*1.06,0.09,16), matPlastic(0xccd2d9));
+    skirt.position.y=0.045; skirt.castShadow=true; grp.add(skirt);              // self-standing skirted foot
+    var cone=new THREE.Mesh(new THREE.CylinderGeometry(R*0.92,R*0.8,0.16,28), pp);
+    cone.position.y=0.17; grp.add(cone);                                        // conical base
+    var bodyH=0.92;
+    var body=new THREE.Mesh(new THREE.CylinderGeometry(R*0.92,R*0.92,bodyH,28,1,true), pp);
+    body.position.y=0.25+bodyH/2; body.castShadow=true; grp.add(body);
+    var top=0.25+bodyH;
+    // EXTERNAL screw thread near the top of the body
+    for(var t=0;t<4;t++){ var thr=new THREE.Mesh(new THREE.TorusGeometry(R*0.95,0.015,8,28), pp);
+      thr.rotation.x=Math.PI/2; thr.position.y=top-0.06-t*0.075; grp.add(thr); }
+    // colour-coded ribbed screw cap
     var cap=new THREE.Mesh(new THREE.CylinderGeometry(R*1.06,R*1.06,0.2,28), matPlastic(0x8f2f6a));
-    cap.position.y=H+0.05; grp.add(cap);
-    for(var r=0;r<20;r++){ var ra=r/20*Math.PI*2; var rib=new THREE.Mesh(new THREE.BoxGeometry(0.014,0.16,0.03), matPlastic(0x8f2f6a));
-      rib.position.set(Math.cos(ra)*R*1.07,H+0.05,Math.sin(ra)*R*1.07); rib.rotation.y=-ra; grp.add(rib); }
-    var liq=new THREE.Mesh(new THREE.CylinderGeometry(R*0.85,R*0.7,1,24), liquidMat());
+    cap.position.y=top+0.09; grp.add(cap);
+    for(var r=0;r<22;r++){ var ra=r/22*Math.PI*2; var rib=new THREE.Mesh(new THREE.BoxGeometry(0.012,0.16,0.026), matPlastic(0x8f2f6a));
+      rib.position.set(Math.cos(ra)*R*1.07,top+0.09,Math.sin(ra)*R*1.07); rib.rotation.y=-ra; grp.add(rib); }
+    var liq=new THREE.Mesh(new THREE.CylinderGeometry(R*0.82,R*0.72,1,24), liquidMat());
     grp.add(liq);
-    var label=makeLabel("",""); label.position.set(0,H+0.6,0); grp.add(label);
+    var label=makeLabel("",""); label.position.set(0,top+0.55,0); grp.add(label);
     attachSampleLiquid(grp, liq, function(liq,lv,color){
-      var h=Math.max(0.02, lv*(H*0.82)); liq.scale.set(1,h,1); liq.position.y=0.06+h/2;
+      var h=Math.max(0.02, lv*(bodyH*0.8)); liq.scale.set(1,h,1); liq.position.y=0.28+h/2;
       liq.material.color.copy(color); liq.material.emissive.copy(color);
     }, label);
     return grp;
   }
 
-  /* 96-well microplate — grid of bores; the sample lives in ONE front well (aspirated) */
+  /* 96-well microplate — 8×12 grid of RECESSED bores, skirt, A1 corner notch; the
+     sample lives in ONE front well (aspirated). */
   function buildWellPlate(){
     var grp=new THREE.Group();
-    var body=new THREE.Mesh(new THREE.BoxGeometry(2.4,0.34,1.6), matFrosted(0xdfe6ee));
+    var BX=2.9, BZ=1.95, BH=0.34;
+    // OPAQUE moulded body (translucent hid the wells as internal pillars)
+    var body=new THREE.Mesh(new THREE.BoxGeometry(BX,BH,BZ), new THREE.MeshStandardMaterial({ color:0xe3e8ee, roughness:0.5, metalness:0, envMapIntensity:0.5 }));
     body.position.y=0.17; body.castShadow=true; body.receiveShadow=true; grp.add(body);
-    var skirt=new THREE.Mesh(new THREE.BoxGeometry(2.5,0.06,1.7), matPlastic(0xc4ccd6));
+    var skirt=new THREE.Mesh(new THREE.BoxGeometry(BX+0.1,0.06,BZ+0.1), matPlastic(0xc4ccd6));
     skirt.position.y=0.03; grp.add(skirt);
-    // 96 bores as one instanced mesh (dark wells)
-    var boreGeo=new THREE.CylinderGeometry(0.075,0.06,0.26,12,1,true);
-    var boreMat=new THREE.MeshStandardMaterial({ color:0x2a323c, metalness:0.1, roughness:0.7, side:THREE.DoubleSide });
-    var inst=new THREE.InstancedMesh(boreGeo, boreMat, 96); var m=new THREE.Matrix4(); var idx=0, ax=0, az=0;
-    var awx=0, awz=0;
+    // A1 corner NOTCH — a clipped corner cue (a small dark chamfer at one corner)
+    var notch=new THREE.Mesh(new THREE.BoxGeometry(0.22,BH+0.02,0.22), matPlastic(0x9aa4b0));
+    notch.position.set(-BX/2+0.02,0.17,-BZ/2+0.02); notch.rotation.y=Math.PI/4; grp.add(notch);
+    // 96 SHALLOW wells — short dark cups just proud of the plate top (reads as a grid
+    // of wells, NOT tall pillars), each with a dark floor disc.
+    var boreGeo=new THREE.CylinderGeometry(0.082,0.072,0.11,14,1,true);
+    var boreMat=new THREE.MeshStandardMaterial({ color:0x2a323c, metalness:0.1, roughness:0.75, side:THREE.DoubleSide });
+    var inst=new THREE.InstancedMesh(boreGeo, boreMat, 96); var m=new THREE.Matrix4(); var idx=0;
+    var floorGeo=new THREE.CircleGeometry(0.072,14);
+    var floors=new THREE.InstancedMesh(floorGeo, boreMat, 96); var mf=new THREE.Matrix4();
+    var awx=0, awz=0; var stepX=(BX-0.5)/11, stepZ=(BZ-0.42)/7;
     for(var c=0;c<12;c++) for(var r=0;r<8;r++){
-      var x=-1.06+c*0.193, z=-0.6+r*0.171;
-      m.makeTranslation(x,0.22,z); inst.setMatrixAt(idx++,m);
+      var x=-(BX-0.5)/2+c*stepX, z=-(BZ-0.42)/2+r*stepZ;
+      m.makeTranslation(x,0.36,z); inst.setMatrixAt(idx,m);          // shallow cup, flush-proud of the top
+      mf.makeRotationX(-Math.PI/2); mf.setPosition(x,0.315,z); floors.setMatrixAt(idx,mf);
+      idx++;
       if(c===1 && r===7){ awx=x; awz=z; }   // the active (front-left) well
     }
-    inst.instanceMatrix.needsUpdate=true; grp.add(inst);
+    inst.instanceMatrix.needsUpdate=true; floors.instanceMatrix.needsUpdate=true; grp.add(inst); grp.add(floors);
     // sample liquid in the active well
-    var liq=new THREE.Mesh(new THREE.CylinderGeometry(0.066,0.055,1,16), liquidMat());
-    liq.position.set(awx,0.1,awz); grp.add(liq);
+    var liq=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.06,1,16), liquidMat());
+    liq.position.set(awx,0.33,awz); grp.add(liq);
     var label=makeLabel("","96-well"); label.position.set(awx,0.9,awz); grp.add(label);
     attachSampleLiquid(grp, liq, function(liq,lv,color){
-      var h=Math.max(0.01, lv*0.24); liq.scale.set(1,h,1); liq.position.y=0.1+h/2;
+      var h=Math.max(0.006, lv*0.09); liq.scale.set(1,h,1); liq.position.y=0.32+h/2;
       liq.material.color.copy(color); liq.material.emissive.copy(color);
-    }, label);
+    }, label, 0); // empty wells at rest
     return grp;
   }
 
-  /* culture flask (canted neck) — sample is a liquid layer on the base, aspirated */
+  /* T-flask (T-25/T-75) for adherent culture — LIES FLAT on its side. A flat
+     elongated body, a canted vented neck at one top corner, cells growing as a
+     monolayer on the flat bottom under a SHALLOW layer of medium. The `apply`
+     hook drives the medium depth + a `setMono(v)` for the adherent monolayer
+     (confluent -> detached), read by the contract's contentsState. */
   function buildFlask(){
     var grp=new THREE.Group();
-    var body=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.55,1.0), matFrosted(0xe3e9ef));
-    body.position.y=0.3; body.castShadow=true; grp.add(body);
-    var neck=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.16,0.34,24), matFrosted(0xe3e9ef));
-    neck.position.set(0.72,0.55,0); neck.rotation.z=-0.5; grp.add(neck);
-    var cap=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.16,0.16,24), matPlastic(0xd23b3b));
-    cap.position.set(0.87,0.63,0); cap.rotation.z=-0.5; grp.add(cap);
-    var liq=new THREE.Mesh(new THREE.BoxGeometry(1.42,1,0.92), liquidMat());
+    var L=2.7, W=1.5, H=0.6;                                  // length(x) × depth(z) × height(y) — flat
+    // cloudy-polystyrene body (translucent so the monolayer + medium read through)
+    var psMat=new THREE.MeshPhysicalMaterial({ color:0xeef2f6, roughness:0.35, metalness:0,
+      transparent:true, opacity:0.26, clearcoat:0.6, clearcoatRoughness:0.35, envMapIntensity:0.8 });
+    var body=new THREE.Mesh(new THREE.BoxGeometry(L,H,W), psMat);
+    body.position.y=H/2+0.03; body.castShadow=true; grp.add(body);
+    // moulded base rim so it reads as resting flat on the bench
+    var rim=new THREE.Mesh(new THREE.BoxGeometry(L+0.05,0.06,W+0.05), matFrosted(0xdfe6ee));
+    rim.position.y=0.03; grp.add(rim);
+    // flat GROWTH SURFACE (the defining T-flask feature): a matte panel on the bottom
+    var growth=new THREE.Mesh(new THREE.PlaneGeometry(L-0.18,W-0.18), matFrosted(0xe7edf3));
+    growth.rotation.x=-Math.PI/2; growth.position.y=0.075; grp.add(growth);
+    // ribbed cap-end shoulder (T-flasks taper to the neck at one end)
+    var shoulder=new THREE.Mesh(new THREE.BoxGeometry(0.5,H,W*0.9), psMat.clone());
+    shoulder.position.set(L/2-0.25,H/2+0.03,0); grp.add(shoulder);
+    // CANTED vented neck at one top corner + colour-coded screw cap
+    var neckPivot=new THREE.Group(); neckPivot.position.set(L/2-0.18,H+0.02,W/2-0.34); grp.add(neckPivot);
+    neckPivot.rotation.z=-0.62;                               // cant out toward the corner
+    var neck=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.2,0.52,24), psMat.clone());
+    neck.position.y=0.24; neckPivot.add(neck);
+    var cap=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,0.18,28), matPlastic(0x3f7fd0));
+    cap.position.y=0.55; neckPivot.add(cap);
+    for(var rc=0;rc<18;rc++){ var ra=rc/18*Math.PI*2; var rib=new THREE.Mesh(new THREE.BoxGeometry(0.012,0.14,0.026), matPlastic(0x3f7fd0));
+      rib.position.set(Math.cos(ra)*0.205,0.55,Math.sin(ra)*0.205); rib.rotation.y=-ra; cap.parent.add(rib); }
+    // MEDIUM — a shallow layer flooding the flat base (NOT a tall column)
+    var liq=new THREE.Mesh(new THREE.BoxGeometry(L-0.22,1,W-0.22), liquidMat());
     grp.add(liq);
-    var label=makeLabel("","flask"); label.position.set(0,1.0,0); grp.add(label);
-    attachSampleLiquid(grp, liq, function(liq,lv,color){
-      var h=Math.max(0.01, lv*0.3); liq.scale.set(1,h,1); liq.position.y=0.06+h/2;
+    // the adherent MONOLAYER — a faint film on the growth surface; opacity = confluence
+    var monoMat=new THREE.MeshStandardMaterial({ color:0xbfcbb6, roughness:0.7, transparent:true, opacity:0.0, emissive:0x2c3a24, emissiveIntensity:0.04 });
+    var mono=new THREE.Mesh(new THREE.PlaneGeometry(L-0.24,W-0.24), monoMat);
+    mono.rotation.x=-Math.PI/2; mono.position.y=0.082; grp.add(mono);
+    var label=makeLabel("","T-flask"); label.position.set(0,1.05,0); grp.add(label);
+    var lst=attachSampleLiquid(grp, liq, function(liq,lv,color){
+      var h=Math.max(0.008, lv*0.16); liq.scale.set(1,h,1); liq.position.y=0.09+h/2;   // shallow
       liq.material.color.copy(color); liq.material.emissive.copy(color);
-    }, label);
+    }, label, 0.42); // a confluent flask at rest holds a shallow layer of medium
+    // culture medium is a MUTED rose (phenol-red), not a saturated teal
+    lst.color.set(0xcf8791); lst.tColor.set(0xcf8791);
+    // contentsState hook: 1 = confluent monolayer, 0 = detached (cleared)
+    grp.userData.setMono=function(v){ monoMat.opacity=clamp(v,0,1)*0.65; };
+    grp.userData.setMono(1);
     return grp;
   }
 
@@ -1584,26 +1649,29 @@ export {
     attachSampleLiquid(grp, liq, function(liq,lv,color){
       var h=Math.max(0.008, lv*0.09); liq.scale.set(1,h,1); liq.position.y=0.012+h/2;
       liq.material.color.copy(color); liq.material.emissive.copy(color);
-    }, label);
+    }, label, 0); // empty dish at rest
     return grp;
   }
 
   /* glass microscope slide — sample is a smear/film; stain floods colour over it */
   function buildSlide(){
     var grp=new THREE.Group();
-    var glass=new THREE.Mesh(new THREE.BoxGeometry(2.0,0.05,0.9), glassMaterial());
-    glass.position.y=0.08; glass.castShadow=true; grp.add(glass);
-    var frost=new THREE.Mesh(new THREE.BoxGeometry(0.4,0.052,0.9), matFrosted(0xeef2f6));
-    frost.position.set(-0.78,0.081,0); grp.add(frost);   // frosted labelling end
-    // the smear/film — a thin coloured layer flooded by setLevel (coverage) + setColor
-    var filmMat=new THREE.MeshPhysicalMaterial({ color:COL.lysis, roughness:0.5, transparent:true, opacity:0.0, emissive:COL.lysis, emissiveIntensity:0.06, envMapIntensity:0.4 });
-    var film=new THREE.Mesh(new THREE.CircleGeometry(0.42,32), filmMat);
-    film.rotation.x=-Math.PI/2; film.position.set(0.25,0.107,0); grp.add(film);
-    var label=makeLabel("","slide"); label.position.set(0,0.7,0); grp.add(label);
+    var Lx=2.4, Lz=0.8, th=0.05;                              // ~3:1 thin glass slide
+    var glass=new THREE.Mesh(new THREE.BoxGeometry(Lx,th,Lz), glassMaterial());
+    glass.position.y=0.045; glass.castShadow=true; grp.add(glass);
+    // frosted label band across ONE SHORT END (spans the full depth)
+    var frost=new THREE.Mesh(new THREE.BoxGeometry(0.42,th+0.006,Lz), matFrosted(0xeef2f6));
+    frost.position.set(-Lx/2+0.21,0.046,0); grp.add(frost);
+    // the SMEAR — a thin ELLIPTICAL film on the surface; the stain floods colour over
+    // it. Muted + capped opacity so it reads as a thin smear, never a floating blob.
+    var filmMat=new THREE.MeshStandardMaterial({ color:0xc9c4cf, roughness:0.6, transparent:true, opacity:0.0, emissive:0x2a2630, emissiveIntensity:0.03 });
+    var film=new THREE.Mesh(new THREE.CircleGeometry(0.32,40), filmMat);
+    film.rotation.x=-Math.PI/2; film.scale.set(1.6,1,0.7); film.position.set(0.35,0.075,0); grp.add(film);
+    var label=makeLabel("","slide"); label.position.set(0,0.55,0); grp.add(label);
     attachSampleLiquid(grp, film, function(f,lv,color){
       f.material.color.copy(color); f.material.emissive.copy(color);
-      f.material.opacity=Math.min(0.9, lv*1.2); f.scale.setScalar(0.6+lv*0.8);   // dye floods outward
-    }, label);
+      f.material.opacity=Math.min(0.68, lv*0.9);             // thin muted smear
+    }, label, 0); // clean slide at rest
     return grp;
   }
 
@@ -1619,7 +1687,7 @@ export {
     var label=makeLabel("","membrane"); label.position.set(0,0.7,0); grp.add(label);
     attachSampleLiquid(grp, bands, function(bs,lv,color){
       for(var k=0;k<bs.length;k++){ bs[k].material.color.copy(color); bs[k].material.opacity=Math.min(0.95, lv*1.3); }
-    }, label);
+    }, label, 0); // clean membrane at rest (bands appear on transfer)
     return grp;
   }
 
@@ -1641,7 +1709,7 @@ export {
     attachSampleLiquid(grp, band, function(b,lv,color){
       b.material.color.copy(color); b.material.opacity=Math.min(0.9,lv*1.3);
       b.position.z=-0.4+lv*0.7;   // the band migrates down the gel with fill/progress
-    }, label);
+    }, label, 0); // no band at rest (wells only)
     return grp;
   }
 
@@ -1661,7 +1729,7 @@ export {
     attachSampleLiquid(grp, lawn, function(l,lv,color){
       l.material.color.copy(color); l.material.emissive.copy(color);
       l.material.opacity=Math.min(0.75, lv*1.1); l.scale.setScalar(0.3+lv*1.0);
-    }, label);
+    }, label, 0); // freshly-poured plate: uniform agar, no lawn
     return grp;
   }
 
@@ -1678,13 +1746,19 @@ export {
     var doorPivot=new THREE.Group(); doorPivot.position.set(-1.05,1.0,0.85); grp.add(doorPivot);
     var door=new THREE.Mesh(new THREE.BoxGeometry(2.1,1.9,0.12), matPainted(0xe6e9ed,0.5));
     door.position.set(1.05,0,0); doorPivot.add(door);
-    var handle=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.5,0.14), matBrushed(0x9aa4b0));
-    handle.position.set(1.85,0,0.12); doorPivot.add(handle);
+    // prominent vertical PULL HANDLE on the door's free edge, on standoff brackets
+    var handleBar=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,1.5,16), matBrushed(0x868f9b));
+    handleBar.position.set(1.86,0,0.22); doorPivot.add(handleBar);
+    for(var hb=0;hb<2;hb++){ var brk=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.09,0.16), matBrushed(0x868f9b));
+      brk.position.set(1.86,-0.5+hb*1.0,0.13); doorPivot.add(brk); }
+    // hinge barrels on the hinge side so the door reads as a door
+    for(var hg=0;hg<2;hg++){ var hinge=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.26,12), matBrushed(0x868f9b));
+      hinge.position.set(0.06,-0.6+hg*1.2,0.07); doorPivot.add(hinge); }
     // frost fog puff (additive) at the mouth
     var frostMat=new THREE.MeshBasicMaterial({ color:0xdfeaf4, transparent:true, opacity:0.0, depthWrite:false, blending:THREE.AdditiveBlending, fog:false });
     var frost=new THREE.Mesh(new THREE.SphereGeometry(0.7,16,12), frostMat); frost.position.set(0,0.7,1.0); frost.scale.set(1.3,0.8,0.6); grp.add(frost);
     var label=makeLabel("−80 °C",""); label.position.set(0,2.3,0); grp.add(label);
-    var st={ door:1, tDoor:1 };
+    var st={ door:0, tDoor:0 }; // CLOSED at rest (the store animation opens it)
     grp.userData.label=label;
     grp.userData.setDoor=function(open){ st.tDoor=open?1:0; };
     grp.userData.setFrost=function(a){ frostMat.opacity=clamp(a,0,0.5); };
@@ -1707,12 +1781,22 @@ export {
     return grp;
   }
 
-  /* bent-glass cell spreader (hockey stick) for plating on agar */
+  /* bent-glass cell spreader ("hockey stick") for plating on agar — a long glass
+     handle bent near one end into a short flat FOOT that lies on the bench. */
   function buildSpreader(){
     var grp=new THREE.Group(); var mat=glassMaterial();
-    var handle=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,1.1,16), mat); handle.position.y=0.55; grp.add(handle);
-    var elbow=new THREE.Mesh(new THREE.TorusGeometry(0.12,0.03,10,18,Math.PI/2), mat); elbow.position.set(0,0.02,0); elbow.rotation.z=Math.PI; grp.add(elbow);
-    var foot=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.34,16), mat); foot.rotation.z=Math.PI/2; foot.position.set(0.17,-0.1,0); grp.add(foot);
+    var rr=0.032;
+    // horizontal spreading FOOT resting flat on the bench
+    var foot=new THREE.Mesh(new THREE.CylinderGeometry(rr,rr,0.8,16), mat);
+    foot.rotation.z=Math.PI/2; foot.position.set(0.4,rr+0.01,0); grp.add(foot);
+    var tip=new THREE.Mesh(new THREE.SphereGeometry(rr,12,10), mat); tip.position.set(0.8,rr+0.01,0); grp.add(tip);
+    // the L-BEND joint at the near end
+    var bend=new THREE.Mesh(new THREE.SphereGeometry(rr*1.2,14,12), mat); bend.position.set(0,rr+0.01,0); grp.add(bend);
+    // long handle rising up-and-slightly-back from the bend (hockey-stick shaft)
+    var handle=new THREE.Mesh(new THREE.CylinderGeometry(rr,rr,1.5,16), mat);
+    handle.position.set(-0.06,0.78,0); handle.rotation.z=0.12; grp.add(handle);
+    var label=makeLabel("Spreader",""); label.position.set(0,1.7,0); grp.add(label);
+    grp.userData.label=label; grp.userData.update=function(){};
     return grp;
   }
 

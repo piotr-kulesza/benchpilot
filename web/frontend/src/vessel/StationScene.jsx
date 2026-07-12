@@ -403,17 +403,16 @@ function configureStation(st, o) {
     st.updatables.push(tc)
     st.dev = tc
     const n = cycles > 0 ? cycles : 30
-    // Seat the tube DOWN in the block and shrink it to a PCR-tube size, so its top
-    // (~1.1) sits below the lid's closed rest height (LID_CLOSED 1.28) — the heated
-    // lid then presses just above it, never through it. seat() restores scale=1 on
-    // the next station, so this shrink never leaks.
+    // Shrink the tube to a PCR-tube size and seat it in a well of the block. The
+    // hinged clamshell lid stays RAISED so the sample is visible and nothing clips;
+    // cycling is conveyed by the display's live CYCLE n/N + hot/cool temperature.
     st.enter = () => {
-      seat(0, 0.18, 0.05)
-      S[vessel].scale.setScalar(0.52)
+      seat(0, 0.5, 0.0)
+      S[vessel].scale.setScalar(0.5)
       tc.userData.setLid(true); tc.userData.setProgress(0, n)
     }
     st.timeline = (p) => {
-      tc.userData.setLid(!(p > 0.12 && p < 0.9)) // lid CLOSED while cycling, open before/after
+      tc.userData.setLid(true) // lid raised — clip-free; the display drives the cycling
       tc.userData.setProgress(p, n)
       evolve(p) // contents unchanged; the tube just cycles temperature
     }
