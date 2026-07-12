@@ -319,8 +319,10 @@ export function configureStation(st, o) {
   if (action === 'pour_add') {
     const reags = o.reagents || []
     // draws FROM a prepared mixture ("apply the DNase I mixture …") → the source is the
-    // tube you made, not a bottle from nowhere.
-    const fromMix = reags.length === 1 && /\bmix\b|mixture|master ?mix|working solution/i.test(reags[0].name || '')
+    // tube you made, not a bottle from nowhere. The parsed `draws_from` is authoritative;
+    // the name heuristic is a fallback for data parsed before Stage 34.
+    const fromMix = reags.length === 1 && (!!o.drawsFrom
+      || /\bmix\b|mixture|master ?mix|working solution/i.test(reags[0].name || ''))
     if (reags.length <= 1 && !fromMix) {
       // UNCHANGED single-reagent path: resident pipette rig + bottle; fill ramps at p>0.62.
       demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: C.entryPoint })
@@ -920,7 +922,7 @@ function useContainers(steps) {
 }
 
 // Per-step build + display params for one station in the line.
-function stationParams(baseStep, lang, altIdx, chain) {
+function stationParams(baseStep, lang, altIdx, chain, producedInRun) {
   const step = effectiveStep(baseStep, altIdx) // follow the chosen either/or method
   const { equipment } = resolveRecipe(step.action)
   // EVERY reagent (name · volume · colour), so a multi-reagent step renders all of them,
@@ -940,7 +942,11 @@ function stationParams(baseStep, lang, altIdx, chain) {
   const start = chain?.start || { color: INIT_COLOR, level: INIT_LEVEL }
   const end = chain?.end || { color: colorHex, level: fill }
   const cycles = step.repeat && typeof step.repeat.count === 'number' ? step.repeat.count : 0
-  return { action: step.action, equipment, colorHex, vol, title, sub, seconds: step.duration_seconds, start, end, cycles, reagents }
+  // draws_from only renders as an on-bench mix tube when its product is actually made in
+  // this run; a do-ahead buffer (in the intake checklist) stays a normal bottle.
+  const drawsFrom = (step.draws_from && producedInRun && producedInRun.has(step.draws_from)) ? step.draws_from : null
+  return { action: step.action, equipment, colorHex, vol, title, sub, seconds: step.duration_seconds, start, end, cycles, reagents,
+           target: step.target || 'sample', produces: step.produces || null, drawsFrom }
 }
 
 export default function StationScene({ protocol, activeIndex = 0, lang = 'en', altByStep = {}, progress = 1, running = false, hasTimer = false, done = false, chromeless = false, bench = 'dark' }) {
@@ -1047,16 +1053,25 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       console.warn(`[benchpilot] transfer step ${d.index} does not name a destination container ` +
         `(stays "${d.container}") — the hand-off cannot fire. This is a parse defect: every transfer must set \`container\`.`)
     }
+    // Which prep products are actually MADE on the bench in this run (a just-in-time
+    // `prepare` station). A `draws_from` that points at one of these draws from the tube
+    // you watched being made; a `draws_from` pointing at a DO-AHEAD buffer (lifted into
+    // the intake checklist, never a station) is just a reagent from a bottle — so it must
+    // NOT render as an on-bench mix tube.
+    const producedInRun = new Set(
+      steps.filter((s) => s.action === 'prepare' && s.produces).map((s) => s.produces),
+    )
     const stations = []
     steps.forEach((baseStep, i) => {
       const altIdx = altByStep[baseStep.index] || 0
       const container = containers[i] || 'microtube'
       const prevContainer = i > 0 ? (containers[i - 1] || 'microtube') : null
-      const o = stationParams(baseStep, lang, altIdx, stateChain[i])
+      const o = stationParams(baseStep, lang, altIdx, stateChain[i], producedInRun)
       const st = { group: new Group(), updatables: [], reagents: {}, pip: null, enter: null, timeline: null, x: i * SPACING, cen: null, dev: null, vis: 0, _vstate: -1 }
       configureStation(st, {
         action: o.action, equipment: o.equipment, container, prevContainer, color: o.colorHex, name: o.title, vol: o.vol, seconds: o.seconds,
         startColor: o.start.color, startLevel: o.start.level, endColor: o.end.color, endLevel: o.end.level, cycles: o.cycles, reagents: o.reagents,
+        drawsFrom: o.drawsFrom,
       })
       // MEASURE the framing from the equipment now — group is still at the origin and
       // carries only the instrument (not the label/decal added below), so this is the
@@ -1129,8 +1144,10 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     // rail-dolly the camera to the active station (damped, no cut / pop-in)
     glideRef.current = { active: true, t: 0, from: railXRef.current, to: stations[active].x }
     targetXRef.current = stations[active].x
-    // the single sample glides (sequential) or snaps (jump) to the new station
-    demo.undockSample() // if we left a spin mid-way, free the sample from the rotor
+    // the single sample glides (sequential) or snaps (jump) to the new station. If we
+    // left a spin mid-way, free the sample from the rotor — and on a sequential Next lift
+    // it STRAIGHT UP out of the instrument before gliding (never a teleport through the lid).
+    demo.undockSample(sequential)
     demo.getSample()?.vessels.forEach((v) => v.rotation.set(0, 0, 0))
     demo.setSnap(!sequential)
     stations[active].enter?.()
@@ -1249,10 +1266,18 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
 
     // 5 · the ONE sample eases toward its world target — glides station→station.
     // While docked in a centrifuge rotor slot the rotor owns its transform, so skip
-    // the glide (but still tick its liquid).
+    // the glide (but still tick its liquid). Leaving a dock, an `exitLift` waypoint pulls
+    // it STRAIGHT UP clear of the instrument first; once reached it resumes the glide to
+    // the next seat — so the sample never teleports and never drags through the lid.
     const S = demo.getSample()
     if (S) for (const v of S.vessels) {
-      if (!v.userData.docked) v.position.lerp(v.userData.tPos, 1 - Math.pow(0.02, dt))
+      if (!v.userData.docked) {
+        const goal = v.userData.exitLift || v.userData.tPos
+        v.position.lerp(goal, 1 - Math.pow(0.02, dt))
+        if (v.userData.exitLift && v.position.distanceTo(v.userData.exitLift) < 0.06) {
+          v.userData.exitLift = null // cleared the instrument — glide on to the seat
+        }
+      }
       v.userData.update?.(dt)
     }
 

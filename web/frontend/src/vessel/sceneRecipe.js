@@ -104,6 +104,45 @@ export function sampleContainerSequence(steps = []) {
   return out
 }
 
+// Leaving a docked instrument (rotor slot, heat block, bath, freezer), the ONE sample
+// lifts STRAIGHT UP to a clearance height before it glides on — it must never drag
+// diagonally through the rotor or the lid. Pure so the exit geometry (same x/z, raised y)
+// is unit-testable without a GPU. `from` is the sample's current position; `clearY` is the
+// height that clears the instrument.
+export function exitLiftPoint(from, clearY) {
+  const { x = 0, y = 0, z = 0 } = from || {}
+  return { x, y: Math.max(y, clearY), z }
+}
+
+// Does this step act on the travelling sample, or on a side prep vessel? A `prepare`
+// step acts on its OWN product (target = its `produces` id); everything else acts on
+// the sample. A step that DRAWS FROM a mix still targets the sample (the mix is applied
+// TO it). This is the single source of truth the renderer uses to pick the acting vessel.
+export function actsOnSample(step) {
+  if (!step || typeof step !== 'object') return true
+  if (step.action === 'prepare') return false
+  return !step.target || step.target === 'sample'
+}
+
+// Stage 34 invariant: every step must say WHICH vessel it acts on, consistently. A
+// `prepare` must NOT target the sample (it acts on its own product); every other step
+// MUST target the sample. Surface any step whose `target` contradicts its action so a
+// mislabelled vessel can never render the mix pouring into the sample (or vice versa).
+export function findTargetDefects(steps = []) {
+  const out = []
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i]
+    if (!s || typeof s !== 'object') continue
+    const idx = s.index != null ? s.index : i
+    if (s.action === 'prepare') {
+      if (!s.target || s.target === 'sample') out.push({ index: idx, target: s.target || null, why: 'prepare-targets-sample' })
+    } else if (s.target && s.target !== 'sample') {
+      out.push({ index: idx, target: s.target, why: 'non-prepare-targets-prep-vessel' })
+    }
+  }
+  return out
+}
+
 // A `transfer` is the ONE action that, by definition, moves the sample into a NEW
 // vessel — so it MUST name that destination in its own `container`. When it doesn't,
 // the container simply CARRIES forward from the previous step: the sample-follow sees

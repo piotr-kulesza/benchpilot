@@ -13,6 +13,11 @@
 /* eslint-disable */
 import * as THREE from 'three'
 import { resolveScenePreset } from './scenePresets.js'
+import { exitLiftPoint } from '../vessel/sceneRecipe.js'
+
+// Height (world Y) a sample rises to when it leaves a docked instrument, before it
+// glides on — clears the centrifuge lid (its own lift is y≈2.15) and every other device.
+const EXIT_CLEAR_Y = 2.15
 
 let renderer = null
 export function setRenderer(r) { renderer = r }
@@ -29,11 +34,26 @@ export function initSample() { SAMPLE = buildSample(); return SAMPLE }
 export function getSample() { return SAMPLE }
 // If a step change interrupts a spin, the sample may still be parented into a
 // centrifuge rotor slot — return every vessel to the scene (upright, full size).
-export function undockSample() {
+// The sample NEVER teleports: when `lift` is set (a sequential Next), a vessel that
+// was docked rises STRAIGHT UP out of the instrument (an `exitLift` waypoint the frame
+// loop honours before the normal glide) so it never drags diagonally through the rotor
+// or the lid. On a jump (`lift` false) we just free it — a jump is allowed to snap.
+export function undockSample(lift = false) {
   if (!SAMPLE || !scene) return
   for (const v of SAMPLE.vessels) {
+    const wasDocked = v.userData.docked
     if (v.parent && v.parent !== scene) scene.attach(v)
-    if (v.userData.docked) { v.userData.docked = false; v.rotation.set(0, 0, 0); v.scale.setScalar(1) }
+    if (wasDocked) {
+      v.userData.docked = false; v.rotation.set(0, 0, 0); v.scale.setScalar(1)
+      if (lift) {
+        const lp = exitLiftPoint(v.position, EXIT_CLEAR_Y)
+        v.userData.exitLift = (v.userData.exitLift || new THREE.Vector3()).set(lp.x, lp.y, lp.z)
+      } else {
+        v.userData.exitLift = null
+      }
+    } else {
+      v.userData.exitLift = null
+    }
   }
 }
 

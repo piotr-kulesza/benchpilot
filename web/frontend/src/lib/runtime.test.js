@@ -20,6 +20,8 @@ import {
   reagentName,
   stepHazards,
   extractTemperature,
+  partitionSteps,
+  isActionableStep,
 } from './runtime.js'
 
 describe('shortLabel — compact chip label for the step timeline', () => {
@@ -309,5 +311,24 @@ describe('deriveIntakeFields from open_parameters + gaps', () => {
     expect(fields.filter((f) => f.key === 'cells')).toHaveLength(1)
     expect(byKey.rin.type).toBe('text')
     expect(byKey.analysis.type).toBe('choice')
+  })
+})
+
+describe('partitionSteps — prep-ahead leaves the run (Stage 34)', () => {
+  const steps = [
+    { index: 1, action: 'prepare', prep_ahead: true, text: 'Add 2-ME to RLT' },      // do-ahead → checklist only
+    { index: 2, action: 'pour_add', reagents: [{ name: 'RLT' }] },                    // station
+    { index: 3, action: 'prepare', prep_ahead: false, produces: 'dnase_mix' },        // just-in-time → station
+    { index: 4, action: 'generic', phase: 'notes', text: 'Neutrophil RNA degrades' }, // note
+  ]
+  it('a do-ahead prep is neither a station nor a note (the checklist owns it)', () => {
+    const { stations, notes } = partitionSteps(steps)
+    const idx = (arr) => arr.map((s) => s.index)
+    expect(idx(stations)).toEqual([2, 3])   // the pour and the just-in-time prep
+    expect(idx(notes)).toEqual([4])          // only the real note; the do-ahead prep is absent
+  })
+  it('isActionableStep is false for a prep-ahead step, true for a just-in-time prep', () => {
+    expect(isActionableStep(steps[0])).toBe(false)
+    expect(isActionableStep(steps[2])).toBe(true)
   })
 })

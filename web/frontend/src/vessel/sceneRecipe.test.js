@@ -3,7 +3,8 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import {
   SCENE_RECIPES, resolveRecipe, sampleContainerSequence, resolveContainer, resolveRemoval,
-  findTransferHandoffDefects, findPrepareOnSampleDefects,
+  findTransferHandoffDefects, findPrepareOnSampleDefects, findTargetDefects, actsOnSample,
+  exitLiftPoint,
 } from './sceneRecipe.js'
 import { resolveBehavior } from './behavior.js'
 import { ACTIONS } from '../lib/runtime.js'
@@ -164,6 +165,59 @@ describe('bundled protocols name every transfer destination', () => {
   })
 })
 
+// Stage 34: leaving a docked instrument, the sample lifts STRAIGHT UP before it glides —
+// it never teleports and never drags through the rotor/lid.
+describe('exit lift-out geometry (no teleport)', () => {
+  it('rises straight up (same x/z, raised y) to the clearance height', () => {
+    const from = { x: 6.4, y: 0.32, z: 0.03 }
+    const lift = exitLiftPoint(from, 2.15)
+    expect(lift.x).toBe(from.x)
+    expect(lift.z).toBe(from.z)
+    expect(lift.y).toBe(2.15)
+  })
+  it('keeps a sample already above the clearance height where it is (never drops it)', () => {
+    const lift = exitLiftPoint({ x: 1, y: 3.0, z: 0 }, 2.15)
+    expect(lift.y).toBe(3.0)
+  })
+  it('the two-segment exit path is continuous — no step jumps the whole distance', () => {
+    // lift-out then glide: current -> lift -> seat. Each leg is a bounded move; the path
+    // never contains a single hop across the full transition (that would be a teleport).
+    const from = { x: 6.4, y: 0.32, z: 0.03 }
+    const seat = { x: 8.0, y: 0.30, z: 0.03 }
+    const lift = exitLiftPoint(from, 2.15)
+    const legUp = Math.hypot(lift.x - from.x, lift.y - from.y, lift.z - from.z)
+    const legOver = Math.hypot(seat.x - lift.x, seat.y - lift.y, seat.z - lift.z)
+    const direct = Math.hypot(seat.x - from.x, seat.y - from.y, seat.z - from.z)
+    // going up-and-over is a real path (longer than the diagonal shortcut through the lid)
+    expect(legUp + legOver).toBeGreaterThan(direct)
+    // and the first leg is purely vertical — it does not cut across toward the next station
+    expect(lift.x - from.x).toBe(0)
+  })
+})
+
+// Stage 34: which vessel a step acts on. A `prepare` acts on its own product (never the
+// sample); every other step — including one that DRAWS FROM a mix — acts on the sample.
+describe('a step says which vessel it acts on', () => {
+  it('actsOnSample: prepare acts on its product; a consumer still acts on the sample', () => {
+    expect(actsOnSample({ action: 'prepare', target: 'dnase_mix' })).toBe(false)
+    expect(actsOnSample({ action: 'pour_add', target: 'sample', draws_from: 'dnase_mix' })).toBe(true)
+    expect(actsOnSample({ action: 'centrifuge' })).toBe(true) // missing target defaults to sample
+  })
+  it('findTargetDefects flags a prepare aimed at the sample and a non-prepare aimed at a prep vessel', () => {
+    const clean = [
+      { index: 1, action: 'prepare', target: 'dnase_mix' },
+      { index: 2, action: 'pour_add', target: 'sample', draws_from: 'dnase_mix' },
+      { index: 3, action: 'centrifuge', target: 'sample' },
+    ]
+    expect(findTargetDefects(clean)).toEqual([])
+    const dirty = [
+      { index: 1, action: 'prepare', target: 'sample' },   // a prep must not target the sample
+      { index: 2, action: 'pour_add', target: 'dnase_mix' }, // a normal step must target the sample
+    ]
+    expect(findTargetDefects(dirty).map((d) => d.index)).toEqual([1, 2])
+  })
+})
+
 // COVERAGE ASSERTION (Stage 33): a side preparation happens in ITS OWN vessel — it must
 // never name the sample's current vessel as its destination, or the renderer would pour
 // the mix INTO the sample (the "DNase into the column" lie). Not every step happens to
@@ -175,6 +229,12 @@ describe('bundled protocols keep side preparations off the sample', () => {
   it.each(files)('%s has no prepare step targeting the sample vessel', (file) => {
     const proto = JSON.parse(readFileSync(dir + file, 'utf8'))
     const defects = findPrepareOnSampleDefects(proto.steps || [])
+    expect(defects, `${file}: ${JSON.stringify(defects)}`).toEqual([])
+  })
+
+  it.each(files)('%s: every step says which vessel it acts on', (file) => {
+    const proto = JSON.parse(readFileSync(dir + file, 'utf8'))
+    const defects = findTargetDefects(proto.steps || [])
     expect(defects, `${file}: ${JSON.stringify(defects)}`).toEqual([])
   })
 })

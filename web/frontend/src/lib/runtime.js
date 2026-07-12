@@ -54,6 +54,10 @@ const PROSE_ACTIONS = new Set(['generic'])
 export function isActionableStep(step) {
   if (!step) return false
   if (step.phase === 'notes') return false
+  // a DO-AHEAD preparation (prep_ahead) is made before the clock — it belongs in the
+  // intake "Prep ahead" checklist, never as a 3D station. A JUST-IN-TIME prep is
+  // prep_ahead:false and DOES earn a station (positioned before its consumer).
+  if (step.prep_ahead) return false
   const action = step.action || 'generic'
   if (!PROSE_ACTIONS.has(action)) return true
   // a generic step earns a station only if it carries something to do
@@ -61,11 +65,17 @@ export function isActionableStep(step) {
   return hasReagents || !!step.spin || !!step.duration_seconds
 }
 
-// Split a step list into { stations, notes } — the 3D walkthrough vs the text.
+// Split a step list into { stations, notes } — the 3D walkthrough vs the text. A
+// prep-ahead step is NEITHER: it is surfaced only by the intake "Prep ahead" checklist
+// (Intake filters protocol.steps by prep_ahead directly), so routing it into `notes`
+// here would double-render it.
 export function partitionSteps(steps = []) {
   const stations = []
   const notes = []
-  for (const s of steps) (isActionableStep(s) ? stations : notes).push(s)
+  for (const s of steps) {
+    if (s?.prep_ahead) continue
+    ;(isActionableStep(s) ? stations : notes).push(s)
+  }
   return { stations, notes }
 }
 
