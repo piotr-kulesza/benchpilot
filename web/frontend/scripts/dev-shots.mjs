@@ -2,7 +2,7 @@
 // Renders each target and writes PNGs so a human/agent can LOOK at the result —
 // the whole point of Stage 10 is judging renders, never build output.
 //
-//   node scripts/dev-shots.mjs gallery [id,id,...] [front,iso,top]
+//   node scripts/dev-shots.mjs gallery [id,id,...] [front,top]
 //   node scripts/dev-shots.mjs matrix  [action:container[:from], ...] [p0,p1,...]
 //
 // Needs a preview/dev server on $BASE (default http://localhost:4319) and Chrome.
@@ -27,7 +27,7 @@ page.on('pageerror', (e) => console.log('  [pageerror]', e.message))
 
 if (mode === 'gallery') {
   const ids = process.argv[3] ? process.argv[3].split(',') : MODEL_IDS
-  const angles = process.argv[4] ? process.argv[4].split(',') : ['front', 'iso']
+  const angles = process.argv[4] ? process.argv[4].split(',') : ['front', 'top']
   for (const id of ids) {
     for (const angle of angles) {
       await page.goto(`${BASE}/?models=1&item=${id}&angle=${angle}`, { waitUntil: 'networkidle0' })

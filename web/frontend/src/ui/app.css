@@ -120,10 +120,9 @@
 .nav-row { display: flex; gap: var(--sp-2); }
 .nav-row .btn { flex: 1; }
 
-/* the 3D stage — the only bright surface; nothing floats over it but the view toggle */
+/* the 3D stage — the only bright surface; a pure 3D pane, nothing floats over it */
 .stage-col { position: relative; min-width: 0; background: var(--c-sunken); }
 .stage-col .vessel, .stage-col .vessel-stage, .stage-col canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
-.view-toggle { position: absolute; top: var(--sp-4); right: var(--sp-4); z-index: 3; }
 
 /* ── Complete (end screen) ───────────────────────────────────────────────────── */
 .complete { max-width: 540px; margin: 0 auto; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-5); text-align: center; padding: var(--sp-8) var(--sp-6); }

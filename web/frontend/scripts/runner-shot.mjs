@@ -14,11 +14,13 @@ fs.mkdirSync(OUT, { recursive: true })
 const steps = (process.argv[2] || '8,20').split(',')
 const tag = process.argv[3] || 'run'
 const settle = Number(process.argv[4] || 7600) // let the p-timeline reach ~1 and hold
+const W = Number(process.argv[5] || 1440)
+const H = Number(process.argv[6] || 900)
 
 const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new',
-  args: ['--no-sandbox', '--use-angle=metal', '--enable-webgl', '--ignore-gpu-blocklist', '--window-size=1500,980'] })
+  args: ['--no-sandbox', '--use-angle=metal', '--enable-webgl', '--ignore-gpu-blocklist', `--window-size=${W + 60},${H + 80}`] })
 const page = await browser.newPage()
-await page.setViewport({ width: 1440, height: 900 })
+await page.setViewport({ width: W, height: H })
 page.on('pageerror', (e) => console.log('  [pageerror]', e.message))
 page.on('console', (m) => { const t = m.text(); if (/benchpilot|Error|warn/i.test(t)) console.log('  [console]', t) })
 

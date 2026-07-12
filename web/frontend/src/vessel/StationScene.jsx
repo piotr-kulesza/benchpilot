@@ -6,12 +6,12 @@
 // and the fill only ramps in at p>0.62, exactly as the demo paces it.
 //
 // Ours (the parts that generalise): resolveRecipe(action) → which station kind to
-// build; the single travelling SAMPLE + container hand-offs; the camera rig
-// (cinematic/isometric) + navigation; the DOM overlay.
+// build; the single travelling SAMPLE + container hand-offs; the cinematic camera
+// rig + navigation; the DOM overlay.
 
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import { PerspectiveCamera, OrthographicCamera } from '@react-three/drei'
+import { PerspectiveCamera } from '@react-three/drei'
 import { FogExp2, Color, Vector3, Box3, Group, Mesh, RingGeometry, SphereGeometry, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
 import { resolveRecipe, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects } from './sceneRecipe.js'
@@ -19,15 +19,11 @@ import { containerContract, resolveInstrument, nestsInto } from './containerCont
 import { reagentName, reagentVolume, effectiveStep, selectAlternative, hasAlternatives } from '../lib/runtime.js'
 import * as demo from '../scene/demoScene.js'
 
-// the demo's cinematic camera + isometric framing
+// the demo's cinematic camera — the one and only view
 const FOV = 40
 const RAIL_Y = 3.35
 const RAIL_Z = 9.6
 const LOOK_Y = 1.05
-const ISO_DIR = new Vector3(1, 0.82, 1).normalize()
-const ISO_DIST = 90
-const ISO_LOOK_Y = 1.35
-const VIEW_SIZE = 7.6
 const STEP_DUR = 6.5 // the demo's per-step animation window (seconds)
 const SPACING = 8.4 // distance between stations along +X (the demo's buildLine)
 const GLIDE_DUR = 1.65 // camera rail-dolly duration on a step change (the demo)
@@ -804,14 +800,14 @@ function stationParams(baseStep, lang, altIdx, chain) {
   return { action: step.action, equipment, colorHex, vol, title, sub, seconds: step.duration_seconds, start, end, cycles }
 }
 
-export default function StationScene({ protocol, activeIndex = 0, lang = 'en', view = 'cinematic', altByStep = {}, progress = 1, running = false, hasTimer = false, done = false }) {
+export default function StationScene({ protocol, activeIndex = 0, lang = 'en', altByStep = {}, progress = 1, running = false, hasTimer = false, done = false }) {
   ensureMaps()
   // Timer state for the bench progress dial, mirrored into refs so the frame loop reads
   // the LIVE countdown without the render churn re-registering the loop. progress is the
   // shared elapsed fraction (== the digits); hasTimer/running/done gate visibility + look.
   const timerRef = useRef({ progress: 1, running: false, hasTimer: false, done: false })
   timerRef.current = { progress, running, hasTimer, done }
-  const { gl, scene, size } = useThree()
+  const { gl, scene } = useThree()
   const steps = protocol?.steps || []
   const containers = useContainers(steps)
   const active = Math.max(0, Math.min(activeIndex, steps.length - 1))
@@ -853,7 +849,6 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
   const pRef = useRef(0)
   const restartRef = useRef(true)
   const perspRef = useRef()
-  const orthoRef = useRef()
   const keyRef = useRef()
 
   // one-time scene setup + the persistent travelling SAMPLE (added to the scene).
@@ -861,7 +856,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
     demo.setRenderer(gl)
     demo.setScene(scene)
     ensureMaps()
-    scene.environment = demo.buildEnvMap('cinematic')
+    scene.environment = demo.buildEnvMap()
     scene.background = demo.makeCineBackdrop()
     // the background texture renders ~15 RGB darker in modern three than r128;
     // lift it so the wall matches the demo's greige (measured, not eyeballed).
@@ -1007,37 +1002,27 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
     }
     const railX = railXRef.current
 
-    // 2 · position the active camera — pure lateral tracking, no orbit — aimed and
+    // 2 · position the cinematic camera — pure lateral tracking, no orbit — aimed and
     // fit on the active station's MEASURED content frame (never an assumed origin).
     const actCam = stations[activeRef.current]
     const f = actCam && actCam.frame ? actCam.frame : DEFAULT_FRAME
     const fit = demo.clamp(f.radius / R_REF, 1, 1.7) // back off only for oversized rigs
-    if (view === 'isometric') {
-      const cam = orthoRef.current
-      if (cam) {
-        const tx = railX + f.center.x + Math.sin(time * 0.12) * 0.07
-        cam.position.set(tx + ISO_DIR.x * ISO_DIST, f.center.y + ISO_DIR.y * ISO_DIST, f.center.z + ISO_DIR.z * ISO_DIST)
-        cam.up.set(0, 1, 0)
-        cam.lookAt(tx, f.center.y, f.center.z)
+    const cam = perspRef.current
+    if (cam) {
+      const cx = railX + f.center.x + Math.sin(time * 0.15) * 0.12
+      // demo angle/height, scaled to fit, aimed at the content centre (x/y/z)
+      let px = cx, py = f.center.y + (RAIL_Y - LOOK_Y) * fit, pz = f.center.z + RAIL_Z * fit
+      let lx = cx, ly = f.center.y, lz = f.center.z
+      // per-station camera PUSH (e.g. push in through the incubator glass onto the
+      // flask so the monolayer detachment reads). Blends in with the step's progress.
+      const push = actCam && actCam.pushCam ? actCam.pushCam(pRef.current) : 0
+      if (push > 0 && actCam.pushTarget) {
+        const t = actCam.pushTarget
+        px = demo.lerp(px, railX + t.pos[0], push); py = demo.lerp(py, t.pos[1], push); pz = demo.lerp(pz, t.pos[2], push)
+        lx = demo.lerp(lx, railX + t.look[0], push); ly = demo.lerp(ly, t.look[1], push); lz = demo.lerp(lz, t.look[2], push)
       }
-    } else {
-      const cam = perspRef.current
-      if (cam) {
-        const cx = railX + f.center.x + Math.sin(time * 0.15) * 0.12
-        // demo angle/height, scaled to fit, aimed at the content centre (x/y/z)
-        let px = cx, py = f.center.y + (RAIL_Y - LOOK_Y) * fit, pz = f.center.z + RAIL_Z * fit
-        let lx = cx, ly = f.center.y, lz = f.center.z
-        // per-station camera PUSH (e.g. push in through the incubator glass onto the
-        // flask so the monolayer detachment reads). Blends in with the step's progress.
-        const push = actCam && actCam.pushCam ? actCam.pushCam(pRef.current) : 0
-        if (push > 0 && actCam.pushTarget) {
-          const t = actCam.pushTarget
-          px = demo.lerp(px, railX + t.pos[0], push); py = demo.lerp(py, t.pos[1], push); pz = demo.lerp(pz, t.pos[2], push)
-          lx = demo.lerp(lx, railX + t.look[0], push); ly = demo.lerp(ly, t.look[1], push); lz = demo.lerp(lz, t.look[2], push)
-        }
-        cam.position.set(px, py, pz)
-        cam.lookAt(lx, ly, lz)
-      }
+      cam.position.set(px, py, pz)
+      cam.lookAt(lx, ly, lz)
     }
 
     // 3 · the key light + its shadow frustum follow the framed station
@@ -1107,13 +1092,11 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
     }
   })
 
-  const zoom = size.height / (2 * VIEW_SIZE)
   return (
     <>
       <Lights keyRef={keyRef} />
       <Floor totalLen={totalLen} />
-      <PerspectiveCamera ref={perspRef} makeDefault={view !== 'isometric'} fov={FOV} near={0.1} far={260} position={[0, RAIL_Y, RAIL_Z]} />
-      <OrthographicCamera ref={orthoRef} makeDefault={view === 'isometric'} near={0.1} far={400} zoom={zoom} position={[ISO_DIR.x * ISO_DIST, ISO_LOOK_Y + ISO_DIR.y * ISO_DIST, ISO_DIR.z * ISO_DIST]} />
+      <PerspectiveCamera ref={perspRef} makeDefault fov={FOV} near={0.1} far={260} position={[0, RAIL_Y, RAIL_Z]} />
     </>
   )
 }

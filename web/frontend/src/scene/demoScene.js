@@ -37,6 +37,7 @@ export function undockSample() {
 }
 
   var LOOK = {
+    // CINEMATIC is the one and only look (the isometric alt-view was removed).
     cinematic:{
       // BRIGHT REAL LAB under fluorescent panels: high ambient + hemi for even, fairly FLAT
       // fill; a soft near-white key for gentle soft shadows only — NO dark surroundings, NO
@@ -52,12 +53,6 @@ export function undockSample() {
       amb:{ color:0xd6d9de, int:0.12 }, hemi:{ sky:0xdde4ee, ground:0xb4aea4, int:0.20 },
       key:{ color:0xfff3e2, int:1.32 }, fill:{ color:0xccd4de, int:0.17, pos:[-8,4,9] },
       aux:{ color:0xe2e0d8, int:0.14, pos:[-3,11,-6] }
-    },
-    isometric:{
-      fog:{ color:0x2a3452, density:0.0055 }, exposure:0.98,
-      amb:{ color:0x566280, int:0.24 }, hemi:{ sky:0x93a6cf, ground:0x232c38, int:0.30 },
-      key:{ color:0xfff0da, int:1.08 }, fill:{ color:0x6f88c4, int:0.22, pos:[-8,5,9] },
-      aux:{ color:0x39c9d6, int:0.40, pos:[-3,9,-11] }
     }
   };
 
@@ -65,10 +60,9 @@ export function undockSample() {
   var SPACING = 8.4;                 // distance between stations along +X
   var BLOCK_TOP = 0.45;              // cold-block plate height
 
-  /* Two palettes. CINEMATIC = b4's muted, desaturated look; ISOMETRIC = the
-     saturated stylized "clay" candy tones from isometric-v3. `COL` is the LIVE
-     palette (mutated in place on a view switch); structural materials are built
-     from it once, travelling-sample liquids read it live every frame. */
+  /* The palette. `COL` is the LIVE palette structural materials are built from once;
+     travelling-sample liquids read it live every frame. (The isometric alt-palette that
+     used to swap in on a view switch was removed with the isometric view.) */
   var COL_CINE = {
     lysis:  0x02b6a0,   // saturated teal   (RLT + β-ME)
     etoh:   0x1f8bf2,   // clear blue       (70% ethanol)
@@ -81,21 +75,8 @@ export function undockSample() {
     steel:  0x9aa4b0,
     accent: 0x1fb8a2
   };
-  var COL_ISO = {
-    lysis:  0x3ec9b3,   // saturated teal   (RLT + β-ME)
-    etoh:   0x5aa9ee,   // clear sky-blue   (70% ethanol)
-    wash:   0x8fa0cf,   // periwinkle       (RW1 / RPE)
-    dnase:  0xf6b53a,   // warm amber       (DNase I)
-    rna:    0x54d494,   // fresh mint       (eluate / RNA)
-    water:  0xa9d8f2,   // cool clear       (RNase-free water)
-    pellet: 0xe6a862,   // neutrophil pellet (warm sand)
-    glass:  0xdfeaf3,
-    steel:  0xb4c0d0,
-    accent: 0x35c8b2
-  };
   var COL = {};
-  (function(s){ for(var k in s) COL[k]=s[k]; })(COL_CINE);   // live palette starts cinematic
-  function setPalette(src){ for(var k in src) COL[k]=src[k]; }   // mutate in place (refs stay valid)
+  (function(s){ for(var k in s) COL[k]=s[k]; })(COL_CINE);   // COL is the cinematic palette
 
   /* helpers */
   function lerp(a,b,t){ return a + (b-a)*t; }
@@ -1543,14 +1524,13 @@ export function undockSample() {
     m.rotation.x=-Math.PI/2; return m;
   }
 
-  function buildEnvMap(mode){
-    var iso = (mode==="isometric");
+  function buildEnvMap(){
     var pmrem = new THREE.PMREMGenerator(renderer);
     pmrem.compileCubemapShader();
     var es = new THREE.Scene();
     var domeGeo = new THREE.SphereGeometry(50,32,20);
     var col = new Float32Array(domeGeo.attributes.position.count*3);
-    var top = new THREE.Color(iso?0x5f6d90:0x8d929a), bot = new THREE.Color(iso?0x2b3348:0x474b51);
+    var top = new THREE.Color(0x8d929a), bot = new THREE.Color(0x474b51);
     for(var i=0;i<domeGeo.attributes.position.count;i++){
       var y=domeGeo.attributes.position.getY(i)/50*0.5+0.5;
       var c=bot.clone().lerp(top, Math.pow(y,0.8));
@@ -1563,21 +1543,13 @@ export function undockSample() {
         new THREE.MeshBasicMaterial({ color:new THREE.Color(color).multiplyScalar(intensity) }));
       m.position.set(x,y,z); m.lookAt(0,y*0.4,0); es.add(m);
     }
-    if(iso){
-      // softboxes → crisp key highlight, darker fills so matte "clay" props keep contrast
-      panel(9,14,7, 22,10, 0xffffff, 1.7);
-      panel(-13,8,-8, 16,14, 0x9fb0cf, 0.7);
-      panel(-6,3,10, 12,7, 0x8f9fc0, 0.45);
-      panel(0,20,0, 24,24, 0x525c78, 0.4);
-    } else {
-      // Neutral STUDIO: ONE bright key softbox for highlights + form, DARK fills all around so
-      // materials keep contrast and true colour instead of being flooded to pale by a near-white
-      // environment. This is the real fix for the washed-out, low-contrast look.
-      panel(9,14,7, 22,10, 0xffffff, 1.5);       // key softbox (highlights)
-      panel(-13,8,-8, 16,14, 0x9198a1, 0.42);    // dim neutral fill
-      panel(-6,3,10, 12,7, 0x878d96, 0.32);      // dim front fill
-      panel(0,20,0, 24,24, 0x676c74, 0.38);      // dim overhead
-    }
+    // Neutral STUDIO: ONE bright key softbox for highlights + form, DARK fills all around so
+    // materials keep contrast and true colour instead of being flooded to pale by a near-white
+    // environment. This is the real fix for the washed-out, low-contrast look.
+    panel(9,14,7, 22,10, 0xffffff, 1.5);       // key softbox (highlights)
+    panel(-13,8,-8, 16,14, 0x9198a1, 0.42);    // dim neutral fill
+    panel(-6,3,10, 12,7, 0x878d96, 0.32);      // dim front fill
+    panel(0,20,0, 24,24, 0x676c74, 0.38);      // dim overhead
     var tex = pmrem.fromScene(es, 0.04).texture;
     pmrem.dispose();
     return tex;
@@ -1646,7 +1618,7 @@ export function undockSample() {
 
 export {
   buildFloor,
-  COL, COL_CINE, COL_ISO, LOOK, SPACING, BLOCK_TOP,
+  COL, COL_CINE, LOOK, SPACING, BLOCK_TOP,
   buildSharedMaps, makeLabel, stationDecal,
   buildTube, buildPipette, buildPipetteStand, buildBottle, buildSpinColumn,
   buildCentrifuge, buildColdBlock, buildWaterBath, buildIceBucket, buildNanoDrop, buildDrop, buildWaste, buildSyringe,

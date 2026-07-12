@@ -1,5 +1,5 @@
 /* The 3D stage fills its pane (the runner's .stage-col positions it via app.css).
-   Nothing floats over it but the view toggle. */
+   Nothing floats over it — the pane is pure 3D. */
 .vessel, .vessel-stage { position: relative; width: 100%; height: 100%; }
 .vessel-stage { overflow: hidden; }
 .vessel-stage canvas { display: block; width: 100% !important; height: 100% !important; touch-action: none; }

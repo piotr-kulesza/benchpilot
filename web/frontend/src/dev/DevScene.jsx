@@ -48,7 +48,7 @@ function useDevEnv() {
     demo.setRenderer(gl)
     demo.setScene(scene)
     ensureMaps()
-    scene.environment = demo.buildEnvMap('cinematic')
+    scene.environment = demo.buildEnvMap()
     scene.background = demo.makeCineBackdrop()
     scene.environmentIntensity = 2.5
     scene.backgroundIntensity = 1.19
@@ -58,9 +58,8 @@ function useDevEnv() {
   }, [gl, scene])
 }
 
-// camera pose for an angle, given the content half-width W and a look height h
+// camera pose for a gallery inspection angle, given the content half-width W and look height h
 function poseFor(angle, mx, W, h) {
-  if (angle === 'iso') return { pos: [mx + W * 0.95, W * 0.9, W * 0.95], look: [mx, h, 0] }
   if (angle === 'top') return { pos: [mx, W * 1.7, 0.001], look: [mx, 0, 0] }
   return { pos: [mx, W * 0.5, W * 1.25], look: [mx, h, 0] } // 'front'
 }
