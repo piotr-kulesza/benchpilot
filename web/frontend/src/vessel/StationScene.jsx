@@ -331,8 +331,16 @@ export function configureStation(st, o) {
     } else if (inst === 'co2_incubator') {
       const inc = demo.buildCO2Incubator(); inc.position.set(0, 0, -1.1)
       st.group.add(inc); st.updatables.push(inc)
-      seatFn = () => { S.at(S[vessel], st.x, 0.66, 0.25); inc.userData.setDoor(false) } // flask on the front shelf, visible through the glass
-      st.ring.position.set(0, 1.9, 0); st.arc.position.set(0, 1.9, 0) // timer above the cabinet
+      seatFn = () => { S.at(S[vessel], st.x, 0.66, -1.25); inc.userData.setDoor(false) } // flask on the lower shelf, inside
+      st.ring.position.set(0, 2.05, 0); st.arc.position.set(0, 2.05, 0) // timer above the cabinet
+      // The DETACHMENT is the whole point of the step but it's small + behind glass.
+      // As the step resolves: OPEN the door and PUSH the camera in close on the flask
+      // (contract framing 'wide' → a low, close frame) so the detached cells read.
+      motionFn = (p) => { inc.userData.setDoor(p > 0.5) }
+      st.pushCam = (p) => demo.easeInOut(demo.clamp((p - 0.35) / 0.4, 0, 1))
+      st.pushTarget = C.framing === 'wide'
+        ? { pos: [0, 1.2, 3.7], look: [0, 0.62, -1.25] }   // level, between the shelves, on the flask
+        : { pos: [0, 1.4, 3.0], look: [0, 0.9, -1.0] }
     } else if (inst === 'incubation_block') {
       const block = demo.buildColdBlock(); block.position.set(0, 0, -1.25)
       st.group.add(block); st.updatables.push(block)
@@ -801,8 +809,19 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
       const cam = perspRef.current
       if (cam) {
         const camX = railX + Math.sin(time * 0.15) * 0.12
-        cam.position.set(camX, RAIL_Y, RAIL_Z)
-        cam.lookAt(camX, LOOK_Y, 0)
+        // default rail frame
+        let px = camX, py = RAIL_Y, pz = RAIL_Z, lx = camX, ly = LOOK_Y, lz = 0
+        // per-station camera PUSH (e.g. push in through the incubator glass onto the
+        // flask so the monolayer detachment reads). Blends in with the step's progress.
+        const act = stations[activeRef.current]
+        const push = act && act.pushCam ? act.pushCam(pRef.current) : 0
+        if (push > 0 && act.pushTarget) {
+          const t = act.pushTarget
+          px = demo.lerp(px, railX + t.pos[0], push); py = demo.lerp(py, t.pos[1], push); pz = demo.lerp(pz, t.pos[2], push)
+          lx = demo.lerp(lx, railX + t.look[0], push); ly = demo.lerp(ly, t.look[1], push); lz = demo.lerp(lz, t.look[2], push)
+        }
+        cam.position.set(px, py, pz)
+        cam.lookAt(lx, ly, lz)
       }
     }
 

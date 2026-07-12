@@ -36,6 +36,7 @@ export function MatrixScene({ action = 'pour_add', container = 'microtube', from
   const { gl, scene } = useThree()
   const stRef = useRef(null)
   const pRef = useRef(0)
+  const camRef = useRef(null)
 
   // env once
   useEffect(() => {
@@ -79,13 +80,25 @@ export function MatrixScene({ action = 'pour_add', container = 'microtube', from
     for (const u of st.updatables) u.userData?.update?.(dt)
     const S = demo.getSample()
     if (S) for (const v of S.vessels) { if (!v.userData.docked) v.position.lerp(v.userData.tPos, 1 - Math.pow(0.02, dt)); v.userData.update?.(dt) }
+    // honour the station's camera PUSH (same as the runner) so the harness verifies it
+    const cam = camRef.current
+    if (cam) {
+      let px = 0, py = 3.35, pz = 9.6, lx = 0, ly = 1.05, lz = 0
+      const push = st.pushCam ? st.pushCam(pRef.current) : 0
+      if (push > 0 && st.pushTarget) {
+        const t = st.pushTarget
+        px = demo.lerp(px, t.pos[0], push); py = demo.lerp(py, t.pos[1], push); pz = demo.lerp(pz, t.pos[2], push)
+        lx = demo.lerp(lx, t.look[0], push); ly = demo.lerp(ly, t.look[1], push); lz = demo.lerp(lz, t.look[2], push)
+      }
+      cam.position.set(px, py, pz); cam.lookAt(lx, ly, lz)
+    }
   })
 
   return (
     <>
       <Lights />
       <FloorOnce />
-      <PerspectiveCamera makeDefault fov={40} near={0.1} far={260} position={[0, 3.35, 9.6]} onUpdate={(c) => c.lookAt(0, 1.05, 0)} />
+      <PerspectiveCamera ref={camRef} makeDefault fov={40} near={0.1} far={260} position={[0, 3.35, 9.6]} />
     </>
   )
 }

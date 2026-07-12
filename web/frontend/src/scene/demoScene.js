@@ -805,11 +805,18 @@ export function undockSample() {
      glass. Distinct from the −80 freezer. setDoor(open). */
   function buildCO2Incubator(){
     var grp=new THREE.Group();
-    var box=new THREE.Mesh(new THREE.BoxGeometry(3.3,2.4,1.9), matPainted(0xd7dbe0,0.5));
-    box.position.y=1.2; box.castShadow=true; box.receiveShadow=true; grp.add(box);
-    var cavityMat=new THREE.MeshStandardMaterial({ color:0x97a3af, roughness:0.5, metalness:0.1, side:THREE.DoubleSide });
-    var cavity=new THREE.Mesh(new THREE.BoxGeometry(2.9,2.0,1.0), cavityMat); cavity.position.set(0,1.2,0.42); grp.add(cavity);
-    for(var s=0;s<2;s++){ var shelf=new THREE.Mesh(new THREE.BoxGeometry(2.8,0.03,0.92), matBrushed(0x8a94a0)); shelf.position.set(0,0.62+s*0.95,0.42); grp.add(shelf); }
+    // OPEN-FRONT cabinet (5 panels, no opaque front face) so you can see IN through
+    // the glass door — deep enough that a T-flask (1.5 deep) sits fully inside.
+    var shell=matPainted(0xd7dbe0,0.5);
+    function coPanel(w,h,d,x,y,z){ var m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), shell); m.position.set(x,y,z); m.castShadow=true; m.receiveShadow=true; grp.add(m); return m; }
+    coPanel(3.3,2.4,0.1, 0,1.2,-1.45);   // back
+    coPanel(3.3,0.1,2.4, 0,2.35,-0.25);  // top
+    coPanel(3.3,0.1,2.4, 0,0.05,-0.25);  // bottom
+    coPanel(0.1,2.4,2.4, -1.6,1.2,-0.25);// left
+    coPanel(0.1,2.4,2.4, 1.6,1.2,-0.25); // right
+    var innerMat=new THREE.MeshStandardMaterial({ color:0x8a95a1, roughness:0.55, metalness:0.1 }); // matte interior back wall
+    var inWall=new THREE.Mesh(new THREE.PlaneGeometry(3.1,2.2), innerMat); inWall.position.set(0,1.2,-1.39); grp.add(inWall);
+    for(var s=0;s<2;s++){ var shelf=new THREE.Mesh(new THREE.BoxGeometry(2.8,0.03,1.7), matBrushed(0x8a94a0)); shelf.position.set(0,0.62+s*0.95,-0.15); grp.add(shelf); }
     var doorPivot=new THREE.Group(); doorPivot.position.set(-1.6,1.2,0.95); grp.add(doorPivot);
     var frame=new THREE.Mesh(new THREE.BoxGeometry(3.2,2.3,0.1), matPainted(0xc4c9cf,0.5)); frame.position.set(1.6,0,0); doorPivot.add(frame);
     var glass=new THREE.Mesh(new THREE.BoxGeometry(2.7,1.95,0.05), glassMaterial()); glass.position.set(1.6,0,0.03); doorPivot.add(glass);
@@ -1707,6 +1714,24 @@ export {
     var monoMat=new THREE.MeshStandardMaterial({ color:0xbfcbb6, roughness:0.7, transparent:true, opacity:0.0, emissive:0x2c3a24, emissiveIntensity:0.04 });
     var mono=new THREE.Mesh(new THREE.PlaneGeometry(L-0.24,W-0.24), monoMat);
     mono.rotation.x=-Math.PI/2; mono.position.y=0.082; grp.add(mono);
+    // DETACHABLE CELLS — a cloud that lies flat as the confluent monolayer and, on
+    // trypsinisation, ROUNDS UP and LIFTS into the medium as a suspension (this is
+    // the visible payoff of the trypsin step). setMono(1)=attached, 0=detached.
+    var cellGeo=new THREE.SphereGeometry(0.032,8,6);
+    var cellMat=new THREE.MeshStandardMaterial({ color:0xcdd8c4, roughness:0.6, emissive:0x38492c, emissiveIntensity:0.06 });
+    var CELLN=70, cells=new THREE.InstancedMesh(cellGeo, cellMat, CELLN);
+    var cseed=[]; for(var ci=0;ci<CELLN;ci++) cseed.push({ x:(Math.random()-0.5)*(L-0.5), z:(Math.random()-0.5)*(W-0.42), r:Math.random(), a:Math.random()*6.28, ry:0.25+Math.random()*0.85 });
+    grp.add(cells);
+    var cmat=new THREE.Matrix4();
+    function placeCells(v){ var lift=1-clamp(v,0,1);
+      for(var i=0;i<CELLN;i++){ var s=cseed[i];
+        var y=0.088 + lift*(0.03+s.ry*0.14);                          // rise into the medium
+        var jx=lift*Math.cos(s.a)*0.14*s.r, jz=lift*Math.sin(s.a)*0.14*s.r; // drift apart
+        var sc=0.5+lift*0.9;                                          // round up (grow) as they lift
+        cmat.makeScale(sc,sc,sc); cmat.setPosition(s.x+jx, y, s.z+jz); cells.setMatrixAt(i,cmat);
+      }
+      cells.instanceMatrix.needsUpdate=true;
+    }
     var label=makeLabel("","T-flask"); label.position.set(0,1.05,0); grp.add(label);
     var lst=attachSampleLiquid(grp, liq, function(liq,lv,color){
       var h=Math.max(0.008, lv*0.16); liq.scale.set(1,h,1); liq.position.y=0.09+h/2;   // shallow
@@ -1714,8 +1739,9 @@ export {
     }, label, 0.42); // a confluent flask at rest holds a shallow layer of medium
     // culture medium is a MUTED rose (phenol-red), not a saturated teal
     lst.color.set(0xcf8791); lst.tColor.set(0xcf8791);
-    // contentsState hook: 1 = confluent monolayer, 0 = detached (cleared)
-    grp.userData.setMono=function(v){ monoMat.opacity=clamp(v,0,1)*0.65; };
+    // contentsState hook: 1 = confluent monolayer (film + flat cells), 0 = detached
+    // (film gone, cells rounded up and suspended in the medium).
+    grp.userData.setMono=function(v){ monoMat.opacity=clamp(v,0,1)*0.5; placeCells(v); };
     grp.userData.setMono(1);
     return grp;
   }
