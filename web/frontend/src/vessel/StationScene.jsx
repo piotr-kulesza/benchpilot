@@ -15,7 +15,7 @@ import { PerspectiveCamera, OrthographicCamera } from '@react-three/drei'
 import { FogExp2, Color, Vector3, Group, Mesh, TorusGeometry, SphereGeometry, MeshStandardMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
 import { resolveRecipe, sampleContainerSequence, resolveRemoval } from './sceneRecipe.js'
-import { containerContract } from './containerContract.js'
+import { containerContract, resolveInstrument } from './containerContract.js'
 import { reagentName, reagentVolume, effectiveStep, selectAlternative, hasAlternatives } from '../lib/runtime.js'
 import * as demo from '../scene/demoScene.js'
 
@@ -308,24 +308,36 @@ export function configureStation(st, o) {
     // arrives at its carried level and spins down to the chained end level.
     demo.stationSpin(st, BT, { vessel, vlabel: name || '', vsub: vol || '', color: endColor, lStart: startLevel, lEnd: endLevel, cenLabel: 'Centrifuge', cenSub: vol || '', seconds })
   } else if (action === 'incubate_wait') {
-    // incubation block BEHIND the sample + a progress RING that fills with p. The
-    // block is offset in −z so the carried container (esp. a flat plate/slide) is
-    // never buried inside it — it sits in front, plainly visible, nothing clipping.
-    const block = demo.buildColdBlock()
-    block.position.set(0, 0, -1.25)
-    st.group.add(block)
-    st.updatables.push(block)
-    // a compact progress TIMER ring, upright and close over the sample (a high
-    // floating loop read as a stray prop). It faces the camera like a dial.
+    // EQUIPMENT CONTRACT: pick the instrument the container actually goes in — a tube
+    // BLOCK for tubes, a plate SHAKER for plates/membranes, a CO₂ INCUBATOR for
+    // flasks/dishes. If nothing accepts it, fall back to the bench (never a wrong
+    // instrument). A compact progress-timer dial rides over the sample in every case.
+    const inst = resolveInstrument('incubate', container)
     st.ring = new Mesh(new TorusGeometry(0.4, 0.02, 12, 64), new MeshStandardMaterial({ color: 0x5a636e, roughness: 0.6 }))
     st.ring.position.set(0, 1.25, 0)
     st.group.add(st.ring)
     st.arc = new Mesh(new TorusGeometry(0.4, 0.05, 14, 64, 0.001), new MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.8, toneMapped: false }))
     st.arc.position.set(0, 1.25, 0)
-    st.arc.rotation.set(0, 0, Math.PI / 2) // upright dial facing the camera
+    st.arc.rotation.set(0, 0, Math.PI / 2)
     st.group.add(st.arc)
     st._arcP = -1
-    st.enter = () => { seat(0, BT, 0); const v = S[vessel]; if (v.userData.setMono) v.userData.setMono(1) }
+    let seatFn = () => S.at(S[vessel], st.x, FLAT ? 0 : BT, 0)
+    let motionFn = null
+    if (inst === 'plate_shaker') {
+      const shaker = demo.buildPlateShaker()
+      st.group.add(shaker); st.updatables.push(shaker)
+      seatFn = () => S.at(S[vessel], st.x, 0.62, 0) // rides the platform
+      motionFn = (p) => { const a = p * 40; shaker.userData.setOrbit(a); S.at(S[vessel], st.x + Math.cos(a) * 0.06, 0.62, Math.sin(a) * 0.06) }
+    } else if (inst === 'co2_incubator') {
+      const inc = demo.buildCO2Incubator(); inc.position.set(0, 0, -1.1)
+      st.group.add(inc); st.updatables.push(inc)
+      seatFn = () => { S.at(S[vessel], st.x, 0.66, 0.25); inc.userData.setDoor(false) } // flask on the front shelf, visible through the glass
+      st.ring.position.set(0, 1.9, 0); st.arc.position.set(0, 1.9, 0) // timer above the cabinet
+    } else if (inst === 'incubation_block') {
+      const block = demo.buildColdBlock(); block.position.set(0, 0, -1.25)
+      st.group.add(block); st.updatables.push(block)
+    }
+    st.enter = () => { seat(0, BT, 0); seatFn(); const v = S[vessel]; if (v.userData.setMono) v.userData.setMono(1) }
     st.timeline = (p) => {
       if (Math.abs(p - st._arcP) > 0.02) {
         st._arcP = p
@@ -337,6 +349,7 @@ export function configureStation(st, o) {
       // MONOLAYER visibly DETACHES (trypsinisation) — confluent → cleared.
       if (v.userData.setMono) v.userData.setMono(1 - demo.easeInOut(demo.clamp((p - 0.3) / 0.5, 0, 1)))
       v.userData.setLevel(evolve(p) + Math.sin(p * 10) * 0.02) // holds carried contents
+      if (motionFn) motionFn(p)
     }
   } else if (action === 'heat') {
     // WATER BATH — a warm water-filled tub with the tube half-submerged + steam,
@@ -482,15 +495,30 @@ export function configureStation(st, o) {
       if (p > 0.2) S[vessel].userData.setColor(endColor) // dye floods over
     }
   } else if (equipment === 'reader') {
-    // NanoDrop reads the sample; its trace draws in with p.
-    const nano = demo.buildNanoDrop()
-    st.group.add(nano)
-    st.updatables.push(nano)
-    st.dev = nano
-    st.enter = () => seat(-1.4, 0, 0.8)
-    st.timeline = (p) => {
-      evolve(p) // holds the carried contents while the reader traces
-      nano.userData.setProgress?.(demo.easeInOut(demo.clamp(p * 1.4, 0, 1)))
+    // EQUIPMENT CONTRACT: a 96-well plate is read on a PLATE READER (ELISA
+    // absorbance), a tube on a NanoDrop. Anything else falls back to the bench —
+    // never the wrong reader.
+    const inst = resolveInstrument('measure', container)
+    if (inst === 'plate_reader') {
+      const reader = demo.buildPlateReader()
+      st.group.add(reader); st.updatables.push(reader); st.dev = reader
+      st.enter = () => { seat(0, 0.53, 1.9); reader.userData.setDrawer(true); reader.userData.setOD(0) }
+      st.timeline = (p) => {
+        const e = demo.easeInOut(demo.clamp(p * 1.3, 0, 1))
+        reader.userData.setDrawer(p < 0.35)                     // plate slides in, then reads
+        S.at(S[vessel], st.x, 0.53, demo.lerp(1.9, 0.35, e))    // ride the drawer into the slot
+        reader.userData.setOD(e * 1.85)
+        evolve(p)
+      }
+    } else if (inst === 'nanodrop') {
+      const nano = demo.buildNanoDrop()
+      st.group.add(nano); st.updatables.push(nano); st.dev = nano
+      st.enter = () => seat(-1.4, 0, 0.8)
+      st.timeline = (p) => { evolve(p); nano.userData.setProgress?.(demo.easeInOut(demo.clamp(p * 1.4, 0, 1))) }
+    } else {
+      // bench fallback — measure a vessel no reader accepts
+      st.enter = () => seat(0, BT, 0)
+      st.timeline = (p) => { evolve(p); S[vessel].rotation.y = p * 2 }
     }
   } else {
     // generic actionable (rare) — a slow idle turn so it is never dead.

@@ -46,13 +46,19 @@ props, stray geometry, scale, clipped-by-UI, art-drift).
   high; petri-dish medium slightly emissive; the agar spreader only appears at
   p>0.55 (so a p=0.5 frame shows none — correct by timing, not a defect).
 
-## Known remaining gaps (stated plainly)
-- **Angled pipette approach** into a flask neck is declared in the contract but not
-  yet wired — the pipette still descends straight down onto the neck (no clip, but
-  not angled).
-- **Thermocycler lid** stays raised during cycling (clip-free) rather than closing
-  over the cap — a full closed-lid-over-cap requires sinking the tube so only the cap
-  shows; deferred.
-- **Equipment generalisation**: a T-flask incubated beside a dry tube-block reads
-  slightly oddly (a real flask goes in a CO₂ incubator) — clip-free and visible, but
-  the block is a stand-in.
+## Follow-up round — the three remaining gaps are now CLOSED
+- **transfer** is no longer hard-wired tube→spin_column. It is now just an A→B move
+  whose destination comes from the sample-follow sequence, played by the shared
+  hand-off wrapper. Verified: RNA → spin_column, cryopreservation → cryovial,
+  passaging → tube — each the correct destination, none hardcoded.
+- **Equipment side of the contract** (`INSTRUMENTS` + `resolveInstrument`): each
+  instrument declares which containers it accepts. Built the missing ones —
+  `plate_reader` (ELISA, NOT the NanoDrop), `plate_shaker` (plate/membrane
+  incubation), `co2_incubator` (flasks, glass door + shelves). No valid instrument →
+  BENCH fallback (never a wrong instrument). Verified: well-plate incubates on the
+  shaker, flask in the CO₂ incubator, well-plate reads on the plate reader, slide
+  incubation and flask "measure" fall back to the bench.
+- **Angled neck approach**: the pipette now tilts and descends into the flask's
+  canted neck along its axis. **Thermocycler lid** now closes flat over the block
+  during cycling (tube sunk so only the cap sits near the block top; closed lid
+  clears it). Both verified by render.

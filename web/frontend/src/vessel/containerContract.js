@@ -58,3 +58,31 @@ export const EQUIPMENT_CONTRACT = {
 export function equipmentContract(token) {
   return EQUIPMENT_CONTRACT[token] || null
 }
+
+// The EQUIPMENT side of the contract: which physical instrument an (action-family,
+// container) pair uses. Each instrument lists the containers it ACCEPTS — a tube
+// block does not take a 96-well plate; a NanoDrop does not read one. If no
+// instrument accepts the container, fall back to the BENCH: a wrong instrument is
+// worse than none.
+export const INSTRUMENTS = {
+  // incubate/hold family
+  incubation_block: { accepts: ['microtube', 'tube', 'spin_column', 'eluate_tube', 'cryovial'] }, // dry tube block
+  plate_shaker:     { accepts: ['well_plate', 'membrane'] },  // plate incubator / rocker
+  co2_incubator:    { accepts: ['flask', 'dish'] },           // warm CO₂ cabinet
+  // measure family
+  plate_reader:     { accepts: ['well_plate'] },              // ELISA absorbance
+  nanodrop:         { accepts: ['microtube', 'tube', 'eluate_tube', 'spin_column', 'cryovial'] },
+}
+
+const FAMILY = {
+  incubate: ['incubation_block', 'plate_shaker', 'co2_incubator'],
+  measure: ['plate_reader', 'nanodrop'],
+}
+
+// Resolve (family, container) → instrument id, or 'bench' when nothing fits.
+export function resolveInstrument(family, container) {
+  for (const id of FAMILY[family] || []) {
+    if (INSTRUMENTS[id].accepts.includes(container)) return id
+  }
+  return 'bench'
+}

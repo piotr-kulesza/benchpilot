@@ -750,6 +750,82 @@ export function undockSample() {
     return grp;
   }
 
+  /* ---------- microplate ABSORBANCE reader (ELISA) — NOT the NanoDrop. A benchtop
+     box with a motorized drawer that a 96-well plate slides into, and an A450
+     readout. setDrawer(out) / setOD(v). */
+  function buildPlateReader(){
+    var grp=new THREE.Group();
+    var body=new THREE.Mesh(new THREE.BoxGeometry(3.0,1.5,2.0), matPainted(0xd9dde2,0.5));
+    body.position.y=0.75; body.castShadow=true; body.receiveShadow=true; grp.add(body);
+    var slot=new THREE.Mesh(new THREE.BoxGeometry(2.5,0.34,0.14), new THREE.MeshStandardMaterial({ color:0x181d23, roughness:0.8, side:THREE.DoubleSide }));
+    slot.position.set(0,0.55,1.0); grp.add(slot);
+    var tray=new THREE.Mesh(new THREE.BoxGeometry(2.55,0.06,1.7), matPlastic(0x8a94a0));
+    var trayLip=new THREE.Mesh(new THREE.BoxGeometry(2.55,0.12,0.08), matPlastic(0x6b7480));
+    grp.add(tray); grp.add(trayLip);
+    var dc=document.createElement("canvas"); dc.width=200; dc.height=110; var dg=dc.getContext("2d");
+    var dTex=new THREE.CanvasTexture(dc); dTex.anisotropy=MAX_ANISO;
+    function drawOD(v){ dg.fillStyle="#0d1218"; dg.fillRect(0,0,200,110);
+      dg.fillStyle="#7a8290"; dg.font="600 18px Arial"; dg.textAlign="left"; dg.fillText("A450",14,30);
+      dg.fillStyle="#8fcabf"; dg.font="700 42px Menlo,monospace"; dg.fillText(v.toFixed(2),14,84); dTex.needsUpdate=true; }
+    drawOD(0);
+    var disp=new THREE.Mesh(new THREE.PlaneGeometry(0.8,0.44), new THREE.MeshBasicMaterial({map:dTex,transparent:true}));
+    disp.position.set(0.95,1.06,1.01); grp.add(disp);
+    var label=makeLabel("Plate reader",""); label.position.set(0,1.95,0); grp.add(label);
+    var pst={ draw:1, tDraw:1 };
+    grp.userData.label=label;
+    grp.userData.setDrawer=function(out){ pst.tDraw=out?1:0; };
+    grp.userData.setOD=function(v){ drawOD(clamp(v,0,4)); };
+    grp.userData.update=function(dt){ pst.draw=lerp(pst.draw,pst.tDraw,1-Math.pow(0.02,dt));
+      tray.position.set(0,0.5,0.4+pst.draw*1.4); trayLip.position.set(0,0.53,1.24+pst.draw*1.4); };
+    grp.userData.update(0.001);
+    return grp;
+  }
+
+  /* ---------- orbital plate SHAKER / incubator — a platform that gently orbits; a
+     96-well plate or a membrane-in-tray rides it. setOrbit(a) drives the sway. */
+  function buildPlateShaker(){
+    var grp=new THREE.Group();
+    var base=new THREE.Mesh(new THREE.BoxGeometry(3.0,0.5,2.1), matPainted(0x3b424b,0.5));
+    base.position.y=0.25; base.castShadow=true; base.receiveShadow=true; grp.add(base);
+    var platform=new THREE.Group(); grp.add(platform);
+    var plat=new THREE.Mesh(new THREE.BoxGeometry(2.8,0.12,1.9), matBrushed(0x9aa4b0));
+    plat.position.y=0.56; platform.add(plat);
+    for(var cx=0;cx<2;cx++) for(var cz=0;cz<2;cz++){ var clip=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.18,0.14), matPlastic(0x6b7480));
+      clip.position.set(-1.2+cx*2.4,0.67,-0.8+cz*1.6); platform.add(clip); }
+    var dial=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,0.06,16), matPlastic(0x8a94a0)); dial.rotation.x=Math.PI/2; dial.position.set(1.2,0.25,1.06); grp.add(dial);
+    var label=makeLabel("Shaker",""); label.position.set(0,1.4,0); grp.add(label);
+    grp.userData.label=label;
+    grp.userData.setOrbit=function(a){ platform.position.set(Math.cos(a)*0.06,0,Math.sin(a)*0.06); };
+    grp.userData.update=function(){};
+    return grp;
+  }
+
+  /* ---------- CO₂ incubator (warm, 37 °C) for flasks/dishes — a cabinet with a
+     GLASS door and wire shelves; the flask lies flat on a shelf, visible through the
+     glass. Distinct from the −80 freezer. setDoor(open). */
+  function buildCO2Incubator(){
+    var grp=new THREE.Group();
+    var box=new THREE.Mesh(new THREE.BoxGeometry(3.3,2.4,1.9), matPainted(0xd7dbe0,0.5));
+    box.position.y=1.2; box.castShadow=true; box.receiveShadow=true; grp.add(box);
+    var cavityMat=new THREE.MeshStandardMaterial({ color:0x97a3af, roughness:0.5, metalness:0.1, side:THREE.DoubleSide });
+    var cavity=new THREE.Mesh(new THREE.BoxGeometry(2.9,2.0,1.0), cavityMat); cavity.position.set(0,1.2,0.42); grp.add(cavity);
+    for(var s=0;s<2;s++){ var shelf=new THREE.Mesh(new THREE.BoxGeometry(2.8,0.03,0.92), matBrushed(0x8a94a0)); shelf.position.set(0,0.62+s*0.95,0.42); grp.add(shelf); }
+    var doorPivot=new THREE.Group(); doorPivot.position.set(-1.6,1.2,0.95); grp.add(doorPivot);
+    var frame=new THREE.Mesh(new THREE.BoxGeometry(3.2,2.3,0.1), matPainted(0xc4c9cf,0.5)); frame.position.set(1.6,0,0); doorPivot.add(frame);
+    var glass=new THREE.Mesh(new THREE.BoxGeometry(2.7,1.95,0.05), glassMaterial()); glass.position.set(1.6,0,0.03); doorPivot.add(glass);
+    var handle=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.3,12), matBrushed(0x868f9b)); handle.position.set(2.9,0,0.16); doorPivot.add(handle);
+    var dc=document.createElement("canvas"); dc.width=200; dc.height=90; var dg=dc.getContext("2d");
+    var dTex=new THREE.CanvasTexture(dc); dTex.anisotropy=MAX_ANISO;
+    dg.fillStyle="#0d1218"; dg.fillRect(0,0,200,90); dg.fillStyle="#8fcabf"; dg.font="700 30px Menlo,monospace"; dg.textAlign="left"; dg.fillText("37°C",12,40); dg.fillStyle="#6fb8f0"; dg.font="700 22px Menlo,monospace"; dg.fillText("5% CO₂",12,72); dTex.needsUpdate=true;
+    var disp=new THREE.Mesh(new THREE.PlaneGeometry(0.7,0.32), new THREE.MeshBasicMaterial({map:dTex,transparent:true})); disp.position.set(1.3,2.1,0.96); grp.add(disp);
+    var label=makeLabel("CO₂ incubator",""); label.position.set(0,2.75,0); grp.add(label);
+    var ist={ door:0, tDoor:0 };
+    grp.userData.label=label;
+    grp.userData.setDoor=function(open){ ist.tDoor=open?1:0; };
+    grp.userData.update=function(dt){ ist.door=lerp(ist.door,ist.tDoor,1-Math.pow(0.02,dt)); doorPivot.rotation.y=easeInOut(ist.door)*1.3; };
+    return grp;
+  }
+
   /* ---------- thermocycler (PCR): heated block + motorized heated lid + cycle
      display. setProgress(p, cycles) cycles the hot↔cool glow and the CYCLE n/N
      readout; setLid(open) raises/lowers the heated lid. Same anthracite style as
@@ -1434,6 +1510,7 @@ export {
   buildTube, buildPipette, buildPipetteStand, buildBottle, buildSpinColumn,
   buildCentrifuge, buildColdBlock, buildWaterBath, buildIceBucket, buildNanoDrop, buildDrop, buildWaste, buildSyringe,
   buildThermocycler, buildGelRig, buildFreezer, buildStainingTray, buildSpreader, buildVortexMixer,
+  buildPlateReader, buildPlateShaker, buildCO2Incubator,
   buildCryovial, buildWellPlate, buildFlask, buildDish, buildSlide, buildMembrane, buildGelSlab, buildAgarPlate,
   buildEnvMap, makeCineBackdrop, makeGradientTexture,
   glassMaterial, matPlastic, matBrushed, matAnodized, matPainted, matFrosted, matRubber, matSilicone,
