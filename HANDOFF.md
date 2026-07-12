@@ -85,6 +85,29 @@ was learned by shipping the opposite.
   bundled protocol. A related lie is dropping reagents: **N reagents → N pipette passes**;
   a step listing DNase I + RDD must show BOTH bottles, and a single reagent with a
   conditional volume (350 µl / 600 µl) is still ONE bottle (dedupe by name).
+- **A step must say WHICH vessel it acts on, and a preparation must say WHEN it is made.**
+  Once a `prepare` step is on the bench there are two vessels (the sample + the mix), and
+  an instruction is ambiguous unless it names its vessel. So every step carries a `target`
+  ("sample" by default; a `prepare` targets its own `produces` id — never the sample), a
+  `prepare` names its product (`produces`), and a step that uses that mix names it
+  (`draws_from`) so it draws from the tube you made, not a bottle from nowhere. A `prepare`
+  vessel NEVER enters the sample's container chain (`sampleContainerSequence` skips it).
+  Guards: `findTargetDefects` (JS) + `test_every_prepare_names_a_product_and_every_draw_resolves`
+  (parser). And a preparation has a WHEN: a **do-ahead** (shelf-stable — 2-ME in RLT, ethanol
+  in RPE) is `prep_ahead:true` and lifts OUT of the run into the intake checklist; a
+  **just-in-time** one (enzyme mix, DNase I + RDD, anything "prepare fresh") is `prep_ahead:false`
+  and is moved to sit **immediately before its consumer** (`arrange_preparations`, pure, with
+  `source_index` keeping the source order recoverable). You don't make an enzyme mix and leave
+  it out for forty minutes — encoding that is the product's whole claim. When in doubt,
+  just-in-time: a prep shown early is a small error, one hidden in a checklist is a real one.
+- **The sample never teleports. One sample, one continuous path, for the whole protocol.**
+  That continuity is the reason the run reads as a procedure and not a slideshow. Leaving a
+  docked instrument (rotor slot, heat block, bath, freezer) the sample **lifts straight up**
+  clear of the device (an `exitLift` waypoint the travel loop honours before the glide — it
+  must not drag diagonally through the rotor or the lid), *then* glides to the next station.
+  Even Next mid-spin must leave properly: stop, open, lift, glide — fast, but never a cut.
+  A jump (deep-link) may snap; a sequential Next never does. `undockSample(lift)` +
+  `exitLiftPoint` (pure, tested); jumps snap, sequential lifts.
 
 ---
 
