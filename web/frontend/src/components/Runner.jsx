@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import StepCard from './StepCard.jsx'
 import Complete from './Complete.jsx'
 import StationView from '../vessel/StationView.jsx'
+import VoiceControl from './VoiceControl.jsx'
 import { useCountdown } from '../hooks/useCountdown.js'
+import { createSoundboard } from '../lib/sounds.js'
 import { Button, Badge } from '../ui/primitives.jsx'
 import StepTimeline from './StepTimeline.jsx'
 import {
   PHASE_LABEL, selectAlternative, hasAlternatives, stepText,
   effectiveStep, timerSeconds, extractTemperature, elapsedFraction,
+  stepHazards, isCriticalHazard, resolveConditionals,
 } from '../lib/runtime.js'
 
 const KIND_LABEL = { action: 'Action', wait: 'Wait', spin: 'Spin', prepare: 'Prep', measure: 'Measure', caution: 'Caution', storage: 'Storage' }
@@ -23,6 +26,9 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
   const [altByStep, setAltByStep] = useState({})
   const [passByStep, setPassByStep] = useState({})
   const [finished, setFinished] = useState(false)
+  // one soundboard for the whole run — the single cue source (voice feedback + the timer
+  // alarm). Shared with VoiceControl so both play through the same (gesture-resumed) audio.
+  const board = useMemo(() => createSoundboard(), [])
 
   const step = steps[Math.min(i, steps.length - 1)]
   const altIndex = altByStep[step.index] || 0
@@ -40,6 +46,53 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
 
   const next = () => { if (i >= steps.length - 1) setFinished(true); else setI((n) => Math.min(n + 1, steps.length - 1)) }
   const back = () => setI((n) => Math.max(0, n - 1))
+
+  // THE most important sound: the timer-done alarm, on the false→true completion edge,
+  // whether the run is hand- or voice-driven (a scientist who walked away must hear it).
+  const wasDone = useRef(false)
+  useEffect(() => {
+    if (countdown.done && !wasDone.current) board.timerDone()
+    wasDone.current = countdown.done
+  }, [countdown.done, board])
+
+  // Voice dispatches into THESE — the exact same callbacks the on-screen buttons call, so
+  // hand and voice share one source of truth and can never drift. (board.resume() on start
+  // unblocks WebAudio from a real user gesture.)
+  const controls = {
+    next, back,
+    goto: (idx) => setI(Math.max(0, Math.min(idx, steps.length - 1))),
+    startTimer: () => { board.resume(); countdown.start() },
+    pauseTimer: () => countdown.pause(),
+    resetTimer: () => countdown.reset(),
+    countPass: () => setPassByStep((m) => ({ ...m, [step.index]: (m[step.index] || 1) + 1 })),
+    chooseAlternative: (idx) => setAltByStep((m) => ({ ...m, [step.index]: idx })),
+    answerQuestion: (k, v) => setAnswers((a) => ({ ...a, [k]: v })),
+  }
+
+  // Read-only context the intent layer needs to resolve "how long is left", "start it",
+  // "the micro kit", and to gate a hazard cue on landing.
+  const voiceContext = useMemo(() => {
+    const hz = stepHazards(eff, lang)
+    const hasHazard = hz.some((h, idx) => isCriticalHazard(h) || isCriticalHazard((eff.hazards || [])[idx]))
+    const alternatives = hasAlternatives(step) ? step.alternatives.map((a) => stepText(a, lang)) : []
+    const { undecided } = resolveConditionals(eff, answers)
+    let openQuestion = null
+    if (undecided.length) {
+      const t = undecided.map((c) => c.condition).join(' ').toLowerCase()
+      if (t.includes('mini') || t.includes('micro')) {
+        openQuestion = { key: 'kit', prompt: 'Which kit — mini or micro?', options: [{ value: 'mini', label: 'mini' }, { value: 'micro', label: 'micro' }] }
+      } else if (/[≤>]|cells|komórek/.test(t)) {
+        openQuestion = { key: 'cells', prompt: 'How many cells — ≤5×10⁶ or more?', options: [{ value: 'le', label: '≤5×10⁶' }, { value: 'gt', label: '>5×10⁶' }] }
+      }
+    }
+    return {
+      stepIndex: i, stepNumber: i + 1, stepCount: steps.length,
+      stepText: stepText(eff, lang),
+      hasTimer: !!timer, running: !!timer?.running, done: !!timer?.done, remaining: timer?.remaining ?? 0,
+      alternatives, openQuestion, hasHazard,
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i, steps.length, eff, step, answers, timer?.remaining, timer?.running, timer?.done])
 
   // keyboard: → / space = next, ← = back (gloved hands, arrows for review).
   useEffect(() => {
@@ -74,6 +127,7 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
           <span className="dot" /> benchpilot
         </button>
         <StepTimeline steps={steps} current={i} onJump={setI} />
+        <VoiceControl controls={controls} context={voiceContext} board={board} />
       </header>
 
       <div className="runner-body">

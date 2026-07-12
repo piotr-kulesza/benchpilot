@@ -71,44 +71,12 @@ export function useCountdown(seconds) {
 
   useEffect(() => () => clockRef.current.destroy(), [])
 
-  // chime once on the false→true completion edge (kept out of the pure clock so it stays
-  // WebAudio-free and node-testable).
-  const wasDone = useRef(false)
-  useEffect(() => {
-    if (state.done && !wasDone.current) beep()
-    wasDone.current = state.done
-  }, [state.done])
-
   const start = useCallback(() => clockRef.current.start(), [])
   const pause = useCallback(() => clockRef.current.pause(), [])
   const reset = useCallback(() => clockRef.current.reset(), [])
 
+  // The false→true completion edge, surfaced as a boolean the caller can watch. The DONE
+  // SOUND is played by the shared soundboard (one cue source for the whole app), not here,
+  // so the clock stays WebAudio-free and node-testable.
   return { remaining: state.remaining, running: state.running, done: state.done, start, pause, reset }
-}
-
-// A short two-tone chime via WebAudio — no asset, no network. No-op anywhere `window`
-// or WebAudio is absent (e.g. node tests), so it never breaks the clock.
-function beep() {
-  try {
-    const Ctx = typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext)
-    if (!Ctx) return
-    const ctx = new Ctx()
-    const now = ctx.currentTime
-    ;[880, 1320].forEach((freq, i) => {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = 'sine'
-      osc.frequency.value = freq
-      const t = now + i * 0.18
-      gain.gain.setValueAtTime(0.0001, t)
-      gain.gain.exponentialRampToValueAtTime(0.28, t + 0.02)
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.32)
-      osc.connect(gain).connect(ctx.destination)
-      osc.start(t)
-      osc.stop(t + 0.34)
-    })
-    setTimeout(() => ctx.close(), 900)
-  } catch {
-    /* audio is a nicety; never let it break the run */
-  }
 }
