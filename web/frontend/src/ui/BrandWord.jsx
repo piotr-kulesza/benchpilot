@@ -4,7 +4,6 @@
 export default function BrandWord() {
   return (
     <span className="wordmark">
-      <span className="wordmark-dot" aria-hidden="true" />
       <span className="wordmark-text">bench<span className="wordmark-accent">pilot</span></span>
     </span>
   )
