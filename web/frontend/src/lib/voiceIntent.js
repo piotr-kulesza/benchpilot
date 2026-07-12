@@ -54,9 +54,30 @@ const LOCAL = [
   [/\b(?:repeat(?:\s+(?:the|this))?\s+step|do\s+(?:it|that|this)\s+again|run\s+(?:it|that)\s+again|repeat\s+that)\b/, 'repeat_step'],
 ]
 
+// spoken numbers usually arrive as digits from the STT, but not always — cover the small
+// range a protocol actually spans.
+const NUM_WORDS = {
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16,
+  seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20,
+}
+function parseStepNumber(tok) {
+  if (/^\d+$/.test(tok)) return parseInt(tok, 10)
+  return NUM_WORDS[tok] ?? null
+}
+// "go to step 11", "jump to 3", "skip to step 7", or a bare "step 11" — an explicit
+// destination is unambiguous, so it resolves locally (no round-trip) with the number.
+const GOTO_RE = /^(?:go\s*to|goto|jump\s*to|skip\s*to|move\s*to|take me to)\s+(?:step\s+)?(\w+)\b/
+const STEP_RE = /^step\s+(\w+)\s*$/
+
 export function localIntent(body) {
   const t = String(body || '').toLowerCase().trim()
   if (!t) return null
+  const g = t.match(GOTO_RE) || t.match(STEP_RE)
+  if (g) {
+    const n = parseStepNumber(g[1])
+    if (n != null) return { action: 'goto', args: { step: n }, confidence: 1 }
+  }
   for (const [re, action] of LOCAL) {
     if (re.test(t)) return { action, args: {}, confidence: 1 }
   }

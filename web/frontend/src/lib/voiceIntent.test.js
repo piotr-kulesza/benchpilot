@@ -40,9 +40,16 @@ describe('local fast path', () => {
       expect(localIntent(text)?.action).toBe(action)
     })
   }
+  it('resolves an explicit goto locally, extracting the step number', () => {
+    expect(localIntent('go to step 11')).toEqual({ action: 'goto', args: { step: 11 }, confidence: 1 })
+    expect(localIntent('jump to 3')).toMatchObject({ action: 'goto', args: { step: 3 } })
+    expect(localIntent('skip to step 7')).toMatchObject({ action: 'goto', args: { step: 7 } })
+    expect(localIntent('step 12')).toMatchObject({ action: 'goto', args: { step: 12 } })
+    expect(localIntent('go to step eleven')).toMatchObject({ action: 'goto', args: { step: 11 } })
+  })
   it('returns null for the long tail (defers to the LLM)', () => {
     expect(localIntent('which tube do I use for the flow-through')).toBeNull()
-    expect(localIntent('jump to the elution step')).toBeNull()
+    expect(localIntent('jump to the elution step')).toBeNull() // no number → not an explicit goto
   })
   it('local intents are full confidence', () => {
     expect(localIntent('next').confidence).toBe(1)
@@ -93,10 +100,11 @@ describe('resolveIntent', () => {
   it('falls back to the llm for the long tail, passing context in the prompt', async () => {
     const llm = vi.fn(async (_sys, user) => {
       expect(user).toContain('Centrifuge 15 s')
-      expect(user).toContain('jump to step 12')
+      expect(user).toContain('take me to the elution step')
       return '{"action":"goto","args":{"step":12},"confidence":0.9}'
     })
-    const r = await resolveIntent({ transcript: 'benchpilot jump to step 12', context: ctx, llm })
+    // no explicit number → not a local goto; the model has to interpret it
+    const r = await resolveIntent({ transcript: 'benchpilot take me to the elution step', context: ctx, llm })
     expect(r).toMatchObject({ action: 'goto', args: { step: 12 }, source: 'llm' })
     expect(llm).toHaveBeenCalledOnce()
   })
