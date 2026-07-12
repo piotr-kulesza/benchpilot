@@ -9,8 +9,13 @@
 // Fields:
 //  vessel        — the sample-vessel key in demoScene's SAMPLE object
 //  orientation   — 'upright' | 'flat' (drives seat + framing)
-//  flat          — true if it rests ON the bench (y≈0) vs at block-top height
-//  seat          — {x,y,z} resting pose (y is overridden to 0 when flat)
+//  flat          — true if it lies flat ON the bench vs standing upright
+//  seat          — {x,y,z} BENCH resting pose. y is the vessel BASE height: every
+//                   vessel model has its origin AT its base, so a bench rest is y=0 —
+//                   the lowest vertex touches the bench plane (Stage-13 #2: no float).
+//                   A station that places the vessel ON/IN equipment (a bath, an ice
+//                   bucket, a rotor slot) overrides this with its own height; the
+//                   CONTRACT owns only the at-rest bench pose.
 //  dispense      — {x,y,z, approach} where a pipette delivers into it
 //                   approach: 'top' (straight down) | 'angled' (in through a neck)
 //  liquid        — 'column' (lathe) | 'well' | 'shallow' | 'film' | 'bands' | 'band'
@@ -24,15 +29,17 @@
 //                   collection tube). Otherwise it is a CONTENTS POUR: two vessels on
 //                   the bench, the liquid carried A→B. Declared here, never hardcoded.
 
-const BT = 0.45 // demo.BLOCK_TOP — tubes seat here; flat vessels at 0
+// Upright vessels rest with their BASE on the bench (y=0) — their origin is at the
+// base, so y=0 puts the lowest vertex on the bench plane. `dispense.y` is the mouth
+// height ABOVE that base (where a pipette delivers). No BLOCK_TOP float (Stage-13 #2).
 
 export const CONTAINER_CONTRACT = {
-  microtube:   { vessel: 'tube',      orientation: 'upright', flat: false, seat: { x: 0, y: BT, z: 0 }, dispense: { x: 0, y: BT + 0.9, z: 0, approach: 'top' }, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
-  tube:        { vessel: 'tube',      orientation: 'upright', flat: false, seat: { x: 0, y: BT, z: 0 }, dispense: { x: 0, y: BT + 0.9, z: 0, approach: 'top' }, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
-  spin_column: { vessel: 'column',    orientation: 'upright', flat: false, seat: { x: 0, y: BT, z: 0 }, dispense: { x: 0, y: BT + 0.9, z: 0, approach: 'top' }, liquid: 'column', emptyMotion: 'tip', framing: 'tall', nestsIn: ['tube', 'eluate_tube', 'microtube'] },
-  eluate_tube: { vessel: 'elu',       orientation: 'upright', flat: false, seat: { x: 0, y: BT, z: 0 }, dispense: { x: 0, y: BT + 0.7, z: 0, approach: 'top' }, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
-  cryovial:    { vessel: 'cryovial',  orientation: 'upright', flat: false, seat: { x: 0, y: BT, z: 0 }, dispense: { x: 0, y: BT + 0.7, z: 0, approach: 'top' }, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
-  bottle:      { vessel: 'tube',      orientation: 'upright', flat: false, seat: { x: 0, y: BT, z: 0 }, dispense: { x: 0, y: BT + 0.9, z: 0, approach: 'top' }, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
+  microtube:   { vessel: 'tube',      orientation: 'upright', flat: false, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.9, z: 0, approach: 'top' }, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
+  tube:        { vessel: 'tube',      orientation: 'upright', flat: false, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.9, z: 0, approach: 'top' }, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
+  spin_column: { vessel: 'column',    orientation: 'upright', flat: false, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.9, z: 0, approach: 'top' }, liquid: 'column', emptyMotion: 'tip', framing: 'tall', nestsIn: ['tube', 'eluate_tube', 'microtube'] },
+  eluate_tube: { vessel: 'elu',       orientation: 'upright', flat: false, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.7, z: 0, approach: 'top' }, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
+  cryovial:    { vessel: 'cryovial',  orientation: 'upright', flat: false, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.7, z: 0, approach: 'top' }, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
+  bottle:      { vessel: 'tube',      orientation: 'upright', flat: false, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.9, z: 0, approach: 'top' }, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
   // flat-lying vessels — seat on the bench, aspirated (NEVER tipped), wide framing
   well_plate:  { vessel: 'wellplate', orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: -0.98, y: 0.55, z: 0.77, approach: 'top' }, liquid: 'well', emptyMotion: 'aspirate', framing: 'wide' },
   flask:       { vessel: 'flask',     orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 1.45, y: 1.0, z: 0.41, approach: 'angled', tilt: -0.62, depth: 0.95 }, liquid: 'shallow', emptyMotion: 'aspirate', framing: 'wide', contentsState: 'monolayer' },
@@ -41,7 +48,7 @@ export const CONTAINER_CONTRACT = {
   membrane:    { vessel: 'membrane',  orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.35, z: 0, approach: 'top' }, liquid: 'bands', emptyMotion: 'aspirate', framing: 'wide' },
   gel:         { vessel: 'gel',       orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: -0.36, y: 0.45, z: -0.4, approach: 'top' }, liquid: 'band', emptyMotion: 'aspirate', framing: 'wide' },
   agar_plate:  { vessel: 'agarplate', orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.5, z: 0, approach: 'top' }, liquid: 'film', emptyMotion: 'aspirate', framing: 'wide' },
-  generic:     { vessel: 'tube',      orientation: 'upright', flat: false, seat: { x: 0, y: BT, z: 0 }, dispense: { x: 0, y: BT + 0.9, z: 0, approach: 'top' }, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
+  generic:     { vessel: 'tube',      orientation: 'upright', flat: false, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.9, z: 0, approach: 'top' }, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
 }
 
 export function containerContract(token) {

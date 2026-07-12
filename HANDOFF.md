@@ -59,6 +59,20 @@ was learned by shipping the opposite.
   **suspect the data, not the removal.** The guard now warns
   (`findTransferHandoffDefects`) instead of papering over it, and a coverage
   assertion runs it over every bundled protocol.
+- **Liquid exists only inside glass or inside a tip.** A stream drawn spanning two
+  vessels reads as a *wire*, not a pour — and nothing at a bench moves liquid through
+  open air. So a **contents transfer is a pipette run** (aspirate from A, dispense
+  into B; while in transit the liquid is inside the tip): `configurePipetteTransfer`,
+  reusing the `stationReagent` rig. A **nesting move** (`nestsInto`, e.g. a spin
+  column into a fresh collection tube) carries the *vessel*, not the liquid — no
+  pipette, no liquid drawn. Getting these two backwards is a lie about what the
+  scientist does; grep for any bridge/stream/arc geometry between vessels and delete
+  it on sight.
+- **Nothing floats.** A vessel's resting Y is the CONTRACT `seat` (base on the bench,
+  y=0 — every model's origin is at its base), never a `BLOCK_TOP` default. Only a
+  station that puts the vessel ON a real riser (a cold block well, a rotor slot, a
+  bath) raises it, and it owns that height. If a vessel hovers above its contact
+  shadow, its seat is wrong.
 
 ---
 

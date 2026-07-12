@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera, OrthographicCamera } from '@react-three/drei'
-import { FogExp2, Color, Vector3, Box3, Group, Mesh, TorusGeometry, SphereGeometry, CylinderGeometry, MeshStandardMaterial, PointLight } from 'three'
+import { FogExp2, Color, Vector3, Box3, Group, Mesh, TorusGeometry, SphereGeometry, MeshStandardMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
 import { resolveRecipe, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects } from './sceneRecipe.js'
 import { containerContract, resolveInstrument, nestsInto } from './containerContract.js'
@@ -84,13 +84,28 @@ function applyStationVis(st) {
 // side, a wide CO₂ incubator, and a lone tube all sit centred and correctly sized.
 const _frameBox = new Box3()
 const _frameSize = new Vector3()
+const _childBox = new Box3()
+// Grow `box` by every mesh under `obj`, but PRUNE any subtree tagged `userData.noFrame`
+// (the pipette rig, reagent bottles — pipetting dressing that travels high/wide and
+// would drag the fit off the actual props). Recurse by hand so a pruned node takes its
+// whole subtree with it (Object3D.traverse can't skip children).
+function expandByProps(box, obj) {
+  if (obj.userData && obj.userData.noFrame) return
+  if (obj.isMesh && obj.geometry) {
+    _childBox.setFromObject(obj)
+    if (!_childBox.isEmpty()) box.union(_childBox)
+  }
+  for (const c of obj.children) expandByProps(box, c)
+}
 function computeStationFrame(st) {
   st.group.updateMatrixWorld(true)
-  _frameBox.setFromObject(st.group)
-  _frameBox.expandByPoint(new Vector3(0, 0, 0))   // always include the sample's
-  _frameBox.expandByPoint(new Vector3(0, 1.7, 0)) // resting column at local origin
-  // stations that place the sample AWAY from the origin (a side-by-side contents pour)
-  // declare anchor points so both vessels stay in frame.
+  _frameBox.makeEmpty()
+  // fit the PROPS only — the sample vessel(s) + the instrument, never the dressing.
+  expandByProps(_frameBox, st.group)
+  _frameBox.expandByPoint(new Vector3(0, 0, 0))   // the sample's resting column at the
+  _frameBox.expandByPoint(new Vector3(0, 1.7, 0)) // local origin (base on the bench → top)
+  // stations that place the sample AWAY from the origin (a two-vessel transfer, a rotor
+  // slot) declare anchor points so every prop stays in frame.
   for (const a of st.frameAnchors || []) _frameBox.expandByPoint(a)
   const center = _frameBox.getCenter(new Vector3())
   _frameBox.getSize(_frameSize)
@@ -207,7 +222,10 @@ export function configureStation(st, o) {
   const S = demo.getSample()
   const BT = demo.BLOCK_TOP
   const FLAT = C.flat
-  const SEAT_Y = C.flat ? 0 : BT
+  // BENCH rest comes from the CONTRACT — the vessel's base sits on the bench (y=0 for
+  // both upright and flat; their origins are at the base). Stations that place the
+  // vessel ON equipment (bath/ice/rotor/…) still pass their own height to seat().
+  const SEAT_Y = C.seat.y
 
   // seat the travelling sample WITHOUT resetting its contents: it enters at the
   // carried-in (start) state, so it continues from where the last step left it.
@@ -244,10 +262,10 @@ export function configureStation(st, o) {
     // resuspend / mix by pipetting: the pipette bobs STRAIGHT down into the tube
     // and back, aspirating + dispensing. (Do NOT reuse pipetteRun here — that's a
     // transfer arc, and looping it in place makes the pipette leap up and teleport.)
-    const TOP = BT + 1.35 // raised, tip clear of the tube (kept low — HUD clearance)
-    const BOT = BT + 0.8 // plunged, tip in the liquid
+    const TOP = SEAT_Y + 1.35 // raised, tip clear of the tube (kept low — HUD clearance)
+    const BOT = SEAT_Y + 0.8 // plunged, tip in the liquid
     demo.addPipetteRig(st)
-    st.enter = () => { seat(0, BT, 0); if (st.pip) { st.pip.position.set(0, TOP, 0); st.pip.userData.setFluid(0) } }
+    st.enter = () => { seat(0, SEAT_Y, 0); if (st.pip) { st.pip.position.set(0, TOP, 0); st.pip.userData.setFluid(0) } }
     st.timeline = (p) => {
       const pip = st.pip
       if (pip) {
@@ -276,12 +294,12 @@ export function configureStation(st, o) {
     // repeatedly (pass the lysate through a 20-21 G needle). NO centrifuge.
     const syr = demo.buildSyringe()
     syr.userData.setColor(endColor)
-    syr.position.set(0.1, BT + 0.05, 0.1) // beside the tube, needle dipping toward its mouth
+    syr.position.set(0.1, SEAT_Y + 0.05, 0.1) // beside the tube, needle dipping toward its mouth
     syr.rotation.z = -0.3 // tilt like a hand holding it
     syr.scale.setScalar(0.8)
     st.group.add(syr)
     st.updatables.push(syr)
-    st.enter = () => seat(0, BT, 0)
+    st.enter = () => seat(0, SEAT_Y, 0)
     st.timeline = (p) => {
       const passes = 5 // "pass 5 times through the needle"
       const cp = (p * passes) % 1
@@ -298,10 +316,10 @@ export function configureStation(st, o) {
       // aspirate AT the container's dispense point (a well / the flask surface),
       // descending to just above THAT surface — not a fixed tube height.
       const dx = C.dispense.x, dz = C.dispense.z
-      const hiY = FLAT ? 1.9 : BT + 1.35
-      const loY = FLAT ? C.dispense.y + 0.12 : BT + 0.85
+      const hiY = FLAT ? 1.9 : SEAT_Y + 1.35
+      const loY = FLAT ? C.dispense.y + 0.12 : SEAT_Y + 0.85
       demo.addPipetteRig(st)
-      st.enter = () => { seat(0, BT, 0); if (st.pip) { st.pip.position.set(dx, hiY, dz); st.pip.userData.setFluid(0) } }
+      st.enter = () => { seat(0, SEAT_Y, 0); if (st.pip) { st.pip.position.set(dx, hiY, dz); st.pip.userData.setFluid(0) } }
       st.timeline = (p) => {
         if (st.pip) {
           st.pip.position.set(dx, demo.lerp(hiY, loY, demo.easeInOut(demo.clamp(p * 1.4, 0, 1))), dz)
@@ -334,14 +352,21 @@ export function configureStation(st, o) {
     const prevC2 = prevContainer ? containerContract(prevContainer) : null
     const isNestMove = prevContainer && nestsInto(prevContainer, container)
     if (prevC2 && prevC2.vessel !== vessel && !isNestMove) {
-      configureContentsPour(st, S, {
-        fromKey: prevC2.vessel, toKey: vessel, srcFlat: prevC2.flat, dstFlat: FLAT,
-        aspirate: prevC2.emptyMotion === 'aspirate',
-        startColor, startLevel, endColor, endLevel, name, vol,
+      // CONTENTS MOVE — the sample's LIQUID goes A→B. You do not tip 700 µl of lysate
+      // from a tube into a spin column; you aspirate it and dispense it. So this is a
+      // PIPETTE RUN, never a stream bridging the two vessels (a free-standing stream
+      // reads as a wire, and nothing at a bench moves liquid through open air).
+      configurePipetteTransfer(st, S, {
+        fromKey: prevC2.vessel, toKey: vessel,
+        srcSeatY: prevC2.seat.y, dstSeatY: SEAT_Y,
+        srcDisp: prevC2.dispense, dstDisp: C.dispense,
+        color: endColor, startLevel, endLevel, name, vol,
       })
-      st._skipHandoff = true // the pour IS the transition; no lift/settle swap
+      st._skipHandoff = true // the pipette run IS the transition; no lift/settle swap
     } else {
-      st.enter = () => seat(0, BT, 0)
+      // VESSEL MOVE (source nests into destination) or a same-vessel transfer: rest at
+      // the bench seat; the shared hand-off wrapper below lifts & seats the vessel.
+      st.enter = () => seat(0, SEAT_Y, 0)
       st.timeline = (p) => { evolve(p) }
     }
   } else if (equipment === 'centrifuge' || action === 'elute') {
@@ -362,7 +387,7 @@ export function configureStation(st, o) {
     st.arc.rotation.set(0, 0, Math.PI / 2)
     st.group.add(st.arc)
     st._arcP = -1
-    let seatFn = () => S.at(S[vessel], st.x, FLAT ? 0 : BT, 0)
+    let seatFn = () => S.at(S[vessel], st.x, SEAT_Y, 0)
     let motionFn = null
     if (inst === 'plate_shaker') {
       const shaker = demo.buildPlateShaker()
@@ -385,8 +410,9 @@ export function configureStation(st, o) {
     } else if (inst === 'incubation_block') {
       const block = demo.buildColdBlock(); block.position.set(0, 0, -1.25)
       st.group.add(block); st.updatables.push(block)
+      seatFn = () => S.at(S[vessel], st.x, BT, 0) // the block is a RISER — the tube sits IN its well, not on the bench
     }
-    st.enter = () => { seat(0, BT, 0); seatFn(); const v = S[vessel]; if (v.userData.setMono) v.userData.setMono(1) }
+    st.enter = () => { seat(0, SEAT_Y, 0); seatFn(); const v = S[vessel]; if (v.userData.setMono) v.userData.setMono(1) }
     st.timeline = (p) => {
       if (Math.abs(p - st._arcP) > 0.02) {
         st._arcP = p
@@ -476,7 +502,7 @@ export function configureStation(st, o) {
     st.group.add(gel)
     st.updatables.push(gel)
     st.dev = gel
-    st.enter = () => seat(-1.7, BT, 0.9) // sample waits beside the tank (loaded into it)
+    st.enter = () => seat(-1.7, SEAT_Y, 0.9) // sample waits beside the tank (loaded into it)
     st.timeline = (p) => { evolve(p); gel.userData.setProgress?.(p) }
   } else if (action === 'store') {
     // end-state storage: the vessel glides INTO the freezer; the door closes; frost breathes.
@@ -584,13 +610,13 @@ export function configureStation(st, o) {
     } else {
       // no instrument accepts this vessel: hold it AT REST with its readout. A
       // meaningless idle spin would imply a reading is happening when none is.
-      st.enter = () => seat(0, BT, 0)
+      st.enter = () => seat(0, SEAT_Y, 0)
       st.timeline = (p) => { evolve(p) }
     }
   } else {
     // generic actionable (rare): hold the vessel AT REST. A vessel spinning for no
     // reason implies work that isn't happening — stillness is honest.
-    st.enter = () => seat(0, BT, 0)
+    st.enter = () => seat(0, SEAT_Y, 0)
     st.timeline = (p) => { evolve(p) }
   }
 
@@ -660,32 +686,31 @@ function wrapHandoff(st, S, fromKey, toKey, color, level) {
   }
 }
 
-// A CONTENTS POUR (Stage-12): a transfer where the source does NOT nest into the
-// destination. Both vessels sit on the bench SIDE BY SIDE and the LIQUID moves A→B — A
-// drains as B fills, colour carried across (the demo's LOAD choreography, generalized).
-// The source's removal motion picks HOW the liquid leaves: a tube/column POURS (tips
-// toward B); a flask/plate is ASPIRATED (a pipette shuttles the liquid over). The one
-// travelling sample is really two vessels for this step; we reveal both, then lock to B.
-function configureContentsPour(st, S, o) {
-  const { fromKey, toKey, srcFlat, dstFlat, aspirate, startColor, startLevel, endColor, endLevel, name, vol } = o
-  const BT = demo.BLOCK_TOP
+// A CONTENTS MOVE (Stage-13): a transfer where the source does NOT nest into the
+// destination. The sample's LIQUID is moved A→B with a PIPETTE — aspirate from the
+// source, cruise, dispense into the destination — exactly the rig `stationReagent`
+// uses, only the source is the sample's OLD vessel instead of a reagent bottle. Both
+// vessels rest on the bench side by side. There is NO stream bridging them (that reads
+// as a wire) and nothing pours through open air: while the liquid is in transit it
+// lives INSIDE the tip. The source drains as the tip draws up; the destination fills
+// only once the tip is dispensing (the same p>0.62 gate as a reagent add); the colour
+// travels with it. We reveal both vessels, then lock to the destination.
+function configurePipetteTransfer(st, S, o) {
+  const { fromKey, toKey, srcSeatY, dstSeatY, srcDisp, dstDisp, color, startLevel, endLevel, name, vol } = o
   const AX = -0.95, BX = 0.85, Z = 0.1
-  const aY = srcFlat ? 0 : BT, bY = dstFlat ? 0 : BT
-  const aTop = aY + (srcFlat ? 0.9 : 1.35), bTop = bY + (dstFlat ? 0.5 : 1.05)
-  st.frameAnchors = [new Vector3(AX - 0.3, aTop + 0.2, Z), new Vector3(BX + 0.3, bY, Z)]
+  // aspirate over the SOURCE (tip dips in from srcSeatY, then rises) and dispense at the
+  // DESTINATION's contract mouth (straight into a tube; angled down a flask's neck).
+  const dstAngled = dstDisp && dstDisp.approach === 'angled'
+  const from = { x: AX + (srcDisp?.x || 0), y: srcSeatY, z: Z + (srcDisp?.z || 0) }
+  const to = { x: BX + (dstDisp?.x || 0), y: dstAngled && dstDisp.y != null ? dstDisp.y : dstSeatY, z: Z + (dstDisp?.z || 0) }
+  // frame BOTH vessels (base → top of each) so the fit keeps them centred, not the tall
+  // pipette (which is excluded from the frame).
+  st.frameAnchors = [
+    new Vector3(AX, srcSeatY, Z), new Vector3(AX, srcSeatY + 1.7, Z),
+    new Vector3(BX, dstSeatY, Z), new Vector3(BX, dstSeatY + 1.7, Z),
+  ]
 
-  // pour progress (both modes): A drains, B fills, colour carried across
-  const fillOf = (p) => demo.easeInOut(demo.clamp((p - 0.18) / 0.62, 0, 1))
-
-  let stream = null
-  if (aspirate) {
-    demo.addPipetteRig(st)
-  } else {
-    // a thin liquid stream that appears while the tube pours into B
-    stream = new Mesh(new CylinderGeometry(0.035, 0.028, 1, 10),
-      new MeshStandardMaterial({ color: endColor, emissive: endColor, emissiveIntensity: 0.12, roughness: 0.3, transparent: true, opacity: 0 }))
-    st.group.add(stream)
-  }
+  demo.addPipetteRig(st)
 
   st.enter = () => {
     S.only(toKey)
@@ -693,51 +718,29 @@ function configureContentsPour(st, S, o) {
     a.visible = true; b.visible = true
     a.rotation.set(0, 0, 0); b.rotation.set(0, 0, 0)
     if (name) a.userData.setLabel?.(name, vol || '')
-    a.userData.setColor?.(startColor); a.userData.setLevel?.(startLevel)
-    b.userData.setColor?.(startColor); b.userData.setLevel?.(0.03)
-    S.snapTo(a, st.x + AX, aY, Z)
-    S.snapTo(b, st.x + BX, bY, Z)
-    if (st.pip) { st.pip.position.set(AX, aTop + 0.7, Z); st.pip.userData.setFluid(0); st.pip.rotation.set(0, 0, 0) }
-    if (stream) stream.material.opacity = 0
+    a.userData.setColor?.(color); a.userData.setLevel?.(startLevel)
+    b.userData.setColor?.(color); b.userData.setLevel?.(0.03)
+    S.snapTo(a, st.x + AX, srcSeatY, Z)
+    S.snapTo(b, st.x + BX, dstSeatY, Z)
+    demo.pipRest(st)
   }
 
   st.timeline = (p) => {
     const a = S[fromKey], b = S[toKey]
-    const f = fillOf(p)
-    a.userData.setLevel?.(demo.lerp(startLevel, 0.04, f))
-    b.userData.setColor?.(endColor)                 // colour carried into B
-    b.userData.setLevel?.(demo.lerp(0.03, endLevel, f))
-    S.snapTo(a, st.x + AX, aY, Z)
-    S.snapTo(b, st.x + BX, bY, Z)
-
-    if (aspirate && st.pip) {
-      // pipette shuttles A→B twice, carrying the liquid over (never tip a flask/plate)
-      const g = demo.clamp((p - 0.12) / 0.74, 0, 1)
-      const c = (g * 2) % 1
-      const xt = 0.5 - 0.5 * Math.cos(c * Math.PI * 2)       // 0=at A, 1=at B
-      const dip = Math.abs(Math.cos(c * Math.PI * 2))         // 1 at each end (dip in), 0 mid (travel high)
-      const highY = Math.max(aTop, bTop) + 0.7
-      st.pip.position.set(demo.lerp(AX, BX, xt), demo.lerp(highY, Math.min(aTop, bTop) + 0.35, dip), Z)
-      st.pip.userData.setColor?.(endColor)
-      st.pip.userData.setFluid?.(Math.sin(c * Math.PI * 2) > 0 ? 0.7 : 0.08) // full A→B, empty B→A
-    } else if (stream) {
-      // tip A toward B and run a stream from its mouth into B while pouring
-      const pour = demo.clamp((p - 0.18) / 0.62, 0, 1)
-      a.rotation.z = -demo.easeInOut(pour) * 0.5
-      const on = p > 0.2 && p < 0.86
-      stream.material.opacity = on ? 0.72 : 0
-      if (on) {
-        const am = new Vector3(AX + 0.28, aTop - 0.05, Z)   // A's tilted mouth
-        const bm = new Vector3(BX, bTop + 0.15, Z)          // B's mouth
-        const dir = bm.clone().sub(am)
-        const len = dir.length()
-        stream.position.copy(am).add(bm).multiplyScalar(0.5)
-        stream.scale.set(1, len, 1)
-        stream.rotation.z = Math.atan2(-dir.x, dir.y)
-      }
+    a.visible = true; b.visible = true
+    S.snapTo(a, st.x + AX, srcSeatY, Z)
+    S.snapTo(b, st.x + BX, dstSeatY, Z)
+    // the resident pipette runs aspirate → cruise-high → dispense, source mouth to dest.
+    demo.pipetteRun(st, from, to, p, { color, fill: 0.8, approach: dstDisp?.approach, tilt: dstDisp?.tilt, depth: dstDisp?.depth })
+    // SOURCE drains while the tip aspirates (pipetteRun's draw phase ends at p≈0.26).
+    a.userData.setLevel?.(demo.lerp(startLevel, 0.03, demo.easeInOut(demo.clamp(p / 0.26, 0, 1))))
+    // DEST fills only once the tip is dispensing — respect the p>0.62 gate (no early fill).
+    if (p > 0.62) {
+      const q = demo.easeInOut((p - 0.62) / 0.38)
+      b.userData.setColor?.(color)
+      b.userData.setLevel?.(demo.lerp(0.03, endLevel, q))
     }
-
-    if (p > 0.92) { a.visible = false; S.only(toKey); S.snapTo(b, st.x + BX, bY, Z) }
+    if (p > 0.98) { a.visible = false; S.only(toKey); S.snapTo(b, st.x + BX, dstSeatY, Z) }
   }
 }
 

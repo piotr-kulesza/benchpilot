@@ -1496,9 +1496,11 @@ export function undockSample() {
   function stationDecal(n){
     var c=document.createElement("canvas"); c.width=256; c.height=128; var g=c.getContext("2d");
     g.clearRect(0,0,256,128);
-    g.fillStyle="rgba(150,164,180,0.5)"; g.font="300 74px 'Helvetica Neue',Arial"; g.textAlign="left"; g.textBaseline="middle";
+    // dark slate on the pale bench so the number actually reads (Stage-13 #4 — the old
+    // 0.5-alpha grey vanished against the greige resin).
+    g.fillStyle="rgba(58,68,82,0.9)"; g.font="500 74px 'Helvetica Neue',Arial"; g.textAlign="left"; g.textBaseline="middle";
     g.fillText(("0"+n).slice(-2), 12, 70);
-    g.strokeStyle="rgba(95,179,166,0.55)"; g.lineWidth=4; g.beginPath(); g.moveTo(14,104); g.lineTo(150,104); g.stroke();
+    g.strokeStyle="rgba(64,150,138,0.9)"; g.lineWidth=5; g.beginPath(); g.moveTo(14,104); g.lineTo(150,104); g.stroke();
     var t=new THREE.CanvasTexture(c); t.anisotropy=MAX_ANISO;
     var m=new THREE.Mesh(new THREE.PlaneGeometry(1.7,0.85), new THREE.MeshBasicMaterial({map:t,transparent:true,depthWrite:false}));
     m.rotation.x=-Math.PI/2; return m;
@@ -1696,7 +1698,9 @@ export {
 
   // a bare stand (dressing) — for stations that don't pipette
   function addStand(st){
-    var stand = buildPipetteStand(); stand.position.set(PIP_STAND.x,PIP_STAND.y,PIP_STAND.z); st.group.add(stand);
+    var stand = buildPipetteStand(); stand.position.set(PIP_STAND.x,PIP_STAND.y,PIP_STAND.z);
+    stand.userData.noFrame = true;   // pipetting DRESSING — excluded from the camera fit
+    st.group.add(stand);
   }
   // resident equipment: a stand AND its OWN pipette, both fixed to this station
   var PIP_SCALE = 0.72;   // IMPROVEMENT: a shorter pipette so its body never reaches
@@ -1704,6 +1708,7 @@ export {
   function addPipetteRig(st){
     addStand(st);
     var pip = buildPipette(); pip.scale.setScalar(PIP_SCALE); pip.position.set(PIP_REST.x, PIP_REST.y, PIP_REST.z);
+    pip.userData.noFrame = true;    // the pipette travels high on its arc — never frame it
     st.group.add(pip); st.pip = pip; st.updatables.push(pip);
   }
   // dock this station's resident pipette back in its stand (LOCAL space)
@@ -2088,7 +2093,8 @@ export {
 
   function addBottle(st, key, labelText, color, x, z){
     var b = buildBottle(color, labelText, 1.3, color);
-    b.position.set(x, 0, z); st.group.add(b);
+    b.position.set(x, 0, z); b.userData.noFrame = true;   // reagent SOURCE (dressing) — not framed
+    st.group.add(b);
     if(b.userData.update) st.updatables.push(b);   // animate its cap + level each frame
     st.reagents[key] = { grp:b, pos:new THREE.Vector3(x, 0.24, z) };
   }
