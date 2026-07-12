@@ -137,7 +137,7 @@ export default function VoiceControl({ controls, context, board: boardProp, note
           <span className="vd-text">
             <b>{denied ? 'Microphone blocked' : 'Run hands-free with voice'}</b>
             <small>{denied ? 'Allow the mic in your browser, then tap to enable'
-              : 'Tap to enable, then say “benchpilot, next”'}</small>
+              : 'Tap to enable, then say “benchpilot”'}</small>
           </span>
           {!denied && <span className="vd-cta">Enable voice</span>}
         </button>
