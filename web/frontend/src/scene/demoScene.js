@@ -2185,6 +2185,48 @@ export {
       cen.userData.setLabel(o.cenLabel||"Centrifuge", o.cenSub||""); cen.userData.setSpin(0); cen.userData.setLid(true);
     };
     if(o.seconds) st.hud={label:o.hudLabel||"Centrifuge", seconds:o.seconds};
+    // COUNTDOWN-OWNED SPIN (Stage 19). When the runner has a live timer the rotor is a
+    // function of the COUNTDOWN, not the fixed choreography p: it spins for exactly as long
+    // as the digits run — 15 s on the clock == 15 s of spin, ten minutes == ten minutes.
+    // Entry (dock + lid close) and exit (spin-down + lid open + lift out) use ABSOLUTE time
+    // so a long spin doesn't glide in for minutes. t = { hasTimer, running, done, progress }.
+    var phase="rest", runT=0, endT=0;
+    st.driveTimed=function(t,dt){
+      var v=SAMPLE[o.vessel]; v.visible=true;
+      var engaged = t.running || t.done || t.progress>0.0001;
+      if(!engaged){                               // pre-spin REST — also where Reset returns
+        if(phase!=="rest"){ phase="rest"; runT=0; endT=0; }
+        undock(); cen.userData.setSpin(0); cen.userData.setLid(true);
+        v.scale.setScalar(1); v.rotation.set(0,0,0);
+        SAMPLE.at(v, st.x+lift.x, lift.y, lift.z);
+        v.userData.setLevel(o.lStart==null?0.5:o.lStart);
+        return;
+      }
+      if(t.done || t.progress>=1){                // 00:00 — rotor spins DOWN, lid opens, sample lifts out
+        if(phase!=="end"){ phase="end"; endT=0; }
+        endT+=dt;
+        cen.userData.setSpin(0);                  // update() lerps the wheel to a stop
+        if(endT<0.9){ dock(); cen.userData.setLid(false); }      // still closed while it slows
+        else if(endT<1.5){ cen.userData.setLid(true); }          // lid swings open
+        else { undock(); var q=easeInOut(clamp((endT-1.5)/0.6,0,1));
+               SAMPLE.at(v, st.x+lift.x, lerp(preSlot.y,lift.y,q), preSlot.z); }
+        return;
+      }
+      // RUNNING or PAUSED: lid closed, sample docked, rotor spins for the WHOLE countdown.
+      if(phase!=="run"){ phase="run"; runT=0; }
+      runT+=dt;
+      var ent=clamp(runT/0.55,0,1);               // quick entry glide, absolute-timed
+      if(ent<1 && !docked){
+        var qe=easeInOut(ent);
+        SAMPLE.at(v, st.x+preSlot.x, lerp(lift.y,preSlot.y,qe), preSlot.z);
+        cen.userData.setLid(true); cen.userData.setSpin(0);
+      } else {
+        dock();
+        cen.userData.setLid(false);
+        cen.userData.setSpin(t.running?24:0);     // spin while running; decelerate & hold when paused
+      }
+      if(o.lEnd!=null) v.userData.setLevel(lerp(o.lStart==null?0.5:o.lStart,o.lEnd,easeInOut(clamp(t.progress,0,1))));
+    };
     st.timeline=function(p){
       var v=SAMPLE[o.vessel]; v.visible=true;
       if(p<0.18){                            // 1 · glide in, lower toward the slot (lid open)

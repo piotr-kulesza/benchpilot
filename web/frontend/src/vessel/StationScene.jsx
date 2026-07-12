@@ -1096,12 +1096,21 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       k.target.updateMatrixWorld()
     }
 
-    // 4 · run ONLY the active station's p-timeline (others idle)
+    // 4 · run ONLY the active station's timeline (others idle). When a live countdown is
+    // engaged it OWNS the clock: the instrument's motion tracks the digits, not a fixed
+    // choreography ramp that finishes early. An instrument that stops before its own timer
+    // is a lie about the step. Untimed steps (and the dev harness) keep the free-running p.
     const act = stations[activeRef.current]
     if (act) {
       if (restartRef.current) { pRef.current = 0; restartRef.current = false }
-      pRef.current = Math.min(pRef.current + dt / STEP_DUR, 1)
-      act.timeline?.(pRef.current)
+      const tm = timerRef.current
+      if (tm.hasTimer) pRef.current = tm.progress // countdown drives every timed instrument
+      else pRef.current = Math.min(pRef.current + dt / STEP_DUR, 1)
+      // the centrifuge needs absolute-time dock/lift choreography (a 10-min spin can't
+      // glide in for two minutes), so it reads the timer directly; everything else is
+      // continuous in p and tracks the countdown just by being fed the elapsed fraction.
+      if (act.driveTimed && tm.hasTimer) act.driveTimed(tm, dt)
+      else act.timeline?.(pRef.current)
     }
     for (const st of stations) for (const u of st.updatables) u.userData?.update?.(dt)
 
