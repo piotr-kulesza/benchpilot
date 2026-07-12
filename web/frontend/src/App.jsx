@@ -7,6 +7,7 @@ import BenchToggle from './components/BenchToggle.jsx'
 import { useTheme } from './hooks/useTheme.js'
 import { useBench } from './hooks/useBench.js'
 import { partitionSteps } from './lib/runtime.js'
+import { makeRunId, orphanRunKeys } from './lib/runState.js'
 
 // Dev-only harness routes: ?models=1 (model gallery) and ?matrix=1 (animation
 // matrix). Lazy so they never touch the production bundle path.
@@ -42,6 +43,17 @@ function loadSession() {
 function saveSession(s) {
   try { sessionStorage.setItem(STORE_KEY, JSON.stringify(s)) } catch { /* private mode */ }
 }
+// a brand-new run id (Date.now/Math.random injected into the pure minter)
+function freshRunId() { return makeRunId(Date.now(), Math.random()) }
+// drop every run-scoped localStorage key that isn't the current run — so one run's step,
+// passes and log can never bleed into the next (and orphans never pile up).
+function pruneOldRuns(currentRunId) {
+  try {
+    const keys = []
+    for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i))
+    orphanRunKeys(keys, currentRunId).forEach((k) => localStorage.removeItem(k))
+  } catch { /* private mode */ }
+}
 
 export default function App() {
   if (IS_DEV_ROUTE) {
@@ -63,6 +75,9 @@ function MainApp() {
   const [examples, setExamples] = useState([])
   const [protocol, setProtocol] = useState(persisted?.protocol || null)
   const [source, setSource] = useState(persisted?.source || null)
+  // the RUN IDENTITY: a resumed session keeps its id (same run); anything else mints a fresh
+  // one when a protocol is adopted. Every run-scoped store hangs off this.
+  const [runId, setRunId] = useState(() => persisted?.runId || freshRunId())
   const [route, setRoute] = useState('home') // resolved in the mount effect below
   // English-only UI. The original-language + verbatim fields stay in the data (audit
   // trail, untouched) and still show on fallback; restore the EN/Original toggle by
@@ -90,12 +105,18 @@ function MainApp() {
     fetch('protocols/neutrophil_rna.json')
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((p) => {
+        const id = freshRunId(); pruneOldRuns(id); setRunId(id) // deep-link with no session = a new run
         setProtocol(p); setSource('Neutrophil RNA extraction')
-        saveSession({ protocol: p, source: 'Neutrophil RNA extraction', lang, answers })
+        saveSession({ runId: id, protocol: p, source: 'Neutrophil RNA extraction', lang, answers })
         setRoute(want)
       })
       .catch(() => { window.history.replaceState({}, '', '/'); setRoute('home') })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // keep the session in sync so a reload resumes THIS run (id + answers included)
+  useEffect(() => {
+    if (protocol) saveSession({ runId, protocol, source, lang, answers })
+  }, [runId, protocol, source, answers])
 
   // back/forward
   useEffect(() => {
@@ -110,10 +131,22 @@ function MainApp() {
     setRoute(r)
   }
 
+  // Adopting a protocol (pick example / upload / paste / re-start the same one) ALWAYS
+  // starts a NEW run: a fresh id, empty state, old runs swept. Nothing is inherited.
   const adopt = (p, src) => {
+    const id = freshRunId(); pruneOldRuns(id); setRunId(id)
     setProtocol(p); setSource(src); setParseState({ status: 'idle' })
     setAnswers({}) // a fresh protocol starts with fresh intake answers
-    saveSession({ protocol: p, source: src, lang, answers: {} })
+    saveSession({ runId: id, protocol: p, source: src, lang, answers: {} })
+    go('intake')
+  }
+
+  // "Start over" from inside the runner: discard this run, start a clean one of the SAME
+  // protocol. The new id → Runner remounts (fresh scene + state) and its log/state start empty.
+  const startOver = () => {
+    const id = freshRunId(); pruneOldRuns(id); setRunId(id)
+    setAnswers({})
+    saveSession({ runId: id, protocol, source, lang, answers: {} })
     go('intake')
   }
 
@@ -165,11 +198,14 @@ function MainApp() {
   } else if (route === 'run') {
     page = (
       <Runner
+        key={runId}
+        runId={runId}
         protocol={runProtocol}
         answers={answers}
         setAnswers={setAnswers}
         initialStep={initialStep}
         onExit={() => go('intake')}
+        onStartOver={startOver}
         bench={bench}
       />
     )

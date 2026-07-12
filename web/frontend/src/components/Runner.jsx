@@ -7,6 +7,7 @@ import NoteComposer from './NoteComposer.jsx'
 import RunRecord from './RunRecord.jsx'
 import { useCountdown } from '../hooks/useCountdown.js'
 import { useRunLog } from '../hooks/useRunLog.js'
+import { useRunState } from '../hooks/useRunState.js'
 import { createSoundboard } from '../lib/sounds.js'
 import { Button, Badge } from '../ui/primitives.jsx'
 import StepTimeline from './StepTimeline.jsx'
@@ -28,22 +29,24 @@ const answerValueLabel = (k, v) => ANSWER_VALUE[k]?.[v] || v
 // One step at a time, in a stable 1/3 – 2/3 split: everything textual on the left
 // (scrolls, sticky title + controls), the 3D scene on the right (never resizes).
 // English-only UI (original + verbatim preserved in the data; restorable in one line).
-export default function Runner({ protocol, answers, setAnswers, onExit, initialStep = 0, bench = 'dark' }) {
+export default function Runner({ protocol, answers, setAnswers, onExit, onStartOver, initialStep = 0, bench = 'dark', runId = 'default' }) {
   const lang = 'en'
   const steps = protocol.steps
-  const [i, setI] = useState(Math.min(initialStep, steps.length - 1))
-  const [altByStep, setAltByStep] = useState({})
-  const [passByStep, setPassByStep] = useState({})
-  const [finished, setFinished] = useState(false)
-  const [ackedHazards, setAckedHazards] = useState({})
+  // ALL run-scoped state hangs off the run id: a reload resumes it, a new run starts empty.
+  const rs = useRunState(runId, initialStep)
+  const i = Math.min(rs.step, steps.length - 1)
+  const setI = rs.setStep
+  const altByStep = rs.altByStep, setAltByStep = rs.setAltByStep
+  const passByStep = rs.passByStep, setPassByStep = rs.setPassByStep
+  const ackedHazards = rs.ackedHazards, setAckedHazards = rs.setAckedHazards
+  const finished = rs.finished, setFinished = rs.setFinished
   const [recordOpen, setRecordOpen] = useState(false)
   // one soundboard for the whole run — the single cue source (voice feedback + the timer
   // alarm). Shared with VoiceControl so both play through the same (gesture-resumed) audio.
   const board = useMemo(() => createSoundboard(), [])
 
-  // the run log — persisted per protocol, resumes on reload. Emitted ONLY from the control
-  // callbacks below, the single choke point both the buttons and the voice dispatcher hit.
-  const runId = protocol?.source || protocol?.title || 'default'
+  // the run log — keyed by the run id (resumes on reload, empty for a new run). Emitted ONLY
+  // from the control callbacks below, the single choke point buttons and voice both hit.
   const log = useRunLog(runId)
   const protoName = stepText({ text: protocol?.title, text_en: protocol?.title_en }, lang) || protocol?.title || 'Protocol'
   const titleOf = (idx) => shortLabel(steps[idx], lang)
@@ -228,6 +231,10 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
           <span className="dot" /> benchpilot
         </button>
         <StepTimeline steps={steps} current={i} onJump={setI} />
+        <button className="log-btn" type="button" title="Start a new run"
+          onClick={() => { if (window.confirm('Start a new run? This discards the current run and its log.')) onStartOver?.() }}>
+          <span aria-hidden="true">↺</span><span className="log-btn-label">New run</span>
+        </button>
         <button className="log-btn" type="button" onClick={() => setRecordOpen(true)} title="Run record">
           <LogGlyph /><span className="log-btn-label">Run log</span>
           {log.events.length > 0 && <span className="log-count num">{log.events.length}</span>}
