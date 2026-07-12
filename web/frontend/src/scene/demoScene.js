@@ -49,10 +49,17 @@ export function undockSample() {
       // Was massively OVER-LIT and flat → every real colour blew to pale pastel (a navy stand
       // rendered baby-blue) with no shadow. Cut the flat fill hard, keep ONE strong key →
       // real shadow-to-highlight range = contrast, and true saturated colour.
-      fog:{ color:0xbcb7ae, density:0.0028 }, exposure:0.78,
-      amb:{ color:0xd6d9de, int:0.12 }, hemi:{ sky:0xdde4ee, ground:0xb4aea4, int:0.20 },
-      key:{ color:0xfff3e2, int:1.32 }, fill:{ color:0xccd4de, int:0.17, pos:[-8,4,9] },
-      aux:{ color:0xe2e0d8, int:0.14, pos:[-3,11,-6] }
+      // Stage 24 — dark epoxy bench, dramatic light. The station is a SUBJECT: one strong
+      // warm key from the side, deep dark cool fills, a cool rim on the glass, edges falling
+      // into shadow (warm near-black fog). Exposure stays 0.78 (guardrail — never ACES).
+      fog:{ color:0x120f0b, density:0.0034 }, exposure:0.78,
+      amb:{ color:0xd6d9de, int:0.035 }, hemi:{ sky:0xc4ccd8, ground:0x241f18, int:0.045 },
+      key:{ color:0xfff1de, int:1.62 }, fill:{ color:0xc2cee2, int:0.08, pos:[-8,4,9] },
+      aux:{ color:0xdfe0da, int:0.05, pos:[-3,11,-6] },
+      // rim/edge light — from behind the subject, cool; against the dark bench a bright rim
+      // on a vessel's shoulder is the single most valuable highlight in the frame. Kept
+      // modest so it catches edges without flooding (and greying) the bench.
+      rim:{ color:0xe3ecff, int:0.9, pos:[-6,5.5,-8] }
     }
   };
 
@@ -1571,23 +1578,26 @@ export function undockSample() {
     // COMFORTABLE WARM MID-TONE room — NOT a white void, NOT dark. A soft warm greige wall
     // grading down to a deeper warm-grey floor, with a lit pool behind the subject and a
     // gentle corner vignette so it has depth and is pleasant to look at.
+    // DARK room that RECEDES: a dark warm wall with a soft vertical falloff into a near-black
+    // floor, so the station sits in a pool of light rather than against a card. Quieter than
+    // the bench, which is quieter than the glass.
     var grad=g.createLinearGradient(0,0,0,h);
-    grad.addColorStop(0.00,"#b9b4b7");   // upper wall — warm light greige
-    grad.addColorStop(0.42,"#ada8ab");
-    grad.addColorStop(0.585,"#9d978d");  // just above the horizon
-    grad.addColorStop(0.615,"#918b81");  // horizon seam
-    grad.addColorStop(0.80,"#827d74");   // warm-grey floor
-    grad.addColorStop(1.00,"#6f6a61");
+    grad.addColorStop(0.00,"#1b1714");   // upper wall — dark warm
+    grad.addColorStop(0.42,"#181410");
+    grad.addColorStop(0.585,"#120f0b");  // just above the horizon
+    grad.addColorStop(0.615,"#0e0b08");  // horizon seam
+    grad.addColorStop(0.80,"#0b0906");   // near-black floor (meets the epoxy bench)
+    grad.addColorStop(1.00,"#080605");
     g.fillStyle=grad; g.fillRect(0,0,w,h);
-    // soft pool of light behind the subject — the centre lifts, so the bright subject reads
-    var soft=g.createRadialGradient(w*0.5,h*0.34,20, w*0.5,h*0.40,w*0.80);
-    soft.addColorStop(0,"rgba(244,238,228,0.30)");
-    soft.addColorStop(1,"rgba(244,238,228,0)");
+    // soft warm pool of light behind the subject — the centre lifts so the glass reads against it
+    var soft=g.createRadialGradient(w*0.5,h*0.34,20, w*0.5,h*0.42,w*0.72);
+    soft.addColorStop(0,"rgba(150,128,98,0.22)");
+    soft.addColorStop(1,"rgba(150,128,98,0)");
     g.fillStyle=soft; g.fillRect(0,0,w,h);
-    // corner vignette for depth (settles the edges without going dark/sci-fi)
-    var vig=g.createRadialGradient(w*0.5,h*0.46,w*0.30, w*0.5,h*0.5,w*0.75);
-    vig.addColorStop(0,"rgba(42,38,33,0)");
-    vig.addColorStop(1,"rgba(42,38,33,0.34)");
+    // deep corner vignette — the edges of the frame fall genuinely dark. Contrast is the point.
+    var vig=g.createRadialGradient(w*0.5,h*0.46,w*0.24, w*0.5,h*0.5,w*0.78);
+    vig.addColorStop(0,"rgba(0,0,0,0)");
+    vig.addColorStop(1,"rgba(0,0,0,0.55)");
     g.fillStyle=vig; g.fillRect(0,0,w,h);
     var t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t;
   }
@@ -1601,16 +1611,31 @@ export function undockSample() {
   function buildFloor(totalLen){
     totalLen = totalLen || 0;
     var W = totalLen + 140;
+    // DARK EPOXY RESIN — a deep, slightly warm near-black with a faint mineral fleck.
     var bc=document.createElement("canvas"); bc.width=512; bc.height=512; var bg2=bc.getContext("2d");
-    bg2.fillStyle="#cbc6bd"; bg2.fillRect(0,0,512,512);
-    for(var sx=0;sx<520;sx+=2){ bg2.strokeStyle="rgba(120,116,108,"+(0.008+Math.random()*0.012)+")";
+    bg2.fillStyle="#131010"; bg2.fillRect(0,0,512,512);           // deep warm near-black base
+    // faint wiped grain (very low light streaks — reads as poured/wiped resin, not stripes)
+    for(var sx=0;sx<520;sx+=2){ bg2.strokeStyle="rgba(150,146,138,"+(0.004+Math.random()*0.008)+")";
       bg2.lineWidth=1; bg2.beginPath(); bg2.moveTo(sx,0); bg2.lineTo(sx+(Math.random()*6-3),512); bg2.stroke(); }
-    for(var sp=0;sp<1200;sp++){ bg2.fillStyle="rgba("+(Math.random()<0.5?"255,253,248,":"150,144,134,")+(Math.random()*0.05)+")";
-      bg2.fillRect(Math.random()*512,Math.random()*512,1.6,1.6); }
+    // mineral fleck — mostly pale specks catching light, a few dark for depth. Subtle.
+    for(var sp=0;sp<1500;sp++){ var pale=Math.random()<0.68;
+      bg2.fillStyle="rgba("+(pale?"224,218,206,":"70,66,60,")+((pale?0.035:0.10)+Math.random()*(pale?0.06:0.06))+")";
+      var fs=0.9+Math.random()*1.2; bg2.fillRect(Math.random()*512,Math.random()*512,fs,fs); }
     var benchTex=new THREE.CanvasTexture(bc); benchTex.colorSpace=THREE.SRGBColorSpace;
     // keep texel density constant as the bench widens (140 wide -> 30 tiles)
     benchTex.wrapS=benchTex.wrapT=THREE.RepeatWrapping; benchTex.repeat.set(Math.max(30, Math.round(W*30/140)),6); benchTex.anisotropy=MAX_ANISO;
-    var floorMat=new THREE.MeshStandardMaterial({ color:0xcfd2d3, map:benchTex, metalness:0.12, roughness:0.5, envMapIntensity:0.62 });
+    // broad roughness variation → a low, wide sheen where the key grazes, never a flat slab.
+    var rc=document.createElement("canvas"); rc.width=256; rc.height=256; var rg=rc.getContext("2d");
+    rg.fillStyle="#efefef"; rg.fillRect(0,0,256,256);            // base very matte
+    for(var rb=0;rb<5;rb++){ var rx=Math.random()*256, ry=Math.random()*256, rr=45+Math.random()*65;
+      var rgrad=rg.createRadialGradient(rx,ry,4, rx,ry,rr);
+      rgrad.addColorStop(0,"rgba(150,150,150,0.28)"); rgrad.addColorStop(1,"rgba(150,150,150,0)"); // gentle smoother patch
+      rg.fillStyle=rgrad; rg.beginPath(); rg.arc(rx,ry,rr,0,Math.PI*2); rg.fill(); }
+    var roughTex=new THREE.CanvasTexture(rc);
+    roughTex.wrapS=roughTex.wrapT=THREE.RepeatWrapping; roughTex.repeat.set(8,2); roughTex.anisotropy=MAX_ANISO;
+    // very matte + very low env so the black bench stays black; a faint broad sheen from the
+    // key still grazes it (reads as a lit surface, not a hole). Stylized MeshStandard.
+    var floorMat=new THREE.MeshStandardMaterial({ color:0x0a0807, map:benchTex, roughnessMap:roughTex, metalness:0.02, roughness:0.9, envMapIntensity:0.04 });
     var floor=new THREE.Mesh(new THREE.PlaneGeometry(W,60), floorMat);
     floor.rotation.x=-Math.PI/2; floor.position.x=totalLen*0.5; floor.receiveShadow=true;
     return floor;

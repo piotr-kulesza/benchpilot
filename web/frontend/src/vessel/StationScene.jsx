@@ -218,7 +218,7 @@ const FILL_BOOST = 1
 // the floor faces UP, so its cool light comes from the hemisphere sky (#dde4ee),
 // not the grazing fill. Boost hemi to neutralise the bench's warm cast.
 const HEMI_BOOST = 1
-function Lights({ keyRef }) {
+function Lights({ keyRef, rimRef }) {
   const L = demo.LOOK.cinematic
   return (
     <>
@@ -243,6 +243,8 @@ function Lights({ keyRef }) {
       />
       <directionalLight color={L.fill.color} intensity={L.fill.int * LIGHT_SCALE * FILL_BOOST} position={L.fill.pos} />
       <directionalLight color={L.aux.color} intensity={L.aux.int * LIGHT_SCALE} position={L.aux.pos} />
+      {/* rim/edge light — follows the framed station (positioned in the frame loop) */}
+      <directionalLight ref={rimRef} color={L.rim.color} intensity={L.rim.int * LIGHT_SCALE} position={L.rim.pos} />
     </>
   )
 }
@@ -912,6 +914,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
   const restartRef = useRef(true)
   const perspRef = useRef()
   const keyRef = useRef()
+  const rimRef = useRef()
 
   // one-time scene setup + the persistent travelling SAMPLE (added to the scene).
   useEffect(() => {
@@ -939,9 +942,10 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     }
   }, [gl, scene])
 
-  // the key light's shadow target follows the framed station (kept in the graph).
+  // the key + rim light targets follow the framed station (kept in the graph).
   useEffect(() => {
     if (keyRef.current) scene.add(keyRef.current.target)
+    if (rimRef.current) scene.add(rimRef.current.target)
   }, [scene])
 
   // ── BUILD THE WHOLE LINE ONCE — one station per step along +X at SPACING.
@@ -1092,13 +1096,22 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       cam.lookAt(lx, ly, lz)
     }
 
-    // 3 · the key light + its shadow frustum follow the framed station
+    // 3 · the key + rim lights follow the framed station. The key grazes lower and more
+    // from the side (a subject, not a flooded scene); the rim sits behind for a bright
+    // edge on the glass against the dark bench.
     const k = keyRef.current
     if (k) {
       const lx = targetXRef.current
-      k.position.set(lx + 5, 11, 7)
+      k.position.set(lx + 6.5, 8.5, 5)
       k.target.position.set(lx, 0.6, 0)
       k.target.updateMatrixWorld()
+    }
+    const rim = rimRef.current
+    if (rim) {
+      const lx = targetXRef.current
+      rim.position.set(lx - 6, 5.5, -8)
+      rim.target.position.set(lx, 1.2, 0)
+      rim.target.updateMatrixWorld()
     }
 
     // 4 · run ONLY the active station's timeline (others idle). When a live countdown is
@@ -1170,7 +1183,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
 
   return (
     <>
-      <Lights keyRef={keyRef} />
+      <Lights keyRef={keyRef} rimRef={rimRef} />
       <Floor totalLen={totalLen} />
       <PerspectiveCamera ref={perspRef} makeDefault fov={FOV} near={0.1} far={260} position={[0, RAIL_Y, RAIL_Z]} />
     </>
