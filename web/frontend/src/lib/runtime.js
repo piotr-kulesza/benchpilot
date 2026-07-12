@@ -111,6 +111,56 @@ export function reagentCondition(reagent, lang = 'en') {
   return localize(reagent, 'condition', lang)
 }
 
+// One verb per action for the compact step-timeline chip (the 3D action vocabulary).
+const ACTION_VERB = {
+  pour_add: 'Add', pipette_mix: 'Mix', vortex_mix: 'Vortex', homogenize: 'Homogenize',
+  centrifuge: 'Spin', incubate_wait: 'Incubate', heat: 'Heat', cool_ice: 'On ice',
+  transfer: 'Transfer', discard: 'Discard', elute: 'Elute', measure: 'Measure',
+  thermocycle: 'Cycle', electrophorese: 'Run gel', store: 'Store', seed: 'Seed', stain: 'Stain',
+}
+
+// Lower-case a reagent name for reading inside a phrase ("RLT Buffer" -> "RLT buffer"),
+// while leaving acronyms (RLT, RPE) and mixed-case names (DNase) intact.
+function reagentTail(name) {
+  return name.split(/\s+/).map((w) => {
+    if (!w) return w
+    if (w === w.toUpperCase()) return w                    // all-caps acronym / number → keep
+    if (/[A-Z]/.test(w.slice(1))) return w                 // internal capital (DNase) → keep
+    return w.charAt(0).toLowerCase() + w.slice(1)          // Title → title
+  }).join(' ')
+}
+
+// Cap a label to ~3 words / ~22 chars, ellipsising at a WORD boundary (never a jarring
+// mid-word cut unless a single word is itself too long).
+function clampLabel(s) {
+  const words = String(s).replace(/\s+/g, ' ').trim().split(' ').filter(Boolean)
+  if (words.length === 0) return ''
+  let out = words.slice(0, 3)
+  let ell = words.length > out.length
+  const CAP = 22
+  while (out.length > 1 && out.join(' ').length > CAP) { out.pop(); ell = true }
+  let str = out.join(' ')
+  if (str.length > CAP) { str = str.slice(0, CAP).trimEnd(); ell = true } // one giant word
+  return ell ? str.replace(/[.,;:\s]+$/, '') + '…' : str
+}
+
+// A SHORT (2–3 word) label for a step, for the step-timeline chips — `text_en` is a full
+// sentence, too long for a chip. Fallback chain: an explicit parser `label`; else
+// "<verb> <primary reagent>" from the action vocabulary; else the first words of the
+// instruction. Pure — no React/DOM.
+export function shortLabel(step, lang = 'en') {
+  if (!step) return ''
+  const eff = effectiveStep(step)
+  if (eff.label && String(eff.label).trim()) return clampLabel(eff.label)
+  const verb = ACTION_VERB[eff.action]
+  if (verb) {
+    const prim = (eff.reagents || []).find((r) => reagentName(r, lang))
+    const name = prim ? reagentTail(reagentName(prim, lang)) : ''
+    return clampLabel(name ? `${verb} ${name}` : verb)
+  }
+  return clampLabel(stepText(eff, lang)) // generic / no verb → first words of the instruction
+}
+
 // Localized hazards for a step, aligned by index with the original `hazards`.
 // Falls back per-item to the original when the English list is short/missing.
 export function stepHazards(step, lang = 'en') {

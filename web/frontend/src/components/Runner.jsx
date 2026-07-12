@@ -3,7 +3,8 @@ import StepCard from './StepCard.jsx'
 import Complete from './Complete.jsx'
 import StationView from '../vessel/StationView.jsx'
 import { useCountdown } from '../hooks/useCountdown.js'
-import { Button, Badge, Progress } from '../ui/primitives.jsx'
+import { Button, Badge } from '../ui/primitives.jsx'
+import StepTimeline from './StepTimeline.jsx'
 import {
   PHASE_LABEL, selectAlternative, hasAlternatives, stepText,
   effectiveStep, timerSeconds, extractTemperature, elapsedFraction,
@@ -65,16 +66,17 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
   }
 
   const passes = passByStep[step.index] || 0
-  const progress = ((i + 1) / steps.length) * 100
 
   return (
     <div className="runner" data-phase={step.phase}>
       <header className="runner-top">
-        <div className="brand"><span className="dot" /> benchpilot</div>
-        <div className="rt-progress"><Progress value={progress} label="protocol progress" /></div>
-        <span className="rt-count num">{i + 1} / {steps.length}</span>
-        <span className="spacer" />
-        <Button variant="ghost" size="sm" onClick={onExit}>← Home</Button>
+        <div className="rt-bar">
+          <div className="brand"><span className="dot" /> benchpilot</div>
+          <span className="rt-count num">{i + 1} / {steps.length}</span>
+          <span className="spacer" />
+          <Button variant="ghost" size="sm" onClick={onExit}>← Home</Button>
+        </div>
+        <StepTimeline steps={steps} current={i} onJump={setI} />
       </header>
 
       <div className="runner-body">

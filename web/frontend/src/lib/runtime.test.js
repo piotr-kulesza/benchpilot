@@ -16,10 +16,43 @@ import {
   deriveIntakeFields,
   localize,
   stepText,
+  shortLabel,
   reagentName,
   stepHazards,
   extractTemperature,
 } from './runtime.js'
+
+describe('shortLabel — compact chip label for the step timeline', () => {
+  it('uses an explicit parser label when present', () => {
+    expect(shortLabel({ label: 'Lyse cells', action: 'pour_add' })).toBe('Lyse cells')
+  })
+  it('builds "<verb> <reagent>" from the action vocabulary', () => {
+    expect(shortLabel({ action: 'pour_add', reagents: [{ name_en: 'RLT Buffer' }] })).toBe('Add RLT buffer')
+    expect(shortLabel({ action: 'pour_add', reagents: [{ name_en: '70% ethanol' }] })).toBe('Add 70% ethanol')
+  })
+  it('is just the verb when there is no reagent', () => {
+    expect(shortLabel({ action: 'centrifuge' })).toBe('Spin')
+    expect(shortLabel({ action: 'incubate_wait' })).toBe('Incubate')
+    expect(shortLabel({ action: 'elute' })).toBe('Elute')
+    expect(shortLabel({ action: 'transfer', reagents: [] })).toBe('Transfer')
+  })
+  it('keeps acronyms and mixed-case reagent names intact', () => {
+    expect(shortLabel({ action: 'pour_add', reagents: [{ name_en: 'DNase I' }] })).toBe('Add DNase I')
+    expect(shortLabel({ action: 'pour_add', reagents: [{ name_en: 'RW1' }] })).toBe('Add RW1')
+  })
+  it('falls back to the first words of the instruction for a generic step', () => {
+    expect(shortLabel({ action: 'generic', text_en: 'Record the absorbance at 450 nm' })).toBe('Record the absorbance…')
+  })
+  it('caps at ~3 words / ~22 chars, ellipsising at a word boundary', () => {
+    const s = shortLabel({ action: 'pour_add', reagents: [{ name_en: 'balanced salt solution without calcium' }] })
+    expect(s).toBe('Add balanced salt…')
+    expect(s.length).toBeLessThanOrEqual(23)
+  })
+  it('is empty-safe', () => {
+    expect(shortLabel(null)).toBe('')
+    expect(shortLabel({ action: 'generic', text_en: '' })).toBe('')
+  })
+})
 
 describe('formatDuration -> m:ss / h:mm:ss', () => {
   it('formats seconds under a minute', () => {
