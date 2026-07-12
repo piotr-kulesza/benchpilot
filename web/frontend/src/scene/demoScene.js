@@ -1835,6 +1835,10 @@ export {
   function stationReagent(st, Y, o){
     addPipetteRig(st);
     addBottle(st, o.key, o.blabel, o.color, 2.0, 0.7);
+    // CONTRACT: the container tells the pipette WHERE to dispense (a tube: dead
+    // centre; a well: one off-centre well; a flask: at the canted neck). Default =
+    // centre (the microtube), so nothing regresses when a container omits it.
+    var disp = o.dispense || {x:0, z:0};
     st.enter=function(){
       SAMPLE.only(o.vessel);
       var v=SAMPLE[o.vessel];
@@ -1853,7 +1857,7 @@ export {
         b.userData.setCap(!(p>0.03 && p<0.36));
         b.userData.setLevel(1 - 0.22*clamp(p/0.30,0,1));
       }
-      pipetteRun(st, st.reagents[o.key].pos, {x:0,y:Y,z:0}, p, {color:o.color, fill:0.8});
+      pipetteRun(st, st.reagents[o.key].pos, {x:disp.x,y:Y,z:disp.z}, p, {color:o.color, fill:0.8});
       if(p>0.62){ var q=easeInOut((p-0.62)/0.38);
         v.userData.setLevel(lerp(o.lStart,o.lEnd,q));
         if(o.cEnd!=null) v.userData.setColor(o.cEnd);

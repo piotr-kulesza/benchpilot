@@ -15,6 +15,7 @@ import { PerspectiveCamera, OrthographicCamera } from '@react-three/drei'
 import { FogExp2, Color, Vector3, Group, Mesh, TorusGeometry, SphereGeometry, MeshStandardMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
 import { resolveRecipe, sampleContainerSequence, resolveRemoval } from './sceneRecipe.js'
+import { containerContract } from './containerContract.js'
 import { reagentName, reagentVolume, effectiveStep, selectAlternative, hasAlternatives } from '../lib/runtime.js'
 import * as demo from '../scene/demoScene.js'
 
@@ -34,14 +35,8 @@ const GLIDE_DUR = 1.65 // camera rail-dolly duration on a step change (the demo)
 // station is full, neighbours recede into fog, and mid-dolly BOTH are visible.
 const VIS_FULL = SPACING * 0.5 // fully visible within here
 const VIS_GONE = SPACING * 1.6 // faded out beyond here
-
-// container token → sample-vessel key in the demo's SAMPLE object. Every container in
-// the closed vocab now maps to real geometry (no more tube fallback for plates/slides).
-const V_OF = {
-  microtube: 'tube', tube: 'tube', spin_column: 'column', eluate_tube: 'elu', bottle: 'tube',
-  cryovial: 'cryovial', well_plate: 'wellplate', flask: 'flask', dish: 'dish',
-  slide: 'slide', membrane: 'membrane', gel: 'gel', agar_plate: 'agarplate',
-}
+// (container → sample-vessel geometry is now owned by containerContract.js — the
+// microtube is one implementation of that contract, not the baked-in default.)
 
 // Snapshot each station's material opacities so the whole unit (equipment +
 // labels + decal + shadow) can be faded in/out together — ported from the demo's
@@ -174,16 +169,17 @@ function Floor({ totalLen }) {
 
 // Build a station for a step. Every action gets a timeline with VISIBLE motion
 // driven by the per-step progress p (0->1): so no station is ever static.
-function configureStation(st, o) {
+export function configureStation(st, o) {
   const { action, equipment, container, prevContainer, color, name, vol, seconds, startColor, startLevel, endColor, endLevel, cycles } = o
-  const vessel = V_OF[container] || 'tube'
-  const removal = resolveRemoval(container) // 'tip' (tube) vs 'aspirate' (plate/membrane)
+  // THE CONTRACT: the container owns its geometry facts (vessel geo, flat vs upright,
+  // seat height, dispense point, tip-vs-aspirate). No more microtube-shaped defaults.
+  const C = containerContract(container)
+  const vessel = C.vessel
+  const removal = C.emptyMotion // 'tip' (tube) vs 'aspirate' (plate/membrane — never tipped)
   const S = demo.getSample()
   const BT = demo.BLOCK_TOP
-  // flat vessels (plates, dishes, slides, membranes, gel, flask) sit ON the bench;
-  // tubes/vials seat at the block-top height. seat() forces a flat vessel to y≈0.
-  const FLAT = ['wellplate', 'flask', 'dish', 'slide', 'membrane', 'gel', 'agarplate'].includes(vessel)
-  const SEAT_Y = FLAT ? 0 : BT
+  const FLAT = C.flat
+  const SEAT_Y = C.flat ? 0 : BT
 
   // seat the travelling sample WITHOUT resetting its contents: it enters at the
   // carried-in (start) state, so it continues from where the last step left it.
@@ -214,7 +210,8 @@ function configureStation(st, o) {
   if (action === 'pour_add') {
     // resident pipette rig + bottle; pipette pours over p, fill ramps at p>0.62.
     // cStart/lStart = carried-in state, so the pour builds ON the existing contents.
-    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel })
+    // dispense point comes from the CONTRACT (well/neck/centre), not a tube default.
+    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense })
   } else if (action === 'pipette_mix') {
     // resuspend / mix by pipetting: the pipette bobs STRAIGHT down into the tube
     // and back, aspirating + dispensing. (Do NOT reuse pipetteRun here — that's a
@@ -267,11 +264,16 @@ function configureStation(st, o) {
     if (removal === 'aspirate') {
       // resident pipette sucks the liquid out (its stand comes with the rig — a
       // genuine pipetting station); the level drains as it draws up.
+      // aspirate AT the container's dispense point (a well / the flask surface),
+      // descending to just above THAT surface — not a fixed tube height.
+      const dx = C.dispense.x, dz = C.dispense.z
+      const hiY = FLAT ? 1.9 : BT + 1.35
+      const loY = FLAT ? C.dispense.y + 0.12 : BT + 0.85
       demo.addPipetteRig(st)
-      st.enter = () => { seat(0, BT, 0); if (st.pip) { st.pip.position.set(0, BT + 1.35, 0); st.pip.userData.setFluid(0) } }
+      st.enter = () => { seat(0, BT, 0); if (st.pip) { st.pip.position.set(dx, hiY, dz); st.pip.userData.setFluid(0) } }
       st.timeline = (p) => {
         if (st.pip) {
-          st.pip.position.set(0, demo.lerp(BT + 1.35, BT + 0.85, demo.easeInOut(demo.clamp(p * 1.4, 0, 1))), 0)
+          st.pip.position.set(dx, demo.lerp(hiY, loY, demo.easeInOut(demo.clamp(p * 1.4, 0, 1))), dz)
           st.pip.userData.setColor(endColor)
           st.pip.userData.setFluid(demo.easeInOut(demo.clamp(p, 0, 1)) * 0.7)
         }
@@ -339,14 +341,18 @@ function configureStation(st, o) {
     st.arc.rotation.set(Math.PI / 2, 0, Math.PI / 2)
     st.group.add(st.arc)
     st._arcP = -1
-    st.enter = () => seat(0, BT, 0)
+    st.enter = () => { seat(0, BT, 0); const v = S[vessel]; if (v.userData.setMono) v.userData.setMono(1) }
     st.timeline = (p) => {
       if (Math.abs(p - st._arcP) > 0.02) {
         st._arcP = p
         st.arc.geometry.dispose()
         st.arc.geometry = new TorusGeometry(0.55, 0.05, 14, 64, Math.max(0.001, p * Math.PI * 2))
       }
-      S[vessel].userData.setLevel(evolve(p) + Math.sin(p * 10) * 0.02) // holds carried contents
+      const v = S[vessel]
+      // contentsState (passaging hero): during a flask incubation the adherent
+      // MONOLAYER visibly DETACHES (trypsinisation) — confluent → cleared.
+      if (v.userData.setMono) v.userData.setMono(1 - demo.easeInOut(demo.clamp((p - 0.3) / 0.5, 0, 1)))
+      v.userData.setLevel(evolve(p) + Math.sin(p * 10) * 0.02) // holds carried contents
     }
   } else if (action === 'heat') {
     // WATER BATH — a warm water-filled tub with the tube half-submerged + steam,
@@ -463,7 +469,7 @@ function configureStation(st, o) {
     }
   } else if (action === 'seed') {
     // dispense the sample into the culture vessel; on agar, a spreader then sweeps it out.
-    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel })
+    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense })
     if (container === 'agar_plate') {
       const spr = demo.buildSpreader()
       spr.scale.setScalar(0.9)
@@ -510,7 +516,7 @@ function configureStation(st, o) {
   // hand-off (old vessel lifts out → new vessel settles in) instead of the new vessel
   // popping out of nowhere. Skip actions that already choreograph the vessel: transfer
   // pours across; the centrifuge glides it into the rotor; store flies it into the freezer.
-  const prevVessel = prevContainer ? (V_OF[prevContainer] || 'tube') : null
+  const prevVessel = prevContainer ? containerContract(prevContainer).vessel : null
   const custom = action === 'transfer' || action === 'store' || equipment === 'centrifuge'
   if (prevVessel && prevVessel !== vessel && !custom) {
     wrapHandoff(st, S, prevVessel, vessel, startColor, startLevel)
