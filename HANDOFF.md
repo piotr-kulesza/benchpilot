@@ -39,6 +39,29 @@ rewritten instead of imported. Go import it.**
 
 ---
 
+## Principles the hard way (honesty in what the scene claims)
+
+The 3D scene is a claim about what is physically happening. Every one of these
+was learned by shipping the opposite.
+
+- **A wrong instrument is worse than a missing one.** Reading a flask on a
+  NanoDrop, or a plate on a tube block, asserts something false. The equipment
+  contract (`containerContract.js` `INSTRUMENTS`/`resolveInstrument`) lists what
+  each instrument ACCEPTS and falls back to the bench when nothing fits — never to
+  the wrong device.
+- **A meaningless animation is worse than none.** A vessel spinning on the bench
+  for no reason implies work that isn't happening. When an (action, container) has
+  no instrument or motion, hold the vessel **at rest** with its readout. Stillness
+  is honest. (This is why the `measure` and generic fallbacks no longer idle-spin.)
+- **A hardcoded special-case can mask a data defect.** The `transfer → spin_column`
+  hardcode silently supplied a destination the PARSE had failed to name, hiding the
+  missing container for weeks. When you remove a special-case and something breaks,
+  **suspect the data, not the removal.** The guard now warns
+  (`findTransferHandoffDefects`) instead of papering over it, and a coverage
+  assertion runs it over every bundled protocol.
+
+---
+
 ## Gotchas that cost us hours (do not rediscover these)
 
 - **three r155+ is physically-correct: light intensity is divided by π.** The
