@@ -323,9 +323,33 @@ export function configureStation(st, o) {
     // the name heuristic is a fallback for data parsed before Stage 34.
     const fromMix = reags.length === 1 && (!!o.drawsFrom
       || /\bmix\b|mixture|master ?mix|working solution/i.test(reags[0].name || ''))
+    // the ONE persistent prep vessel this step consumes (Stage 36) — carried here, drawn from.
+    const prep = (fromMix && o.drawsFrom) ? demo.getPrep(o.drawsFrom) : null
     if (reags.length <= 1 && !fromMix) {
       // UNCHANGED single-reagent path: resident pipette rig + bottle; fill ramps at p>0.62.
       demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: C.entryPoint })
+    } else if (prep) {
+      // DRAW FROM THE CARRIED MIX (Stage 36). The prep tube was made at its own station and
+      // is glided HERE (placePreps + the frame loop) — one object, moved, not a copy. The
+      // pipette draws OUT of it into the sample, and its level DROPS as it is used.
+      const disp = C.dispense || { x: 0, z: 0 }
+      const toY = (disp.approach === 'angled' && disp.y != null) ? disp.y : SEAT_Y
+      const draw = { x: 2.0, y: 0.9, z: 0.7 }          // where the tube parks + the pipette dips
+      const streamColor = prep.userData.mixColor != null ? prep.userData.mixColor : reags[0].color
+      const PREP_FULL = 0.62
+      st.drawsFromId = o.drawsFrom
+      st.drawPos = { x: st.x + draw.x, y: 0, z: draw.z } // WORLD seat the carried tube glides to
+      demo.addPipetteRig(st)
+      st.enter = () => { seat(0, SEAT_Y, 0); demo.pipRest(st); prep.userData.setLevel(PREP_FULL) }
+      st.timeline = (p) => {
+        const v = S[vessel]
+        demo.pipetteRun(st, new Vector3(draw.x, draw.y, draw.z), { x: disp.x, y: toY, z: disp.z }, p,
+          { color: streamColor, fill: 0.8, approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: C.entryPoint })
+        const done = (p > 0.62 ? demo.easeInOut((p - 0.62) / 0.38) : 0)
+        v.userData.setLevel(demo.lerp(startLevel, endLevel, done))
+        v.userData.setColor(endColor)
+        prep.userData.setLevel(demo.lerp(PREP_FULL, 0.1, demo.easeInOut(demo.clamp(p, 0, 1)))) // drained as used
+      }
     } else {
       // N reagents → N pipette passes INTO the sample (one per reagent, from its own source).
       const disp = C.dispense || { x: 0, z: 0 }
@@ -348,14 +372,22 @@ export function configureStation(st, o) {
   } else if (action === 'prepare') {
     // NOT EVERY STEP HAPPENS TO THE SAMPLE. Combine the reagents in a SEPARATE vessel, on
     // the side; the SAMPLE sits visibly idle and untouched. The prep vessel is the subject.
+    // It is a SECOND TRAVELLING OBJECT (Stage 36): built ONCE here, scene-parented so it can
+    // be CARRIED later to the step that draws from it — never rebuilt, never teleported.
     const reags = (o.reagents && o.reagents.length) ? o.reagents : [{ name, vol, color: endColor }]
-    const prep = demo.buildTube({ height: 1.7, radius: 0.34 })
-    prep.position.set(0.4, 0, 0.2)
+    const prepId = o.produces || ('prep_' + Math.round(st.x))
+    const PREP_FULL = 0.62
+    const prep = demo.makePrep(prepId, { height: 1.7, radius: 0.34 })
+    const home = { x: st.x + 0.4, y: 0, z: 0.2 }
+    prep.position.set(home.x, home.y, home.z); prep.userData.tPos.copy(prep.position)
+    prep.userData.mixColor = reags[reags.length - 1].color // the mixture's settled colour
     prep.userData.setColor(reags[0].color); prep.userData.setLevel(0)
     prep.userData.setLabel(name || 'mixture', vol || '')
-    st.group.add(prep); st.updatables.push(prep); st.prep = prep
+    st.prep = prep; st.prepId = prepId; st.prepHome = home; st.prepFull = PREP_FULL
     demo.addPipetteRig(st)
     reags.forEach((r, k) => demo.addBottle(st, 'r' + k, r.name, r.color, 2.2 + k * 0.95, 0.7))
+    // the prep sits at (0.4, ·, 0.2) LOCAL to this station while it is being made, so the
+    // bottles dispense straight into it (world == home because it is parked here).
     const DIP = { x: 0.4, y: SEAT_Y, z: 0.2 }
     // the idle sample lives beside the prep, showing its carried contents — untouched.
     const idleSample = () => {
@@ -363,10 +395,10 @@ export function configureStation(st, o) {
       const sv = S[vessel]
       sv.userData.setColor(startColor); sv.userData.setLevel(startLevel)
       sv.visible = true; sv.rotation.set(0, 0, 0); sv.scale.setScalar(1)
-      demo.setSnap(true); S.at(sv, st.x - 2.0, SEAT_Y, -0.1); demo.setSnap(false)
+      S.snapTo(sv, st.x - 2.0, SEAT_Y, -0.1) // idle beside the prep; never clobber global snap
       return sv
     }
-    st.enter = () => { idleSample(); prep.userData.setLevel(0); demo.pipRest(st) }
+    st.enter = () => { idleSample(); prep.userData.setLevel(0); prep.userData.setColor(reags[0].color); demo.pipRest(st) }
     st.timeline = (p) => {
       const sv = S[vessel]
       sv.userData.setColor(startColor); sv.userData.setLevel(startLevel) // untouched, held
@@ -375,7 +407,7 @@ export function configureStation(st, o) {
       const lp = demo.clamp((p - k * seg) / seg, 0, 1)
       demo.pipetteRun(st, st.reagents['r' + k].pos, DIP, lp, { color: reags[k].color, fill: 0.8, dipDepth: 0.62 })
       const done = (k + (lp > 0.62 ? demo.easeInOut((lp - 0.62) / 0.38) : 0)) / n
-      prep.userData.setLevel(done * 0.62)
+      prep.userData.setLevel(done * PREP_FULL)
       prep.userData.setColor(reags[Math.min(k, n - 1)].color)
     }
   } else if (action === 'pipette_mix') {
@@ -1002,6 +1034,26 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
   const perspRef = useRef()
   const keyRef = useRef()
   const rimRef = useRef()
+  // prep-vessel lifetimes: id -> { prepareIndex, consumerIndex, home:{x,y,z}, draw:{x,y,z} }.
+  // Drives where each carried mixture sits (home vs the station drawing from it) and when
+  // it is visible (from where it's made through where it's consumed).
+  const prepMetaRef = useRef({})
+
+  // Position + show/hide every prep vessel for the active station: at its consumer it sits
+  // at the draw seat (so it's carried there), otherwise at its home; visible only across
+  // its lifetime. Snap policy is whatever the caller set (jump snaps, sequential glides),
+  // so a prep travels on the SAME rails as the sample.
+  const placePreps = (active) => {
+    const meta = prepMetaRef.current
+    for (const id in meta) {
+      const m = meta[id]
+      const end = m.consumerIndex == null ? m.prepareIndex : m.consumerIndex
+      demo.setPrepVisible(id, active >= m.prepareIndex && active <= end)
+      const atConsumer = m.consumerIndex != null && active === m.consumerIndex && m.consumerIndex !== m.prepareIndex
+      const t = atConsumer ? m.draw : m.home
+      demo.prepAt(id, t.x, t.y, t.z)
+    }
+  }
 
   // one-time scene setup + the persistent travelling SAMPLE (preset-independent, so a
   // live bench flip never recreates the sample).
@@ -1046,6 +1098,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
   // only dollies the camera and glides the single sample. ──
   useEffect(() => {
     if (!demo.getSample()) return undefined
+    demo.initPreps() // dispose any prior run's carried mixtures before rebuilding the line
     // A transfer whose destination container == the previous container never actually
     // moves the sample — the parse omitted the destination and it carried forward.
     // Warn loudly; a silent fallback is exactly how the "load column" defect hid.
@@ -1071,7 +1124,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       configureStation(st, {
         action: o.action, equipment: o.equipment, container, prevContainer, color: o.colorHex, name: o.title, vol: o.vol, seconds: o.seconds,
         startColor: o.start.color, startLevel: o.start.level, endColor: o.end.color, endLevel: o.end.level, cycles: o.cycles, reagents: o.reagents,
-        drawsFrom: o.drawsFrom,
+        drawsFrom: o.drawsFrom, produces: o.produces,
       })
       // MEASURE the framing from the equipment now — group is still at the origin and
       // carries only the instrument (not the label/decal added below), so this is the
@@ -1081,8 +1134,10 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       // the title sits just ABOVE the thing the step is about — the props' bbox top,
       // centred on it — not over the station origin. Its own half-height (worldH/2)
       // plus a small gap put the plate's BOTTOM edge clear of the subject.
-      // chromeless (the Home hero): just the lit glass, no title plate, no bench number
-      if (!chromeless) {
+      // chromeless (the Home hero): just the lit glass, no title plate, no bench number.
+      // A `prepare` station's subject is the CARRIED prep tube, which owns its own label and
+      // travels with it — a station title here would duplicate it (and be left behind), so skip.
+      if (!chromeless && !st.prepId) {
         const label = demo.makeLabel(o.title, o.sub)
         const LABEL_GAP = 0.95
         const halfH = (label.userData.worldH || 0.5) / 2
@@ -1110,6 +1165,18 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     })
     stationsRef.current = stations
 
+    // wire each carried mixture's lifetime: where it's MADE (prepare station) and where it's
+    // DRAWN FROM (consumer station). Its home is the make seat; its draw seat is the consumer.
+    const meta = {}
+    for (let si = 0; si < stations.length; si++) {
+      const st = stations[si]
+      if (st.prepId) meta[st.prepId] = { ...(meta[st.prepId] || {}), prepareIndex: si, home: st.prepHome }
+      if (st.drawsFromId) meta[st.drawsFromId] = { ...(meta[st.drawsFromId] || {}), consumerIndex: si, draw: st.drawPos }
+    }
+    // a prep with no home (consumer built but its prepare wasn't) can't travel — drop it.
+    for (const id in meta) if (!meta[id].home) delete meta[id]
+    prepMetaRef.current = meta
+
     // frame + seat the active station: snap the sample there, park the camera on it.
     const a = Math.max(0, Math.min(active, stations.length - 1))
     railXRef.current = stations[a] ? stations[a].x : 0
@@ -1118,6 +1185,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     demo.undockSample() // in case a rebuild interrupted a spin
     demo.setSnap(true)
     stations[a]?.enter?.()
+    placePreps(a) // snap each carried mixture to its home/draw seat for the initial frame
     demo.setSnap(false)
     pRef.current = 0
     restartRef.current = true
@@ -1130,6 +1198,8 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
         disposeGroup(st.group)
         if (st.decal) { scene.remove(st.decal); disposeGroup(st.decal) }
       }
+      demo.initPreps() // dispose the carried mixtures (scene-parented, outside the groups)
+      prepMetaRef.current = {}
       stationsRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1151,6 +1221,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     demo.getSample()?.vessels.forEach((v) => v.rotation.set(0, 0, 0))
     demo.setSnap(!sequential)
     stations[active].enter?.()
+    placePreps(active) // carry each prep to its seat — glides on a sequential Next, snaps on a jump
     demo.setSnap(false)
     pRef.current = 0
     restartRef.current = true
@@ -1289,6 +1360,12 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
         }
       }
       v.userData.update?.(dt)
+    }
+    // 5b · prep vessels ride the SAME rails: each prepared mixture is CARRIED to the
+    // station that draws from it, gliding exactly like the sample — never teleporting.
+    for (const pv of demo.getPreps()) {
+      if (pv.visible) pv.position.lerp(pv.userData.tPos, 1 - Math.pow(0.02, dt))
+      pv.userData.update?.(dt)
     }
 
     // 6 · fade equipment by distance from the rail — active full, neighbours

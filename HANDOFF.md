@@ -108,6 +108,19 @@ was learned by shipping the opposite.
   Even Next mid-spin must leave properly: stop, open, lift, glide — fast, but never a cut.
   A jump (deep-link) may snap; a sequential Next never does. `undockSample(lift)` +
   `exitLiftPoint` (pure, tested); jumps snap, sequential lifts.
+- **Nothing in the scene teleports — not the sample, not a prep vessel, not a reagent.** If
+  an object is in two places across two steps it must be SEEN to move between them, because at
+  the bench it did; an object that just appears where it's needed is the scene lying about work
+  the scientist actually had to do. A prepared mixture is a SECOND travelling object on the SAME
+  rails as the sample: built ONCE at its `prepare` station (`demo.makePrep`, scene-parented,
+  keyed by `produces`), it persists holding its mixture and is **carried** — glided, eased,
+  settled — to the step that `draws_from` it, where the pipette draws OUT of it and its level
+  drops. Reuse the sample's machinery (`prepAt`/`getPreps` mirror `S.at`/`vessels`, the frame
+  loop's §5b glide mirrors §5); never build a second parallel motion system, and never rebuild
+  the tube at the consuming station — that two-objects-look-alike shortcut IS the teleport bug.
+  `placePreps` positions each mixture (home vs draw seat) and shows it only across its lifetime
+  (made → consumed). A unit test can check the waypoints; it cannot tell you the object moved —
+  verify that by watching (`prepX` glides smoothly, e.g. 67.6 → 77.6, not a jump).
 
 ---
 

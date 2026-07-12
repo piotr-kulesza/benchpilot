@@ -32,6 +32,45 @@ export function setScene(s) { scene = s }
 export function setSnap(v) { SNAP_SAMPLE = v }
 export function initSample() { SAMPLE = buildSample(); return SAMPLE }
 export function getSample() { return SAMPLE }
+
+// ── PREP VESSELS — a prepared mixture is a SECOND travelling object, on the SAME rails
+// as the sample. Built ONCE at its `prepare` station, it persists on the bench with the
+// mixture it ended up holding, and is CARRIED (glided, never teleported) to the station
+// that draws from it. Keyed by the parsed `produces` id. Reuses the sample's tPos/glide
+// machinery: the frame loop eases each prep toward its tPos, snapping only on a jump.
+let PREPS = {}
+function disposePrep(group) {
+  group.traverse((o) => {
+    if (o.geometry) o.geometry.dispose()
+    const mats = Array.isArray(o.material) ? o.material : o.material ? [o.material] : []
+    for (const m of mats) { for (const k in m) { const t = m[k]; if (t && t.isTexture) t.dispose() } m.dispose?.() }
+  })
+}
+export function initPreps() {
+  for (const id in PREPS) { const v = PREPS[id]; if (scene) scene.remove(v); disposePrep(v) }
+  PREPS = {}
+}
+// Create the prep tube ONCE (idempotent — a rebuild returns the existing object so it is
+// never duplicated). Parented to the scene (world coords) so it can travel between stations.
+export function makePrep(id, opts = {}) {
+  if (PREPS[id]) return PREPS[id]
+  const v = buildTube(opts)
+  v.userData.noFrame = true
+  v.userData.tPos = v.position.clone()
+  if (scene) scene.add(v)
+  PREPS[id] = v
+  return v
+}
+export function getPrep(id) { return PREPS[id] || null }
+export function getPreps() { return Object.values(PREPS) }
+export function setPrepVisible(id, vis) { const v = PREPS[id]; if (v) v.visible = !!vis }
+// set a prep's travel target — snap on a jump (SNAP_SAMPLE), glide otherwise, exactly
+// like S.at for the sample.
+export function prepAt(id, x, y, z) {
+  const v = PREPS[id]; if (!v) return
+  v.userData.tPos.set(x, y, z)
+  if (SNAP_SAMPLE) v.position.set(x, y, z)
+}
 // If a step change interrupts a spin, the sample may still be parented into a
 // centrifuge rotor slot — return every vessel to the scene (upright, full size).
 // The sample NEVER teleports: when `lift` is set (a sequential Next), a vessel that
