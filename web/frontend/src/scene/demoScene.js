@@ -1295,6 +1295,101 @@ export function undockSample() {
     g.fillText("260 nm", 600, 448);
   }
 
+  /* ---------- inverted microscope (Stage-12 #4) — a culture FLASK rests on the open
+     stage and is viewed from BELOW: the objective turret sits UNDER the stage, the
+     illumination column arches OVER it. For "observe the cells" on adherent culture. */
+  function buildInvertedMicroscope(){
+    var grp=new THREE.Group();
+    var shell=matPainted(0xc4cad2,0.5), dark=matPainted(0x2b313a,0.5), steel=matBrushed(0xb7c0cc);
+    var foot=new THREE.Mesh(new THREE.BoxGeometry(2.3,0.12,1.7), dark); foot.position.y=0.06; foot.receiveShadow=true; grp.add(foot);
+    var base=new THREE.Mesh(new THREE.BoxGeometry(2.0,0.5,1.5), shell); base.position.y=0.36; base.castShadow=true; base.receiveShadow=true; grp.add(base);
+    // objective turret rising from the base to just under the stage (the inverted cue)
+    var turret=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.24,0.5,24), dark); turret.position.set(0,0.9,0.1); grp.add(turret);
+    for(var i=0;i<3;i++){ var a=i*2.1; var ob=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.05,0.22,16), steel);
+      ob.position.set(Math.cos(a)*0.11,1.08,0.1+Math.sin(a)*0.11); grp.add(ob); }
+    // the open STAGE with a central aperture — the flask sits here
+    var stageY=1.35;
+    var stage=new THREE.Mesh(new THREE.BoxGeometry(1.9,0.08,1.3), matPlastic(0x3a4049)); stage.position.set(0,stageY,0); grp.add(stage);
+    var aperture=new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.26,0.09,24), dark); aperture.position.set(0,stageY,0.1); grp.add(aperture);
+    // illumination column arching OVER the stage, lamp housing pointing down
+    var back=new THREE.Mesh(new THREE.BoxGeometry(0.34,1.9,0.34), shell); back.position.set(0,1.95,-0.62); grp.add(back);
+    var arm=new THREE.Mesh(new THREE.BoxGeometry(0.34,0.3,0.95), shell); arm.position.set(0,2.78,-0.2); grp.add(arm);
+    var lampHous=new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.2,0.28,20), dark); lampHous.position.set(0,2.52,0.1); grp.add(lampHous);
+    var lampLight=new THREE.PointLight(0xfff2d8,0.0,3); lampLight.position.set(0,2.3,0.1); grp.add(lampLight);
+    // binocular eyepieces angled toward the viewer at the front
+    var head=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.3,0.5), dark); head.position.set(0,0.64,0.78); grp.add(head);
+    var ey1=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.08,0.34,16), dark); ey1.position.set(-0.14,0.84,0.95); ey1.rotation.x=1.0; grp.add(ey1);
+    var ey2=ey1.clone(); ey2.position.x=0.14; grp.add(ey2);
+    var label=makeLabel("Inverted microscope",""); label.position.set(0,3.3,0); grp.add(label); grp.userData.label=label;
+    var st={ lit:0, tLit:0.85 };
+    grp.userData.setProgress=function(v){ st.tLit=0.4+0.5*clamp(v,0,1); };
+    grp.userData.update=function(dt){ st.lit=lerp(st.lit,st.tLit,1-Math.pow(0.02,dt)); lampLight.intensity=st.lit*0.9; };
+    grp.userData.update(0.001);
+    grp.userData.stageY=stageY+0.04;
+    return grp;
+  }
+
+  /* ---------- upright light microscope (Stage-12 #4) — a SLIDE on the stage, viewed
+     from ABOVE at 100× oil immersion; the optical axis (illuminator → stage → nosepiece)
+     is at x=0 so the slide seats cleanly. The Gram-stain read + haemocytometer count. */
+  function buildLightMicroscope(){
+    var grp=new THREE.Group();
+    var shell=matPainted(0x20262e,0.5), steel=matBrushed(0xc2cad4), stageMat=matPlastic(0x2b313a);
+    var foot=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.18,1.6), shell); foot.position.set(0.1,0.09,0); foot.receiveShadow=true; grp.add(foot);
+    var arm=new THREE.Mesh(new THREE.BoxGeometry(0.42,2.2,0.5), shell); arm.position.set(0.62,1.25,-0.35); grp.add(arm);
+    // illuminator base UNDER the stage (optical axis x=0)
+    var illum=new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.3,0.3,24), shell); illum.position.set(0,0.5,0); grp.add(illum);
+    var illumLight=new THREE.PointLight(0xffffff,0.0,2); illumLight.position.set(0,0.74,0); grp.add(illumLight);
+    // the STAGE — the slide rests here
+    var stageY=0.98;
+    var stage=new THREE.Mesh(new THREE.BoxGeometry(1.2,0.07,1.0), stageMat); stage.position.set(0,stageY,0); grp.add(stage);
+    var clip=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.04,0.06), steel); clip.position.set(0,stageY+0.07,0.32); grp.add(clip);
+    // nosepiece + objectives ABOVE, the long 100× oil objective nearly touching the slide
+    var nose=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.16,0.16,20), shell); nose.position.set(0,1.56,0); grp.add(nose);
+    var objL=[0.34,0.26]; for(var i=0;i<2;i++){ var a=1.9+i*2.1; var ob=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.045,objL[i],16), steel);
+      ob.position.set(Math.cos(a)*0.1, 1.56-objL[i]/2, Math.sin(a)*0.1); grp.add(ob); }
+    var oil=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.04,0.44,16), steel); oil.position.set(0,1.32,0); grp.add(oil);
+    // body tube + binocular head + focus knob (offset to the arm side)
+    var body=new THREE.Mesh(new THREE.BoxGeometry(0.34,0.8,0.4), shell); body.position.set(0.3,1.72,-0.12); grp.add(body);
+    var ey1=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.08,0.34,16), shell); ey1.position.set(0.16,2.06,0.26); ey1.rotation.x=1.05; grp.add(ey1);
+    var ey2=ey1.clone(); ey2.position.x=0.44; grp.add(ey2);
+    var knob=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.17,0.12,26), matBrushed(0xb7bfca)); knob.rotation.z=Math.PI/2; knob.position.set(0.62,0.66,0.12); grp.add(knob);
+    var label=makeLabel("Light microscope","100× oil"); label.position.set(0,2.55,0); grp.add(label); grp.userData.label=label;
+    var il={ v:0, t:0.9 }; grp.userData.setProgress=function(v){ il.t=0.5+0.5*clamp(v,0,1); };
+    grp.userData.update=function(dt){ il.v=lerp(il.v,il.t,1-Math.pow(0.02,dt)); illumLight.intensity=il.v*0.7; };
+    grp.userData.update(0.001);
+    grp.userData.stageY=stageY+0.05;
+    return grp;
+  }
+
+  /* ---------- UV transilluminator / gel doc (Stage-12 #4) — the GEL lies on a glowing
+     UV surface; an amber UV-blocking hood tilts over the back and a camera on a mast
+     images it. The surface emission ramps with progress so the bands light up. */
+  function buildUVTransilluminator(){
+    var grp=new THREE.Group();
+    var box=matPainted(0x23272e,0.5), dark=matPainted(0x15181d,0.55);
+    var base=new THREE.Mesh(new THREE.BoxGeometry(2.4,0.5,1.9), box); base.position.y=0.25; base.castShadow=true; base.receiveShadow=true; grp.add(base);
+    // the UV surface the gel rests on — emissive, ramps up as it "reads"
+    var surfY=0.52;
+    var surfMat=new THREE.MeshStandardMaterial({ color:0x2a3350, emissive:0x3f6bff, emissiveIntensity:0.15, roughness:0.4, toneMapped:false });
+    var surf=new THREE.Mesh(new THREE.BoxGeometry(2.0,0.05,1.5), surfMat); surf.position.y=surfY; grp.add(surf);
+    var uvLight=new THREE.PointLight(0x6f8bff,0.0,3.5); uvLight.position.set(0,surfY+0.5,0); grp.add(uvLight);
+    // amber UV-blocking hood tilted over the back
+    var hoodMat=new THREE.MeshPhysicalMaterial({ color:0xd98a2b, transparent:true, opacity:0.42, roughness:0.4, side:THREE.DoubleSide, depthWrite:false });
+    var hood=new THREE.Mesh(new THREE.BoxGeometry(2.1,1.1,0.05), hoodMat); hood.position.set(0,1.05,-0.7); hood.rotation.x=-0.5; grp.add(hood);
+    // gel-doc camera on a mast above
+    var mast=new THREE.Mesh(new THREE.BoxGeometry(0.16,1.7,0.16), box); mast.position.set(-0.92,1.35,-0.72); grp.add(mast);
+    var cam=new THREE.Mesh(new THREE.BoxGeometry(0.42,0.32,0.42), dark); cam.position.set(-0.55,2.05,-0.4); grp.add(cam);
+    var lens=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.11,0.2,20), dark); lens.rotation.x=Math.PI/2; lens.position.set(-0.55,1.83,-0.28); grp.add(lens);
+    var label=makeLabel("UV transilluminator",""); label.position.set(0,2.55,0); grp.add(label); grp.userData.label=label;
+    var st={ g:0, t:1 }; grp.userData.setProgress=function(v){ st.t=clamp(v,0,1); };
+    grp.userData.update=function(dt){ st.g=lerp(st.g,st.t,1-Math.pow(0.03,dt));
+      surfMat.emissiveIntensity=0.15+st.g*0.95; uvLight.intensity=st.g*1.2; };
+    grp.userData.update(0.001);
+    grp.userData.stageY=surfY+0.05;
+    return grp;
+  }
+
   /* ---------- eluate droplet ---------- */
   function buildDrop(color){
     var m = new THREE.MeshPhysicalMaterial({ color:color, roughness:0.14,
@@ -1518,6 +1613,7 @@ export {
   buildCentrifuge, buildColdBlock, buildWaterBath, buildIceBucket, buildNanoDrop, buildDrop, buildWaste, buildSyringe,
   buildThermocycler, buildGelRig, buildFreezer, buildStainingTray, buildSpreader, buildVortexMixer,
   buildPlateReader, buildPlateShaker, buildCO2Incubator,
+  buildInvertedMicroscope, buildLightMicroscope, buildUVTransilluminator,
   buildCryovial, buildWellPlate, buildFlask, buildDish, buildSlide, buildMembrane, buildGelSlab, buildAgarPlate,
   buildEnvMap, makeCineBackdrop, makeGradientTexture,
   glassMaterial, matPlastic, matBrushed, matAnodized, matPainted, matFrosted, matRubber, matSilicone,

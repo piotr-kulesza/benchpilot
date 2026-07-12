@@ -70,13 +70,16 @@ export const INSTRUMENTS = {
   plate_shaker:     { accepts: ['well_plate', 'membrane'] },  // plate incubator / rocker
   co2_incubator:    { accepts: ['flask', 'dish'] },           // warm CO₂ cabinet
   // measure family
-  plate_reader:     { accepts: ['well_plate'] },              // ELISA absorbance
-  nanodrop:         { accepts: ['microtube', 'tube', 'eluate_tube', 'spin_column', 'cryovial'] },
+  plate_reader:        { accepts: ['well_plate'] },              // ELISA absorbance
+  nanodrop:            { accepts: ['microtube', 'tube', 'eluate_tube', 'spin_column', 'cryovial'] },
+  inverted_microscope: { accepts: ['flask', 'dish'] },           // observe adherent cells from below
+  light_microscope:    { accepts: ['slide'] },                   // Gram / haemocytometer, 100× oil
+  uv_transilluminator: { accepts: ['gel'] },                     // visualise DNA bands under UV
 }
 
 const FAMILY = {
   incubate: ['incubation_block', 'plate_shaker', 'co2_incubator'],
-  measure: ['plate_reader', 'nanodrop'],
+  measure: ['plate_reader', 'nanodrop', 'inverted_microscope', 'light_microscope', 'uv_transilluminator'],
 }
 
 // Resolve (family, container) → instrument id, or 'bench' when nothing fits.

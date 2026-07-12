@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera, OrthographicCamera } from '@react-three/drei'
-import { FogExp2, Color, Vector3, Group, Mesh, TorusGeometry, SphereGeometry, MeshStandardMaterial, PointLight } from 'three'
+import { FogExp2, Color, Vector3, Box3, Group, Mesh, TorusGeometry, SphereGeometry, MeshStandardMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
 import { resolveRecipe, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects } from './sceneRecipe.js'
 import { containerContract, resolveInstrument } from './containerContract.js'
@@ -31,6 +31,11 @@ const VIEW_SIZE = 7.6
 const STEP_DUR = 6.5 // the demo's per-step animation window (seconds)
 const SPACING = 8.4 // distance between stations along +X (the demo's buildLine)
 const GLIDE_DUR = 1.65 // camera rail-dolly duration on a step change (the demo)
+// Camera framing is MEASURED from each station's content bounding box, never assumed
+// to sit at the origin (a centrifuge is parked off to one side, a CO₂ incubator is
+// wide and deep). R_REF is the content radius the demo's fixed distance frames
+// comfortably; larger rigs back the camera off gently, nothing zooms IN past it.
+const R_REF = 3.0
 // station equipment fade by distance from the framed point (railX): the active
 // station is full, neighbours recede into fog, and mid-dolly BOTH are visible.
 const VIS_FULL = SPACING * 0.5 // fully visible within here
@@ -70,6 +75,26 @@ function applyStationVis(st) {
     st._vstate = 1
   }
 }
+
+// Frame the camera on a station's ACTUAL content (Stage-12 #2): measure the composed
+// equipment group's bounding box in station-LOCAL coords (the group is still at the
+// origin when this runs) and union in the sample column that rests at local origin
+// (the sample is a separate global object, never a child of the group). Returns the
+// { center, radius } the camera aims at and fits — so a centrifuge parked off to one
+// side, a wide CO₂ incubator, and a lone tube all sit centred and correctly sized.
+const _frameBox = new Box3()
+const _frameSize = new Vector3()
+function computeStationFrame(group) {
+  group.updateMatrixWorld(true)
+  _frameBox.setFromObject(group)
+  _frameBox.expandByPoint(new Vector3(0, 0, 0))   // always include the sample's
+  _frameBox.expandByPoint(new Vector3(0, 1.7, 0)) // resting column at local origin
+  const center = _frameBox.getCenter(new Vector3())
+  _frameBox.getSize(_frameSize)
+  const radius = 0.5 * Math.max(_frameSize.x, _frameSize.y, _frameSize.z)
+  return { center, radius }
+}
+const DEFAULT_FRAME = { center: new Vector3(0, LOOK_Y, 0), radius: R_REF }
 
 // The ONE sample persists across every step, carrying its contents. Its state at
 // the start of step N is exactly its state at the end of step N-1 (chained). We
@@ -503,10 +528,18 @@ export function configureStation(st, o) {
       if (p > 0.2) S[vessel].userData.setColor(endColor) // dye floods over
     }
   } else if (equipment === 'reader') {
-    // EQUIPMENT CONTRACT: a 96-well plate is read on a PLATE READER (ELISA
-    // absorbance), a tube on a NanoDrop. Anything else falls back to the bench —
-    // never the wrong reader.
+    // EQUIPMENT CONTRACT: read each vessel on the instrument it actually goes in — a
+    // 96-well plate on a PLATE READER, a tube on a NanoDrop, a culture flask under an
+    // INVERTED MICROSCOPE, a slide under a LIGHT MICROSCOPE (100× oil), a gel on a UV
+    // TRANSILLUMINATOR. The vessel rests on/in the instrument while it reads — no spin.
     const inst = resolveInstrument('measure', container)
+    // rest the sample on an instrument's stage at its stated height (flat vessels are
+    // otherwise pinned to the bench by seat()'s FLAT guard), reading progress ramping.
+    const onStage = (dev, sy, k = 1.3) => {
+      st.dev = dev; st.group.add(dev); st.updatables.push(dev)
+      st.enter = () => { seat(0, 0, 0); S.at(S[vessel], st.x, sy, 0); dev.userData.setProgress?.(0) }
+      st.timeline = (p) => { evolve(p); S.at(S[vessel], st.x, sy, 0); dev.userData.setProgress?.(demo.easeInOut(demo.clamp(p * k, 0, 1))) }
+    }
     if (inst === 'plate_reader') {
       const reader = demo.buildPlateReader()
       st.group.add(reader); st.updatables.push(reader); st.dev = reader
@@ -523,15 +556,26 @@ export function configureStation(st, o) {
       st.group.add(nano); st.updatables.push(nano); st.dev = nano
       st.enter = () => seat(-1.4, 0, 0.8)
       st.timeline = (p) => { evolve(p); nano.userData.setProgress?.(demo.easeInOut(demo.clamp(p * 1.4, 0, 1))) }
+    } else if (inst === 'inverted_microscope') {
+      const scope = demo.buildInvertedMicroscope()
+      onStage(scope, scope.userData.stageY)
+    } else if (inst === 'light_microscope') {
+      const scope = demo.buildLightMicroscope()
+      onStage(scope, scope.userData.stageY)
+    } else if (inst === 'uv_transilluminator') {
+      const tl = demo.buildUVTransilluminator()
+      onStage(tl, tl.userData.stageY)
     } else {
-      // bench fallback — measure a vessel no reader accepts
+      // no instrument accepts this vessel: hold it AT REST with its readout. A
+      // meaningless idle spin would imply a reading is happening when none is.
       st.enter = () => seat(0, BT, 0)
-      st.timeline = (p) => { evolve(p); S[vessel].rotation.y = p * 2 }
+      st.timeline = (p) => { evolve(p) }
     }
   } else {
-    // generic actionable (rare) — a slow idle turn so it is never dead.
+    // generic actionable (rare): hold the vessel AT REST. A vessel spinning for no
+    // reason implies work that isn't happening — stillness is honest.
     st.enter = () => seat(0, BT, 0)
-    st.timeline = (p) => { evolve(p); S[vessel].rotation.y = p * 3 }
+    st.timeline = (p) => { evolve(p) }
   }
 
   // Bug #2: if the sample's CONTAINER changed from the previous station, ANIMATE the
@@ -723,6 +767,10 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
         action: o.action, equipment: o.equipment, container, prevContainer, color: o.colorHex, name: o.title, vol: o.vol, seconds: o.seconds,
         startColor: o.start.color, startLevel: o.start.level, endColor: o.end.color, endLevel: o.end.level, cycles: o.cycles,
       })
+      // MEASURE the framing from the equipment now — group is still at the origin and
+      // carries only the instrument (not the label/decal added below), so this is the
+      // station's true content extent in local coords.
+      st.frame = computeStationFrame(st.group)
       st.group.position.set(st.x, 0, 0)
       // a floating title that travels with its station
       const label = demo.makeLabel(o.title, o.sub)
@@ -803,27 +851,31 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
     }
     const railX = railXRef.current
 
-    // 2 · position the active camera — pure lateral tracking, no orbit
+    // 2 · position the active camera — pure lateral tracking, no orbit — aimed and
+    // fit on the active station's MEASURED content frame (never an assumed origin).
+    const actCam = stations[activeRef.current]
+    const f = actCam && actCam.frame ? actCam.frame : DEFAULT_FRAME
+    const fit = demo.clamp(f.radius / R_REF, 1, 1.7) // back off only for oversized rigs
     if (view === 'isometric') {
       const cam = orthoRef.current
       if (cam) {
-        const tx = railX + Math.sin(time * 0.12) * 0.07
-        cam.position.set(tx + ISO_DIR.x * ISO_DIST, ISO_LOOK_Y + ISO_DIR.y * ISO_DIST, ISO_DIR.z * ISO_DIST)
+        const tx = railX + f.center.x + Math.sin(time * 0.12) * 0.07
+        cam.position.set(tx + ISO_DIR.x * ISO_DIST, f.center.y + ISO_DIR.y * ISO_DIST, f.center.z + ISO_DIR.z * ISO_DIST)
         cam.up.set(0, 1, 0)
-        cam.lookAt(tx, ISO_LOOK_Y, 0)
+        cam.lookAt(tx, f.center.y, f.center.z)
       }
     } else {
       const cam = perspRef.current
       if (cam) {
-        const camX = railX + Math.sin(time * 0.15) * 0.12
-        // default rail frame
-        let px = camX, py = RAIL_Y, pz = RAIL_Z, lx = camX, ly = LOOK_Y, lz = 0
+        const cx = railX + f.center.x + Math.sin(time * 0.15) * 0.12
+        // demo angle/height, scaled to fit, aimed at the content centre (x/y/z)
+        let px = cx, py = f.center.y + (RAIL_Y - LOOK_Y) * fit, pz = f.center.z + RAIL_Z * fit
+        let lx = cx, ly = f.center.y, lz = f.center.z
         // per-station camera PUSH (e.g. push in through the incubator glass onto the
         // flask so the monolayer detachment reads). Blends in with the step's progress.
-        const act = stations[activeRef.current]
-        const push = act && act.pushCam ? act.pushCam(pRef.current) : 0
-        if (push > 0 && act.pushTarget) {
-          const t = act.pushTarget
+        const push = actCam && actCam.pushCam ? actCam.pushCam(pRef.current) : 0
+        if (push > 0 && actCam.pushTarget) {
+          const t = actCam.pushTarget
           px = demo.lerp(px, railX + t.pos[0], push); py = demo.lerp(py, t.pos[1], push); pz = demo.lerp(pz, t.pos[2], push)
           lx = demo.lerp(lx, railX + t.look[0], push); ly = demo.lerp(ly, t.look[1], push); lz = demo.lerp(lz, t.look[2], push)
         }
