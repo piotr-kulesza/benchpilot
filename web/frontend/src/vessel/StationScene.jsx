@@ -110,7 +110,9 @@ function computeStationFrame(st) {
   const center = _frameBox.getCenter(new Vector3())
   _frameBox.getSize(_frameSize)
   const radius = 0.5 * Math.max(_frameSize.x, _frameSize.y, _frameSize.z)
-  return { center, radius }
+  // top = the props' bbox ceiling, so the label can sit just ABOVE the thing it names
+  // (centred on center.x), instead of floating over the station origin.
+  return { center, radius, top: _frameBox.max.y }
 }
 const DEFAULT_FRAME = { center: new Vector3(0, LOOK_Y, 0), radius: R_REF }
 
@@ -872,9 +874,13 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
       // station's true content extent in local coords.
       st.frame = computeStationFrame(st)
       st.group.position.set(st.x, 0, 0)
-      // a floating title that travels with its station
+      // the title sits just ABOVE the thing the step is about — the props' bbox top,
+      // centred on it — not over the station origin. Its own half-height (worldH/2)
+      // plus a small gap put the plate's BOTTOM edge clear of the subject.
       const label = demo.makeLabel(o.title, o.sub)
-      label.position.set(0, 3.2, 0)
+      const LABEL_GAP = 0.5
+      const halfH = (label.userData.worldH || 0.5) / 2
+      label.position.set(st.frame.center.x, st.frame.top + LABEL_GAP + halfH, st.frame.center.z)
       st.group.add(label)
       scene.add(st.group)
       // the bench station number in front

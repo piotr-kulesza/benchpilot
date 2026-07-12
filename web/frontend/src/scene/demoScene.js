@@ -125,30 +125,65 @@ export function undockSample() {
     g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath();
   }
   // floating vessel label — muted editorial card
+  // The floating station label. The plate is sized FROM the measured text (never a
+  // fixed sprite the text can overflow) — it grows to fit, the text never shrinks or
+  // clips, and the two-line case (name + volume) grows the plate taller. The name is
+  // IBM Plex Sans; the sub line is a numeric/spec (volume, ×g, temp) so it uses IBM
+  // Plex Mono. Requires the faces loaded before first draw (StationView gates the
+  // canvas on document.fonts.ready) — else measureText + fillText bake the fallback.
   function makeLabel(text, sub){
-    var W=1024, H=320, S=W/512;
-    var c = document.createElement("canvas"); c.width=W; c.height=H;
-    var g = c.getContext("2d");
-    function draw(t2,s2){
-      g.clearRect(0,0,W,H);
-      var r=14*S, x=10*S, y=34*S, w=492*S, h=92*S;
-      g.fillStyle="rgba(20,23,27,0.82)"; roundRect(g,x,y,w,h,r); g.fill();
-      g.lineWidth=1.5*S; g.strokeStyle="rgba(150,160,175,0.28)"; roundRect(g,x,y,w,h,r); g.stroke();
-      g.fillStyle="#e9edf1";
-      g.font="500 "+(42*S)+"px 'Helvetica Neue', Helvetica, Arial";
-      g.textAlign="center"; g.textBaseline="middle";
-      g.fillText(t2, W/2, (s2?66:80)*S);
-      if(s2){
-        g.font="400 "+(28*S)+"px 'Helvetica Neue', Helvetica, Arial";
-        g.fillStyle="#8fcabf";
-        g.fillText(s2, W/2, 104*S);
+    var SS=2;                              // supersample the canvas for crisp text
+    var FS=42*SS, FSS=26*SS;               // main / sub px
+    var PADX=40*SS, PADY=26*SS, GAP=10*SS, LG=6*SS, RAD=16*SS;  // pad / line gaps
+    var MAXW=680*SS, MINW=300*SS;          // wrap past MAXW; short labels get MINW presence
+    var PIX=0.0026/SS;                     // world units per device px (overall label size)
+    var FMAIN="500 "+FS+"px 'IBM Plex Sans'";
+    var FSUB="500 "+FSS+"px 'IBM Plex Mono'";
+    var c=document.createElement("canvas");
+    var g=c.getContext("2d");
+    var tex=null, sp=null;
+    // wrap `t` to lines that fit `maxW` in the current font — never shrink a glyph,
+    // grow DOWN instead (a long reagent name wraps rather than blowing the plate wide).
+    function wrap(t, font, maxW){
+      g.font=font;
+      var words=String(t||"").split(/\s+/).filter(Boolean), lines=[], cur="";
+      for(var i=0;i<words.length;i++){
+        var t2=cur?cur+" "+words[i]:words[i];
+        if(cur && g.measureText(t2).width>maxW){ lines.push(cur); cur=words[i]; }
+        else cur=t2;
       }
+      if(cur) lines.push(cur);
+      return lines;
     }
-    draw(text, sub);
-    var tex=new THREE.CanvasTexture(c); tex.anisotropy=MAX_ANISO;
-    var sp=new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, transparent:true, depthTest:false, depthWrite:false }));
-    sp.scale.set(1.85,0.578,1); sp.renderOrder=999;
-    sp.userData.update=function(t2,s2){ draw(t2,s2); tex.needsUpdate=true; };
+    function widest(lines, font){ g.font=font; var w=0; for(var i=0;i<lines.length;i++) w=Math.max(w,g.measureText(lines[i]).width); return w; }
+    function draw(t2,s2){
+      var mLines=wrap(t2, FMAIN, MAXW);          // name (may wrap)
+      var sLines=s2?wrap(s2, FSUB, MAXW):[];      // volume / spec (mono, may wrap)
+      var textW=Math.max(widest(mLines,FMAIN), widest(sLines,FSUB));
+      var mH=mLines.length*FS + (mLines.length-1)*LG;
+      var sH=sLines.length?(sLines.length*FSS + (sLines.length-1)*LG):0;
+      var textH=mH + (sLines.length?GAP+sH:0);
+      var cw=Math.ceil(Math.max(textW,MINW)+PADX*2), ch=Math.ceil(textH+PADY*2);
+      c.width=cw; c.height=ch; g=c.getContext("2d");   // resize resets the context
+      g.clearRect(0,0,cw,ch);
+      var b=1.5*SS;
+      g.fillStyle="rgba(20,23,27,0.82)"; roundRect(g,b,b,cw-2*b,ch-2*b,RAD); g.fill();
+      g.lineWidth=b; g.strokeStyle="rgba(150,160,175,0.28)"; roundRect(g,b,b,cw-2*b,ch-2*b,RAD); g.stroke();
+      g.textAlign="center"; g.textBaseline="middle";
+      var y=PADY;
+      g.fillStyle="#e9edf1"; g.font=FMAIN;
+      for(var i=0;i<mLines.length;i++){ g.fillText(mLines[i], cw/2, y+FS/2); y+=FS+LG; }
+      if(sLines.length){ y+=GAP-LG; g.fillStyle="#8fcabf"; g.font=FSUB;
+        for(var j=0;j<sLines.length;j++){ g.fillText(sLines[j], cw/2, y+FSS/2); y+=FSS+LG; } }
+      if(tex) tex.needsUpdate=true;
+      if(sp){ sp.scale.set(cw*PIX, ch*PIX, 1); sp.userData.worldH=ch*PIX; }
+    }
+    draw(text, sub);                       // size + paint the canvas once
+    tex=new THREE.CanvasTexture(c); tex.anisotropy=MAX_ANISO;
+    sp=new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, transparent:true, depthTest:false, depthWrite:false }));
+    sp.renderOrder=999;
+    sp.scale.set(c.width*PIX, c.height*PIX, 1); sp.userData.worldH=c.height*PIX;
+    sp.userData.update=function(t2,s2){ draw(t2,s2); };
     return sp;
   }
 
@@ -342,13 +377,13 @@ export function undockSample() {
       g.lineWidth=major?4:2.4;
       g.beginPath(); g.moveTo(150,y); g.lineTo(major?196:180,y); g.stroke();
     }
-    g.fillStyle="rgba(190,200,214,0.5)"; g.font="600 20px 'Helvetica Neue',Arial"; g.textAlign="left";
+    g.fillStyle="rgba(190,200,214,0.5)"; g.font="600 20px 'IBM Plex Sans'"; g.textAlign="left";
     var vals=["1.5","","1.0","","0.5",""];
     for(var k=0;k<vals.length;k++){ if(vals[k]) g.fillText(vals[k], 204, 156+k*68); }
     var lx=250, ly=196, lw=150, lh=118;
     g.fillStyle="rgba(238,241,244,0.92)"; roundRect(g,lx,ly,lw,lh,10); g.fill();
     g.strokeStyle="rgba(140,150,166,0.5)"; g.lineWidth=2; roundRect(g,lx,ly,lw,lh,10); g.stroke();
-    g.fillStyle="#20252c"; g.font="italic 600 30px 'Helvetica Neue',Arial"; g.textAlign="center";
+    g.fillStyle="#20252c"; g.font="italic 600 30px 'IBM Plex Sans'"; g.textAlign="center";
     g.fillText(label||"", lx+lw/2, ly+52);
     g.strokeStyle="rgba(120,130,146,0.35)"; g.lineWidth=1.5;
     g.beginPath(); g.moveTo(lx+16,ly+78); g.lineTo(lx+lw-16,ly+78); g.stroke();
@@ -489,7 +524,7 @@ export function undockSample() {
     winFrame.position.set(0,1.05,0.14); winFrame.rotation.x=-0.05; grp.add(winFrame);
     var vc=document.createElement("canvas"); vc.width=128; vc.height=180; var vg=vc.getContext("2d");
     vg.fillStyle="#131920"; vg.fillRect(0,0,128,180);
-    vg.fillStyle="#9fb0ba"; vg.font="700 62px Menlo,monospace"; vg.textAlign="center";
+    vg.fillStyle="#9fb0ba"; vg.font="700 62px 'IBM Plex Mono'"; vg.textAlign="center";
     vg.fillText("3",64,58); vg.fillText("5",64,118); vg.fillText("0",64,178);
     var vTex=new THREE.CanvasTexture(vc); vTex.anisotropy=MAX_ANISO;
     var win=new THREE.Mesh(new THREE.PlaneGeometry(0.1,0.16), new THREE.MeshBasicMaterial({map:vTex,transparent:true}));
@@ -542,9 +577,9 @@ export function undockSample() {
     // moulded brand ridge on the body front
     var brandC=document.createElement("canvas"); brandC.width=160; brandC.height=72; var brandG=brandC.getContext("2d");
     brandG.clearRect(0,0,160,72);
-    brandG.fillStyle="#516873"; brandG.font="700 34px 'Helvetica Neue',Arial"; brandG.textAlign="center"; brandG.textBaseline="middle";
+    brandG.fillStyle="#516873"; brandG.font="700 34px 'IBM Plex Sans'"; brandG.textAlign="center"; brandG.textBaseline="middle";
     brandG.fillText("P200",80,30);
-    brandG.font="500 15px 'Helvetica Neue',Arial"; brandG.fillStyle="#41535d"; brandG.fillText("20 – 200 µL",80,56);
+    brandG.font="500 15px 'IBM Plex Sans'"; brandG.fillStyle="#41535d"; brandG.fillText("20 – 200 µL",80,56);
     var brandTex=new THREE.CanvasTexture(brandC); brandTex.anisotropy=MAX_ANISO;
     var brand=new THREE.Mesh(new THREE.PlaneGeometry(0.18,0.081),
       new THREE.MeshStandardMaterial({ map:brandTex, transparent:true, roughness:0.55, metalness:0, envMapIntensity:0.4 }));
@@ -765,8 +800,8 @@ export function undockSample() {
     var dc=document.createElement("canvas"); dc.width=200; dc.height=110; var dg=dc.getContext("2d");
     var dTex=new THREE.CanvasTexture(dc); dTex.anisotropy=MAX_ANISO;
     function drawOD(v){ dg.fillStyle="#0d1218"; dg.fillRect(0,0,200,110);
-      dg.fillStyle="#7a8290"; dg.font="600 18px Arial"; dg.textAlign="left"; dg.fillText("A450",14,30);
-      dg.fillStyle="#8fcabf"; dg.font="700 42px Menlo,monospace"; dg.fillText(v.toFixed(2),14,84); dTex.needsUpdate=true; }
+      dg.fillStyle="#7a8290"; dg.font="600 18px 'IBM Plex Sans'"; dg.textAlign="left"; dg.fillText("A450",14,30);
+      dg.fillStyle="#8fcabf"; dg.font="700 42px 'IBM Plex Mono'"; dg.fillText(v.toFixed(2),14,84); dTex.needsUpdate=true; }
     drawOD(0);
     var disp=new THREE.Mesh(new THREE.PlaneGeometry(0.8,0.44), new THREE.MeshBasicMaterial({map:dTex,transparent:true}));
     disp.position.set(0.95,1.06,1.01); grp.add(disp);
@@ -823,7 +858,7 @@ export function undockSample() {
     var handle=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.3,12), matBrushed(0x868f9b)); handle.position.set(2.9,0,0.16); doorPivot.add(handle);
     var dc=document.createElement("canvas"); dc.width=200; dc.height=90; var dg=dc.getContext("2d");
     var dTex=new THREE.CanvasTexture(dc); dTex.anisotropy=MAX_ANISO;
-    dg.fillStyle="#0d1218"; dg.fillRect(0,0,200,90); dg.fillStyle="#8fcabf"; dg.font="700 30px Menlo,monospace"; dg.textAlign="left"; dg.fillText("37°C",12,40); dg.fillStyle="#6fb8f0"; dg.font="700 22px Menlo,monospace"; dg.fillText("5% CO₂",12,72); dTex.needsUpdate=true;
+    dg.fillStyle="#0d1218"; dg.fillRect(0,0,200,90); dg.fillStyle="#8fcabf"; dg.font="700 30px 'IBM Plex Mono'"; dg.textAlign="left"; dg.fillText("37°C",12,40); dg.fillStyle="#6fb8f0"; dg.font="700 22px 'IBM Plex Mono'"; dg.fillText("5% CO₂",12,72); dTex.needsUpdate=true;
     var disp=new THREE.Mesh(new THREE.PlaneGeometry(0.7,0.32), new THREE.MeshBasicMaterial({map:dTex,transparent:true})); disp.position.set(1.3,2.1,0.96); grp.add(disp);
     var label=makeLabel("CO₂ incubator",""); label.position.set(0,2.75,0); grp.add(label);
     var ist={ door:0, tDoor:0 };
@@ -871,9 +906,9 @@ export function undockSample() {
     function drawDisp(cyc, tot, tempC, hot){
       dg.fillStyle="#0d1218"; dg.fillRect(0,0,256,128);
       dg.strokeStyle="rgba(90,100,116,0.4)"; dg.lineWidth=3; dg.strokeRect(6,6,244,116);
-      dg.textAlign="left"; dg.fillStyle="#7a8290"; dg.font="600 20px 'Helvetica Neue',Arial"; dg.fillText("CYCLE", 16,34);
-      dg.fillStyle="#8fcabf"; dg.font="700 46px Menlo,monospace"; dg.fillText(cyc+" / "+tot, 16,86);
-      dg.textAlign="right"; dg.fillStyle=hot?"#ff9a5a":"#6fb8f0"; dg.font="700 34px Menlo,monospace";
+      dg.textAlign="left"; dg.fillStyle="#7a8290"; dg.font="600 20px 'IBM Plex Sans'"; dg.fillText("CYCLE", 16,34);
+      dg.fillStyle="#8fcabf"; dg.font="700 46px 'IBM Plex Mono'"; dg.fillText(cyc+" / "+tot, 16,86);
+      dg.textAlign="right"; dg.fillStyle=hot?"#ff9a5a":"#6fb8f0"; dg.font="700 34px 'IBM Plex Mono'";
       dg.fillText(Math.round(tempC)+"°", 240,60);
       dTex.needsUpdate=true;
     }
@@ -944,8 +979,8 @@ export function undockSample() {
     var vc=document.createElement("canvas"); vc.width=128; vc.height=80; var vg=vc.getContext("2d");
     var vTex=new THREE.CanvasTexture(vc); vTex.anisotropy=MAX_ANISO;
     function drawV(v){ vg.fillStyle="#0d1218"; vg.fillRect(0,0,128,80);
-      vg.fillStyle="#8fcabf"; vg.font="700 34px Menlo,monospace"; vg.textAlign="right"; vg.fillText(Math.round(v)+"", 96,52);
-      vg.fillStyle="#727a85"; vg.font="600 16px Arial"; vg.fillText("V", 120,52); vTex.needsUpdate=true; }
+      vg.fillStyle="#8fcabf"; vg.font="700 34px 'IBM Plex Mono'"; vg.textAlign="right"; vg.fillText(Math.round(v)+"", 96,52);
+      vg.fillStyle="#727a85"; vg.font="600 16px 'IBM Plex Sans'"; vg.fillText("V", 120,52); vTex.needsUpdate=true; }
     drawV(0);
     var vDisp=new THREE.Mesh(new THREE.PlaneGeometry(0.5,0.3), new THREE.MeshBasicMaterial({map:vTex,transparent:true}));
     vDisp.position.set(1.9,0.5,0.41); grp.add(vDisp);
@@ -1070,7 +1105,7 @@ export function undockSample() {
     // printed well numbers around the rotor face
     var numC=document.createElement("canvas"); numC.width=256; numC.height=256; var numG=numC.getContext("2d");
     numG.clearRect(0,0,256,256);
-    numG.fillStyle="#c2c9d2"; numG.font="700 24px 'Helvetica Neue',Arial"; numG.textAlign="center"; numG.textBaseline="middle";
+    numG.fillStyle="#c2c9d2"; numG.font="700 24px 'IBM Plex Sans'"; numG.textAlign="center"; numG.textBaseline="middle";
     for(var nn=0;nn<8;nn++){ var na=nn/8*Math.PI*2 - Math.PI/2, nx=128+Math.cos(na)*82, ny=128+Math.sin(na)*82;
       numG.fillText((nn+1)+"", nx, ny); }
     var numTex=new THREE.CanvasTexture(numC); numTex.anisotropy=MAX_ANISO;
@@ -1084,9 +1119,9 @@ export function undockSample() {
     function drawRPM(v){
       rg.fillStyle="#12161c"; rg.fillRect(0,0,256,128);
       rg.strokeStyle="rgba(90,100,116,0.4)"; rg.lineWidth=3; rg.strokeRect(6,6,244,116);
-      rg.fillStyle="#8fcabf"; rg.font="700 52px Menlo,monospace"; rg.textAlign="right";
+      rg.fillStyle="#8fcabf"; rg.font="700 52px 'IBM Plex Mono'"; rg.textAlign="right";
       rg.fillText(Math.round(v)+"", 200,72);
-      rg.fillStyle="#727a85"; rg.font="600 20px 'Helvetica Neue',Arial"; rg.fillText("× g", 244,72);
+      rg.fillStyle="#727a85"; rg.font="600 20px 'IBM Plex Sans'"; rg.fillText("× g", 244,72);
       rg.textAlign="left"; rg.fillText("SPEED", 16,34);
       rTex.needsUpdate=true;
     }
@@ -1287,11 +1322,11 @@ export function undockSample() {
       if(x===0) g.moveTo(x,y); else g.lineTo(x,y);
     }
     g.stroke();
-    g.fillStyle="#8fcabf"; g.font="600 "+(18*S)+"px 'Helvetica Neue',Arial"; g.textAlign="left";
+    g.fillStyle="#8fcabf"; g.font="600 "+(18*S)+"px 'IBM Plex Sans'"; g.textAlign="left";
     g.fillText("A260/280  " + (1.8+0.2*clamp(prog,0,1)).toFixed(2), 28, 52);
-    g.fillStyle="#aab2bc"; g.font="500 "+(15*S)+"px 'Helvetica Neue',Arial";
+    g.fillStyle="#aab2bc"; g.font="500 "+(15*S)+"px 'IBM Plex Sans'";
     g.fillText("A260/230  " + (1.6+0.5*clamp(prog,0,1)).toFixed(2), 28, 96);
-    g.fillStyle="#727a85"; g.font="500 "+(12*S)+"px 'Helvetica Neue',Arial"; g.textAlign="right";
+    g.fillStyle="#727a85"; g.font="500 "+(12*S)+"px 'IBM Plex Sans'"; g.textAlign="right";
     g.fillText("260 nm", 600, 448);
   }
 
@@ -1443,7 +1478,7 @@ export function undockSample() {
     capRing.rotation.x=Math.PI/2; capRing.position.y=h; grp.add(capRing);
     var lc=document.createElement("canvas"); lc.width=256; lc.height=128; var lg=lc.getContext("2d");
     lg.fillStyle="#eef1f4"; lg.fillRect(0,0,256,128);
-    lg.fillStyle="#252c34"; lg.font="700 30px 'Helvetica Neue',Arial"; lg.textAlign="center";
+    lg.fillStyle="#252c34"; lg.font="700 30px 'IBM Plex Sans'"; lg.textAlign="center";
     lg.fillText(labelText||"", 128,58);
     lg.strokeStyle="rgba(120,130,146,0.4)"; lg.lineWidth=2; lg.strokeRect(10,74,236,40);
     var lTex=new THREE.CanvasTexture(lc); lTex.anisotropy=MAX_ANISO;
@@ -1498,7 +1533,7 @@ export function undockSample() {
     g.clearRect(0,0,256,128);
     // dark slate on the pale bench so the number actually reads (Stage-13 #4 — the old
     // 0.5-alpha grey vanished against the greige resin).
-    g.fillStyle="rgba(58,68,82,0.9)"; g.font="500 74px 'Helvetica Neue',Arial"; g.textAlign="left"; g.textBaseline="middle";
+    g.fillStyle="rgba(58,68,82,0.9)"; g.font="500 74px 'IBM Plex Sans'"; g.textAlign="left"; g.textBaseline="middle";
     g.fillText(("0"+n).slice(-2), 12, 70);
     g.strokeStyle="rgba(64,150,138,0.9)"; g.lineWidth=5; g.beginPath(); g.moveTo(14,104); g.lineTo(150,104); g.stroke();
     var t=new THREE.CanvasTexture(c); t.anisotropy=MAX_ANISO;
