@@ -11,13 +11,12 @@ const T0 = 1_700_000_000_000 // fixed ms base
 const RUN = [
   { type: EVENTS.RUN_STARTED, at: T0, step: 1, stepTitle: 'Lyse', name: 'RNA extraction' },
   { type: EVENTS.INTAKE_ANSWER, at: T0, step: 1, key: 'cells', value: 'le', label: 'Cell count', valueLabel: '≤5×10⁶' },
-  { type: EVENTS.STEP_ENTERED, at: T0, step: 1, stepTitle: 'Lyse' },
-  { type: EVENTS.STEP_LEFT, at: T0 + 1 * MIN, step: 1, stepTitle: 'Lyse' },
-  { type: EVENTS.STEP_ENTERED, at: T0 + 1 * MIN, step: 2, stepTitle: 'Incubate' },
+  { type: EVENTS.STEP_COMPLETED, at: T0 + 1 * MIN, step: 1, stepTitle: 'Lyse' },
   { type: EVENTS.TIMER_STARTED, at: T0 + 1 * MIN, step: 2, stepTitle: 'Incubate', nominal: 15 * 60 },
   { type: EVENTS.TIMER_COMPLETED, at: T0 + 20 * MIN, step: 2, stepTitle: 'Incubate', nominal: 15 * 60 }, // ran 19 min
+  { type: EVENTS.STEP_COMPLETED, at: T0 + 20 * MIN, step: 2, stepTitle: 'Incubate' },
   { type: EVENTS.ALTERNATIVE_CHOSEN, at: T0 + 21 * MIN, step: 3, stepTitle: 'Homogenize', index: 0, label: 'QIAshredder' },
-  { type: EVENTS.STEP_ENTERED, at: T0 + 22 * MIN, step: 7, stepTitle: 'Elute' }, // jump 2 → 7 skips 3-6
+  { type: EVENTS.STEP_COMPLETED, at: T0 + 22 * MIN, step: 7, stepTitle: 'Elute' }, // completed 2 → 7 skips 3-6
   { type: EVENTS.NOTE, at: T0 + 23 * MIN, step: 7, stepTitle: 'Elute', text: 'pellet looked loose' },
   { type: EVENTS.HAZARD_ACK, at: T0 + 23 * MIN, step: 7, stepTitle: 'Elute', text: 'do NOT vortex' },
   { type: EVENTS.RUN_COMPLETED, at: T0 + 24 * MIN, step: 7, stepTitle: 'Elute' },

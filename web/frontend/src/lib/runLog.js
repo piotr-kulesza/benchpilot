@@ -6,7 +6,8 @@
 export const EVENTS = {
   RUN_STARTED: 'run_started',
   INTAKE_ANSWER: 'intake_answer',
-  STEP_ENTERED: 'step_entered',
+  STEP_COMPLETED: 'step_completed', // logged when you advance past a step (click Next), not on arrival
+  STEP_ENTERED: 'step_entered',     // legacy — still formatted for old logs, no longer emitted
   STEP_LEFT: 'step_left',
   TIMER_STARTED: 'timer_started',
   TIMER_PAUSED: 'timer_paused',
@@ -78,16 +79,16 @@ export function computeDeviations(events) {
   const out = []
   const timers = pairTimers(events)
 
-  // forward jumps that leave a gap = skipped steps
-  let lastEntered = null
+  // completing non-consecutive steps = the ones in between were skipped
+  let lastDone = null
   for (const e of events) {
-    if (e.type !== EVENTS.STEP_ENTERED) continue
-    if (lastEntered != null && e.step > lastEntered + 1) {
+    if (e.type !== EVENTS.STEP_COMPLETED) continue
+    if (lastDone != null && e.step > lastDone + 1) {
       const skipped = []
-      for (let s = lastEntered + 1; s < e.step; s++) skipped.push(s)
-      out.push({ kind: 'skipped', step: e.step, skipped, message: `Step${skipped.length > 1 ? 's' : ''} ${skipped.join(', ')} skipped (jumped ${lastEntered} → ${e.step})` })
+      for (let s = lastDone + 1; s < e.step; s++) skipped.push(s)
+      out.push({ kind: 'skipped', step: e.step, skipped, message: `Step${skipped.length > 1 ? 's' : ''} ${skipped.join(', ')} skipped (jumped ${lastDone} → ${e.step})` })
     }
-    lastEntered = e.step
+    lastDone = e.step
   }
 
   // timers that ran materially longer than nominal
@@ -116,6 +117,7 @@ export function describeEvent(e, timers) {
   switch (e.type) {
     case EVENTS.RUN_STARTED: return `Run started — ${e.name || 'protocol'}`
     case EVENTS.INTAKE_ANSWER: return `Answered ${e.label || e.key}: ${e.valueLabel || e.value}`
+    case EVENTS.STEP_COMPLETED: return `Completed step ${e.step}${e.stepTitle ? ` — ${e.stepTitle}` : ''}`
     case EVENTS.STEP_ENTERED: return `Entered${e.stepTitle ? ` — ${e.stepTitle}` : ''}`
     case EVENTS.STEP_LEFT: return `Left${e.stepTitle ? ` — ${e.stepTitle}` : ''}`
     case EVENTS.TIMER_STARTED: return `Timer started (${formatElapsed(e.nominal)})`

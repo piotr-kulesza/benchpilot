@@ -65,7 +65,13 @@ export default function Runner({ protocol, answers, setAnswers, onExit, onStartO
   const eff = effectiveStep(step, altIndex)
   const temp = extractTemperature(eff, lang)
 
-  const next = () => { if (i >= steps.length - 1) setFinished(true); else setI((n) => Math.min(n + 1, steps.length - 1)) }
+  // clicking Next COMPLETES the current step (that's what counts as done — not merely
+  // viewing/jumping to it), then advances or finishes.
+  const next = () => {
+    log.emit('step_completed', { step: i + 1, stepTitle: titleOf(i) })
+    if (i >= steps.length - 1) setFinished(true)
+    else setI((n) => Math.min(n + 1, steps.length - 1))
+  }
   const back = () => setI((n) => Math.max(0, n - 1))
 
   // timer controls, wrapped once so BOTH the on-screen strip and the voice dispatcher run
@@ -122,35 +128,25 @@ export default function Runner({ protocol, answers, setAnswers, onExit, onStartO
     },
   }
 
-  // run start (once) + intake answers + every step entered/left — logged from the step
-  // index itself, so a jump from the timeline, a keyboard arrow, or a spoken "next" all
-  // record identically. Refs make it fire once even under StrictMode's double-invoke.
+  // seed the log ONCE per run: run started + the intake answers (the parameters of this
+  // run). Arriving at a step is NOT logged — a step is only recorded when it's COMPLETED
+  // (see next()). Ref guards against StrictMode's double-invoke; a resumed run keeps its log.
   const seededRef = useRef(false)
-  const loggedStepRef = useRef(-1)
   useEffect(() => {
-    if (!seededRef.current) {
-      seededRef.current = true
-      if (log.events.length === 0) {
-        log.emit('run_started', { step: i + 1, stepTitle: titleOf(i), name: protoName })
-        for (const [k, v] of Object.entries(answers || {})) {
-          if (v == null || v === '') continue
-          log.emit('intake_answer', { step: i + 1, stepTitle: titleOf(i), key: k, value: v, label: answerLabel(k), valueLabel: answerValueLabel(k, v) })
-        }
-        loggedStepRef.current = i
-        log.emit('step_entered', { step: i + 1, stepTitle: titleOf(i) })
-      } else {
-        loggedStepRef.current = i // resuming a persisted run — continue its log silently
+    if (seededRef.current) return
+    seededRef.current = true
+    if (log.events.length === 0) {
+      log.emit('run_started', { step: i + 1, stepTitle: titleOf(i), name: protoName })
+      for (const [k, v] of Object.entries(answers || {})) {
+        if (v == null || v === '') continue
+        log.emit('intake_answer', { step: i + 1, stepTitle: titleOf(i), key: k, value: v, label: answerLabel(k), valueLabel: answerValueLabel(k, v) })
       }
-      return
     }
-    if (loggedStepRef.current !== i) {
-      const p = loggedStepRef.current
-      log.emit('step_left', { step: p + 1, stepTitle: titleOf(p) })
-      loggedStepRef.current = i
-      timerStartedRef.current = false
-      log.emit('step_entered', { step: i + 1, stepTitle: titleOf(i) })
-    }
-  }, [i]) // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // each step gets one fresh timer; reset the started-flag so re-entering logs a start, not a resume
+  useEffect(() => { timerStartedRef.current = false }, [i])
 
   // run completed — logged once when the last step is finished
   const finishedRef = useRef(false)
