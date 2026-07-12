@@ -7,7 +7,12 @@ import { useThree, useFrame } from '@react-three/fiber'
 import { PerspectiveCamera } from '@react-three/drei'
 import { FogExp2, Group } from 'three'
 import * as demo from '../scene/demoScene.js'
+import { resolveScenePreset } from '../scene/scenePresets.js'
 import { getModel } from './registry.js'
+
+// ?bench=light|dark picks the bench preset for the model gallery (so thumbnails can be
+// pre-rendered for both). Default dark.
+const galleryBench = () => (new URLSearchParams(window.location.search).get('bench') === 'light' ? 'light' : 'dark')
 
 const LIGHT_SCALE = 3.3 // matches StationScene: modern three divides diffuse by π
 
@@ -101,7 +106,7 @@ export function GalleryScene({ item, angle = 'front', bare = false }) {
     return () => { scene.remove(group); disposeGroup(group) }
   }, [scene, group])
 
-  const floor = useMemo(() => demo.buildFloor(0), [])
+  const floor = useMemo(() => demo.buildFloor(0, resolveScenePreset(galleryBench())), [])
   useEffect(() => { scene.add(floor); return () => { scene.remove(floor); disposeGroup(floor) } }, [scene, floor])
 
   // frame: content spans from the ref tube (left) to the model's right edge

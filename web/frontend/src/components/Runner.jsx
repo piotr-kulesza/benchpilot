@@ -28,7 +28,7 @@ const answerValueLabel = (k, v) => ANSWER_VALUE[k]?.[v] || v
 // One step at a time, in a stable 1/3 – 2/3 split: everything textual on the left
 // (scrolls, sticky title + controls), the 3D scene on the right (never resizes).
 // English-only UI (original + verbatim preserved in the data; restorable in one line).
-export default function Runner({ protocol, answers, setAnswers, onExit, initialStep = 0 }) {
+export default function Runner({ protocol, answers, setAnswers, onExit, initialStep = 0, bench = 'dark' }) {
   const lang = 'en'
   const steps = protocol.steps
   const [i, setI] = useState(Math.min(initialStep, steps.length - 1))
@@ -277,7 +277,7 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
           <StationView
             protocol={protocol} activeIndex={i} answers={answers} lang={lang}
             progress={elapsed} running={!!timer?.running} hasTimer={!!timer} done={!!timer?.done}
-            altByStep={altByStep} fill
+            altByStep={altByStep} bench={bench} fill
           />
         </section>
       </div>

@@ -3,7 +3,9 @@ import Home from './components/Home.jsx'
 import Intake from './components/Intake.jsx'
 import Runner from './components/Runner.jsx'
 import ThemeToggle from './components/ThemeToggle.jsx'
+import BenchToggle from './components/BenchToggle.jsx'
 import { useTheme } from './hooks/useTheme.js'
+import { useBench } from './hooks/useBench.js'
 import { partitionSteps } from './lib/runtime.js'
 
 // Dev-only harness routes: ?models=1 (model gallery) and ?matrix=1 (animation
@@ -56,6 +58,7 @@ function MainApp() {
   const q = new URLSearchParams(window.location.search)
   const persisted = loadSession()
   const { theme, toggle } = useTheme()
+  const { bench, toggle: toggleBench } = useBench()
 
   const [examples, setExamples] = useState([])
   const [protocol, setProtocol] = useState(persisted?.protocol || null)
@@ -156,7 +159,7 @@ function MainApp() {
   if (route === 'home' || !protocol) {
     page = (
       <div className="app">
-        <Home examples={examples} onPickExample={pickExample} onParse={parseUpload} parseState={parseState} />
+        <Home examples={examples} onPickExample={pickExample} onParse={parseUpload} parseState={parseState} bench={bench} />
       </div>
     )
   } else if (route === 'run') {
@@ -167,6 +170,7 @@ function MainApp() {
         setAnswers={setAnswers}
         initialStep={initialStep}
         onExit={() => go('intake')}
+        bench={bench}
       />
     )
   } else {
@@ -187,6 +191,7 @@ function MainApp() {
   return (
     <>
       {page}
+      <BenchToggle bench={bench} onToggle={toggleBench} />
       <ThemeToggle theme={theme} onToggle={toggle} />
     </>
   )

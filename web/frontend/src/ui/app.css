@@ -297,10 +297,12 @@
   .home { padding: var(--sp-10) var(--sp-5); gap: var(--sp-10); }
 }
 
-/* ── theme toggle (fixed, live flip) ───────────────────────────────────────────── */
-.theme-toggle { position: fixed; right: 16px; bottom: 16px; z-index: 60; width: 40px; height: 40px; display: grid; place-items: center; border-radius: var(--r-pill); background: var(--c-raised); color: var(--c-ink-dim); border: 1px solid var(--c-border-str); box-shadow: var(--shadow-pop); cursor: pointer; transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease); }
-.theme-toggle:hover { color: var(--c-accent); border-color: var(--c-accent); }
-.theme-toggle:focus-visible { outline: none; box-shadow: var(--focus); }
+/* ── fixed live toggles: theme (UI) at the corner, bench (scene) just left of it ──── */
+.theme-toggle, .bench-toggle { position: fixed; bottom: 16px; z-index: 60; width: 40px; height: 40px; display: grid; place-items: center; border-radius: var(--r-pill); background: var(--c-raised); color: var(--c-ink-dim); border: 1px solid var(--c-border-str); box-shadow: var(--shadow-pop); cursor: pointer; transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease); }
+.theme-toggle { right: 16px; }
+.bench-toggle { right: 64px; }
+.theme-toggle:hover, .bench-toggle:hover { color: var(--c-accent); border-color: var(--c-accent); }
+.theme-toggle:focus-visible, .bench-toggle:focus-visible { outline: none; box-shadow: var(--focus); }
 
 /* ── light-theme component tweaks ──────────────────────────────────────────────
    Where dark relies on a recessed/bordered look, light wants a white raised surface

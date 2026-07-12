@@ -18,6 +18,7 @@ import { resolveRecipe, sampleContainerSequence, resolveRemoval, findTransferHan
 import { containerContract, resolveInstrument, transferKind } from './containerContract.js'
 import { reagentName, reagentVolume, effectiveStep, selectAlternative, hasAlternatives } from '../lib/runtime.js'
 import * as demo from '../scene/demoScene.js'
+import { resolveScenePreset } from '../scene/scenePresets.js'
 
 // the demo's cinematic camera — the one and only view
 const FOV = 40
@@ -218,8 +219,8 @@ const FILL_BOOST = 1
 // the floor faces UP, so its cool light comes from the hemisphere sky (#dde4ee),
 // not the grazing fill. Boost hemi to neutralise the bench's warm cast.
 const HEMI_BOOST = 1
-function Lights({ keyRef, rimRef }) {
-  const L = demo.LOOK.cinematic
+function Lights({ keyRef, rimRef, preset }) {
+  const L = preset.lights
   return (
     <>
       <ambientLight color={L.amb.color} intensity={L.amb.int * LIGHT_SCALE} />
@@ -228,7 +229,7 @@ function Lights({ keyRef, rimRef }) {
         ref={keyRef}
         color={L.key.color}
         intensity={L.key.int * LIGHT_SCALE}
-        position={[5, 11, 7]}
+        position={L.keyPos}
         castShadow
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
@@ -243,15 +244,15 @@ function Lights({ keyRef, rimRef }) {
       />
       <directionalLight color={L.fill.color} intensity={L.fill.int * LIGHT_SCALE * FILL_BOOST} position={L.fill.pos} />
       <directionalLight color={L.aux.color} intensity={L.aux.int * LIGHT_SCALE} position={L.aux.pos} />
-      {/* rim/edge light — follows the framed station (positioned in the frame loop) */}
-      <directionalLight ref={rimRef} color={L.rim.color} intensity={L.rim.int * LIGHT_SCALE} position={L.rim.pos} />
+      {/* rim/edge light (dark preset only) — follows the framed station (positioned in the frame loop) */}
+      {L.rim && <directionalLight ref={rimRef} color={L.rim.color} intensity={L.rim.int * LIGHT_SCALE} position={L.rimPos} />}
     </>
   )
 }
 
-// the demo's one continuous resin bench spanning the whole station line.
-function Floor({ totalLen }) {
-  const floor = useMemo(() => demo.buildFloor(totalLen), [totalLen])
+// the demo's one continuous resin bench spanning the whole station line (per preset).
+function Floor({ totalLen, preset }) {
+  const floor = useMemo(() => demo.buildFloor(totalLen, preset), [totalLen, preset])
   useEffect(() => () => disposeGroup(floor), [floor])
   return <primitive object={floor} />
 }
@@ -864,8 +865,11 @@ function stationParams(baseStep, lang, altIdx, chain) {
   return { action: step.action, equipment, colorHex, vol, title, sub, seconds: step.duration_seconds, start, end, cycles }
 }
 
-export default function StationScene({ protocol, activeIndex = 0, lang = 'en', altByStep = {}, progress = 1, running = false, hasTimer = false, done = false, chromeless = false }) {
+export default function StationScene({ protocol, activeIndex = 0, lang = 'en', altByStep = {}, progress = 1, running = false, hasTimer = false, done = false, chromeless = false, bench = 'dark' }) {
   ensureMaps()
+  // the active scene preset (surfaces + backdrop + fog + lights as one coherent set)
+  const preset = useMemo(() => resolveScenePreset(bench), [bench])
+  const presetRef = useRef(preset); presetRef.current = preset
   // Timer state for the bench progress dial, mirrored into refs so the frame loop reads
   // the LIVE countdown without the render churn re-registering the loop. progress is the
   // shared elapsed fraction (== the digits); hasTimer/running/done gate visibility + look.
@@ -916,19 +920,17 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
   const keyRef = useRef()
   const rimRef = useRef()
 
-  // one-time scene setup + the persistent travelling SAMPLE (added to the scene).
+  // one-time scene setup + the persistent travelling SAMPLE (preset-independent, so a
+  // live bench flip never recreates the sample).
   useEffect(() => {
     demo.setRenderer(gl)
     demo.setScene(scene)
     ensureMaps()
     scene.environment = demo.buildEnvMap()
-    scene.background = demo.makeCineBackdrop()
     // the background texture renders ~15 RGB darker in modern three than r128;
     // lift it so the wall matches the demo's greige (measured, not eyeballed).
     scene.environmentIntensity = 2.5
     scene.backgroundIntensity = 1.19
-    const f = demo.LOOK.cinematic.fog
-    scene.fog = new FogExp2(f.color, f.density)
     const S = demo.initSample()
     S.vessels.forEach((v) => v.userData.label && (v.userData.label.visible = false))
     return () => {
@@ -937,16 +939,23 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
         disposeGroup(v)
       })
       scene.environment = null
-      scene.background = null
-      scene.fog = null
     }
   }, [gl, scene])
 
-  // the key + rim light targets follow the framed station (kept in the graph).
+  // backdrop + fog come from the active PRESET — reset them when the bench flips.
+  useEffect(() => {
+    scene.background = demo.makeCineBackdrop(preset)
+    const f = preset.lights.fog
+    scene.fog = new FogExp2(f.color, f.density)
+    return () => { scene.background = null; scene.fog = null }
+  }, [scene, preset])
+
+  // the key + rim light targets follow the framed station (re-added when the preset flips,
+  // since the rim light only exists in the dark preset).
   useEffect(() => {
     if (keyRef.current) scene.add(keyRef.current.target)
     if (rimRef.current) scene.add(rimRef.current.target)
-  }, [scene])
+  }, [scene, preset])
 
   // ── BUILD THE WHOLE LINE ONCE — one station per step along +X at SPACING.
   // Rebuilds ONLY on a structural change (protocol / language / chosen method),
@@ -1099,18 +1108,19 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     // 3 · the key + rim lights follow the framed station. The key grazes lower and more
     // from the side (a subject, not a flooded scene); the rim sits behind for a bright
     // edge on the glass against the dark bench.
+    const Lp = presetRef.current.lights
     const k = keyRef.current
     if (k) {
       const lx = targetXRef.current
-      k.position.set(lx + 6.5, 8.5, 5)
-      k.target.position.set(lx, 0.6, 0)
+      k.position.set(lx + Lp.keyPos[0], Lp.keyPos[1], Lp.keyPos[2])
+      k.target.position.set(lx + Lp.keyTarget[0], Lp.keyTarget[1], Lp.keyTarget[2])
       k.target.updateMatrixWorld()
     }
     const rim = rimRef.current
-    if (rim) {
+    if (rim && Lp.rim) {
       const lx = targetXRef.current
-      rim.position.set(lx - 6, 5.5, -8)
-      rim.target.position.set(lx, 1.2, 0)
+      rim.position.set(lx + Lp.rimPos[0], Lp.rimPos[1], Lp.rimPos[2])
+      rim.target.position.set(lx + Lp.rimTarget[0], Lp.rimTarget[1], Lp.rimTarget[2])
       rim.target.updateMatrixWorld()
     }
 
@@ -1183,8 +1193,8 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
 
   return (
     <>
-      <Lights keyRef={keyRef} rimRef={rimRef} />
-      <Floor totalLen={totalLen} />
+      <Lights keyRef={keyRef} rimRef={rimRef} preset={preset} />
+      <Floor totalLen={totalLen} preset={preset} />
       <PerspectiveCamera ref={perspRef} makeDefault fov={FOV} near={0.1} far={260} position={[0, RAIL_Y, RAIL_Z]} />
     </>
   )

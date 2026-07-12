@@ -15,7 +15,9 @@ export const HERO_ITEM = {
   gram_stain: 'staining_tray',
 }
 
-export function heroThumb(exampleId) {
+// Both bench presets are pre-rendered (thumbs-dark/, thumbs-light/); pick by the active
+// scene preset so a light bench never shows dark thumbnails.
+export function heroThumb(exampleId, bench = 'dark') {
   const item = HERO_ITEM[exampleId]
-  return item ? `thumbs/${item}.png` : null
+  return item ? `thumbs-${bench === 'light' ? 'light' : 'dark'}/${item}.png` : null
 }
