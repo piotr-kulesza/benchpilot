@@ -29,7 +29,7 @@ const answerValueLabel = (k, v) => ANSWER_VALUE[k]?.[v] || v
 // One step at a time, in a stable 1/3 – 2/3 split: everything textual on the left
 // (scrolls, sticky title + controls), the 3D scene on the right (never resizes).
 // English-only UI (original + verbatim preserved in the data; restorable in one line).
-export default function Runner({ protocol, answers, setAnswers, onExit, onStartOver, initialStep = 0, bench = 'dark', runId = 'default' }) {
+export default function Runner({ protocol, answers, setAnswers, onExit, initialStep = 0, bench = 'dark', runId = 'default' }) {
   const lang = 'en'
   const steps = protocol.steps
   // ALL run-scoped state hangs off the run id: a reload resumes it, a new run starts empty.
@@ -227,10 +227,6 @@ export default function Runner({ protocol, answers, setAnswers, onExit, onStartO
           <span className="dot" /> benchpilot
         </button>
         <StepTimeline steps={steps} current={i} onJump={setI} />
-        <button className="log-btn" type="button" title="Start a new run"
-          onClick={() => { if (window.confirm('Start a new run? This discards the current run and its log.')) onStartOver?.() }}>
-          <span aria-hidden="true">↺</span><span className="log-btn-label">New run</span>
-        </button>
         <button className="log-btn" type="button" onClick={() => setRecordOpen(true)} title="Run record">
           <LogGlyph /><span className="log-btn-label">Run log</span>
           {log.events.length > 0 && <span className="log-count num">{log.events.length}</span>}

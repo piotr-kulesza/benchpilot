@@ -141,15 +141,6 @@ function MainApp() {
     go('intake')
   }
 
-  // "Start over" from inside the runner: discard this run, start a clean one of the SAME
-  // protocol. The new id → Runner remounts (fresh scene + state) and its log/state start empty.
-  const startOver = () => {
-    const id = freshRunId(); pruneOldRuns(id); setRunId(id)
-    setAnswers({})
-    saveSession({ runId: id, protocol, source, lang, answers: {} })
-    go('intake')
-  }
-
   const pickExample = (ex) => {
     setParseState({ status: 'loading' })
     fetch('protocols/' + ex.file)
@@ -205,7 +196,6 @@ function MainApp() {
         setAnswers={setAnswers}
         initialStep={initialStep}
         onExit={() => go('home')}
-        onStartOver={startOver}
         bench={bench}
       />
     )
