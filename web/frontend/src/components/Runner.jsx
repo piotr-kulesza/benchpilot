@@ -70,12 +70,9 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
   return (
     <div className="runner" data-phase={step.phase}>
       <header className="runner-top">
-        <div className="rt-bar">
-          <div className="brand"><span className="dot" /> benchpilot</div>
-          <span className="rt-count num">{i + 1} / {steps.length}</span>
-          <span className="spacer" />
-          <Button variant="ghost" size="sm" onClick={onExit}>← Home</Button>
-        </div>
+        <button type="button" className="brand rt-brand" onClick={onExit} title="Back to home">
+          <span className="dot" /> benchpilot
+        </button>
         <StepTimeline steps={steps} current={i} onJump={setI} />
       </header>
 
