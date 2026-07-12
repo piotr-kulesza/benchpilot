@@ -136,7 +136,7 @@ export function undockSample() {
     var FS=42*SS, FSS=26*SS;               // main / sub px
     var PADX=40*SS, PADY=26*SS, GAP=10*SS, LG=6*SS, RAD=16*SS;  // pad / line gaps
     var MAXW=680*SS, MINW=300*SS;          // wrap past MAXW; short labels get MINW presence
-    var PIX=0.0026/SS;                     // world units per device px (overall label size)
+    var PIX=0.0032/SS;                     // world units per device px (overall label size)
     var FMAIN="500 "+FS+"px 'IBM Plex Sans'";
     var FSUB="500 "+FSS+"px 'IBM Plex Mono'";
     var c=document.createElement("canvas");

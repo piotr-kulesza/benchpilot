@@ -880,7 +880,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
       // centred on it — not over the station origin. Its own half-height (worldH/2)
       // plus a small gap put the plate's BOTTOM edge clear of the subject.
       const label = demo.makeLabel(o.title, o.sub)
-      const LABEL_GAP = 0.5
+      const LABEL_GAP = 0.95
       const halfH = (label.userData.worldH || 0.5) / 2
       label.position.set(st.frame.center.x, st.frame.top + LABEL_GAP + halfH, st.frame.center.z)
       st.group.add(label)
