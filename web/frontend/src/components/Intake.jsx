@@ -1,130 +1,89 @@
 import { useMemo, useState } from 'react'
 import {
-  deriveIntakeFields,
-  isCriticalHazard,
-  humanDuration,
-  localize,
-  stepText,
-  reagentName,
-  reagentVolume,
-  stepHazards,
-  PHASE_LABEL,
+  deriveIntakeFields, isCriticalHazard, humanDuration, localize,
+  stepText, reagentName, reagentVolume, stepHazards, PHASE_LABEL,
 } from '../lib/runtime.js'
+import { Panel, Card, Input, Alert, Button, Chip, Segmented, Badge } from '../ui/primitives.jsx'
 
-// The "before you start" screen — the Claude payoff made visible: the open
-// questions the parse surfaced, a prep-ahead checklist, materials, and hazards.
+// The "before you start" form — the Claude payoff made visible: the open questions the
+// protocol never asked, a prep-ahead checklist, materials, hazards, and non-bench
+// notes. Clear grouping, answers persist, one obvious "Start protocol".
 export default function Intake({ protocol, notes = [], answers, setAnswers, onStart, lang = 'en' }) {
   const fields = useMemo(() => deriveIntakeFields(protocol, lang), [protocol, lang])
   const prepSteps = protocol.steps.filter((s) => s.prep_ahead)
   const [checked, setChecked] = useState({})
-
   const globalHazards = useMemo(() => collectGlobalHazards(protocol, lang), [protocol, lang])
   const answeredCount = fields.filter((f) => answers[f.answerKey]).length
 
-  const setAnswer = (key, value) =>
-    setAnswers((a) => ({ ...a, [key]: a[key] === value ? undefined : value }))
+  const setAnswer = (key, value) => setAnswers((a) => ({ ...a, [key]: a[key] === value ? undefined : value }))
 
   return (
     <div className="intake">
-      <div className="hero">
-        <div className="eyebrow">Before you start</div>
+      <header className="intake-hero">
+        <span className="eyebrow">Before you start</span>
         <h1>{localize(protocol, 'title', lang)}</h1>
         <p className="summary">{localize(protocol, 'summary', lang)}</p>
-      </div>
+      </header>
 
       {fields.length > 0 && (
-        <section className="section">
-          <h2>Open questions</h2>
-          <p className="section-sub">
-            benchpilot found {fields.length} decisions this protocol leaves open.
-            Answer them once and we&apos;ll resolve the right volumes and paths as you go.
-          </p>
+        <Panel title="Open questions" sub={`benchpilot found ${fields.length} decision${fields.length === 1 ? '' : 's'} this protocol leaves open. Answer them once and we resolve the right volumes and paths as you go.`}>
           <div className="qgrid">
             {fields.map((f) => {
               const val = answers[f.answerKey]
               return (
-                <div className={`qcard${val ? ' answered' : ''}`} key={f.key}>
-                  <div className="q">{lang === 'en' ? f.question : f.questionOrig || f.question}</div>
+                <Card key={f.key} className={`qcard${val ? ' answered' : ''}`}>
+                  <div className="q">{f.question}</div>
                   {f.where && <div className="where">↳ {f.where}</div>}
                   {f.type === 'choice' ? (
-                    <div className="seg">
-                      {f.options.map((o) => (
-                        <button
-                          key={o.value}
-                          aria-pressed={val === o.value}
-                          onClick={() => setAnswer(f.answerKey, o.value)}
-                        >
-                          {o.label}
-                        </button>
-                      ))}
-                    </div>
+                    <Segmented ariaLabel={f.question} value={val} onChange={(v) => setAnswer(f.answerKey, v)} options={f.options} />
                   ) : (
-                    <input
-                      className="text-input"
-                      type="text"
-                      placeholder={f.placeholder || 'Your answer…'}
-                      value={val || ''}
-                      onChange={(e) => setAnswers((a) => ({ ...a, [f.answerKey]: e.target.value }))}
-                    />
+                    <Input type="text" placeholder={f.placeholder || 'Your answer…'} value={val || ''} aria-label={f.question}
+                      onChange={(e) => setAnswers((a) => ({ ...a, [f.answerKey]: e.target.value }))} />
                   )}
-                </div>
+                </Card>
               )
             })}
           </div>
-        </section>
+        </Panel>
       )}
 
       {prepSteps.length > 0 && (
-        <section className="section">
-          <h2>Prep ahead — do these before the clock starts</h2>
+        <Panel title="Prep ahead" sub="Do these before the clock starts.">
           <div className="checklist">
             {prepSteps.map((s) => {
               const done = !!checked[s.index]
               return (
-                <div
-                  className={`check-item${done ? ' done' : ''}`}
-                  key={s.index}
-                  onClick={() => setChecked((c) => ({ ...c, [s.index]: !c[s.index] }))}
-                >
-                  <div className="check-box">{done ? '✓' : ''}</div>
-                  <div className="check-body">
-                    <div className="txt">{stepText(s, lang)}</div>
+                <button type="button" className={`check-item${done ? ' done' : ''}`} key={s.index}
+                  aria-pressed={done} onClick={() => setChecked((c) => ({ ...c, [s.index]: !c[s.index] }))}>
+                  <span className="check-box" aria-hidden="true">{done ? '✓' : ''}</span>
+                  <span className="check-body">
+                    <span className="txt">{stepText(s, lang)}</span>
                     {(s.reagents.length > 0 || s.duration_seconds) && (
-                      <div className="meta">
+                      <span className="meta">
                         {s.reagents.map((r, i) => (
-                          <span className="pill reagent" key={i}>
-                            {reagentName(r, lang)}
-                            {r.volume ? ` · ${reagentVolume(r, lang)}` : ''}
-                          </span>
+                          <Chip key={i} tone="accent" k={reagentName(r, lang)} v={r.volume ? reagentVolume(r, lang) : undefined} num />
                         ))}
-                        {s.duration_seconds ? (
-                          <span className="pill timer">⏱ within {humanDuration(s.duration_seconds)}</span>
-                        ) : null}
-                      </div>
+                        {s.duration_seconds ? <Chip k="within" v={humanDuration(s.duration_seconds)} num /> : null}
+                      </span>
                     )}
-                  </div>
-                </div>
+                  </span>
+                </button>
               )
             })}
           </div>
-        </section>
+        </Panel>
       )}
 
       {globalHazards.length > 0 && (
-        <section className="section">
-          <h2>Keep in mind</h2>
+        <Panel title="Keep in mind">
           {globalHazards.map((h, i) => (
-            <div className={`hazard${h.critical ? ' critical' : ''}`} key={i}>
-              <span className="ico">{h.critical ? '⛔' : '⚠️'}</span>
-              <span>{h.text}</span>
-            </div>
+            <Alert key={i} tone={h.critical ? 'hazard' : 'warn'} critical={h.critical}>{h.text}</Alert>
           ))}
-        </section>
+        </Panel>
       )}
 
       {protocol.materials?.length > 0 && (
-        <section className="section">
-          <h2>Materials</h2>
+        <Panel title="Materials">
           <ul className="materials-list">
             {protocol.materials.map((m, i) => (
               <li key={i}>
@@ -133,34 +92,27 @@ export default function Intake({ protocol, notes = [], answers, setAnswers, onSt
               </li>
             ))}
           </ul>
-        </section>
+        </Panel>
       )}
 
       {notes.length > 0 && (
-        <section className="section">
-          <h2>Notes &amp; non-bench steps</h2>
-          <p className="section-sub">
-            {notes.length} step{notes.length === 1 ? '' : 's'} with nothing to animate — prep,
-            record-keeping and remarks. Read them here; the walkthrough covers the bench actions.
-          </p>
+        <Panel title="Notes & non-bench steps" sub={`${notes.length} step${notes.length === 1 ? '' : 's'} with nothing to animate — prep, record-keeping and remarks. The walkthrough covers the bench actions.`}>
           <ul className="notes-list">
             {notes.map((s, i) => (
-              <li key={i} className="note-item" data-phase={s.phase}>
-                <span className="note-phase">{PHASE_LABEL[s.phase] || s.phase}</span>
+              <li key={i} className="note-item">
+                <Badge>{PHASE_LABEL[s.phase] || s.phase}</Badge>
                 <span className="note-text">{stepText(s, lang)}</span>
               </li>
             ))}
           </ul>
-        </section>
+        </Panel>
       )}
 
       <div className="start-bar">
-        <button className="primary-btn" onClick={onStart}>
-          Start protocol →
-        </button>
-        <span className="start-note">
-          {answeredCount}/{fields.length} questions answered
-          {answeredCount < fields.length ? " — you can answer the rest as you go" : ' — all set'}
+        <Button variant="primary" size="lg" onClick={onStart}>Start protocol →</Button>
+        <span className="start-note num">
+          {answeredCount}/{fields.length} answered
+          {answeredCount < fields.length ? ' — you can answer the rest as you go' : ' — all set'}
         </span>
       </div>
     </div>
@@ -169,7 +121,6 @@ export default function Intake({ protocol, notes = [], answers, setAnswers, onSt
 
 function collectGlobalHazards(protocol, lang = 'en') {
   // Surface hazards from the notes phase + any critical negatives, deduped.
-  // Criticality is judged on the ORIGINAL text; display uses the localized text.
   const out = []
   const seen = new Set()
   for (const s of protocol.steps) {

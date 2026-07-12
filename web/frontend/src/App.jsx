@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import Home from './components/Home.jsx'
 import Intake from './components/Intake.jsx'
 import Runner from './components/Runner.jsx'
+import { Button } from './ui/primitives.jsx'
 import { partitionSteps } from './lib/runtime.js'
 
 // Dev-only harness routes: ?models=1 (model gallery) and ?matrix=1 (animation
@@ -58,7 +59,10 @@ function MainApp() {
   const [protocol, setProtocol] = useState(persisted?.protocol || null)
   const [source, setSource] = useState(persisted?.source || null)
   const [route, setRoute] = useState('home') // resolved in the mount effect below
-  const [lang, setLang] = useState(q.get('lang') === 'orig' ? 'orig' : (persisted?.lang || 'en'))
+  // English-only UI. The original-language + verbatim fields stay in the data (audit
+  // trail, untouched) and still show on fallback; restore the EN/Original toggle by
+  // making this `useState` again and re-adding the control.
+  const lang = 'en'
   const [answers, setAnswers] = useState({ ...(persisted?.answers || {}), ...urlAnswers() })
   const [parseState, setParseState] = useState({ status: 'idle' })
   const initialStep = q.get('step') ? Math.max(0, parseInt(q.get('step'), 10) - 1) : 0
@@ -142,9 +146,6 @@ function MainApp() {
       ))
   }
 
-  // keep lang persisted across reloads
-  useEffect(() => { if (protocol) saveSession({ protocol, source, lang, answers }) }, [lang]) // eslint-disable-line react-hooks/exhaustive-deps
-
   // only actionable steps become 3D stations; the rest show as notes in the intake.
   const { stations, notes } = useMemo(() => partitionSteps(protocol?.steps || []), [protocol])
   const runProtocol = useMemo(() => (protocol ? { ...protocol, steps: stations } : protocol), [protocol, stations])
@@ -152,9 +153,7 @@ function MainApp() {
   if (route === 'home' || !protocol) {
     return (
       <div className="app">
-        <div className="shell">
-          <Home examples={examples} onPickExample={pickExample} onParse={parseUpload} parseState={parseState} />
-        </div>
+        <Home examples={examples} onPickExample={pickExample} onParse={parseUpload} parseState={parseState} />
       </div>
     )
   }
@@ -167,8 +166,6 @@ function MainApp() {
         setAnswers={setAnswers}
         initialStep={initialStep}
         onExit={() => go('intake')}
-        lang={lang}
-        setLang={setLang}
       />
     )
   }
@@ -176,36 +173,15 @@ function MainApp() {
   // intake
   return (
     <div className="app">
-      <div className="shell">
-        <div className="masthead">
-          <button className="ghost-btn home-back" onClick={() => go('home')}>← Home</button>
-          <div className="brand">
-            <span className="dot" />
-            benchpilot
-            {source && <small>&nbsp;· {source}</small>}
-          </div>
-          <span className="spacer" />
-          <LangToggle lang={lang} setLang={setLang} />
+      <div className="topbar">
+        <Button variant="ghost" size="sm" onClick={() => go('home')}>← Home</Button>
+        <div className="brand">
+          <span className="dot" /> benchpilot
+          {source && <small>&nbsp;· {source}</small>}
         </div>
-
-        <Intake
-          protocol={protocol}
-          notes={notes}
-          answers={answers}
-          setAnswers={setAnswers}
-          onStart={() => go('run')}
-          lang={lang}
-        />
+        <span className="spacer" />
       </div>
-    </div>
-  )
-}
-
-function LangToggle({ lang, setLang }) {
-  return (
-    <div className="lang-toggle" role="group" aria-label="language">
-      <button aria-pressed={lang === 'en'} onClick={() => setLang('en')}>EN</button>
-      <button aria-pressed={lang === 'orig'} onClick={() => setLang('orig')}>Original</button>
+      <Intake protocol={protocol} notes={notes} answers={answers} setAnswers={setAnswers} onStart={() => go('run')} lang={lang} />
     </div>
   )
 }

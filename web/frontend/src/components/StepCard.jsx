@@ -1,4 +1,5 @@
 import TimerControls from './Timer.jsx'
+import { Button, Chip, Alert, Badge } from '../ui/primitives.jsx'
 import {
   hasAlternatives,
   selectAlternative,
@@ -16,39 +17,18 @@ import {
   localize,
 } from '../lib/runtime.js'
 
-const KIND_ICON = {
-  action: '→',
-  wait: '⏱',
-  spin: '🌀',
-  prepare: '⚗',
-  measure: '📏',
-  caution: '⚠',
-  storage: '❄',
-}
-
-// The current step: a big animated action visual (the hero), then the English
-// instruction and every structural feature the parse gives us — resolved
-// conditionals, either/or choice, tracked repeats, hazards (negatives red), and
-// a timer whose clock also drives the animation.
+// The step BODY, rendered in the left column's scroll region. The instruction is the
+// single most important thing in the app — it is large, full line-height, and NEVER
+// truncated. Everything structural the parse gives us lives here too: the moved-in
+// scene data (temp / ×g), either/or choice, resolved conditionals, reagents, tracked
+// repeats, timer, and hazards (negatives loudest). English-only (lang defaults 'en').
 export default function StepCard({
-  step,
-  answers,
-  altIndex,
-  countdown,
-  timer,
-  onPickAlt,
-  passes,
-  onPass,
-  onAnswerInline,
-  lang = 'en',
+  step, answers, altIndex, countdown, timer, onPickAlt, passes, onPass, onAnswerInline, temp, lang = 'en',
 }) {
   const eff = hasAlternatives(step) ? selectAlternative(step, altIndex) : step
-  const kind = eff.kind || 'action'
 
   const reagents = resolveReagents(eff, answers)
   const { selected, undecided } = resolveConditionals(eff, answers)
-  // The step's clock is owned by the Runner (shared with the 3D scene). `timer`
-  // is non-null only for timed (wait/spin) steps.
   const timed = !!timer
 
   const repTarget = repeatTarget(eff)
@@ -56,21 +36,28 @@ export default function StepCard({
   const showRepeat = eff.repeat && (repTarget > 1 || openEnded)
   const hazards = stepHazards(eff, lang)
 
-  return (
-    <div className="step-card" key={`${step.index}-${altIndex}-${lang}`}>
-      <span className="kind-badge" data-kind={kind}>
-        <span>{KIND_ICON[kind] || '→'}</span>
-        {kind}
-        {eff.duration_seconds && !timed ? ` · ${humanDuration(eff.duration_seconds)}` : ''}
-      </span>
+  const rcf = eff.spin?.rcf_min ? `≥ ${eff.spin.rcf_min.toLocaleString()} ×g` : null
+  const duration = eff.duration_seconds && !timed ? humanDuration(eff.duration_seconds) : null
 
+  return (
+    <div className="step-body">
+      {/* THE instruction — the most important content in the app */}
       <p className="instruction">{stepText(eff, lang) || stepText(step, lang)}</p>
+
+      {/* scene data that used to float over the 3D: temperature, spin force, duration */}
+      {(temp || rcf || duration) && (
+        <div className="data-chips">
+          {temp && <Chip k="Temp" v={temp} num />}
+          {rcf && <Chip k="Spin" v={rcf} num />}
+          {duration && <Chip k="Within" v={duration} num />}
+        </div>
+      )}
 
       {/* either / or — choose the path, run only the chosen one */}
       {hasAlternatives(step) && (
         <div className="block">
           <div className="block-label">Choose your method</div>
-          <div className="alt-switch" role="group" aria-label="alternatives">
+          <div className="segmented alt-switch" role="group" aria-label="alternatives">
             {step.alternatives.map((alt, i) => (
               <button key={i} aria-pressed={i === altIndex} onClick={() => onPickAlt(i)}>
                 {shortLabel(stepText(alt, lang))}
@@ -85,7 +72,7 @@ export default function StepCard({
         <div className="block">
           {selected.map((c, i) => (
             <div className="resolved" key={i}>
-              <span className="tag">resolved</span>
+              <Badge tone="accent">resolved</Badge>
               <span>{localize(c, 'then', lang)}</span>
             </div>
           ))}
@@ -107,7 +94,7 @@ export default function StepCard({
             <div className={`reagent-row${r.state === 'selected' ? ' selected' : ''}`} key={i}>
               <span className="r-name">{reagentName(r, lang)}</span>
               {r.condition && r.state !== 'selected' && <span className="r-cond">{reagentCondition(r, lang)}</span>}
-              {r.volume && <span className="r-vol">{reagentVolume(r, lang)}</span>}
+              {r.volume && <span className="r-vol num">{reagentVolume(r, lang)}</span>}
             </div>
           ))}
         </div>
@@ -117,9 +104,8 @@ export default function StepCard({
       {showRepeat && (
         <div className="block">
           <div className="repeat-tracker">
-            {/* dots for small counts (washes ×3); a compact ×N badge for cycles (PCR ×35) */}
             {!openEnded && repTarget <= 12 && (
-              <div className="repeat-dots">
+              <div className="repeat-dots" aria-hidden="true">
                 {Array.from({ length: repTarget }).map((_, i) => (
                   <span className={`dot${i < passes ? ' done' : ''}`} key={i} />
                 ))}
@@ -133,9 +119,9 @@ export default function StepCard({
                   ? `Cycle ${Math.min(passes, repTarget)} of ${repTarget}`
                   : `Pass ${Math.min(passes, repTarget)} of ${repTarget}`}
             </div>
-            <button className="repeat-btn" onClick={onPass}>
+            <Button variant="secondary" size="sm" onClick={onPass}>
               {openEnded || passes < repTarget ? '+ Count a pass' : '✓ Done'}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -144,27 +130,19 @@ export default function StepCard({
       {timed && (
         <div className="block">
           <TimerControls
-            remaining={countdown.remaining}
-            running={countdown.running}
-            done={countdown.done}
-            start={countdown.start}
-            pause={countdown.pause}
-            reset={countdown.reset}
-            spin={eff.spin}
+            remaining={countdown.remaining} running={countdown.running} done={countdown.done}
+            start={countdown.start} pause={countdown.pause} reset={countdown.reset} spin={eff.spin}
           />
         </div>
       )}
 
-      {/* hazards — negatives rendered boldly in red */}
+      {/* hazards — negatives rendered as critical alerts */}
       {hazards.length > 0 && (
         <div className="block">
           {hazards.map((h, i) => {
             const critical = isCriticalHazard(h) || isCriticalHazard((eff.hazards || [])[i])
             return (
-              <div className={`hazard${critical ? ' critical' : ''}`} key={i}>
-                <span className="ico">{critical ? '⛔' : '⚠️'}</span>
-                <span>{h}</span>
-              </div>
+              <Alert key={i} tone={critical ? 'hazard' : 'warn'} critical={critical}>{h}</Alert>
             )
           })}
         </div>
@@ -176,31 +154,30 @@ export default function StepCard({
 function InlineBranch({ conditionals, onAnswerInline, lang = 'en' }) {
   const text = conditionals.map((c) => c.condition).join(' ').toLowerCase()
   const isKit = text.includes('mini') || text.includes('micro')
-  const isCells =
-    text.includes('≤') || text.includes('>') || text.includes('komórek') || text.includes('cells')
+  const isCells = text.includes('≤') || text.includes('>') || text.includes('komórek') || text.includes('cells')
 
   return (
-    <div className="resolved ask">
-      <span className="tag">decide</span>
-      <span>This step depends on an unanswered question:</span>
+    <div className="decide">
+      <div className="resolved">
+        <Badge tone="info">decide</Badge>
+        <span>This step depends on an unanswered question.</span>
+      </div>
       {isCells && (
         <div className="seg">
-          <button onClick={() => onAnswerInline('cells', 'le')}>≤ 5×10⁶ cells</button>
-          <button onClick={() => onAnswerInline('cells', 'gt')}>&gt; 5×10⁶ cells</button>
+          <Button variant="secondary" size="sm" onClick={() => onAnswerInline('cells', 'le')}>≤ 5×10⁶ cells</Button>
+          <Button variant="secondary" size="sm" onClick={() => onAnswerInline('cells', 'gt')}>&gt; 5×10⁶ cells</Button>
         </div>
       )}
       {isKit && (
         <div className="seg">
-          <button onClick={() => onAnswerInline('kit', 'mini')}>Mini</button>
-          <button onClick={() => onAnswerInline('kit', 'micro')}>Micro</button>
+          <Button variant="secondary" size="sm" onClick={() => onAnswerInline('kit', 'mini')}>Mini</Button>
+          <Button variant="secondary" size="sm" onClick={() => onAnswerInline('kit', 'micro')}>Micro</Button>
         </div>
       )}
       {!isCells && !isKit && (
         <div className="seg">
           {conditionals.map((c, i) => (
-            <span key={i} className="r-cond">
-              {localize(c, 'condition', lang)} → {localize(c, 'then', lang)}
-            </span>
+            <span key={i} className="r-cond">{localize(c, 'condition', lang)} → {localize(c, 'then', lang)}</span>
           ))}
         </div>
       )}

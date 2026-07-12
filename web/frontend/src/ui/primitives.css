@@ -1,0 +1,139 @@
+/* primitives — Button, Badge, Chip, Card, Panel, Input, FileDrop, Progress, Timer,
+   Tag, Alert. Every interactive element has hover / focus-visible / active / disabled.
+   All values come from tokens. */
+
+/* ── Button ──────────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
+  min-height: var(--control-h); padding: 0 var(--sp-4);
+  border: 1px solid transparent; border-radius: var(--r-3);
+  font-size: var(--fs-body); font-weight: 500; line-height: 1; white-space: nowrap;
+  cursor: pointer; user-select: none;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), transform var(--dur-fast) var(--ease);
+}
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+.btn-block { width: 100%; }
+.btn-lg { min-height: 48px; padding: 0 var(--sp-6); font-size: var(--fs-h2); }
+.btn-sm { min-height: 32px; padding: 0 var(--sp-3); font-size: var(--fs-meta); }
+
+.btn-primary { background: var(--c-accent); color: var(--c-accent-ink); font-weight: 600; }
+.btn-primary:hover:not(:disabled) { background: #67c3b3; }
+.btn-primary:active:not(:disabled) { background: #4fa596; }
+
+.btn-secondary { background: var(--c-raised-2); color: var(--c-ink); border-color: var(--c-border); }
+.btn-secondary:hover:not(:disabled) { background: var(--c-raised-3); border-color: var(--c-border-str); }
+
+.btn-ghost { background: transparent; color: var(--c-ink-dim); }
+.btn-ghost:hover:not(:disabled) { background: var(--c-raised-2); color: var(--c-ink); }
+
+.btn-danger { background: var(--c-danger-dim); color: var(--c-danger); border-color: transparent; }
+.btn-danger:hover:not(:disabled) { background: #5a332b; }
+
+/* ── segmented control (a group of mutually-exclusive choices) ───────────────── */
+.segmented { display: inline-flex; gap: 2px; padding: 2px; background: var(--c-sunken); border: 1px solid var(--c-border); border-radius: var(--r-3); }
+.segmented > button {
+  min-height: 34px; padding: 0 var(--sp-4); border: 0; border-radius: var(--r-2); background: transparent;
+  color: var(--c-ink-dim); font-size: var(--fs-meta); font-weight: 500; cursor: pointer;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.segmented > button:hover { color: var(--c-ink); }
+.segmented > button[aria-pressed='true'] { background: var(--c-raised-3); color: var(--c-ink); }
+
+/* ── Badge / Tag (small caps label; empty ones never render — enforced in JSX) ─ */
+.badge {
+  display: inline-flex; align-items: center; gap: var(--sp-1);
+  padding: 3px var(--sp-2); border-radius: var(--r-2);
+  font-size: var(--fs-micro); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--c-ink-dim); background: var(--c-raised-2); border: 1px solid var(--c-border);
+}
+.badge[data-tone='accent'] { color: var(--c-accent); background: transparent; border-color: var(--c-accent-dim); }
+.badge[data-tone='danger'] { color: var(--c-danger); background: var(--c-danger-dim); border-color: transparent; }
+.badge[data-tone='warn']   { color: var(--c-warn);   background: var(--c-warn-dim);   border-color: transparent; }
+.badge[data-tone='info']   { color: var(--c-info);   background: var(--c-info-dim);   border-color: transparent; }
+.badge .badge-dot { width: 6px; height: 6px; border-radius: var(--r-pill); background: currentColor; }
+
+/* ── Chip (labelled value: reagent · volume, temp, ×g) ──────────────────────── */
+.chip {
+  display: inline-flex; align-items: baseline; gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-3); border-radius: var(--r-2);
+  background: var(--c-raised-2); border: 1px solid var(--c-border); font-size: var(--fs-meta);
+}
+.chip .chip-k { color: var(--c-ink); }
+.chip .chip-v { color: var(--c-ink-dim); }
+.chip[data-tone='accent'] { border-color: var(--c-accent-dim); }
+.chip[data-tone='accent'] .chip-v { color: var(--c-accent); }
+
+/* ── Card ───────────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--c-raised); border: 1px solid var(--c-border); border-radius: var(--r-4);
+  padding: var(--sp-5);
+}
+.card-btn { text-align: left; cursor: pointer; transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease), transform var(--dur-fast) var(--ease); }
+.card-btn:hover:not(:disabled) { border-color: var(--c-border-str); background: var(--c-raised-2); }
+.card-btn:active:not(:disabled) { transform: translateY(1px); }
+.card-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── Panel (a labelled section) ──────────────────────────────────────────────── */
+.panel { display: flex; flex-direction: column; gap: var(--sp-4); }
+.panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); }
+.panel-head .panel-title { margin: 0; }
+.panel-title { font-size: var(--fs-h2); font-weight: 600; color: var(--c-ink); }
+.panel-sub { font-size: var(--fs-meta); color: var(--c-ink-dim); line-height: var(--lh); }
+
+/* ── Input / Textarea ────────────────────────────────────────────────────────── */
+.input, .textarea {
+  width: 100%; padding: var(--sp-3); background: var(--c-sunken); color: var(--c-ink);
+  border: 1px solid var(--c-border); border-radius: var(--r-3); font-size: var(--fs-body);
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.input { height: var(--control-h); }
+.textarea { min-height: 120px; resize: vertical; line-height: var(--lh); }
+.input:hover, .textarea:hover { border-color: var(--c-border-str); }
+.input:focus, .textarea:focus { border-color: var(--c-accent); box-shadow: 0 0 0 3px var(--c-accent-dim); }
+.input:disabled, .textarea:disabled { opacity: .5; }
+
+/* ── FileDrop ─────────────────────────────────────────────────────────────────── */
+.filedrop {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-2);
+  min-height: 160px; padding: var(--sp-6); text-align: center; cursor: pointer;
+  background: var(--c-sunken); border: 1.5px dashed var(--c-border-str); border-radius: var(--r-4);
+  color: var(--c-ink-dim); transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.filedrop:hover, .filedrop.drag { border-color: var(--c-accent); color: var(--c-ink); background: var(--c-raised); }
+.filedrop.disabled { opacity: .5; pointer-events: none; }
+.filedrop-icon { font-size: 1.6rem; color: var(--c-ink-faint); line-height: 1; }
+.filedrop-main { font-size: var(--fs-body); color: var(--c-ink); }
+.filedrop-sub { font-size: var(--fs-meta); }
+
+/* ── Progress ─────────────────────────────────────────────────────────────────── */
+.progress { height: 4px; width: 100%; background: var(--c-raised-3); border-radius: var(--r-pill); overflow: hidden; }
+.progress > i { display: block; height: 100%; background: var(--c-accent); border-radius: inherit; transition: width var(--dur) var(--ease); }
+
+/* ── Alert (hazard / warn / info) ─────────────────────────────────────────────── */
+.alert {
+  display: flex; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-3); border: 1px solid var(--c-border);
+  background: var(--c-raised-2); color: var(--c-ink); font-size: var(--fs-body); line-height: var(--lh);
+  border-left-width: 3px;
+}
+.alert-icon { flex: 0 0 auto; line-height: var(--lh); }
+.alert[data-tone='hazard'] { border-color: var(--c-danger-dim); border-left-color: var(--c-danger); background: color-mix(in srgb, var(--c-danger-dim) 55%, transparent); }
+.alert[data-tone='hazard'] .alert-icon { color: var(--c-danger); }
+.alert[data-tone='warn']   { border-color: var(--c-warn-dim);   border-left-color: var(--c-warn); }
+.alert[data-tone='warn'] .alert-icon { color: var(--c-warn); }
+.alert[data-tone='info']   { border-color: var(--c-info-dim);   border-left-color: var(--c-info); }
+.alert[data-tone='info'] .alert-icon { color: var(--c-info); }
+.alert.critical { font-weight: 500; }
+
+/* ── Timer ────────────────────────────────────────────────────────────────────── */
+.timer { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-4); background: var(--c-sunken); border: 1px solid var(--c-border); border-radius: var(--r-3); }
+.timer-top { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); }
+.timer-digits { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--fs-num-lg); font-weight: 500; letter-spacing: 0.01em; color: var(--c-ink); }
+.timer-state { font-size: var(--fs-meta); color: var(--c-ink-dim); }
+.timer.done .timer-digits { color: var(--c-accent); }
+.timer.done .timer-state { color: var(--c-accent); }
+.timer-params { font-size: var(--fs-meta); color: var(--c-ink-dim); }
+.timer-params .num { color: var(--c-ink); }
+.timer-controls { display: flex; gap: var(--sp-2); }
+.timer-controls .btn { flex: 1; }

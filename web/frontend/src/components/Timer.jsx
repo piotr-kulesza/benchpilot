@@ -1,30 +1,33 @@
-import { formatDuration } from '../lib/runtime.js'
+import { Button } from '../ui/primitives.jsx'
 
-// Presentational timer control strip. The countdown STATE lives one level up (in
-// StepCard) so the same clock drives both this control and the action animation's
-// ring/rotor. This just shows the digits, spin params, and start/pause/reset.
+// Instrument-style timer readout. The countdown STATE lives one level up (in
+// StepCard) so the same clock drives this control AND the scene's ring/rotor.
+// Minutes are zero-padded ('09:59' → '10:00') so — with tabular figures — the
+// readout never changes width or shifts as it ticks.
+function fmt(sec) {
+  if (sec == null || isNaN(sec) || sec < 0) return '0:00'
+  const s = Math.round(sec)
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60
+  const p = (n) => String(n).padStart(2, '0')
+  return h > 0 ? `${h}:${p(m)}:${p(ss)}` : `${p(m)}:${p(ss)}`
+}
+
 export default function TimerControls({ remaining, running, done, start, pause, reset, spin }) {
-  const paramBits = []
-  if (spin?.rcf_min) paramBits.push(`≥ ${spin.rcf_min.toLocaleString()} ×g`)
-  if (spin?.note) paramBits.push(spin.note)
+  const params = []
+  if (spin?.rcf_min) params.push(`≥ ${spin.rcf_min.toLocaleString()} ×g`)
+  if (spin?.note) params.push(spin.note)
 
   return (
-    <div className={`timer-bar${done ? ' done' : ''}`}>
-      <div className="timer-readout">
-        <span className="timer-digits">{formatDuration(remaining)}</span>
-        {done ? (
-          <span className="timer-flag">✓ Time&apos;s up</span>
-        ) : (
-          <span className="timer-state">{running ? 'counting down' : 'ready'}</span>
-        )}
+    <div className={`timer${done ? ' done' : ''}`}>
+      <div className="timer-top">
+        <span className="timer-digits">{fmt(remaining)}</span>
+        <span className="timer-state">{done ? "✓ Time's up" : running ? 'counting down' : 'ready'}</span>
       </div>
-      {paramBits.length > 0 && <div className="timer-params">🌀 {paramBits.join(' · ')}</div>}
+      {params.length > 0 && <div className="timer-params num">🌀 {params.join(' · ')}</div>}
       <div className="timer-controls">
-        {!running && !done && (
-          <button className="go" onClick={start}>▶ Start</button>
-        )}
-        {running && <button onClick={pause}>⏸ Pause</button>}
-        {(done || !running) && <button onClick={reset}>↺ Reset</button>}
+        {!running && !done && <Button variant="primary" size="sm" onClick={start}>▶ Start</Button>}
+        {running && <Button variant="secondary" size="sm" onClick={pause}>⏸ Pause</Button>}
+        {(done || !running) && <Button variant="ghost" size="sm" onClick={reset}>↺ Reset</Button>}
       </div>
     </div>
   )

@@ -1,32 +1,22 @@
-// <StationView> — the persistent hero for the runner: the whole protocol as a 3D
-// station line, framed on the active step. Mounted ONCE (above the keyed step
-// card) so the sample and camera travel as you go Back/Next instead of the canvas
-// remounting each step.
-//
-// Robust by construction: WebGL is feature-detected; without it (or before the 3D
-// chunk loads) we show the static <Fallback>. If the live scene throws, the error
-// boundary swaps in the same fallback rather than crashing the runner.
+// <StationView> — the persistent 3D hero for the runner, filling the right pane.
+// WebGL is feature-detected; without it (or if the live scene throws) we fall back
+// to a calm static <Fallback>. The ONLY thing allowed to float over the scene is the
+// Cinematic/Isometric view toggle — it's a control FOR the scene. All step data lives
+// in the left column now.
 
 import { Component, useMemo, useState } from 'react'
 import './vessel.css'
 import Fallback from './Fallback.jsx'
 import StationCanvas from './StationCanvas.jsx'
+import { Segmented } from '../ui/primitives.jsx'
 import { reagentColor } from './theme.js'
 import { resolveRecipe } from './sceneRecipe.js'
-import { reagentName, reagentVolume, effectiveStep } from '../lib/runtime.js'
+import { reagentName, effectiveStep } from '../lib/runtime.js'
 
 class GLBoundary extends Component {
-  constructor(props) {
-    super(props)
-    this.state = { failed: false }
-  }
-  static getDerivedStateFromError() {
-    return { failed: true }
-  }
-  render() {
-    if (this.state.failed) return this.props.fallback
-    return this.props.children
-  }
+  constructor(props) { super(props); this.state = { failed: false } }
+  static getDerivedStateFromError() { return { failed: true } }
+  render() { return this.state.failed ? this.props.fallback : this.props.children }
 }
 
 let _webgl
@@ -35,9 +25,7 @@ function webglAvailable() {
   try {
     const c = document.createElement('canvas')
     _webgl = !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl')))
-  } catch {
-    _webgl = false
-  }
+  } catch { _webgl = false }
   return _webgl
 }
 
@@ -46,73 +34,40 @@ function primaryReagent(reagents = []) {
   return reagents.find((r) => r.volume) || reagents[0]
 }
 
-export default function StationView({ protocol, activeIndex = 0, answers = {}, lang = 'en', progress = 1, running = false, temp = null, fill: fullBleed = false, altByStep = {} }) {
+export default function StationView({ protocol, activeIndex = 0, answers = {}, lang = 'en', progress = 1, running = false, altByStep = {} }) {
   const [view, setView] = useState('cinematic')
   const [use3D] = useState(() => webglAvailable())
 
   const steps = protocol?.steps || []
   const baseStep = steps[Math.max(0, Math.min(activeIndex, steps.length - 1))] || { action: 'generic', reagents: [] }
-  // the overlay (reagent / spin chips / action) follows the CHOSEN alternative
   const step = effectiveStep(baseStep, altByStep[baseStep.index] || 0)
   const recipe = useMemo(() => resolveRecipe(step.action), [step.action])
-
   const primary = primaryReagent(step.reagents)
   const name = primary ? reagentName(primary, lang) : null
   const liquidColor = useMemo(() => reagentColor(name), [name])
-  const volume = primary ? reagentVolume(primary, lang) || null : null
-  const spin = step.spin
-  const rcf = spin?.rcf_min ? `≥ ${spin.rcf_min.toLocaleString()} ×g` : null
-  const spinTime = spin?.duration_seconds ? `${spin.duration_seconds}s` : null
+
+  const fallback = <div className="stage-fallback"><Fallback liquidColor={liquidColor} fill={recipe.anim.fill} /></div>
 
   return (
-    <div className={`vessel${fullBleed ? ' vessel-fill' : ''}`} data-action={step.action}>
-      <div className={`vessel-stage station-stage${fullBleed ? ' station-stage-fill' : ''}`}>
+    <div className="vessel">
+      <div className="vessel-stage">
         {use3D ? (
-          <GLBoundary fallback={<Fallback liquidColor={liquidColor} fill={recipe.anim.fill} />}>
+          <GLBoundary fallback={fallback}>
             <StationCanvas
-              protocol={protocol}
-              activeIndex={activeIndex}
-              answers={answers}
-              lang={lang}
-              progress={progress}
-              running={running}
-              view={view}
-              altByStep={altByStep}
+              protocol={protocol} activeIndex={activeIndex} answers={answers} lang={lang}
+              progress={progress} running={running} view={view} altByStep={altByStep}
             />
           </GLBoundary>
-        ) : (
-          <Fallback liquidColor={liquidColor} fill={recipe.anim.fill} />
-        )}
+        ) : fallback}
 
-        {/* camera toggle — cinematic dolly vs isometric pan (matches the demo) */}
         {use3D && (
-          <div className="cam-toggle" role="group" aria-label="camera view">
-            <button aria-pressed={view === 'cinematic'} onClick={() => setView('cinematic')}>
-              Cinematic
-            </button>
-            <button aria-pressed={view === 'isometric'} onClick={() => setView('isometric')}>
-              Isometric
-            </button>
+          <div className="view-toggle">
+            <Segmented
+              ariaLabel="Camera view" value={view} onChange={setView}
+              options={[{ value: 'cinematic', label: 'Cinematic' }, { value: 'isometric', label: 'Isometric' }]}
+            />
           </div>
         )}
-
-        {/* data overlay — the parse data stays visible beside the scene */}
-        <div className="vessel-overlay">
-          {name && (
-            <div className="ov-chip reagent">
-              <span className="ov-name">{name}</span>
-              {volume && <span className="ov-vol">{volume}</span>}
-            </div>
-          )}
-          {temp && <div className="ov-chip temp">🌡 {temp}</div>}
-          {(rcf || spinTime) && (
-            <div className="ov-chip spin">
-              {rcf}
-              {rcf && spinTime ? ' · ' : ''}
-              {spinTime}
-            </div>
-          )}
-        </div>
       </div>
     </div>
   )

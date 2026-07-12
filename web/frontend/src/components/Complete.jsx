@@ -1,7 +1,7 @@
-import { deriveIntakeFields } from '../lib/runtime.js'
+import { deriveIntakeFields, localize } from '../lib/runtime.js'
+import { Button } from '../ui/primitives.jsx'
 
-// A calm end screen that echoes the decisions the user made — a nice receipt of
-// the run and a reminder of what to record.
+// A calm end screen that echoes the decisions the user made — a receipt of the run.
 export default function Complete({ protocol, answers, onRestart }) {
   const fields = deriveIntakeFields(protocol)
   const answered = fields
@@ -10,11 +10,11 @@ export default function Complete({ protocol, answers, onRestart }) {
 
   return (
     <div className="complete">
-      <div className="checkmark">✓</div>
+      <div className="complete-mark" aria-hidden="true">✓</div>
       <h1>Protocol complete</h1>
       <p>
-        You ran <strong>{protocol.title}</strong> end to end. Record your input cell
-        count and yield, and store the RNA at −80&nbsp;°C.
+        You ran <strong>{localize(protocol, 'title')}</strong> end to end. Record your
+        inputs and yield, and store the product as the protocol specifies.
       </p>
 
       {answered.length > 0 && (
@@ -22,15 +22,13 @@ export default function Complete({ protocol, answers, onRestart }) {
           {answered.map((a, i) => (
             <div className="cell" key={i}>
               <div className="k">{a.label}</div>
-              <div className="v">{a.value}</div>
+              <div className="v num">{a.value}</div>
             </div>
           ))}
         </div>
       )}
 
-      <button className="primary-btn" onClick={onRestart}>
-        ↺ Back to start
-      </button>
+      <Button variant="primary" onClick={onRestart}>↺ Back to start</Button>
     </div>
   )
 }

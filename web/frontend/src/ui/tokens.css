@@ -1,0 +1,83 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   benchpilot design tokens — the ONE source of truth. Nothing else hardcodes a
+   colour, size, radius or duration. Dark, warm-neutral: the 3D bench is the only
+   bright surface; the UI stays out of its way.
+   ───────────────────────────────────────────────────────────────────────────── */
+:root {
+  /* type families */
+  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* ── colour — warm-neutral dark ──────────────────────────────────────────── */
+  --c-surface:    #16150f;   /* app background (deepest) */
+  --c-sunken:     #100f0a;   /* wells, insets, the paste box */
+  --c-raised:     #1e1c16;   /* cards, panels */
+  --c-raised-2:   #26241c;   /* raised-on-raised (chips, inputs, hover) */
+  --c-raised-3:   #302d23;   /* active/pressed surface */
+  --c-border:     #34312a;   /* hairline dividers, card edges */
+  --c-border-2:   #45413636; /* subtler inner borders (rgba) */
+  --c-border-str: #4a463b;   /* focused / emphasised edge */
+
+  --c-ink:        #edeae2;   /* primary text (AA on surface) */
+  --c-ink-dim:    #b3ada2;   /* secondary text, labels */
+  --c-ink-faint:  #7d776c;   /* tertiary, placeholders, disabled */
+
+  --c-accent:     #58b6a6;   /* the demo's teal — used only where it means something */
+  --c-accent-ink: #0f1a18;   /* text on an accent fill */
+  --c-accent-dim: #2f4a45;   /* accent border / faint fill */
+
+  --c-danger:     #e07a63;   /* critical hazard (negatives, "do NOT …") */
+  --c-danger-dim: #4a2a24;
+  --c-warn:       #d7a24a;   /* caution / warning */
+  --c-warn-dim:   #453820;
+  --c-info:       #6fa6cf;   /* neutral info / decide */
+  --c-info-dim:   #263a48;
+
+  /* phase accents (quiet — a dot / left edge, never a fill) */
+  --c-phase-preparation:     #8f9bb0;
+  --c-phase-procedure:       var(--c-accent);
+  --c-phase-quality_control: var(--c-info);
+  --c-phase-notes:           var(--c-ink-faint);
+
+  /* ── type scale ──────────────────────────────────────────────────────────── */
+  --fs-display: 2rem;       /* 32 — hero */
+  --fs-title:   1.375rem;   /* 22 — screen / section title */
+  --fs-h2:      1.0625rem;  /* 17 — sub-section */
+  --fs-instr:   1.1875rem;  /* 19 — the instruction text: the most important content */
+  --fs-body:    1rem;       /* 16 */
+  --fs-meta:    0.8125rem;  /* 13 — labels, chips, captions */
+  --fs-micro:   0.6875rem;  /* 11 — eyebrow / tiny caps */
+  --fs-num-lg:  1.75rem;    /* 28 — timer readout */
+
+  --lh-tight: 1.2;
+  --lh:       1.5;
+  --lh-loose: 1.62;         /* instruction / prose */
+
+  --tracking-caps: 0.08em;  /* eyebrow / micro caps */
+
+  /* ── spacing (4px base) ──────────────────────────────────────────────────── */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px; --sp-5: 20px;
+  --sp-6: 24px; --sp-8: 32px; --sp-10: 40px; --sp-12: 48px; --sp-16: 64px;
+
+  /* ── radii (rounded rectangles, one language — no stray pills) ───────────── */
+  --r-1: 4px; --r-2: 6px; --r-3: 8px; --r-4: 12px; --r-pill: 999px;
+
+  /* ── elevation (dark: a hairline + a soft, low shadow) ───────────────────── */
+  --elev-1: 0 0 0 1px var(--c-border);
+  --elev-2: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.28);
+
+  /* ── motion ──────────────────────────────────────────────────────────────── */
+  --dur-fast: 120ms; --dur: 190ms; --dur-slow: 320ms;
+  --ease: cubic-bezier(.2,0,0,1);
+  --ease-inout: cubic-bezier(.4,0,.2,1);
+
+  /* focus ring — one style everywhere */
+  --focus: 0 0 0 2px var(--c-surface), 0 0 0 4px var(--c-accent);
+
+  /* control sizing (≥40px hit targets) */
+  --control-h: 40px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-fast: 0ms; --dur: 0ms; --dur-slow: 0ms; }
+}
