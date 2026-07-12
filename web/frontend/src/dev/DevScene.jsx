@@ -65,7 +65,10 @@ function poseFor(angle, mx, W, h) {
 }
 
 // GALLERY: one model at origin + a reference microtube beside it + the bench.
-export function GalleryScene({ item, angle = 'front' }) {
+// `bare` (used to pre-render clean Home thumbnails): drop the ref tube + the model's
+// floating label and frame tight on the model alone. Purely a harness option — it does
+// not touch the model's geometry or the shipping art direction.
+export function GalleryScene({ item, angle = 'front', bare = false }) {
   useDevEnv()
   const { scene } = useThree()
   const camRef = useRef()
@@ -74,17 +77,24 @@ export function GalleryScene({ item, angle = 'front' }) {
   const group = useMemo(() => {
     ensureMaps()
     const g = new Group()
-    if (model) { const m = model.build(); m.userData.update?.(0.001); g.add(m) }
-    // reference microtube, always to the LEFT for scale
+    if (model) {
+      const m = model.build(); m.userData.update?.(0.001)
+      if (bare && m.userData.label) m.userData.label.visible = false
+      g.add(m)
+    }
     const span = model?.span || 2.4
-    const refX = -(span / 2 + 1.7)
-    const ref = demo.buildTube({ height: 1.7, radius: 0.32, color: demo.COL.pellet, label: 'ref' })
-    ref.position.set(refX, 0, 0)
-    g.add(ref)
+    let refX = -(span / 2)
+    if (!bare) {
+      // reference microtube, always to the LEFT for scale
+      refX = -(span / 2 + 1.7)
+      const ref = demo.buildTube({ height: 1.7, radius: 0.32, color: demo.COL.pellet, label: 'ref' })
+      ref.position.set(refX, 0, 0)
+      g.add(ref)
+    }
     g.userData.refX = refX
     g.userData.span = span
     return g
-  }, [item]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [item, bare]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     scene.add(group)
@@ -97,9 +107,9 @@ export function GalleryScene({ item, angle = 'front' }) {
   // frame: content spans from the ref tube (left) to the model's right edge
   const span = group.userData.span
   const refX = group.userData.refX
-  const W = (span - refX) * 0.62 + 1.2
-  const mx = (refX + span / 2) / 2
-  const h = Math.max(0.6, span * 0.22)
+  const W = bare ? span * 0.82 + 1.5 : (span - refX) * 0.62 + 1.2
+  const mx = bare ? 0 : (refX + span / 2) / 2
+  const h = bare ? Math.max(0.9, span * 0.34) : Math.max(0.6, span * 0.22)
   const { pos, look } = poseFor(angle, mx, W, h)
 
   useFrame(() => { if (camRef.current) camRef.current.lookAt(look[0], look[1], look[2]) })
