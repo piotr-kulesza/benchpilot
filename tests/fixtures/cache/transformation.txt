@@ -1,20 +1,20 @@
 {
   "title": "Bacterial Transformation Protocol",
   "title_en": "Bacterial Transformation Protocol",
-  "summary": "Protocol for transforming competent bacterial cells with DNA using heat shock, recovery, and plating on selective agar.",
-  "summary_en": "Protocol for transforming competent bacterial cells with DNA using heat shock, recovery, and plating on selective agar.",
+  "summary": "Protocol for transforming competent bacterial cells with DNA using heat shock, recovery, and plating on selective LB agar.",
+  "summary_en": "Protocol for transforming competent bacterial cells with DNA using heat shock, recovery, and plating on selective LB agar.",
   "source": "Bacterial Transformation Protocol",
   "materials": [
-    {"name": "Shaking incubator at 37 °C", "note": "equipment"},
-    {"name": "Stationary incubator at 37 °C", "note": "equipment"},
-    {"name": "Water bath at 42 °C", "note": "equipment"},
-    {"name": "Ice bucket filled with ice", "note": "equipment"},
-    {"name": "Microcentrifuge tubes", "note": "equipment"},
-    {"name": "Sterile spreading device", "note": "equipment"},
-    {"name": "LB agar plate (with appropriate antibiotic)", "note": "reagent"},
-    {"name": "LB or SOC media", "note": "reagent"},
-    {"name": "Competent cells", "note": "reagent"},
-    {"name": "DNA you'd like to transform", "note": "reagent"}
+    {"name": "LB agar plate (with appropriate antibiotic)", "name_en": "LB agar plate (with appropriate antibiotic)", "note": null, "note_en": null},
+    {"name": "LB or SOC media", "name_en": "LB or SOC media", "note": null, "note_en": null},
+    {"name": "Competent cells", "name_en": "Competent cells", "note": null, "note_en": null},
+    {"name": "DNA you'd like to transform", "name_en": "DNA you'd like to transform", "note": null, "note_en": null},
+    {"name": "Shaking incubator at 37 °C", "name_en": "Shaking incubator at 37 °C", "note": "Equipment", "note_en": "Equipment"},
+    {"name": "Stationary incubator at 37 °C", "name_en": "Stationary incubator at 37 °C", "note": "Equipment", "note_en": "Equipment"},
+    {"name": "Water bath at 42 °C", "name_en": "Water bath at 42 °C", "note": "Equipment", "note_en": "Equipment"},
+    {"name": "Ice bucket filled with ice", "name_en": "Ice bucket filled with ice", "note": "Equipment", "note_en": "Equipment"},
+    {"name": "Microcentrifuge tubes", "name_en": "Microcentrifuge tubes", "note": "Equipment", "note_en": "Equipment"},
+    {"name": "Sterile spreading device", "name_en": "Sterile spreading device", "note": "Equipment", "note_en": "Equipment"}
   ],
   "steps": [
     {
@@ -28,13 +28,13 @@
       "duration_seconds": 1500,
       "spin": null,
       "reagents": [
-        {"name": "Competent cells", "name_en": "Competent cells", "volume": null, "volume_en": null, "condition": "from -80°C", "condition_en": "from -80°C"}
+        {"name": "Competent cells", "name_en": "Competent cells", "volume": null, "volume_en": null, "condition": null, "condition_en": null}
       ],
       "conditionals": [],
       "repeat": null,
       "alternatives": [],
-      "hazards": ["keep on ice"],
-      "hazards_en": ["keep on ice"],
+      "hazards": ["thaw on ice"],
+      "hazards_en": ["thaw on ice"],
       "prep_ahead": true,
       "gaps": [],
       "verbatim": "Take competent cells out of -80°C and thaw on ice (approximately 20-30 mins)."
@@ -45,15 +45,15 @@
       "text": "Remove agar plates (containing the appropriate antibiotic) from storage at 4°C and let warm up to room temperature and then (optional) incubate in 37°C incubator.",
       "text_en": "Remove agar plates (containing the appropriate antibiotic) from storage at 4°C and let warm up to room temperature and then (optional) incubate in 37°C incubator.",
       "kind": "prepare",
-      "action": "generic",
+      "action": "prepare",
       "container": "agar_plate",
       "duration_seconds": null,
       "spin": null,
       "reagents": [
-        {"name": "LB agar plate (with appropriate antibiotic)", "name_en": "LB agar plate (with appropriate antibiotic)", "volume": null, "volume_en": null, "condition": "from 4°C storage", "condition_en": "from 4°C storage"}
+        {"name": "LB agar plate (with appropriate antibiotic)", "name_en": "LB agar plate (with appropriate antibiotic)", "volume": null, "volume_en": null, "condition": null, "condition_en": null}
       ],
       "conditionals": [
-        {"condition": "optional", "then": "incubate in 37°C incubator"}
+        {"condition": "optional", "condition_en": "optional", "then": "incubate in 37°C incubator", "then_en": "incubate in 37°C incubator"}
       ],
       "repeat": null,
       "alternatives": [],
@@ -80,12 +80,10 @@
       "conditionals": [],
       "repeat": null,
       "alternatives": [],
-      "hazards": ["GENTLY mix — flick gently"],
-      "hazards_en": ["GENTLY mix — flick gently"],
+      "hazards": ["GENTLY mix by flicking, do not vortex"],
+      "hazards_en": ["GENTLY mix by flicking, do not vortex"],
       "prep_ahead": false,
-      "gaps": [
-        {"parameter": "DNA amount", "question": "How much DNA (within 10 pg - 100 ng and 1-5 µl) should be used for this specific transformation?"}
-      ],
+      "gaps": [],
       "verbatim": "Mix 1 - 5 µl of DNA (usually 10 pg - 100 ng) into 20-50 µL of competent cells in a microcentrifuge or falcon tube. GENTLY mix by flicking the bottom of the tube with your finger a few times."
     },
     {
@@ -122,11 +120,11 @@
       "conditionals": [],
       "repeat": null,
       "alternatives": [],
-      "hazards": ["45 secs usually ideal but varies by competent cells; place bottom 1/2 to 2/3 of tube in 42°C bath"],
-      "hazards_en": ["45 secs usually ideal but varies by competent cells; place bottom 1/2 to 2/3 of tube in 42°C bath"],
+      "hazards": ["do not exceed 30-60 secs; timing varies by competent cells"],
+      "hazards_en": ["do not exceed 30-60 secs; timing varies by competent cells"],
       "prep_ahead": false,
       "gaps": [
-        {"parameter": "heat shock duration", "question": "What exact heat shock time (30-60 s) is optimal for the competent cells being used?"}
+        {"parameter": "heat shock duration", "question": "What exact heat shock duration (30-60 s, 45 s typical) suits the specific competent cells used?"}
       ],
       "verbatim": "Heat shock each transformation tube by placing the bottom 1/2 to 2/3 of the tube into a 42°C water bath for 30-60 secs (45 secs is usually ideal, but this varies depending on the competent cells you are using)."
     },
@@ -136,7 +134,7 @@
       "text": "Put the tubes back on ice for 2 min.",
       "text_en": "Put the tubes back on ice for 2 min.",
       "kind": "wait",
-      "action": "cool_ice",
+      "action": "incubate_wait",
       "container": null,
       "duration_seconds": 120,
       "spin": null,
@@ -161,13 +159,13 @@
       "duration_seconds": null,
       "spin": null,
       "reagents": [
-        {"name": "LB or SOC media", "name_en": "LB or SOC media", "volume": "250-1,000 µl", "volume_en": "250-1,000 µl", "condition": "without antibiotic", "condition_en": "without antibiotic"}
+        {"name": "LB or SOC media (without antibiotic)", "name_en": "LB or SOC media (without antibiotic)", "volume": "250-1,000 µl", "volume_en": "250-1,000 µl", "condition": "without antibiotic", "condition_en": "without antibiotic"}
       ],
       "conditionals": [],
       "repeat": null,
       "alternatives": [],
-      "hazards": ["media without antibiotic"],
-      "hazards_en": ["media without antibiotic"],
+      "hazards": ["media must be without antibiotic"],
+      "hazards_en": ["media must be without antibiotic"],
       "prep_ahead": false,
       "gaps": [],
       "verbatim": "Add 250-1,000 µl LB or SOC media (without antibiotic) to the bacteria and grow in 37°C shaking incubator for 45 min."
@@ -186,8 +184,8 @@
       "conditionals": [],
       "repeat": null,
       "alternatives": [],
-      "hazards": ["37°C shaking incubator"],
-      "hazards_en": ["37°C shaking incubator"],
+      "hazards": [],
+      "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
       "verbatim": "Add 250-1,000 µl LB or SOC media (without antibiotic) to the bacteria and grow in 37°C shaking incubator for 45 min."
@@ -206,11 +204,11 @@
       "conditionals": [],
       "repeat": null,
       "alternatives": [],
-      "hazards": ["use sterile spreading device"],
-      "hazards_en": ["use sterile spreading device"],
+      "hazards": [],
+      "hazards_en": [],
       "prep_ahead": false,
       "gaps": [
-        {"parameter": "plating volume", "question": "What fraction of the transformation should be plated?"}
+        {"parameter": "plating volume", "question": "How much of the transformation should be plated (some or all)?"}
       ],
       "verbatim": "Plate some or all of the transformation onto a 10 cm LB agar plate containing the appropriate antibiotic."
     },
@@ -228,22 +226,19 @@
       "conditionals": [],
       "repeat": null,
       "alternatives": [],
-      "hazards": ["37°C stationary incubator"],
-      "hazards_en": ["37°C stationary incubator"],
+      "hazards": [],
+      "hazards_en": [],
       "prep_ahead": false,
-      "gaps": [
-        {"parameter": "incubation time", "question": "Exact overnight duration (approximately 16 h) may need clarification."}
-      ],
+      "gaps": [],
       "verbatim": "Incubate plates at 37°C overnight."
     }
   ],
   "open_parameters": [
-    {"question": "Which antibiotic is appropriate for the selection marker of the transformed plasmid?", "where": "Reagents / step 8-9"},
-    {"question": "How much DNA (10 pg - 100 ng, 1-5 µl) should be used?", "where": "Step 3"},
-    {"question": "What volume of competent cells (20-50 µL) should be used?", "where": "Step 3"},
-    {"question": "Optimal heat shock duration (30-60 s) for the specific competent cells?", "where": "Step 5"},
-    {"question": "Volume of recovery media (250-1,000 µl) and choice of LB vs SOC?", "where": "Step 7"},
-    {"question": "What fraction of the transformation to plate?", "where": "Step 8"}
+    {"question": "How much DNA (1-5 µl, 10 pg - 100 ng) should be used?", "where": "Procedure step 3", "where_en": "Procedure step 3"},
+    {"question": "What volume of competent cells (20-50 µL) should be used?", "where": "Procedure step 3", "where_en": "Procedure step 3"},
+    {"question": "Which recovery media, LB or SOC, and what volume (250-1,000 µl)?", "where": "Procedure step 7", "where_en": "Procedure step 7"},
+    {"question": "How much of the transformation should be plated?", "where": "Procedure step 8", "where_en": "Procedure step 8"},
+    {"question": "What heat shock duration (30-60 s) is optimal for the specific competent cells?", "where": "Procedure step 5", "where_en": "Procedure step 5"}
   ],
   "reference": null
 }

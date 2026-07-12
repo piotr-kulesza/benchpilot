@@ -135,6 +135,35 @@ def test_moves_name_their_destination_container(parsed, name):
     assert not missing, f"{name}: move-steps without a destination container: {missing}"
 
 
+def _sample_container_sequence(proto):
+    # mirror the renderer's sample-follow: a `prepare` step is a SIDE vessel and never
+    # advances the sample's container (it stays wherever the last real step left it).
+    seq, container = [], "microtube"
+    for s in proto.steps:
+        if s.action != "prepare" and s.container:
+            container = s.container
+        seq.append(container)
+    return seq
+
+
+_FRESH_TUBES = {"microtube", "tube"}
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_prepare_never_targets_the_sample_vessel(parsed, name):
+    # Stage 33: a side preparation combines reagents in ITS OWN fresh vessel; the sample
+    # is not an ingredient. So a `prepare` step must never name the sample's SPECIALIZED
+    # current vessel (spin_column, well_plate, membrane, …) as its destination — else the
+    # renderer makes the mix IN the sample's vessel. A fresh microtube/tube is exactly what
+    # a side prep uses, so a tube-on-tube coincidence is fine.
+    p = parsed[name]
+    seq = _sample_container_sequence(p)
+    offenders = [(s.index, s.container) for s, c in zip(p.steps, seq)
+                 if s.action == "prepare" and s.container and s.container == c
+                 and s.container not in _FRESH_TUBES]
+    assert not offenders, f"{name}: prepare steps aimed at the sample vessel: {offenders}"
+
+
 def test_western_drain_is_discard_not_measure(parsed):
     # "Drain the membrane of excess developing solution" is a discard, not a reading
     drains = [s for s in parsed["western"].steps

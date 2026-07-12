@@ -52,7 +52,7 @@
     "file": "agarose_gel.json",
     "name": "Agarose DNA gel",
     "technique": "Electrophoresis",
-    "steps": 10,
+    "steps": 12,
     "highlight": "gel tank · bands"
   },
   {

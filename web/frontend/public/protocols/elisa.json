@@ -1,67 +1,67 @@
 {
   "title": "Sandwich ELISA",
   "title_en": "Sandwich ELISA",
-  "summary": "Protocol for sandwich ELISA including sample preparation, capture antibody coating, blocking, sample addition, detection, and absorbance reading.",
-  "summary_en": "Protocol for sandwich ELISA including sample preparation, capture antibody coating, blocking, sample addition, detection, and absorbance reading.",
+  "summary": "Sandwich ELISA protocol covering sample preparation, capture antibody coating, blocking, sample addition, detection, and absorbance reading at 450 nm.",
+  "summary_en": "Sandwich ELISA protocol covering sample preparation, capture antibody coating, blocking, sample addition, detection, and absorbance reading at 450 nm.",
   "source": "Sandwich ELISA protocol",
   "materials": [
     {
-      "name": "Anti-coagulant",
-      "name_en": null,
-      "note": "for blood collection tubes",
-      "note_en": null
-    },
-    {
-      "name": "Capture antibody",
-      "name_en": null,
-      "note": "diluted 1-10 µg/mL in coating buffer",
-      "note_en": null
-    },
-    {
-      "name": "Coating buffer",
-      "name_en": null,
+      "name": "anti-coagulant tubes",
+      "name_en": "anti-coagulant tubes",
       "note": null,
       "note_en": null
     },
     {
-      "name": "Wash buffer",
-      "name_en": null,
+      "name": "capture antibody",
+      "name_en": "capture antibody",
       "note": null,
       "note_en": null
     },
     {
-      "name": "Blocking buffer",
-      "name_en": null,
+      "name": "coating buffer",
+      "name_en": "coating buffer",
       "note": null,
       "note_en": null
     },
     {
-      "name": "Dilution buffer",
-      "name_en": null,
+      "name": "wash buffer",
+      "name_en": "wash buffer",
       "note": null,
       "note_en": null
     },
     {
-      "name": "Detection antibody",
-      "name_en": null,
-      "note": "pre-diluted",
+      "name": "blocking buffer",
+      "name_en": "blocking buffer",
+      "note": null,
+      "note_en": null
+    },
+    {
+      "name": "dilution buffer",
+      "name_en": "dilution buffer",
+      "note": null,
+      "note_en": null
+    },
+    {
+      "name": "detection antibody",
+      "name_en": "detection antibody",
+      "note": null,
       "note_en": null
     },
     {
       "name": "HRP-conjugated secondary antibody",
-      "name_en": null,
+      "name_en": "HRP-conjugated secondary antibody",
       "note": null,
       "note_en": null
     },
     {
       "name": "TMB enzyme substrate",
-      "name_en": null,
+      "name_en": "TMB enzyme substrate",
       "note": null,
       "note_en": null
     },
     {
-      "name": "Stop solution",
-      "name_en": null,
+      "name": "stop solution",
+      "name_en": "stop solution",
       "note": null,
       "note_en": null
     }
@@ -69,11 +69,11 @@
   "steps": [
     {
       "index": 1,
-      "phase": "procedure",
+      "phase": "preparation",
       "text": "Collect blood samples in tubes with anti-coagulant.",
       "text_en": "Collect blood samples in tubes with anti-coagulant.",
       "kind": "action",
-      "action": "pour_add",
+      "action": "generic",
       "container": "tube",
       "duration_seconds": null,
       "spin": null,
@@ -98,7 +98,7 @@
     },
     {
       "index": 2,
-      "phase": "procedure",
+      "phase": "preparation",
       "text": "Centrifuge the samples at 1,000-10,000 x g for 10 min at 4°C and remove the pellet.",
       "text_en": "Centrifuge the samples at 1,000-10,000 x g for 10 min at 4°C and remove the pellet.",
       "kind": "spin",
@@ -108,7 +108,7 @@
       "spin": {
         "duration_seconds": 600,
         "rcf_min": 1000,
-        "note": "at 4°C, remove the pellet"
+        "note": "1,000-10,000 x g at 4°C; remove the pellet"
       },
       "reagents": [],
       "conditionals": [],
@@ -122,7 +122,7 @@
     },
     {
       "index": 3,
-      "phase": "procedure",
+      "phase": "preparation",
       "text": "Aliquot the supernatant into several tubes (minimum 50 µL each).",
       "text_en": "Aliquot the supernatant into several tubes (minimum 50 µL each).",
       "kind": "action",
@@ -146,7 +146,7 @@
       "text": "Dilute the capture antibody in coating buffer to 1-10 µg/mL.",
       "text_en": "Dilute the capture antibody in coating buffer to 1-10 µg/mL.",
       "kind": "prepare",
-      "action": "pour_add",
+      "action": "prepare",
       "container": "tube",
       "duration_seconds": null,
       "spin": null,
@@ -174,12 +174,7 @@
       "hazards": [],
       "hazards_en": [],
       "prep_ahead": true,
-      "gaps": [
-        {
-          "parameter": "capture antibody concentration",
-          "question": "What is the exact final concentration to use within the 1-10 µg/mL range?"
-        }
-      ],
+      "gaps": [],
       "verbatim": "Dilute the capture antibody in coating buffer to 1-10 µg/mL."
     },
     {
@@ -224,26 +219,16 @@
       "reagents": [],
       "conditionals": [
         {
-          "condition": "at room temperature",
-          "condition_en": null,
-          "then": "incubate 2 h with gentle agitation",
-          "then_en": null
-        },
-        {
-          "condition": "at 4°C",
-          "condition_en": null,
-          "then": "incubate overnight",
-          "then_en": null
+          "condition": "overnight at 4°C",
+          "condition_en": "overnight at 4°C",
+          "then": "incubate overnight at 4°C instead of 2 h at room temperature",
+          "then_en": "incubate overnight at 4°C instead of 2 h at room temperature"
         }
       ],
       "repeat": null,
       "alternatives": [],
-      "hazards": [
-        "gentle agitation"
-      ],
-      "hazards_en": [
-        "gentle agitation"
-      ],
+      "hazards": [],
+      "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
       "verbatim": "Add ~50 µL of diluted capture antibody to each well and cover the plate. Incubate with gentle agitation for 2 h at room temperature, or overnight at 4°C."
@@ -272,7 +257,7 @@
       "repeat": {
         "count": 3,
         "reason": "wash each well three times",
-        "reason_en": null
+        "reason_en": "wash each well three times"
       },
       "alternatives": [],
       "hazards": [],
@@ -284,8 +269,8 @@
     {
       "index": 8,
       "phase": "procedure",
-      "text": "Discard the wash buffer from each well.",
-      "text_en": "Discard the wash buffer from each well.",
+      "text": "Pour off the wash buffer from each well.",
+      "text_en": "Pour off the wash buffer from each well.",
       "kind": "action",
       "action": "discard",
       "container": null,
@@ -296,7 +281,7 @@
       "repeat": {
         "count": 3,
         "reason": "wash each well three times",
-        "reason_en": null
+        "reason_en": "wash each well three times"
       },
       "alternatives": [],
       "hazards": [],
@@ -348,28 +333,24 @@
       "conditionals": [],
       "repeat": null,
       "alternatives": [],
-      "hazards": [
-        "gentle agitation"
-      ],
-      "hazards_en": [
-        "gentle agitation"
-      ],
+      "hazards": [],
+      "hazards_en": [],
       "prep_ahead": false,
       "gaps": [
         {
           "parameter": "blocking time",
-          "question": "Should blocking be 1 h or 2 h?"
+          "question": "Block for 1 h or 2 h at room temperature?"
         }
       ],
       "verbatim": "Add 200 µL of blocking buffer to each well and cover the plate. Block with gentle agitation for 1-2 h at room temperature."
     },
     {
       "index": 11,
-      "phase": "preparation",
+      "phase": "procedure",
       "text": "Dilute the samples, controls and standards in dilution buffer.",
       "text_en": "Dilute the samples, controls and standards in dilution buffer.",
       "kind": "prepare",
-      "action": "pour_add",
+      "action": "prepare",
       "container": "tube",
       "duration_seconds": null,
       "spin": null,
@@ -389,12 +370,7 @@
       "hazards": [],
       "hazards_en": [],
       "prep_ahead": false,
-      "gaps": [
-        {
-          "parameter": "dilution factor",
-          "question": "What dilution factor should be used for samples, controls and standards?"
-        }
-      ],
+      "gaps": [],
       "verbatim": "Dilute the samples, controls and standards in dilution buffer."
     },
     {
@@ -440,12 +416,8 @@
       "conditionals": [],
       "repeat": null,
       "alternatives": [],
-      "hazards": [
-        "gentle agitation"
-      ],
-      "hazards_en": [
-        "gentle agitation"
-      ],
+      "hazards": [],
+      "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
       "verbatim": "Add 100 µL of diluted samples and standards to the wells and cover the plate. Incubate with gentle agitation for 2 h at room temperature."
@@ -474,7 +446,7 @@
       "repeat": {
         "count": 3,
         "reason": "wash each well three times",
-        "reason_en": null
+        "reason_en": "wash each well three times"
       },
       "alternatives": [],
       "hazards": [],
@@ -486,8 +458,8 @@
     {
       "index": 15,
       "phase": "procedure",
-      "text": "Discard the wash buffer from each well.",
-      "text_en": "Discard the wash buffer from each well.",
+      "text": "Pour off the wash buffer from each well.",
+      "text_en": "Pour off the wash buffer from each well.",
       "kind": "action",
       "action": "discard",
       "container": null,
@@ -498,7 +470,7 @@
       "repeat": {
         "count": 3,
         "reason": "wash each well three times",
-        "reason_en": null
+        "reason_en": "wash each well three times"
       },
       "alternatives": [],
       "hazards": [],
@@ -580,7 +552,7 @@
       "repeat": {
         "count": 3,
         "reason": "wash each well three times",
-        "reason_en": null
+        "reason_en": "wash each well three times"
       },
       "alternatives": [],
       "hazards": [],
@@ -592,8 +564,8 @@
     {
       "index": 19,
       "phase": "procedure",
-      "text": "Discard the wash buffer from each well.",
-      "text_en": "Discard the wash buffer from each well.",
+      "text": "Pour off the wash buffer from each well.",
+      "text_en": "Pour off the wash buffer from each well.",
       "kind": "action",
       "action": "discard",
       "container": null,
@@ -604,7 +576,7 @@
       "repeat": {
         "count": 3,
         "reason": "wash each well three times",
-        "reason_en": null
+        "reason_en": "wash each well three times"
       },
       "alternatives": [],
       "hazards": [],
@@ -662,7 +634,7 @@
       "gaps": [
         {
           "parameter": "incubation time",
-          "question": "Should secondary antibody incubation be 1 h or 2 h?"
+          "question": "Incubate for 1 h or 2 h at room temperature?"
         }
       ],
       "verbatim": "Add 100 µL of HRP-conjugated secondary antibody to each well and incubate for 1-2 h at room temperature."
@@ -691,7 +663,7 @@
       "repeat": {
         "count": 3,
         "reason": "wash each well three times",
-        "reason_en": null
+        "reason_en": "wash each well three times"
       },
       "alternatives": [],
       "hazards": [],
@@ -703,8 +675,8 @@
     {
       "index": 23,
       "phase": "procedure",
-      "text": "Discard the wash buffer from each well.",
-      "text_en": "Discard the wash buffer from each well.",
+      "text": "Pour off the wash buffer from each well.",
+      "text_en": "Pour off the wash buffer from each well.",
       "kind": "action",
       "action": "discard",
       "container": null,
@@ -715,7 +687,7 @@
       "repeat": {
         "count": 3,
         "reason": "wash each well three times",
-        "reason_en": null
+        "reason_en": "wash each well three times"
       },
       "alternatives": [],
       "hazards": [],
@@ -752,8 +724,8 @@
       "prep_ahead": false,
       "gaps": [
         {
-          "parameter": "TMB volume",
-          "question": "Should 50 µL or 100 µL of TMB substrate be used?"
+          "parameter": "TMB substrate volume",
+          "question": "Add 50 µL or 100 µL of TMB substrate per well?"
         }
       ],
       "verbatim": "Add 50-100 µL of TMB enzyme substrate to each well and incubate with gentle agitation on a plate shaker."
@@ -772,17 +744,13 @@
       "conditionals": [],
       "repeat": null,
       "alternatives": [],
-      "hazards": [
-        "gentle agitation on a plate shaker"
-      ],
-      "hazards_en": [
-        "gentle agitation on a plate shaker"
-      ],
+      "hazards": [],
+      "hazards_en": [],
       "prep_ahead": false,
       "gaps": [
         {
           "parameter": "TMB incubation time",
-          "question": "For how long should the TMB substrate be incubated?"
+          "question": "How long should the TMB substrate develop on the plate shaker?"
         }
       ],
       "verbatim": "Add 50-100 µL of TMB enzyme substrate to each well and incubate with gentle agitation on a plate shaker."
@@ -839,29 +807,24 @@
   ],
   "open_parameters": [
     {
-      "question": "What centrifugation speed within 1,000-10,000 x g should be used for sample preparation?",
+      "question": "What centrifugation speed within 1,000-10,000 x g should be used to separate plasma/serum?",
       "where": "Sample preparation, step 2",
-      "where_en": null
+      "where_en": "Sample preparation, step 2"
     },
     {
-      "question": "What is the exact capture antibody concentration within the 1-10 µg/mL range?",
+      "question": "What concentration (1-10 µg/mL) should the capture antibody be diluted to?",
       "where": "Capture antibody coating, step 4",
-      "where_en": null
+      "where_en": "Capture antibody coating, step 4"
     },
     {
-      "question": "Should capture antibody coating be 2 h at RT or overnight at 4°C?",
+      "question": "Coat capture antibody for 2 h at room temperature or overnight at 4°C?",
       "where": "Capture antibody coating, step 5",
-      "where_en": null
+      "where_en": "Capture antibody coating, step 5"
     },
     {
-      "question": "What dilution factor should be used for samples, controls and standards?",
+      "question": "What dilution factors should be used for samples, controls and standards?",
       "where": "Blocking and sample addition, step 8",
-      "where_en": null
-    },
-    {
-      "question": "What TMB substrate volume (50 vs 100 µL) and incubation time should be used?",
-      "where": "Detection, step 15",
-      "where_en": null
+      "where_en": "Blocking and sample addition, step 8"
     }
   ],
   "reference": null

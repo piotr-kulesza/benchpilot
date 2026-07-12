@@ -1,61 +1,61 @@
 {
   "title": "Standard PCR Protocol (Taq polymerase)",
   "title_en": "Standard PCR Protocol (Taq polymerase)",
-  "summary": "Standard PCR reaction setup (30 µl) with Taq polymerase, thermocycling program, and product analysis on agarose gel.",
-  "summary_en": "Standard PCR reaction setup (30 µl) with Taq polymerase, thermocycling program, and product analysis on agarose gel.",
+  "summary": "Reaction setup (30 µl total volume) assembled on ice, followed by a standard three-step thermocycler program with 30 cycles, and optional gel check or storage.",
+  "summary_en": "Reaction setup (30 µl total volume) assembled on ice, followed by a standard three-step thermocycler program with 30 cycles, and optional gel check or storage.",
   "source": "Standard PCR Protocol (Taq polymerase)",
   "materials": [
     {
       "name": "Template DNA",
-      "name_en": null,
-      "note": "X µl (variable)",
-      "note_en": null
+      "name_en": "Template DNA",
+      "note": "X µl",
+      "note_en": "X µl"
     },
     {
       "name": "10 µM forward primer",
-      "name_en": null,
+      "name_en": "10 µM forward primer",
       "note": "1.5 µl",
-      "note_en": null
+      "note_en": "1.5 µl"
     },
     {
       "name": "10 µM reverse primer",
-      "name_en": null,
+      "name_en": "10 µM reverse primer",
       "note": "1.5 µl",
-      "note_en": null
+      "note_en": "1.5 µl"
     },
     {
       "name": "10x reaction buffer",
-      "name_en": null,
+      "name_en": "10x reaction buffer",
       "note": "3 µl",
-      "note_en": null
+      "note_en": "3 µl"
     },
     {
       "name": "2 mM dNTPs",
-      "name_en": null,
+      "name_en": "2 mM dNTPs",
       "note": "3 µl",
-      "note_en": null
+      "note_en": "3 µl"
     },
     {
       "name": "5 U/µl Taq polymerase",
-      "name_en": null,
+      "name_en": "5 U/µl Taq polymerase",
       "note": "0.3 µl",
-      "note_en": null
+      "note_en": "0.3 µl"
     },
     {
       "name": "ddH2O",
-      "name_en": null,
-      "note": "20.7 - X µl to make up to 30 µl total",
-      "note_en": null
+      "name_en": "ddH2O",
+      "note": "20.7 - X µl",
+      "note_en": "20.7 - X µl"
     }
   ],
   "steps": [
     {
       "index": 1,
       "phase": "preparation",
-      "text": "Assemble the PCR reaction (30 µl total volume) on ice: add Template DNA (X µl), 10 µM forward primer (1.5 µl), 10 µM reverse primer (1.5 µl), 10x reaction buffer (3 µl), 2 mM dNTPs (3 µl), 5 U/µl Taq polymerase (0.3 µl), and ddH2O (20.7 - X µl).",
-      "text_en": "Assemble the PCR reaction (30 µl total volume) on ice: add Template DNA (X µl), 10 µM forward primer (1.5 µl), 10 µM reverse primer (1.5 µl), 10x reaction buffer (3 µl), 2 mM dNTPs (3 µl), 5 U/µl Taq polymerase (0.3 µl), and ddH2O (20.7 - X µl).",
+      "text": "Assemble the reaction (30 µl total volume) on ice: X µl Template DNA, 1.5 µl 10 µM forward primer, 1.5 µl 10 µM reverse primer, 3 µl 10x reaction buffer, 3 µl 2 mM dNTPs, 0.3 µl 5 U/µl Taq polymerase, 20.7 - X µl ddH2O.",
+      "text_en": "Assemble the reaction (30 µl total volume) on ice: X µl Template DNA, 1.5 µl 10 µM forward primer, 1.5 µl 10 µM reverse primer, 3 µl 10x reaction buffer, 3 µl 2 mM dNTPs, 0.3 µl 5 U/µl Taq polymerase, 20.7 - X µl ddH2O.",
       "kind": "prepare",
-      "action": "pour_add",
+      "action": "prepare",
       "container": "microtube",
       "duration_seconds": null,
       "spin": null,
@@ -129,8 +129,8 @@
       "prep_ahead": true,
       "gaps": [
         {
-          "parameter": "Template DNA volume",
-          "question": "What volume (X µl) of template DNA should be used, and correspondingly how much ddH2O (20.7 - X µl)?"
+          "parameter": "Template DNA volume (X)",
+          "question": "What volume of template DNA (X µl) should be used, which also sets the ddH2O volume (20.7 - X µl)?"
         }
       ],
       "verbatim": "Reaction setup (30 µl total volume). Assemble on ice: - Template DNA: X µl - 10 µM forward primer: 1.5 µl - 10 µM reverse primer: 1.5 µl - 10x reaction buffer: 3 µl - 2 mM dNTPs: 3 µl - 5 U/µl Taq polymerase: 0.3 µl - ddH2O: 20.7 - X µl Total: 30 µl"
@@ -151,7 +151,7 @@
       "alternatives": [],
       "hazards": [],
       "hazards_en": [],
-      "prep_ahead": true,
+      "prep_ahead": false,
       "gaps": [],
       "verbatim": "Gently mix by pipetting and briefly spin down the tubes to collect the contents at the bottom."
     },
@@ -175,13 +175,8 @@
       "alternatives": [],
       "hazards": [],
       "hazards_en": [],
-      "prep_ahead": true,
-      "gaps": [
-        {
-          "parameter": "spin speed/time",
-          "question": "What speed and duration for the brief spin-down?"
-        }
-      ],
+      "prep_ahead": false,
+      "gaps": [],
       "verbatim": "Gently mix by pipetting and briefly spin down the tubes to collect the contents at the bottom."
     },
     {
@@ -218,8 +213,8 @@
       "conditionals": [],
       "repeat": {
         "count": 30,
-        "reason": "PCR cycles",
-        "reason_en": null
+        "reason": "PCR cycles (denaturation/annealing/extension)",
+        "reason_en": "PCR cycles (denaturation/annealing/extension)"
       },
       "alternatives": [],
       "hazards": [],
@@ -227,8 +222,8 @@
       "prep_ahead": false,
       "gaps": [
         {
-          "parameter": "extension time",
-          "question": "What is the length (bp) of the longest PCR product to set the 72°C extension time (~1 min per 1000 bp)?"
+          "parameter": "Extension time",
+          "question": "What is the length (in bp) of the longest PCR product, to set the 72°C extension time at ~1 min per 1000 bp?"
         }
       ],
       "verbatim": "2. 30 cycles of: - Denaturation: 94°C for 30 s - Annealing: 55°C for 30 s - Extension: 72°C for 1 min per 1000 bp of product"
@@ -278,15 +273,15 @@
       "phase": "quality_control",
       "text": "After cycling, run 5 µl of the product on an agarose gel to check the size.",
       "text_en": "After cycling, run 5 µl of the product on an agarose gel to check the size.",
-      "kind": "measure",
+      "kind": "action",
       "action": "electrophorese",
       "container": "gel",
       "duration_seconds": null,
       "spin": null,
       "reagents": [
         {
-          "name": "PCR product",
-          "name_en": "PCR product",
+          "name": "product",
+          "name_en": "product",
           "volume": "5 µl",
           "volume_en": "5 µl",
           "condition": null,
@@ -295,34 +290,57 @@
       ],
       "conditionals": [],
       "repeat": null,
-      "alternatives": [],
-      "hazards": [],
-      "hazards_en": [],
-      "prep_ahead": false,
-      "gaps": [],
-      "verbatim": "After cycling, run 5 µl of the product on an agarose gel to check the size, or store at -20°C."
-    },
-    {
-      "index": 9,
-      "phase": "notes",
-      "text": "Alternatively, store the product at -20°C.",
-      "text_en": "Alternatively, store the product at -20°C.",
-      "kind": "storage",
-      "action": "store",
-      "container": null,
-      "duration_seconds": null,
-      "spin": null,
-      "reagents": [],
-      "conditionals": [
+      "alternatives": [
         {
-          "condition": "if not analyzing immediately",
-          "condition_en": null,
-          "then": "store at -20°C",
-          "then_en": null
+          "index": 8,
+          "phase": "quality_control",
+          "text": "Run 5 µl of the product on an agarose gel to check the size.",
+          "text_en": "Run 5 µl of the product on an agarose gel to check the size.",
+          "kind": "action",
+          "action": "electrophorese",
+          "container": "gel",
+          "duration_seconds": null,
+          "spin": null,
+          "reagents": [
+            {
+              "name": "product",
+              "name_en": "product",
+              "volume": "5 µl",
+              "volume_en": "5 µl",
+              "condition": null,
+              "condition_en": null
+            }
+          ],
+          "conditionals": [],
+          "repeat": null,
+          "alternatives": [],
+          "hazards": [],
+          "hazards_en": [],
+          "prep_ahead": false,
+          "gaps": [],
+          "verbatim": "After cycling, run 5 µl of the product on an agarose gel to check the size, or store at -20°C."
+        },
+        {
+          "index": 8,
+          "phase": "quality_control",
+          "text": "Store at -20°C.",
+          "text_en": "Store at -20°C.",
+          "kind": "storage",
+          "action": "store",
+          "container": null,
+          "duration_seconds": null,
+          "spin": null,
+          "reagents": [],
+          "conditionals": [],
+          "repeat": null,
+          "alternatives": [],
+          "hazards": [],
+          "hazards_en": [],
+          "prep_ahead": false,
+          "gaps": [],
+          "verbatim": "After cycling, run 5 µl of the product on an agarose gel to check the size, or store at -20°C."
         }
       ],
-      "repeat": null,
-      "alternatives": [],
       "hazards": [],
       "hazards_en": [],
       "prep_ahead": false,
@@ -332,15 +350,15 @@
   ],
   "open_parameters": [
     {
-      "question": "What volume (X µl) of template DNA should be used, and the corresponding ddH2O volume (20.7 - X µl)?",
-      "where": "Reaction setup",
-      "where_en": null
+      "question": "What volume of template DNA (X µl) should be used? This determines the ddH2O volume (20.7 - X µl).",
+      "where": "Template DNA: X µl; ddH2O: 20.7 - X µl",
+      "where_en": "Template DNA: X µl; ddH2O: 20.7 - X µl"
     },
     {
-      "question": "What is the length of the longest PCR product (bp) to set the 72°C extension time (~1 min per 1000 bp)?",
-      "where": "Thermocycler program - Extension",
-      "where_en": null
+      "question": "What is the length of the longest PCR product (bp), setting the 72°C extension time at ~1 min per 1000 bp?",
+      "where": "Extension: 72°C for 1 min per 1000 bp of product",
+      "where_en": "Extension: 72°C for 1 min per 1000 bp of product"
     }
   ],
-  "reference": "Note: the 72°C elongation step should be roughly 1 minute for every 1000 bp of the longest PCR product."
+  "reference": null
 }

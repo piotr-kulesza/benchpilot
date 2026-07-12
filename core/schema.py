@@ -25,7 +25,8 @@ KINDS = ("action", "wait", "spin", "prepare", "measure", "caution", "storage")
 # per value. Anything unrecognized is coerced to "generic" so nothing renders
 # blank and no missing-case ever crashes the renderer.
 ACTIONS = (
-    "pour_add",       # add / pour a liquid into a vessel
+    "pour_add",       # add / pour a liquid into a vessel (the SAMPLE's vessel)
+    "prepare",        # side preparation: combine reagents in their OWN vessel, sample untouched
     "pipette_mix",    # pipette / resuspend / mix by pipetting
     "vortex_mix",     # vortex / flick / invert
     "homogenize",     # manual homogenization — pass through a needle / plunge / dounce (NOT a spin)

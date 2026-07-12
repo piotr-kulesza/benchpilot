@@ -93,7 +93,15 @@ Assign each step a `kind` from:
 
 Assign each step ONE `action` from this FIXED animation vocabulary (best-effort;
 if none fits, use "generic"):
-  "pour_add"      - add / pour a liquid (buffer, ethanol) into a vessel
+  "pour_add"      - add / pour a liquid (buffer, ethanol) INTO THE SAMPLE's vessel
+  "prepare"       - a SIDE PREPARATION: combine reagents in THEIR OWN vessel (a fresh
+                    tube, on the side) to make a mixture used LATER, WITHOUT the sample.
+                    The sample is NOT an ingredient and is NOT touched. Master mixes,
+                    antibody dilutions, staining/working solutions, buffer prep, enzyme
+                    mixes all live here. Cue words: "prepare", "make up", "combine",
+                    "master mix", "working solution", "dilute X in Y", or a recipe like
+                    "10 µl A + 70 µl B per sample". List EVERY reagent with its volume,
+                    and set `container` to the fresh tube the mix is made in (see below).
   "pipette_mix"   - pipette, resuspend, or mix by pipetting
   "vortex_mix"    - vortex, flick, or invert to mix
   "homogenize"    - MANUAL homogenization with NO centrifuge: pass the lysate
@@ -144,10 +152,14 @@ if none fits, use "generic"):
         -> pour_add (water) ; elute         (TWO steps)
   Use "discard" as its OWN step ONLY when a discard is not attached to a spin.
   Use "pipette_mix"/"vortex_mix" ONLY when the step is PURELY mixing/resuspending
-  EXISTING contents with NO reagent added in that instruction (e.g. "resuspend the
-  pellet"). A step that PREPARES / MAKES a mixture by combining reagents is ADDING
-  reagents -> "pour_add", NOT "pipette_mix":
-    "prepare the DNase I mix: 10 µl DNase I + 70 µl RDD buffer" -> pour_add
+  EXISTING contents with NO reagent added (e.g. "resuspend the pellet").
+  NOT EVERY STEP HAPPENS TO THE SAMPLE. A step that COMBINES reagents in a SEPARATE
+  vessel to make a mixture used later, WITHOUT the sample as an ingredient, is a SIDE
+  PREPARATION -> "prepare" (NOT "pour_add", which would falsely pour it into the sample):
+    "prepare the DNase I mix: 10 µl DNase I + 70 µl RDD buffer per sample"
+        -> prepare ; container: tube ; reagents: [DNase I 10 µl, RDD buffer 70 µl]
+    "make up the antibody in 5 % BSA/TBST (1:1000)" -> prepare ; container: tube
+  ONLY when the sample is IN the vessel and a reagent is added TO it -> "pour_add".
 
 CONTAINER (where the SAMPLE now sits) — set `container` per step:
   A protocol may live in many vessels. Set `container` to ONE of: microtube, tube,
@@ -162,6 +174,10 @@ CONTAINER (where the SAMPLE now sits) — set `container` per step:
   "Add 350 µl RW1 FROM THE BOTTLE" does NOT set container:bottle — the sample stays
   in its column. If the step names no new home for the sample, OMIT `container`
   entirely (it persists from the previous step).
+  SIDE PREPARATIONS (`prepare`) are the ONE exception: they DON'T touch the sample,
+  so `container` names THE MIX'S OWN fresh tube (usually "tube" or "microtube"), NOT
+  the sample's vessel. The sample stays wherever it was, untouched. A `prepare` step
+  must NEVER set `container` to the sample's current vessel (e.g. spin_column).
   MOVE STEPS MUST NAME THEIR DESTINATION. A step whose action MOVES the sample —
   `transfer`, `elute`, `seed` — is exactly the moment the sample changes vessels, so
   it MUST carry the destination `container`. This is where the parser most often
