@@ -16,7 +16,7 @@
 }
 .topbar .spacer { flex: 1; }
 /* the brand doubles as the home link (no separate Home button) */
-.brand-btn { background: none; border: 0; padding: 0; cursor: pointer; font: inherit; }
+.brand-btn { background: none; border: 0; padding: 0; cursor: pointer; }
 .brand-btn:hover { color: var(--c-accent); }
 .brand-btn:focus-visible { outline: none; box-shadow: var(--focus); border-radius: var(--r-2); }
 .topbar .num { font-size: var(--fs-meta); color: var(--c-ink-dim); }
