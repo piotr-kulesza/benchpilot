@@ -54,12 +54,15 @@ const base = {
   place: false,
   spread: false,
   flood: false,
+  prep: false,
 }
 
 const b = (over) => ({ ...base, ...over })
 
 export const BEHAVIORS = {
   pour_add: b({ fill: 0.28, pour: true }),
+  prepare: b({ fill: 0.4, pour: true, prep: true }), // combine reagents in a SIDE vessel; sample untouched
+
   pipette_mix: b({ fill: 0.55, pipette: true }),
   vortex_mix: b({ fill: 0.55, swirl: 6.5, shake: 0.05 }),
   homogenize: b({ fill: 0.55, plunge: true }),

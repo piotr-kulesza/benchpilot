@@ -11,6 +11,7 @@ export const PHASE_ORDER = ['preparation', 'procedure', 'quality_control', 'note
 // 'generic'.
 export const ACTIONS = [
   'pour_add',
+  'prepare',
   'pipette_mix',
   'vortex_mix',
   'homogenize',
@@ -113,7 +114,7 @@ export function reagentCondition(reagent, lang = 'en') {
 
 // One verb per action for the compact step-timeline chip (the 3D action vocabulary).
 const ACTION_VERB = {
-  pour_add: 'Add', pipette_mix: 'Mix', vortex_mix: 'Vortex', homogenize: 'Homogenize',
+  pour_add: 'Add', prepare: 'Prepare', pipette_mix: 'Mix', vortex_mix: 'Vortex', homogenize: 'Homogenize',
   centrifuge: 'Spin', incubate_wait: 'Incubate', heat: 'Heat', cool_ice: 'On ice',
   transfer: 'Transfer', discard: 'Discard', elute: 'Elute', measure: 'Measure',
   thermocycle: 'Cycle', electrophorese: 'Run gel', store: 'Store', seed: 'Seed', stain: 'Stain',

@@ -3,7 +3,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import {
   SCENE_RECIPES, resolveRecipe, sampleContainerSequence, resolveContainer, resolveRemoval,
-  findTransferHandoffDefects,
+  findTransferHandoffDefects, findPrepareOnSampleDefects,
 } from './sceneRecipe.js'
 import { resolveBehavior } from './behavior.js'
 import { ACTIONS } from '../lib/runtime.js'
@@ -160,6 +160,21 @@ describe('bundled protocols name every transfer destination', () => {
   it.each(files)('%s has no carried-forward transfer (hand-off always fires)', (file) => {
     const proto = JSON.parse(readFileSync(dir + file, 'utf8'))
     const defects = findTransferHandoffDefects(proto.steps || [])
+    expect(defects, `${file}: ${JSON.stringify(defects)}`).toEqual([])
+  })
+})
+
+// COVERAGE ASSERTION (Stage 33): a side preparation happens in ITS OWN vessel — it must
+// never name the sample's current vessel as its destination, or the renderer would pour
+// the mix INTO the sample (the "DNase into the column" lie). Not every step happens to
+// the sample.
+describe('bundled protocols keep side preparations off the sample', () => {
+  const dir = fileURLToPath(new URL('../../public/protocols/', import.meta.url))
+  const files = readdirSync(dir).filter((f) => f.endsWith('.json') && f !== 'index.json')
+
+  it.each(files)('%s has no prepare step targeting the sample vessel', (file) => {
+    const proto = JSON.parse(readFileSync(dir + file, 'utf8'))
+    const defects = findPrepareOnSampleDefects(proto.steps || [])
     expect(defects, `${file}: ${JSON.stringify(defects)}`).toEqual([])
   })
 })

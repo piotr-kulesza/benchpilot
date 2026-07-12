@@ -22,6 +22,7 @@ import { resolveBehavior } from './behavior.js'
 // equipment is the STATION device; the sample's vessel is the container axis.
 const RECIPES = {
   pour_add:       { equipment: 'bottle_pipette' },
+  prepare:        { equipment: 'bottle_pipette' }, // a SIDE vessel, filled from its reagents' bottles
   pipette_mix:    { equipment: 'bottle_pipette' },
   vortex_mix:     { equipment: 'bench' },
   homogenize:     { equipment: 'syringe' },
@@ -95,7 +96,9 @@ export function sampleContainerSequence(steps = []) {
   let container = 'microtube'
   for (const s of steps) {
     const named = s && typeof s === 'object' ? s.container : null
-    if (named && CONTAINERS[named]) container = named
+    // a `prepare` step happens in ITS OWN vessel, on the side — the sample never moves,
+    // so its container (the mix's tube) must NOT advance the sample-follow.
+    if (s?.action !== 'prepare' && named && CONTAINERS[named]) container = named
     out.push(container)
   }
   return out
@@ -117,6 +120,26 @@ export function findTransferHandoffDefects(steps = []) {
     if (!s || typeof s !== 'object' || s.action !== 'transfer') continue
     const named = s.container && CONTAINERS[s.container]
     if (!named) out.push({ index: s.index != null ? s.index : i, container: seq[i] })
+  }
+  return out
+}
+
+// A `prepare` is a SIDE PREPARATION: it combines reagents in ITS OWN fresh vessel and
+// the sample is never an ingredient — so it must NEVER name the sample's SPECIALIZED
+// current vessel (a spin_column, well_plate, membrane, …) as its destination. If it did,
+// the renderer would make the mix IN the sample's vessel — the "DNase into the column"
+// lie Stage 33 fixed. A fresh `microtube`/`tube` is exactly what a side prep legitimately
+// uses, so a tube-on-tube coincidence is NOT a defect (both are just anonymous fresh tubes).
+const FRESH_TUBES = new Set(['microtube', 'tube'])
+export function findPrepareOnSampleDefects(steps = []) {
+  const seq = sampleContainerSequence(steps)
+  const out = []
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i]
+    if (!s || typeof s !== 'object' || s.action !== 'prepare') continue
+    if (s.container && s.container === seq[i] && !FRESH_TUBES.has(s.container)) {
+      out.push({ index: s.index != null ? s.index : i, container: s.container })
+    }
   }
   return out
 }

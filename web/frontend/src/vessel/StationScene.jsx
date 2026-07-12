@@ -257,6 +257,22 @@ function Floor({ totalLen, preset }) {
   return <primitive object={floor} />
 }
 
+// A reagent SOURCE for a multi-reagent pass: normally its own bottle; but when a pour
+// draws from a mixture you prepared earlier, the source is a small filled TUBE (not a
+// bottle from nowhere). Registers st.reagents[key] with the pipette draw point.
+function addReagentSource(st, key, r, k, fromMix) {
+  const sx = 2.0 + k * 0.95, sz = 0.7
+  if (fromMix) {
+    const src = demo.buildTube({ height: 1.5, radius: 0.3 })
+    src.position.set(sx, 0, sz); src.userData.noFrame = true
+    src.userData.setColor(r.color); src.userData.setLevel(0.55); src.userData.setLabel(r.name, r.vol || '')
+    st.group.add(src); if (src.userData.update) st.updatables.push(src)
+    st.reagents[key] = { grp: src, pos: new Vector3(sx, 0.9, sz) }
+  } else {
+    demo.addBottle(st, key, r.name, r.color, sx, sz)
+  }
+}
+
 // Build a station for a step. Every action gets a timeline with VISIBLE motion
 // driven by the per-step progress p (0->1): so no station is ever static.
 export function configureStation(st, o) {
@@ -301,10 +317,65 @@ export function configureStation(st, o) {
   }
 
   if (action === 'pour_add') {
-    // resident pipette rig + bottle; pipette pours over p, fill ramps at p>0.62.
-    // cStart/lStart = carried-in state, so the pour builds ON the existing contents.
-    // dispense point comes from the CONTRACT (well/neck/centre), not a tube default.
-    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: C.entryPoint })
+    const reags = o.reagents || []
+    // draws FROM a prepared mixture ("apply the DNase I mixture …") → the source is the
+    // tube you made, not a bottle from nowhere.
+    const fromMix = reags.length === 1 && /\bmix\b|mixture|master ?mix|working solution/i.test(reags[0].name || '')
+    if (reags.length <= 1 && !fromMix) {
+      // UNCHANGED single-reagent path: resident pipette rig + bottle; fill ramps at p>0.62.
+      demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: C.entryPoint })
+    } else {
+      // N reagents → N pipette passes INTO the sample (one per reagent, from its own source).
+      const disp = C.dispense || { x: 0, z: 0 }
+      const toY = (disp.approach === 'angled' && disp.y != null) ? disp.y : SEAT_Y
+      demo.addPipetteRig(st)
+      reags.forEach((r, k) => addReagentSource(st, 'r' + k, r, k, fromMix))
+      st.enter = () => { seat(0, SEAT_Y, 0); demo.pipRest(st) }
+      st.timeline = (p) => {
+        const v = S[vessel]
+        const n = reags.length, seg = 1 / n
+        const k = Math.min(n - 1, Math.floor(p / seg))
+        const lp = demo.clamp((p - k * seg) / seg, 0, 1)
+        demo.pipetteRun(st, st.reagents['r' + k].pos, { x: disp.x, y: toY, z: disp.z }, lp,
+          { color: reags[k].color, fill: 0.8, approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: C.entryPoint })
+        const done = (k + (lp > 0.62 ? demo.easeInOut((lp - 0.62) / 0.38) : 0)) / n
+        v.userData.setLevel(demo.lerp(startLevel, endLevel, done))
+        v.userData.setColor(reags[Math.min(k, n - 1)].color)
+      }
+    }
+  } else if (action === 'prepare') {
+    // NOT EVERY STEP HAPPENS TO THE SAMPLE. Combine the reagents in a SEPARATE vessel, on
+    // the side; the SAMPLE sits visibly idle and untouched. The prep vessel is the subject.
+    const reags = (o.reagents && o.reagents.length) ? o.reagents : [{ name, vol, color: endColor }]
+    const prep = demo.buildTube({ height: 1.7, radius: 0.34 })
+    prep.position.set(0.4, 0, 0.2)
+    prep.userData.setColor(reags[0].color); prep.userData.setLevel(0)
+    prep.userData.setLabel(name || 'mixture', vol || '')
+    st.group.add(prep); st.updatables.push(prep); st.prep = prep
+    demo.addPipetteRig(st)
+    reags.forEach((r, k) => demo.addBottle(st, 'r' + k, r.name, r.color, 2.2 + k * 0.95, 0.7))
+    const DIP = { x: 0.4, y: SEAT_Y, z: 0.2 }
+    // the idle sample lives beside the prep, showing its carried contents — untouched.
+    const idleSample = () => {
+      S.only(vessel)
+      const sv = S[vessel]
+      sv.userData.setColor(startColor); sv.userData.setLevel(startLevel)
+      sv.visible = true; sv.rotation.set(0, 0, 0); sv.scale.setScalar(1)
+      demo.setSnap(true); S.at(sv, st.x - 2.0, SEAT_Y, -0.1); demo.setSnap(false)
+      return sv
+    }
+    st.enter = () => { idleSample(); prep.userData.setLevel(0); demo.pipRest(st) }
+    st.timeline = (p) => {
+      const sv = S[vessel]
+      sv.userData.setColor(startColor); sv.userData.setLevel(startLevel) // untouched, held
+      const n = reags.length, seg = 1 / n
+      const k = Math.min(n - 1, Math.floor(p / seg))
+      const lp = demo.clamp((p - k * seg) / seg, 0, 1)
+      demo.pipetteRun(st, st.reagents['r' + k].pos, DIP, lp, { color: reags[k].color, fill: 0.8, dipDepth: 0.62 })
+      const done = (k + (lp > 0.62 ? demo.easeInOut((lp - 0.62) / 0.38) : 0)) / n
+      prep.userData.setLevel(done * 0.62)
+      prep.userData.setColor(reags[Math.min(k, n - 1)].color)
+    }
   } else if (action === 'pipette_mix') {
     // resuspend / mix by pipetting: the pipette bobs STRAIGHT down into the tube
     // and back, aspirating + dispensing. (Do NOT reuse pipetteRun here — that's a
@@ -852,6 +923,13 @@ function useContainers(steps) {
 function stationParams(baseStep, lang, altIdx, chain) {
   const step = effectiveStep(baseStep, altIdx) // follow the chosen either/or method
   const { equipment } = resolveRecipe(step.action)
+  // EVERY reagent (name · volume · colour), so a multi-reagent step renders all of them,
+  // not just the first. Deduped by name so a conditional volume (the SAME reagent listed
+  // as 350 µl / 600 µl variants) stays one bottle, not two.
+  const seenReag = new Set()
+  const reagents = (step.reagents || [])
+    .map((r) => { const nm = reagentName(r, lang); return { name: nm, vol: reagentVolume(r, lang) || '', color: new Color(reagentColor(nm)).getHex() } })
+    .filter((r) => r.name && !seenReag.has(r.name) && seenReag.add(r.name))
   const primary = (step.reagents || []).find((r) => r.volume) || (step.reagents || [])[0]
   const primaryName = primary ? reagentName(primary, lang) : null
   const colorHex = new Color(reagentColor(primaryName)).getHex()
@@ -862,7 +940,7 @@ function stationParams(baseStep, lang, altIdx, chain) {
   const start = chain?.start || { color: INIT_COLOR, level: INIT_LEVEL }
   const end = chain?.end || { color: colorHex, level: fill }
   const cycles = step.repeat && typeof step.repeat.count === 'number' ? step.repeat.count : 0
-  return { action: step.action, equipment, colorHex, vol, title, sub, seconds: step.duration_seconds, start, end, cycles }
+  return { action: step.action, equipment, colorHex, vol, title, sub, seconds: step.duration_seconds, start, end, cycles, reagents }
 }
 
 export default function StationScene({ protocol, activeIndex = 0, lang = 'en', altByStep = {}, progress = 1, running = false, hasTimer = false, done = false, chromeless = false, bench = 'dark' }) {
@@ -891,13 +969,12 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       const prim = (eff.reagents || []).find((r) => r.volume) || (eff.reagents || [])[0]
       const c = new Color(reagentColor(prim ? reagentName(prim, lang) : null)).getHex()
       const f = resolveRecipe(eff.action).anim.fill
-      // A preparation step that MAKES a reagent (lysis buffer, RPE, DNase mix) is a
-      // SEPARATE tube, not the travelling sample. Render it self-contained in its own
-      // reagent colour and DON'T carry into/out of the sample chain — otherwise its
-      // liquid morphs through the previous reagent's colour (blue→pink→orange).
-      if (s.phase === 'preparation' && prim) {
-        const lo = eff.action === 'pour_add' ? Math.min(0.12, f) : f
-        return { start: { color: c, level: lo }, end: { color: c, level: f } }
+      // A SIDE PREPARATION happens in its OWN vessel (built from its reagents in
+      // configureStation) — the travelling sample is untouched. Carry its state forward
+      // unchanged; `start`/`end` describe the IDLE sample, not the mix.
+      if (eff.action === 'prepare') {
+        const held = { color, level }
+        return { start: held, end: held } // don't advance the sample's colour/level
       }
       const start = { color, level }
       const end = stepEnd(eff.action, start, c, f)
@@ -979,7 +1056,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       const st = { group: new Group(), updatables: [], reagents: {}, pip: null, enter: null, timeline: null, x: i * SPACING, cen: null, dev: null, vis: 0, _vstate: -1 }
       configureStation(st, {
         action: o.action, equipment: o.equipment, container, prevContainer, color: o.colorHex, name: o.title, vol: o.vol, seconds: o.seconds,
-        startColor: o.start.color, startLevel: o.start.level, endColor: o.end.color, endLevel: o.end.level, cycles: o.cycles,
+        startColor: o.start.color, startLevel: o.start.level, endColor: o.end.color, endLevel: o.end.level, cycles: o.cycles, reagents: o.reagents,
       })
       // MEASURE the framing from the equipment now — group is still at the origin and
       // carries only the instrument (not the label/decal added below), so this is the
