@@ -1620,21 +1620,54 @@ export {
 }
 
 // ─── station choreography (lifted verbatim from the demo's scene scope) ───
+  var TIP_DROP=0.75;                          // tip hangs this far below the pipette origin
   function pipetteRun(st, from, to, p, opts){
     opts=opts||{};
     var pip=st.pip; if(!pip) return;
     // GEOMETRY-SAFE motion (bug fix): NEVER cross laterally at rim height (that
     // pushed the tip through the vessel wall). Instead: draw at the bottle, travel
     // LEVEL and HIGH — well clear of any vessel top — to directly above the mouth,
-    // then descend STRAIGHT DOWN into the mouth, dispense, and withdraw STRAIGHT UP.
+    // then descend into the mouth, dispense, and withdraw.
     var draw=0.26, travel=0.50;                 // phase boundaries
     var TRAVEL_Y=Math.max(from.y,to.y)+2.0;     // cruise altitude, above every vessel
+
+    if(opts.approach==='angled'){
+      // A T-FLASK's canted neck (Stage-12 #3): `to` IS the neck MOUTH; the tip must
+      // enter THROUGH it, tilted to the neck cant, and descend ALONG the neck axis to
+      // the medium at the base corner — NOT straight down onto the flat top face.
+      var TILT = opts.tilt!=null?opts.tilt:-0.62; // match the neck's cant exactly
+      var depth = opts.depth!=null?opts.depth:0.95; // how far down the axis to the medium
+      var ax=Math.sin(-TILT), ay=Math.cos(-TILT); // neck axis (points up-and-out of the mouth)
+      var dTop=(TRAVEL_Y-to.y)/ay;                // axis distance from mouth up to cruise height
+      // place the pipette so its TIP lands at mouth + axis*d, body tilted by `rot`
+      function tipAxis(d, rot){
+        var tx=to.x+ax*d, ty=to.y+ay*d, tz=to.z;
+        pip.position.set(tx - Math.sin(rot)*TIP_DROP, ty + Math.cos(rot)*TIP_DROP, tz);
+        pip.rotation.z=rot;
+      }
+      if(p<draw){                               // A · at the bottle: rise & aspirate
+        var qa=easeInOut(p/draw);
+        pip.rotation.z=0;
+        pip.position.set(from.x, lerp(from.y+0.72, TRAVEL_Y, qa), from.z);
+        pip.userData.setFluid(qa*(opts.fill||0.8)); pip.userData.setColor(opts.color||COL.lysis);
+      } else if(p<travel){                       // B · cruise HIGH & LEVEL to above the mouth, tilting in
+        var qb=easeInOut((p-draw)/(travel-draw));
+        var rot=TILT*qb;
+        var tx=lerp(from.x, to.x+ax*dTop, qb), tz=lerp(from.z, to.z, qb);
+        pip.position.set(tx - Math.sin(rot)*TIP_DROP, TRAVEL_Y, tz);
+        pip.rotation.z=rot;
+        pip.userData.setFluid(opts.fill||0.8);
+      } else {                                   // C · dip DOWN the neck axis into the medium, then withdraw
+        var qc=(p-travel)/(1-travel);
+        var s = qc<0.5 ? easeInOut(qc/0.5) : easeInOut(1-(qc-0.5)/0.5);
+        tipAxis(lerp(dTop, -depth, s), TILT);
+        pip.userData.setFluid((1-clamp(qc*1.5,0,1))*(opts.fill||0.8));
+      }
+      return;
+    }
+
+    // STRAIGHT approach (tube / well / dish): descend vertically into the mouth.
     var DIP_Y=to.y+0.62;                        // tip lowered into the mouth
-    // ANGLED approach (a T-flask's canted neck): the pipette tilts and comes in on a
-    // slant so the tip enters the neck along its axis, not straight down onto a wall.
-    // `offx` shifts the body so the tilted tip still lands on the dispense point.
-    var TILT = opts.approach==='angled' ? -0.5 : 0;
-    var offx = -Math.sin(TILT)*0.75;
     var pos=new THREE.Vector3();
     if(p<draw){                                 // A · at the bottle: rise & aspirate
       var q=easeInOut(p/draw);
@@ -1643,15 +1676,15 @@ export {
       pip.userData.setFluid(q*(opts.fill||0.8)); pip.userData.setColor(opts.color||COL.lysis);
     } else if(p<travel){                         // B · cruise HIGH & LEVEL over the mouth
       var q2=easeInOut((p-draw)/(travel-draw));
-      pos.set(lerp(from.x,to.x+offx,q2), TRAVEL_Y, lerp(from.z,to.z,q2));
-      pip.rotation.z=TILT*q2;                    // begin tilting toward the neck
+      pos.set(lerp(from.x,to.x,q2), TRAVEL_Y, lerp(from.z,to.z,q2));
+      pip.rotation.z=0;
       pip.userData.setFluid(opts.fill||0.8);
-    } else {                                     // C · descend IN along the (tilted) axis
+    } else {                                     // C · descend STRAIGHT DOWN into the mouth
       var q3=(p-travel)/(1-travel);
       var y = q3<0.5 ? lerp(TRAVEL_Y,DIP_Y,easeInOut(q3/0.5))
                      : lerp(DIP_Y,TRAVEL_Y,easeInOut((q3-0.5)/0.5));
-      pos.set(to.x+offx, y, to.z);
-      pip.rotation.z=TILT;
+      pos.set(to.x, y, to.z);
+      pip.rotation.z=0;
       pip.userData.setFluid((1-clamp(q3*1.5,0,1))*(opts.fill||0.8));
     }
     pip.position.copy(pos);                 // LOCAL — resident pipette stays at its station
@@ -2084,7 +2117,11 @@ export {
         b.userData.setCap(!(p>0.03 && p<0.36));
         b.userData.setLevel(1 - 0.22*clamp(p/0.30,0,1));
       }
-      pipetteRun(st, st.reagents[o.key].pos, {x:disp.x,y:Y,z:disp.z}, p, {color:o.color, fill:0.8, approach:disp.approach});
+      // for an ANGLED neck the dispense point is the neck MOUTH (its own height),
+      // NOT the seat plane — otherwise the tip dips onto the flat top face.
+      var toY = (disp.approach==='angled' && disp.y!=null) ? disp.y : Y;
+      pipetteRun(st, st.reagents[o.key].pos, {x:disp.x,y:toY,z:disp.z}, p,
+        {color:o.color, fill:0.8, approach:disp.approach, tilt:disp.tilt, depth:disp.depth});
       if(p>0.62){ var q=easeInOut((p-0.62)/0.38);
         v.userData.setLevel(lerp(o.lStart,o.lEnd,q));
         if(o.cEnd!=null) v.userData.setColor(o.cEnd);

@@ -29,7 +29,7 @@ export const CONTAINER_CONTRACT = {
   bottle:      { vessel: 'tube',      orientation: 'upright', flat: false, seat: { x: 0, y: BT, z: 0 }, dispense: { x: 0, y: BT + 0.9, z: 0, approach: 'top' }, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
   // flat-lying vessels — seat on the bench, aspirated (NEVER tipped), wide framing
   well_plate:  { vessel: 'wellplate', orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: -0.98, y: 0.55, z: 0.77, approach: 'top' }, liquid: 'well', emptyMotion: 'aspirate', framing: 'wide' },
-  flask:       { vessel: 'flask',     orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 1.15, y: 0.7, z: 0.4, approach: 'angled' }, liquid: 'shallow', emptyMotion: 'aspirate', framing: 'wide', contentsState: 'monolayer' },
+  flask:       { vessel: 'flask',     orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 1.45, y: 1.0, z: 0.41, approach: 'angled', tilt: -0.62, depth: 0.95 }, liquid: 'shallow', emptyMotion: 'aspirate', framing: 'wide', contentsState: 'monolayer' },
   dish:        { vessel: 'dish',      orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.35, z: 0, approach: 'top' }, liquid: 'shallow', emptyMotion: 'aspirate', framing: 'wide' },
   slide:       { vessel: 'slide',     orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0.35, y: 0.35, z: 0, approach: 'top' }, liquid: 'film', emptyMotion: 'aspirate', framing: 'wide' },
   membrane:    { vessel: 'membrane',  orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.35, z: 0, approach: 'top' }, liquid: 'bands', emptyMotion: 'aspirate', framing: 'wide' },
