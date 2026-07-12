@@ -1234,7 +1234,17 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       if (act.driveTimed && tm.hasTimer) act.driveTimed(tm, dt)
       else act.timeline?.(pRef.current)
     }
-    for (const st of stations) for (const u of st.updatables) u.userData?.update?.(dt)
+    // 4c · idle instrument animations run ONLY for the active station and its immediate
+    // neighbours (the ones visible during a dolly). Every other station is faded out and
+    // `.visible = false` (§6, applyStationVis) — ticking its 21+ animated groups every frame
+    // was pure CPU waste for geometry nobody can see. Build-once is untouched; this gates
+    // only what RUNS per frame. The travelling sample (§5) ticks separately, always.
+    const ai = activeRef.current
+    let ticked = 0
+    for (let si = 0; si < stations.length; si++) {
+      if (Math.abs(si - ai) > 1) continue
+      for (const u of stations[si].updatables) { u.userData?.update?.(dt); ticked++ }
+    }
 
     // 4b · the countdown DIAL reads the SAME clock as the digits (timerRef.progress ==
     // elapsedFraction), NOT the choreography p. Shown only on the active station and only
@@ -1290,6 +1300,14 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       if (tgt >= 1 && st.vis > 0.999) st.vis = 1
       if (tgt <= 0 && st.vis < 0.001) st.vis = 0
       applyStationVis(st)
+    }
+
+    // dev perf probe — draw calls / triangles from the LAST render (info auto-resets each
+    // frame). Cheap, harmless; read by scripts/perf-probe.mjs. Never affects the look.
+    if (typeof window !== 'undefined') {
+      const r = state.gl.info.render
+      const p = window.__benchperf || (window.__benchperf = {}) // reuse the object — no per-frame alloc
+      p.calls = r.calls; p.triangles = r.triangles; p.stations = stations.length; p.ticked = ticked
     }
   })
 
