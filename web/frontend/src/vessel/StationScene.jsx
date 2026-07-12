@@ -128,9 +128,12 @@ const DIAL_MARGIN = 0.38     // the ring clears the subject footprint by this mu
 const DIAL_ACCENT = 0x58b6a6 // the demo's teal (matches the UI timer/accent)
 const DIAL_TRACK = 0x2b333d  // dim remaining-track slate
 // RingGeometry authors in the XY plane; rotation.x = -π/2 lays it flat in XZ. After
-// that flatten, XY-angle θ maps to world (cosθ, 0, -sinθ): θ=π/2 → -Z (the dial's TOP
-// as the camera reads it). A CLOCKWISE fill from the top grows by DECREASING θ, so the
-// arc spans [π/2 - len, π/2] with len = fraction·2π.
+// that flatten, XY-angle θ maps to world (cosθ, 0, -sinθ). The dial's TOP (θ=π/2 → -Z)
+// is the FAR side, behind the subject — so a fill starting there is invisible early
+// (it "starts behind the tray"). We start at the FRONT instead (θ=-π/2 → +Z, nearest
+// the camera, clear of the subject) and grow CLOCKWISE (decreasing θ): the arc spans
+// [-π/2 - len, -π/2] with len = fraction·2π, so the leading edge is always visible.
+const DIAL_START = -Math.PI / 2  // front of the dial (nearest the camera)
 function makeBenchDial(radius) {
   const th = Math.max(0.15, radius * 0.11)      // legible thickness, scales with the dial
   const rOut = radius, rIn = Math.max(0.06, radius - th)
@@ -138,7 +141,7 @@ function makeBenchDial(radius) {
   const trackMat = new MeshBasicMaterial({ color: DIAL_TRACK, transparent: true, opacity: 0.9, toneMapped: false, depthWrite: false })
   const fillMat = new MeshBasicMaterial({ color: DIAL_ACCENT, transparent: true, opacity: 1, toneMapped: false, depthWrite: false })
   const track = new Mesh(new RingGeometry(rIn, rOut, 96), trackMat)
-  const fill = new Mesh(new RingGeometry(rIn, rOut, 96, 1, Math.PI / 2, 0.0001), fillMat)
+  const fill = new Mesh(new RingGeometry(rIn, rOut, 96, 1, DIAL_START, 0.0001), fillMat)
   track.rotation.x = -Math.PI / 2
   fill.rotation.x = -Math.PI / 2
   track.renderOrder = 1; fill.renderOrder = 2
@@ -153,7 +156,7 @@ function makeBenchDial(radius) {
     cur = f
     fill.geometry.dispose()
     const len = Math.max(0.0001, f * Math.PI * 2)
-    fill.geometry = new RingGeometry(rIn, rOut, 96, 1, Math.PI / 2 - len, len)
+    fill.geometry = new RingGeometry(rIn, rOut, 96, 1, DIAL_START - len, len)
     fill.rotation.x = -Math.PI / 2
   }
   return g
