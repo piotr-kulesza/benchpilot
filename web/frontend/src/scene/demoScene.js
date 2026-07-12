@@ -686,45 +686,47 @@ export function undockSample() {
 
   /* ---------- anodized cold block ---------- */
   function buildColdBlock(){
+    // A compact dry heat/incubation block. WIDE but SHALLOW front-to-back (a single row
+    // of wells) for two reasons: the sample tube actually SEATS in a well (the wells are
+    // sized to it, r≈0.36 vs the old 0.19 microtube bores it stood in front of), and a
+    // flat countdown dial around its base isn't swallowed by a deep body.
     var grp = new THREE.Group();
-    var alu   = matAnodized(0x30343b);                        // dark anthracite body (ThermoMixer C)
+    var alu   = matAnodized(0x30343b);                        // dark anthracite body
     var aluTop= matBrushed(0xb8bec6); aluTop.roughness=0.42;  // brushed-silver thermoblock top
-    var chamfer = new THREE.Mesh(new THREE.BoxGeometry(2.46,0.12,1.86), matAnodized(0x24272d));
+    var W=2.0, D=0.9, boreR=0.36;                             // block footprint + well radius (fits the tube)
+    var chamfer = new THREE.Mesh(new THREE.BoxGeometry(W+0.12,0.12,D+0.12), matAnodized(0x24272d));
     chamfer.position.y=0.06; chamfer.castShadow=true; chamfer.receiveShadow=true; grp.add(chamfer);
-    var base = new THREE.Mesh(new THREE.BoxGeometry(2.34,0.32,1.74), alu);
+    var base = new THREE.Mesh(new THREE.BoxGeometry(W,0.32,D), alu);
     base.position.y=0.28; base.castShadow=true; base.receiveShadow=true; grp.add(base);
-    var topPlate = new THREE.Mesh(new THREE.BoxGeometry(2.38,0.06,1.78), aluTop);
+    var topPlate = new THREE.Mesh(new THREE.BoxGeometry(W+0.04,0.06,D+0.04), aluTop);
     topPlate.position.y=0.45; grp.add(topPlate);
     // machined bevel frame around the top edge — catches the key light
-    var bevelMat=matAnodized(0xc0cad4); bevelMat.roughness=0.34;
-    var bevY=0.485;
-    var bvA=new THREE.Mesh(new THREE.BoxGeometry(2.42,0.028,0.055), bevelMat); bvA.position.set(0,bevY,0.9); grp.add(bvA);
-    var bvB=new THREE.Mesh(new THREE.BoxGeometry(2.42,0.028,0.055), bevelMat); bvB.position.set(0,bevY,-0.9); grp.add(bvB);
-    var bvC=new THREE.Mesh(new THREE.BoxGeometry(0.055,0.028,1.86), bevelMat); bvC.position.set(1.2,bevY,0); grp.add(bvC);
-    var bvD=new THREE.Mesh(new THREE.BoxGeometry(0.055,0.028,1.86), bevelMat); bvD.position.set(-1.2,bevY,0); grp.add(bvD);
+    var bevelMat=matAnodized(0xc0cad4); bevelMat.roughness=0.34; var bevY=0.485; var hz=D/2-0.03;
+    var bvA=new THREE.Mesh(new THREE.BoxGeometry(W+0.04,0.028,0.05), bevelMat); bvA.position.set(0,bevY,hz); grp.add(bvA);
+    var bvB=new THREE.Mesh(new THREE.BoxGeometry(W+0.04,0.028,0.05), bevelMat); bvB.position.set(0,bevY,-hz); grp.add(bvB);
+    var bvC=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.028,D), bevelMat); bvC.position.set(W/2-0.02,bevY,0); grp.add(bvC);
+    var bvD=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.028,D), bevelMat); bvD.position.set(-(W/2-0.02),bevY,0); grp.add(bvD);
     var fluteMat = matAnodized(0x2a2e35);
     for(var f=0;f<9;f++){
       var fl=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.3,10), fluteMat);
-      fl.position.set(-1.0+f*0.25,0.28,0.9); grp.add(fl);
+      fl.position.set(-1.0+f*0.25,0.28,D/2); grp.add(fl);
     }
+    // ONE row of tube-sized wells (the centre one holds the sample); the tube drops IN.
     var wellRim = matAnodized(0x8b95a1);
     var boreMat = new THREE.MeshStandardMaterial({ color:0x1d232b, metalness:0.4, roughness:0.7, side:THREE.DoubleSide });
-    for(var i=0;i<3;i++) for(var j=0;j<2;j++){
-      var x=-0.7+i*0.7, z=-0.4+j*0.8;
-      var bore = new THREE.Mesh(new THREE.CylinderGeometry(0.19,0.19,0.34,24,1,true), boreMat);
+    for(var i=0;i<3;i++){
+      var x=-0.62+i*0.62, z=0;
+      var bore = new THREE.Mesh(new THREE.CylinderGeometry(boreR,boreR,0.34,28,1,true), boreMat);
       bore.position.set(x,0.34,z); grp.add(bore);
-      var boreBot = new THREE.Mesh(new THREE.CircleGeometry(0.19,24), boreMat);
+      var boreBot = new THREE.Mesh(new THREE.CircleGeometry(boreR,28), boreMat);
       boreBot.rotation.x=-Math.PI/2; boreBot.position.set(x,0.18,z); grp.add(boreBot);
-      var lip = new THREE.Mesh(new THREE.TorusGeometry(0.19,0.014,10,24), wellRim);
+      var lip = new THREE.Mesh(new THREE.TorusGeometry(boreR,0.016,10,28), wellRim);
       lip.rotation.x=Math.PI/2; lip.position.set(x,0.48,z); grp.add(lip);
     }
-    // (removed the scattered frost specks + ice cubes — they read as stray artefacts on the
-    //  block, and make no sense for a room-temperature incubation step)
-    // (blue status strip, cyan LED and teal touchscreen removed per user)
-
-    var label = makeLabel("On ice","4 °C");
-    label.position.set(0,1.5,0.6); grp.add(label);
+    var label = makeLabel("Incubate","RT");
+    label.position.set(0,1.5,0.5); grp.add(label);
     grp.userData.label=label; grp.userData.update=function(){};
+    grp.userData.wellY = 0.2; // base height a seated tube rests at (in the well)
     return grp;
   }
 

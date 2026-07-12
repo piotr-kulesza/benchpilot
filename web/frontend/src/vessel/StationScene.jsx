@@ -446,9 +446,10 @@ export function configureStation(st, o) {
         ? { pos: [0, 1.2, 3.7], look: [0, 0.62, -1.25] }   // level, between the shelves, on the flask
         : { pos: [0, 1.4, 3.0], look: [0, 0.9, -1.0] }
     } else if (inst === 'incubation_block') {
-      const block = demo.buildColdBlock(); block.position.set(0, 0, -1.25)
+      const block = demo.buildColdBlock(); block.position.set(0, 0, 0) // centred UNDER the tube
       st.group.add(block); st.updatables.push(block)
-      seatFn = () => S.at(S[vessel], st.x, BT, 0) // the block is a RISER — the tube sits IN its well, not on the bench
+      const wellY = block.userData.wellY ?? 0.2
+      seatFn = () => S.at(S[vessel], st.x, wellY, 0) // the tube drops INTO the block's centre well
     }
     st.enter = () => { seat(0, SEAT_Y, 0); seatFn(); const v = S[vessel]; if (v.userData.setMono) v.userData.setMono(1) }
     st.timeline = (p) => {
