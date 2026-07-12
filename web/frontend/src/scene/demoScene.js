@@ -774,13 +774,14 @@ export function undockSample() {
       var bbot=new THREE.Mesh(new THREE.CircleGeometry(0.085,16), boreMat);
       bbot.rotation.x=-Math.PI/2; bbot.position.set(bx,0.58,bz); grp.add(bbot);
     }
-    // HINGED CLAMSHELL LID (back hinge). Raised at rest so the wells read; lowers flat
-    // over the block during cycling. No posts, no bench glow — restrained.
-    var lidPivot = new THREE.Group(); lidPivot.position.set(0,0.76,-0.72); grp.add(lidPivot);
+    // HINGED CLAMSHELL LID (back hinge). Raised at rest so the wells read; lowers to
+    // rest FLAT ON TOP of the block during cycling (closed underside ~0.89 clears the
+    // block top 0.87 and the sunk tube caps). No posts, no bench glow — restrained.
+    var lidPivot = new THREE.Group(); lidPivot.position.set(0,0.88,-0.78); grp.add(lidPivot);
     var lid = new THREE.Mesh(new THREE.BoxGeometry(2.2,0.2,1.5), matPainted(0x3a3f47,0.5));
-    lid.position.set(0,0.1,0.72); lidPivot.add(lid);
+    lid.position.set(0,0.11,0.78); lidPivot.add(lid);
     var lidGrip = new THREE.Mesh(new THREE.BoxGeometry(1.5,0.07,0.14), matPlastic(0x22272e));
-    lidGrip.position.set(0,0.2,1.4); lidPivot.add(lidGrip);
+    lidGrip.position.set(0,0.22,1.46); lidPivot.add(lidGrip);
     // slanted control display
     var dc=document.createElement("canvas"); dc.width=256; dc.height=128; var dg=dc.getContext("2d");
     var dTex=new THREE.CanvasTexture(dc); dTex.anisotropy=MAX_ANISO;
@@ -1449,20 +1450,28 @@ export {
     var draw=0.26, travel=0.50;                 // phase boundaries
     var TRAVEL_Y=Math.max(from.y,to.y)+2.0;     // cruise altitude, above every vessel
     var DIP_Y=to.y+0.62;                        // tip lowered into the mouth
+    // ANGLED approach (a T-flask's canted neck): the pipette tilts and comes in on a
+    // slant so the tip enters the neck along its axis, not straight down onto a wall.
+    // `offx` shifts the body so the tilted tip still lands on the dispense point.
+    var TILT = opts.approach==='angled' ? -0.5 : 0;
+    var offx = -Math.sin(TILT)*0.75;
     var pos=new THREE.Vector3();
     if(p<draw){                                 // A · at the bottle: rise & aspirate
       var q=easeInOut(p/draw);
       pos.set(from.x, lerp(from.y+0.72, TRAVEL_Y, q), from.z);
+      pip.rotation.z=0;
       pip.userData.setFluid(q*(opts.fill||0.8)); pip.userData.setColor(opts.color||COL.lysis);
     } else if(p<travel){                         // B · cruise HIGH & LEVEL over the mouth
       var q2=easeInOut((p-draw)/(travel-draw));
-      pos.set(lerp(from.x,to.x,q2), TRAVEL_Y, lerp(from.z,to.z,q2));
+      pos.set(lerp(from.x,to.x+offx,q2), TRAVEL_Y, lerp(from.z,to.z,q2));
+      pip.rotation.z=TILT*q2;                    // begin tilting toward the neck
       pip.userData.setFluid(opts.fill||0.8);
-    } else {                                     // C · descend in, dispense, withdraw up
+    } else {                                     // C · descend IN along the (tilted) axis
       var q3=(p-travel)/(1-travel);
       var y = q3<0.5 ? lerp(TRAVEL_Y,DIP_Y,easeInOut(q3/0.5))
                      : lerp(DIP_Y,TRAVEL_Y,easeInOut((q3-0.5)/0.5));
-      pos.set(to.x, y, to.z);
+      pos.set(to.x+offx, y, to.z);
+      pip.rotation.z=TILT;
       pip.userData.setFluid((1-clamp(q3*1.5,0,1))*(opts.fill||0.8));
     }
     pip.position.copy(pos);                 // LOCAL — resident pipette stays at its station
@@ -1876,7 +1885,7 @@ export {
         b.userData.setCap(!(p>0.03 && p<0.36));
         b.userData.setLevel(1 - 0.22*clamp(p/0.30,0,1));
       }
-      pipetteRun(st, st.reagents[o.key].pos, {x:disp.x,y:Y,z:disp.z}, p, {color:o.color, fill:0.8});
+      pipetteRun(st, st.reagents[o.key].pos, {x:disp.x,y:Y,z:disp.z}, p, {color:o.color, fill:0.8, approach:disp.approach});
       if(p>0.62){ var q=easeInOut((p-0.62)/0.38);
         v.userData.setLevel(lerp(o.lStart,o.lEnd,q));
         if(o.cEnd!=null) v.userData.setColor(o.cEnd);

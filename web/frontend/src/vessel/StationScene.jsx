@@ -296,33 +296,13 @@ export function configureStation(st, o) {
       }
     }
   } else if (action === 'transfer') {
-    // hand-off: the sample moves tube -> spin column (the demo's LOAD step). NO
-    // centrifuge — the column fills as the tube drains.
-    const tA = { x: -0.9, y: BT, z: 0.1 }
-    const cA = { x: 0.7, y: BT, z: 0.1 }
-    st.enter = () => {
-      // the tube arrives carrying its contents; the same liquid pours into the column.
-      S.only('tube')
-      S.tube.userData.setLabel(name || 'Sample', 'load column')
-      S.tube.userData.setColor(startColor)
-      S.tube.userData.setLevel(startLevel)
-      S.tube.rotation.set(0, 0, 0)
-      S.at(S.tube, st.x + tA.x, tA.y, tA.z)
-      S.column.userData.setLabel('RNeasy column', 'loading')
-      S.column.userData.setColor(startColor)
-      S.column.userData.setLevel(0)
-      S.column.rotation.set(0, 0, 0)
-      S.snapTo(S.column, st.x + cA.x, cA.y, cA.z)
-      S.column.visible = false
-    }
-    st.timeline = (p) => {
-      S.tube.visible = true
-      if (p > 0.2) S.column.visible = true
-      const f = demo.clamp((p - 0.25) / 0.5, 0, 1)
-      S.column.userData.setLevel(demo.lerp(0, endLevel, f))
-      S.tube.userData.setLevel(demo.lerp(startLevel, 0.04, f))
-      if (p > 0.9) S.tube.visible = false
-    }
+    // A transfer is simply a step whose container DIFFERS from the previous one: the
+    // sample moves from container A into container B. The destination is B = this
+    // step's container (from the sample-follow sequence) — NEVER a hardcoded recipe.
+    // The A→B motion (lift out of A's exit, settle into B's entry) is played by the
+    // shared hand-off wrapper below; here we only declare the resting state in B.
+    st.enter = () => seat(0, BT, 0)
+    st.timeline = (p) => { evolve(p) }
   } else if (equipment === 'centrifuge' || action === 'elute') {
     // benchtop centrifuge, rotor spins over p (verbatim stationSpin). The sample
     // arrives at its carried level and spins down to the chained end level.
@@ -415,16 +395,16 @@ export function configureStation(st, o) {
     st.updatables.push(tc)
     st.dev = tc
     const n = cycles > 0 ? cycles : 30
-    // Shrink the tube to a PCR-tube size and seat it in a well of the block. The
-    // hinged clamshell lid stays RAISED so the sample is visible and nothing clips;
-    // cycling is conveyed by the display's live CYCLE n/N + hot/cool temperature.
+    // Shrink the tube to a PCR-tube size and SINK it into a well so only its cap sits
+    // near the block top (~0.83). The hinged lid then CLOSES over it during cycling —
+    // its closed underside (~0.89) clears the cap, so it presses down without clipping.
     st.enter = () => {
-      seat(0, 0.5, 0.0)
-      S[vessel].scale.setScalar(0.5)
+      seat(0, 0.08, 0.0)
+      S[vessel].scale.setScalar(0.44)
       tc.userData.setLid(true); tc.userData.setProgress(0, n)
     }
     st.timeline = (p) => {
-      tc.userData.setLid(true) // lid raised — clip-free; the display drives the cycling
+      tc.userData.setLid(!(p > 0.12 && p < 0.9)) // lid CLOSED over the loaded tube while cycling
       tc.userData.setProgress(p, n)
       evolve(p) // contents unchanged; the tube just cycles temperature
     }
@@ -523,7 +503,9 @@ export function configureStation(st, o) {
   // popping out of nowhere. Skip actions that already choreograph the vessel: transfer
   // pours across; the centrifuge glides it into the rotor; store flies it into the freezer.
   const prevVessel = prevContainer ? containerContract(prevContainer).vessel : null
-  const custom = action === 'transfer' || action === 'store' || equipment === 'centrifuge'
+  // `transfer` is now handled BY the hand-off wrapper (it IS an A→B move). Only the
+  // actions that run their own vessel choreography stay excluded.
+  const custom = action === 'store' || equipment === 'centrifuge'
   if (prevVessel && prevVessel !== vessel && !custom) {
     wrapHandoff(st, S, prevVessel, vessel, startColor, startLevel)
   }
