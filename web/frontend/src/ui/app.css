@@ -120,7 +120,11 @@
 
 /* ── step timeline (numbered, clickable stepper band) ─────────────────────────── */
 .step-timeline { flex: 1; min-width: 0; padding: 5px 0 4px; background: var(--c-surface); }
-.stl-rail { display: flex; align-items: flex-start; justify-content: safe center; gap: var(--sp-1); overflow-x: auto; scrollbar-width: none; padding: 0 var(--sp-4); }
+/* LEFT-anchored: the progress always starts right after the wordmark. Centring (the old
+   `safe center`) pushed the first step to the middle whenever the nodes fit — a short
+   protocol or a wide screen — so it read as "starting too far right". Progress flows
+   left→right; it should begin at the left. */
+.stl-rail { display: flex; align-items: flex-start; justify-content: flex-start; gap: var(--sp-1); overflow-x: auto; scrollbar-width: none; padding: 0 var(--sp-4); }
 .stl-rail::-webkit-scrollbar { display: none; }
 .stl-node { position: relative; flex: 0 0 auto; width: 76px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 3px 2px 0; background: none; border: 0; cursor: pointer; color: inherit; }
 /* connector: spans one node width, centred on the circle row, BEHIND every circle */
