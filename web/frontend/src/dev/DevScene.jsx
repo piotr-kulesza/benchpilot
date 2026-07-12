@@ -50,14 +50,15 @@ function Lights() {
 function useDevEnv() {
   const { gl, scene } = useThree()
   useEffect(() => {
+    const preset = resolveScenePreset(galleryBench()) // backdrop + fog must match the bench preset
     demo.setRenderer(gl)
     demo.setScene(scene)
     ensureMaps()
     scene.environment = demo.buildEnvMap()
-    scene.background = demo.makeCineBackdrop()
+    scene.background = demo.makeCineBackdrop(preset)
     scene.environmentIntensity = 2.5
     scene.backgroundIntensity = 1.19
-    const f = demo.LOOK.cinematic.fog
+    const f = preset.lights.fog
     scene.fog = new FogExp2(f.color, f.density)
     return () => { scene.environment = null; scene.background = null; scene.fog = null }
   }, [gl, scene])
