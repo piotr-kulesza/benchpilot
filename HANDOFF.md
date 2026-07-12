@@ -73,6 +73,18 @@ was learned by shipping the opposite.
   station that puts the vessel ON a real riser (a cold block well, a rotor slot, a
   bath) raises it, and it owns that height. If a vessel hovers above its contact
   shadow, its seat is wrong.
+- **Not every step happens to the sample.** A *side preparation* — "prepare the DNase I
+  mix: 10 µl DNase I + 70 µl RDD buffer" — combines reagents in ITS OWN fresh vessel; the
+  sample is not an ingredient and must sit visibly **untouched** beside it. Rendering that
+  mix poured INTO the sample is a scientific lie (we shipped DNase pouring into the spin
+  column for weeks). This is a closed-vocabulary `prepare` action, NOT a `pour_add`: the
+  parser routes reagents-combined-in-a-separate-vessel to `prepare`, its `container` names
+  the mix's own fresh tube (never the sample's specialized vessel), and `stateChain` carries
+  the sample's colour/level forward unchanged. Guards: `findPrepareOnSampleDefects`
+  (renderer) and `test_prepare_never_targets_the_sample_vessel` (parser) run it over every
+  bundled protocol. A related lie is dropping reagents: **N reagents → N pipette passes**;
+  a step listing DNase I + RDD must show BOTH bottles, and a single reagent with a
+  conditional volume (350 µl / 600 µl) is still ONE bottle (dedupe by name).
 
 ---
 
