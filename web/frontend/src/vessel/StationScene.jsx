@@ -259,7 +259,7 @@ export function configureStation(st, o) {
     // resident pipette rig + bottle; pipette pours over p, fill ramps at p>0.62.
     // cStart/lStart = carried-in state, so the pour builds ON the existing contents.
     // dispense point comes from the CONTRACT (well/neck/centre), not a tube default.
-    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense })
+    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: C.entryPoint })
   } else if (action === 'pipette_mix') {
     // resuspend / mix by pipetting: the pipette bobs STRAIGHT down into the tube
     // and back, aspirating + dispensing. (Do NOT reuse pipetteRun here — that's a
@@ -361,7 +361,7 @@ export function configureStation(st, o) {
       configurePipetteTransfer(st, S, {
         fromKey: prevC2.vessel, toKey: vessel,
         srcSeatY: prevC2.seat.y, dstSeatY: SEAT_Y,
-        srcDisp: prevC2.dispense, dstDisp: C.dispense,
+        srcDisp: prevC2.dispense, dstDisp: C.dispense, dstEntry: C.entryPoint,
         color: endColor, startLevel, endLevel, name, vol,
       })
       st._skipHandoff = true // the pipette run IS the transition; no lift/settle swap
@@ -545,7 +545,7 @@ export function configureStation(st, o) {
     }
   } else if (action === 'seed') {
     // dispense the sample into the culture vessel; on agar, a spreader then sweeps it out.
-    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense })
+    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: C.entryPoint })
     if (container === 'agar_plate') {
       const spr = demo.buildSpreader()
       spr.scale.setScalar(0.9)
@@ -698,7 +698,7 @@ function wrapHandoff(st, S, fromKey, toKey, color, level) {
 // only once the tip is dispensing (the same p>0.62 gate as a reagent add); the colour
 // travels with it. We reveal both vessels, then lock to the destination.
 function configurePipetteTransfer(st, S, o) {
-  const { fromKey, toKey, srcSeatY, dstSeatY, srcDisp, dstDisp, color, startLevel, endLevel, name, vol } = o
+  const { fromKey, toKey, srcSeatY, dstSeatY, srcDisp, dstDisp, dstEntry, color, startLevel, endLevel, name, vol } = o
   const AX = -0.95, BX = 0.85, Z = 0.1
   // aspirate over the SOURCE (tip dips in from srcSeatY, then rises) and dispense at the
   // DESTINATION's contract mouth (straight into a tube; angled down a flask's neck).
@@ -733,7 +733,9 @@ function configurePipetteTransfer(st, S, o) {
     S.snapTo(a, st.x + AX, srcSeatY, Z)
     S.snapTo(b, st.x + BX, dstSeatY, Z)
     // the resident pipette runs aspirate → cruise-high → dispense, source mouth to dest.
-    demo.pipetteRun(st, from, to, p, { color, fill: 0.8, approach: dstDisp?.approach, tilt: dstDisp?.tilt, depth: dstDisp?.depth })
+    // dipDepth = the DEST container's entryPoint, so the tip stops above a spin column's
+    // frit instead of plunging through it.
+    demo.pipetteRun(st, from, to, p, { color, fill: 0.8, approach: dstDisp?.approach, tilt: dstDisp?.tilt, depth: dstDisp?.depth, dipDepth: dstEntry })
     // SOURCE drains while the tip aspirates (pipetteRun's draw phase ends at p≈0.26).
     a.userData.setLevel?.(demo.lerp(startLevel, 0.03, demo.easeInOut(demo.clamp(p / 0.26, 0, 1))))
     // DEST fills only once the tip is dispensing — respect the p>0.62 gate (no early fill).

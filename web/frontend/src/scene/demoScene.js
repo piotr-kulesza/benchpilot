@@ -1704,7 +1704,10 @@ export {
     }
 
     // STRAIGHT approach (tube / well / dish): descend vertically into the mouth.
-    var DIP_Y=to.y+0.62;                        // tip lowered into the mouth
+    // how far the tip descends is PER-CONTAINER (opts.dipDepth = the container's
+    // entryPoint): a spin column stops above its frit, a microtube goes near its base.
+    // Never a shared 0.62 tube constant that plunges the tip through the column bed.
+    var DIP_Y=to.y+(opts.dipDepth!=null?opts.dipDepth:0.62);  // tip lowered into the mouth
     var pos=new THREE.Vector3();
     if(p<draw){                                 // A · at the bottle: rise & aspirate
       var q=easeInOut(p/draw);
@@ -2162,7 +2165,7 @@ export {
       // NOT the seat plane — otherwise the tip dips onto the flat top face.
       var toY = (disp.approach==='angled' && disp.y!=null) ? disp.y : Y;
       pipetteRun(st, st.reagents[o.key].pos, {x:disp.x,y:toY,z:disp.z}, p,
-        {color:o.color, fill:0.8, approach:disp.approach, tilt:disp.tilt, depth:disp.depth});
+        {color:o.color, fill:0.8, approach:disp.approach, tilt:disp.tilt, depth:disp.depth, dipDepth:o.entry});
       if(p>0.62){ var q=easeInOut((p-0.62)/0.38);
         v.userData.setLevel(lerp(o.lStart,o.lEnd,q));
         if(o.cEnd!=null) v.userData.setColor(o.cEnd);
