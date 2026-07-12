@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useVoice } from '../hooks/useVoice.js'
 import { createSoundboard } from '../lib/sounds.js'
-import { resolveIntent, hasWake } from '../lib/voiceIntent.js'
+import { resolveCommand, hasWake, stripWake } from '../lib/voiceIntent.js'
 import { dispatchIntent } from '../lib/voiceDispatch.js'
+import { createArming, isCancel } from '../lib/voiceArming.js'
 
 const API_BASE = import.meta.env.VITE_API_BASE || ''
 const CONFIRM_WINDOW_MS = 8000 // how long a "say it again" reset stays armed
 
 // The default production llm for the long tail: a thin relay to the backend, which holds
-// the API key and calls a small fast model. No key ever reaches the browser. If the
-// backend is absent it throws → resolveIntent degrades the utterance to `unknown` and the
-// local fast path (next/start/pause/…) keeps working with zero backend.
+// the API key and calls a small fast model. No key ever reaches the browser. If the backend
+// is absent it throws → resolveCommand degrades to `unknown` and the local fast path keeps
+// working with zero backend.
 async function relayLLM(system, user) {
   const res = await fetch(`${API_BASE}/api/intent`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -21,42 +22,57 @@ async function relayLLM(system, user) {
   return data.text || ''
 }
 
-// Voice: another thin interface over the SAME runtime the buttons drive. Mic is off until
-// the user turns it on; everything stays fully operable by hand.
+// Voice: another thin interface over the SAME runtime the buttons drive. The wake word ARMS
+// the assistant for a few seconds; while armed, any utterance is a command — so you can pause
+// and think after "benchpilot". Mic is off until turned on; everything stays operable by hand.
 export default function VoiceControl({ controls, context, board: boardProp }) {
   const board = useMemo(() => boardProp || createSoundboard(), [boardProp])
   const [line, setLine] = useState(null) // { heard, message, ok }
+  const [armed, setArmed] = useState(false)
 
   // keep live refs so the recognition callbacks never dispatch into a stale step/timer
   const ctxRef = useRef(context); ctxRef.current = context
   const ctrlRef = useRef(controls); ctrlRef.current = controls
-  const wakeAckedRef = useRef(false)
   const pendingResetRef = useRef(0)
 
-  // blip the WAKE cue the instant the wake word lands — off the interim, before we resolve
+  // the armed-window machine: wake → armed (blip on the edge); silence → disarm quietly.
+  const arming = useMemo(() => createArming({
+    onArm: () => { setArmed(true); board.wake() },      // the blip fires the instant the word lands
+    onDisarm: () => { setArmed(false); board.disarm() }, // quiet stand-down, never an error sound
+  }), [board])
+  useEffect(() => () => arming.destroy(), [arming])
+
+  // interim speech: arm on the wake word (instantly), otherwise just keep the window open
   const onInterim = useCallback((text) => {
-    if (!wakeAckedRef.current && hasWake(text)) { board.wake(); wakeAckedRef.current = true }
-  }, [board])
+    if (hasWake(text)) arming.wake()
+    else if (arming.armed) arming.speech()
+  }, [arming])
 
   const onFinal = useCallback(async (transcript) => {
-    if (!hasWake(transcript)) { wakeAckedRef.current = false; return } // not addressed — ignore, stay private
-    if (!wakeAckedRef.current) { board.wake(); wakeAckedRef.current = true }
+    const addressed = hasWake(transcript)
+    if (addressed) arming.wake()                 // ensure armed (idempotent; blips only if new)
+    if (!addressed && !arming.armed) return       // not addressed and not armed → ignore, stay private
 
-    const intent = await resolveIntent({ transcript, context: ctxRef.current, llm: relayLLM })
-    wakeAckedRef.current = false
+    const body = addressed ? stripWake(transcript) : String(transcript || '').trim()
+    if (!body) return                             // wake word alone → armed, nothing to do
 
+    if (isCancel(body)) { arming.cancel(); setLine({ heard: body, message: 'Stood down', ok: false }); return }
+
+    const intent = await resolveCommand({ command: body, context: ctxRef.current, llm: relayLLM })
     const confirmed = intent.action === 'reset_timer' && (Date.now() - pendingResetRef.current) < CONFIRM_WINDOW_MS
     const res = dispatchIntent(intent, ctrlRef.current, ctxRef.current, { confirmed })
     pendingResetRef.current = res.needsConfirm ? Date.now() : 0
 
     if (res.cue) board[res.cue]?.()
-    setLine({ heard: intent.heard, message: res.message, ok: res.ok })
-  }, [board])
+    setLine({ heard: body, message: res.message, ok: res.ok })
+    // stay armed briefly for a follow-up after a real command; on a miss, keep the window open to retry
+    if (res.ok) arming.commandHandled()
+    else arming.speech()
+  }, [arming, board])
 
   const { supported, listening, error, interim, toggle } = useVoice({ onFinal, onInterim })
 
-  // HAZARD on the step you just landed on (however you got there, while the mic is live) —
-  // a negative "do NOT…" must not be something you only discover by looking.
+  // HAZARD on the step you just landed on (however you got there, while the mic is live)
   const prevStepRef = useRef(context?.stepIndex)
   useEffect(() => {
     const idx = context?.stepIndex
@@ -64,7 +80,7 @@ export default function VoiceControl({ controls, context, board: boardProp }) {
     prevStepRef.current = idx
   }, [context?.stepIndex, context?.hasHazard, listening, board])
 
-  // fade the transcript line after a few seconds so it stays unobtrusive
+  // fade the transcript line after a few seconds
   useEffect(() => {
     if (!line) return undefined
     const id = setTimeout(() => setLine(null), 4200)
@@ -83,20 +99,22 @@ export default function VoiceControl({ controls, context, board: boardProp }) {
   }
 
   const denied = error === 'mic-denied' || error === 'no-mic'
+  const label = denied ? 'Mic blocked' : armed ? 'Ready…' : listening ? 'Listening' : 'Voice'
   return (
     <>
       <button
-        className={`mic-btn${listening ? ' mic-live' : ''}${denied ? ' mic-denied' : ''}`}
+        className={`mic-btn${listening ? ' mic-live' : ''}${armed ? ' mic-armed' : ''}${denied ? ' mic-denied' : ''}`}
         type="button" onClick={onToggle} aria-pressed={listening}
-        title={denied ? 'Microphone blocked — allow it in the browser' : listening ? 'Listening — click to stop' : 'Enable voice control'}
+        title={denied ? 'Microphone blocked — allow it in the browser'
+          : armed ? 'Armed — say a command' : listening ? 'Listening — click to stop' : 'Enable voice control'}
       >
         <MicIcon muted={!listening} />
-        <span className="mic-label">{denied ? 'Mic blocked' : listening ? 'Listening' : 'Voice'}</span>
-        {listening && <span className="mic-pulse" aria-hidden="true" />}
+        <span className="mic-label">{label}</span>
+        {listening && !armed && <span className="mic-pulse" aria-hidden="true" />}
       </button>
 
       {(listening || line) && (
-        <div className={`voice-hud${line ? (line.ok ? ' vh-ok' : ' vh-no') : ''}`} role="status" aria-live="polite">
+        <div className={`voice-hud${armed ? ' vh-armed' : ''}${line ? (line.ok ? ' vh-ok' : ' vh-no') : ''}`} role="status" aria-live="polite">
           {line ? (
             <>
               <span className="vh-heard">“{line.heard}”</span>
@@ -104,7 +122,7 @@ export default function VoiceControl({ controls, context, board: boardProp }) {
               <span className="vh-msg">{line.message}</span>
             </>
           ) : (
-            <span className="vh-idle">{interim || 'Say “benchpilot, …”'}</span>
+            <span className="vh-idle">{interim || (armed ? 'Ready — say a command…' : 'Say “benchpilot”, then your command')}</span>
           )}
         </div>
       )}

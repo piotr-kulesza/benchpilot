@@ -165,27 +165,30 @@ function extractJson(raw) {
   return null
 }
 
-// The full resolve: wake → (local fast path | llm) → validated intent. `llm(system,user)`
-// is injectable and may be omitted (then only the local fast path works — exactly the
-// graceful-degradation path when there is no backend/key).
+// Resolve a BARE command (no wake word — the caller has already handled arming): local fast
+// path, else the injectable llm. This is the seam the armed window uses, so a command spoken
+// in its own utterance ("benchpilot" … pause … "start") resolves without a wake word.
+export async function resolveCommand({ command, context = {}, llm } = {}) {
+  const body = String(command || '').trim()
+  if (!body) return { heard: '', action: 'unknown', args: {}, confidence: 0, source: 'empty' }
+  const local = localIntent(body)
+  if (local) return { heard: body, ...local, source: 'local' }
+  if (typeof llm !== 'function') return { heard: body, action: 'unknown', args: {}, confidence: 0, source: 'no-llm' }
+  try {
+    const out = await llm(INTENT_SYSTEM, buildIntentUser(body, context))
+    return { heard: body, ...parseIntent(out), source: 'llm' }
+  } catch {
+    return { heard: body, action: 'unknown', args: {}, confidence: 0, source: 'llm-error' }
+  }
+}
+
+// The full resolve for a WAKE-in-utterance case: strip the wake word, then resolveCommand.
+// `llm(system,user)` is injectable and may be omitted (only the local fast path then works).
 export async function resolveIntent({ transcript, context = {}, llm } = {}) {
   const raw = String(transcript || '')
   if (!hasWake(raw)) {
     return { addressed: false, heard: raw.trim(), action: 'idle', args: {}, confidence: 0, source: 'no-wake' }
   }
-  const body = stripWake(raw)
-  if (!body) {
-    return { addressed: true, heard: '', action: 'unknown', args: {}, confidence: 0, source: 'empty' }
-  }
-  const local = localIntent(body)
-  if (local) return { addressed: true, heard: body, ...local, source: 'local' }
-  if (typeof llm !== 'function') {
-    return { addressed: true, heard: body, action: 'unknown', args: {}, confidence: 0, source: 'no-llm' }
-  }
-  try {
-    const out = await llm(INTENT_SYSTEM, buildIntentUser(body, context))
-    return { addressed: true, heard: body, ...parseIntent(out), source: 'llm' }
-  } catch {
-    return { addressed: true, heard: body, action: 'unknown', args: {}, confidence: 0, source: 'llm-error' }
-  }
+  const r = await resolveCommand({ command: stripWake(raw), context, llm })
+  return { addressed: true, ...r }
 }

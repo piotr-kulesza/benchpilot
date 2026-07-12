@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import {
-  hasWake, stripWake, localIntent, parseIntent, resolveIntent, buildIntentUser, INTENT_ACTIONS,
+  hasWake, stripWake, localIntent, parseIntent, resolveIntent, resolveCommand, buildIntentUser, INTENT_ACTIONS,
 } from './voiceIntent.js'
 
 describe('wake word', () => {
@@ -132,6 +132,22 @@ describe('resolveIntent', () => {
   it('empty command after the wake word is unknown, not idle', async () => {
     const r = await resolveIntent({ transcript: 'benchpilot' })
     expect(r).toMatchObject({ addressed: true, action: 'unknown', source: 'empty' })
+  })
+})
+
+describe('resolveCommand (bare command — the armed-window seam, no wake word)', () => {
+  it('resolves a bare command locally', async () => {
+    const r = await resolveCommand({ command: 'start' })
+    expect(r).toMatchObject({ action: 'start_timer', source: 'local' })
+  })
+  it('empty command → unknown/empty', async () => {
+    expect(await resolveCommand({ command: '  ' })).toMatchObject({ action: 'unknown', source: 'empty' })
+  })
+  it('defers the long tail to the llm', async () => {
+    const llm = vi.fn(async () => '{"action":"goto","args":{"step":12},"confidence":0.9}')
+    const r = await resolveCommand({ command: 'take me to the elution step', llm })
+    expect(r).toMatchObject({ action: 'goto', source: 'llm' })
+    expect(llm).toHaveBeenCalledOnce()
   })
 })
 

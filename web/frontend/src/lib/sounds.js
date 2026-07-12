@@ -7,7 +7,7 @@
 // call anywhere: with no WebAudio (node tests, older browsers) every cue is a no-op, so
 // it never throws and never blocks the run.
 
-const CUES = ['wake', 'accepted', 'rejected', 'confirm', 'timerStart', 'timerDone', 'hazard']
+const CUES = ['wake', 'accepted', 'rejected', 'confirm', 'timerStart', 'timerDone', 'hazard', 'disarm']
 
 export function createSoundboard() {
   const Ctx = typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext)
@@ -64,6 +64,10 @@ export function createSoundboard() {
 
     // soft single blip — "I'm listening" the instant the wake word lands
     wake: guard((t) => note(660, t, 0.09, { type: 'sine', peak: 0.14 })),
+
+    // a quiet low descending pair — "stood down" (armed window timed out). NOT an error:
+    // saying the wake word and thinking better of it is not a failure.
+    disarm: guard((t) => { note(520, t, 0.09, { type: 'sine', peak: 0.08 }); note(390, t + 0.08, 0.12, { type: 'sine', peak: 0.08 }) }),
 
     // brief confident rising two-note — command accepted
     accepted: guard((t) => { note(680, t, 0.09, { peak: 0.2 }); note(1020, t + 0.075, 0.12, { peak: 0.2 }) }),
