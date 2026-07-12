@@ -79,6 +79,40 @@ def parse_text(req: ParseTextRequest) -> dict:
     return protocol.to_dict()
 
 
+class IntentRequest(BaseModel):
+    system: str
+    user: str
+
+
+# Small fast model for voice-intent resolution — latency matters more than cleverness
+# when someone is standing at the bench with a full pipette. Overridable via env.
+INTENT_MODEL = os.environ.get("BENCHPILOT_INTENT_MODEL", "claude-haiku-4-5-20251001")
+
+
+@app.post("/api/intent")
+def resolve_intent(req: IntentRequest) -> dict:
+    """Relay a voice-intent prompt to a small fast model and return its RAW text.
+
+    This is pure transport for the voice layer: the browser builds the (short)
+    system+user prompt and parses/validates the reply against its closed action
+    set. No protocol/intent logic lives here — that stays in the offline-tested JS
+    (`voiceIntent.js` / `voiceDispatch.js`). This endpoint only holds the API key
+    and picks a low-latency model, exactly as /api/parse wraps the parse core.
+    """
+    _require_key()
+    import anthropic  # lazy import
+
+    client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from env
+    msg = client.messages.create(
+        model=INTENT_MODEL,
+        max_tokens=120,  # a one-line JSON intent — keep it snappy
+        system=req.system,
+        messages=[{"role": "user", "content": req.user}],
+    )
+    text = "".join(getattr(block, "text", "") for block in msg.content)
+    return {"text": text}
+
+
 @app.post("/api/parse-file")
 async def parse_file(file: UploadFile = File(...)) -> dict:
     """Parse an uploaded .docx / .txt / .md and return the schema dict."""
