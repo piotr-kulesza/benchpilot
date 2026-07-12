@@ -232,13 +232,16 @@ export function configureStation(st, o) {
       S[vessel].userData.setLevel(evolve(p) + Math.sin(p * 26) * 0.02) // surface ripple over carried level
     }
   } else if (action === 'vortex_mix') {
-    // the vessel visibly swirls + wobbles (this was the dead one).
-    st.enter = () => seat(0, BT, 0)
+    // a real VORTEX MIXER; the vessel presses into its rubber cup and shakes.
+    const mixer = demo.buildVortexMixer()
+    st.group.add(mixer)
+    st.updatables.push(mixer)
+    st.enter = () => seat(0, 0.82, 0) // seated in the mixer cup
     st.timeline = (p) => {
       const v = S[vessel]
       evolve(p) // holds the carried contents (start == end for a vortex)
-      v.rotation.y = p * 26 // many turns (monotonic)
-      v.rotation.z = Math.sin(p * 46) * 0.14 // rapid wobble
+      v.rotation.z = Math.sin(p * 46) * 0.16 // rapid orbital wobble in the cup
+      v.rotation.x = Math.cos(p * 46) * 0.08
     }
   } else if (action === 'homogenize') {
     // MANUAL homogenization: a syringe dips into the tube and the plunger pumps
@@ -332,13 +335,14 @@ export function configureStation(st, o) {
     block.position.set(0, 0, -1.25)
     st.group.add(block)
     st.updatables.push(block)
-    st.ring = new Mesh(new TorusGeometry(0.55, 0.02, 12, 64), new MeshStandardMaterial({ color: 0x5a636e, roughness: 0.6 }))
-    st.ring.position.set(0, 2.0, 0)
-    st.ring.rotation.x = Math.PI / 2
+    // a compact progress TIMER ring, upright and close over the sample (a high
+    // floating loop read as a stray prop). It faces the camera like a dial.
+    st.ring = new Mesh(new TorusGeometry(0.4, 0.02, 12, 64), new MeshStandardMaterial({ color: 0x5a636e, roughness: 0.6 }))
+    st.ring.position.set(0, 1.25, 0)
     st.group.add(st.ring)
-    st.arc = new Mesh(new TorusGeometry(0.55, 0.05, 14, 64, 0.001), new MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.8, toneMapped: false }))
-    st.arc.position.set(0, 2.0, 0)
-    st.arc.rotation.set(Math.PI / 2, 0, Math.PI / 2)
+    st.arc = new Mesh(new TorusGeometry(0.4, 0.05, 14, 64, 0.001), new MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.8, toneMapped: false }))
+    st.arc.position.set(0, 1.25, 0)
+    st.arc.rotation.set(0, 0, Math.PI / 2) // upright dial facing the camera
     st.group.add(st.arc)
     st._arcP = -1
     st.enter = () => { seat(0, BT, 0); const v = S[vessel]; if (v.userData.setMono) v.userData.setMono(1) }
@@ -346,7 +350,7 @@ export function configureStation(st, o) {
       if (Math.abs(p - st._arcP) > 0.02) {
         st._arcP = p
         st.arc.geometry.dispose()
-        st.arc.geometry = new TorusGeometry(0.55, 0.05, 14, 64, Math.max(0.001, p * Math.PI * 2))
+        st.arc.geometry = new TorusGeometry(0.4, 0.05, 14, 64, Math.max(0.001, p * Math.PI * 2))
       }
       const v = S[vessel]
       // contentsState (passaging hero): during a flask incubation the adherent
@@ -360,8 +364,10 @@ export function configureStation(st, o) {
     const bath = demo.buildWaterBath()
     st.group.add(bath)
     st.updatables.push(bath)
-    st.warm = new PointLight(0xffb060, 0, 5)
-    st.warm.position.set(0, 1.0, 0.4)
+    // a SMALL, TIGHT warm light — kept low-intensity + short-range so it doesn't
+    // bloom onto the bench (art-direction: light stays near the vessel, not a flood).
+    st.warm = new PointLight(0xffb060, 0, 1.8)
+    st.warm.position.set(0, 0.7, 0.2)
     st.group.add(st.warm)
     const SURF = 0.66 // water-surface height (matches buildWaterBath SURFY)
     st.bubbles = Array.from({ length: 8 }, () => {
@@ -375,7 +381,7 @@ export function configureStation(st, o) {
       else { seat(0, 0.1, 0); bath.position.set(0, 0, 0) }          // tube dips INTO the water
     }
     st.timeline = (p) => {
-      st.warm.intensity = p * 2.6 // warm glow ramps up (monotonic)
+      st.warm.intensity = p * 1.1 // gentle warmth near the vessel (no bench bloom)
       bath.userData.setWarmth?.(demo.clamp(p * 1.3, 0, 1))
       for (const b of st.bubbles) {
         const s = b.userData.seed
@@ -533,7 +539,7 @@ function wrapHandoff(st, S, fromKey, toKey, color, level) {
   const baseEnter = st.enter
   const baseTimeline = st.timeline
   const TR = 0.26   // fraction of the step spent on the hand-off
-  const LIFT = 3.2  // vertical travel of the swap
+  const LIFT = 2.0  // vertical travel of the swap (kept low so it never clips the HUD)
   st.enter = () => {
     baseEnter && baseEnter()             // seats the NEW vessel at its target + sets its state
     const nv = S[toKey]

@@ -1432,7 +1432,7 @@ export {
   buildSharedMaps, makeLabel, stationDecal,
   buildTube, buildPipette, buildPipetteStand, buildBottle, buildSpinColumn,
   buildCentrifuge, buildColdBlock, buildWaterBath, buildIceBucket, buildNanoDrop, buildDrop, buildWaste, buildSyringe,
-  buildThermocycler, buildGelRig, buildFreezer, buildStainingTray, buildSpreader,
+  buildThermocycler, buildGelRig, buildFreezer, buildStainingTray, buildSpreader, buildVortexMixer,
   buildCryovial, buildWellPlate, buildFlask, buildDish, buildSlide, buildMembrane, buildGelSlab, buildAgarPlate,
   buildEnvMap, makeCineBackdrop, makeGradientTexture,
   glassMaterial, matPlastic, matBrushed, matAnodized, matPainted, matFrosted, matRubber, matSilicone,
@@ -1777,6 +1777,25 @@ export {
     for(var s=0;s<2;s++){ var rail=new THREE.Mesh(new THREE.BoxGeometry(2.2,0.05,0.08), matPlastic(0x596270));
       rail.position.set(0,0.22,-0.4+s*0.8); grp.add(rail); }
     var label=makeLabel("Staining tray",""); label.position.set(0,0.9,0); grp.add(label);
+    grp.userData.label=label; grp.userData.update=function(){};
+    return grp;
+  }
+
+  /* vortex mixer — a squat box with a rubber cup on top; the tube presses in and
+     shakes. Gives the vortex_mix action a real device instead of a bare bench. */
+  function buildVortexMixer(){
+    var grp=new THREE.Group();
+    var body=new THREE.Mesh(new THREE.BoxGeometry(1.25,0.62,1.05), matPainted(0x3b424b,0.5));
+    body.position.y=0.31; body.castShadow=true; body.receiveShadow=true; grp.add(body);
+    var neck=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.34,0.16,20), matAnodized(0x2a2e34));
+    neck.position.y=0.68; grp.add(neck);
+    var cup=new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.19,0.22,20,1,true), matRubber(0x1b1e23));
+    cup.position.y=0.82; grp.add(cup);
+    var cupFloor=new THREE.Mesh(new THREE.CircleGeometry(0.19,20), matRubber(0x1b1e23));
+    cupFloor.rotation.x=-Math.PI/2; cupFloor.position.y=0.71; grp.add(cupFloor);
+    var dial=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.06,16), matPlastic(0x8a94a0));
+    dial.rotation.x=Math.PI/2; dial.position.set(0.42,0.36,0.53); grp.add(dial);
+    var label=makeLabel("Vortex",""); label.position.set(0,1.3,0); grp.add(label);
     grp.userData.label=label; grp.userData.update=function(){};
     return grp;
   }
