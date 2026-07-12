@@ -12,13 +12,12 @@ import { createSoundboard } from '../lib/sounds.js'
 import { Button, Badge } from '../ui/primitives.jsx'
 import StepTimeline from './StepTimeline.jsx'
 import {
-  PHASE_LABEL, selectAlternative, hasAlternatives, stepText, shortLabel,
+  selectAlternative, hasAlternatives, stepText, shortLabel,
   effectiveStep, timerSeconds, extractTemperature, elapsedFraction,
   stepHazards, isCriticalHazard, resolveConditionals,
 } from '../lib/runtime.js'
 
 const KIND_LABEL = { action: 'Action', wait: 'Wait', spin: 'Spin', prepare: 'Prep', measure: 'Measure', caution: 'Caution', storage: 'Storage' }
-const PHASE_TONE = { procedure: 'accent', quality_control: 'info' }
 
 // human labels for the intake parameters we log (fall back to raw key/value otherwise)
 const ANSWER_LABEL = { cells: 'Cell count', kit: 'Kit' }
@@ -238,7 +237,6 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
         <section className="step-col" aria-label="Current step">
           <div className="step-col-head">
             <div className="sc-badges">
-              <Badge tone={PHASE_TONE[step.phase]} dot>{PHASE_LABEL[step.phase] || step.phase}</Badge>
               <Badge>{KIND_LABEL[eff.kind] || eff.kind}</Badge>
             </div>
           </div>
