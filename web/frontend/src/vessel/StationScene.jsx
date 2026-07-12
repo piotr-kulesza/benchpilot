@@ -15,7 +15,7 @@ import { PerspectiveCamera } from '@react-three/drei'
 import { FogExp2, Color, Vector3, Box3, Group, Mesh, RingGeometry, SphereGeometry, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
 import { resolveRecipe, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects } from './sceneRecipe.js'
-import { containerContract, resolveInstrument, nestsInto } from './containerContract.js'
+import { containerContract, resolveInstrument, transferKind } from './containerContract.js'
 import { reagentName, reagentVolume, effectiveStep, selectAlternative, hasAlternatives } from '../lib/runtime.js'
 import * as demo from '../scene/demoScene.js'
 
@@ -394,8 +394,17 @@ export function configureStation(st, o) {
     //    moves, both vessels side by side, A drains as B fills. This is the whole point
     //    of the step, so we choreograph it here and SKIP the vessel-swap wrapper.
     const prevC2 = prevContainer ? containerContract(prevContainer) : null
-    const isNestMove = prevContainer && nestsInto(prevContainer, container)
-    if (prevC2 && prevC2.vessel !== vessel && !isNestMove) {
+    const kind = transferKind(prevContainer, container) // 'nest' | 'contents' | 'rest'
+    if (kind === 'nest' && prevC2) {
+      // VESSEL MOVE — you pick up the COLUMN itself and drop it into a fresh tube. The
+      // liquid does not move (it is in the column's bed); no pipette, no level change.
+      configureNestMove(st, S, {
+        columnKey: prevC2.vessel, tubeKey: vessel,
+        columnSeatY: prevC2.seat.y, tubeSeatY: SEAT_Y,
+        color: startColor, level: startLevel, // the column KEEPS its carried contents
+      })
+      st._skipHandoff = true // the nest IS the transition; no lift/settle swap or fill
+    } else if (kind === 'contents' && prevC2) {
       // CONTENTS MOVE — the sample's LIQUID goes A→B. You do not tip 700 µl of lysate
       // from a tube into a spin column; you aspirate it and dispense it. So this is a
       // PIPETTE RUN, never a stream bridging the two vessels (a free-standing stream
@@ -408,10 +417,14 @@ export function configureStation(st, o) {
       })
       st._skipHandoff = true // the pipette run IS the transition; no lift/settle swap
     } else {
-      // VESSEL MOVE (source nests into destination) or a same-vessel transfer: rest at
-      // the bench seat; the shared hand-off wrapper below lifts & seats the vessel.
+      // A transfer that is NEITHER a nest NOR a container change fell through to a plain
+      // fill. That is an ADD wearing a transfer's name — surface it loudly (this silent
+      // fallthrough is exactly how the fake step-20 hid). Same-vessel aliquots land here.
+      console.warn(`[benchpilot] transfer step ${name || ''} did not resolve to a nest or a ` +
+        `container move (prev=${prevContainer}, to=${container}) — rendering a rest, not a fill. ` +
+        `If this should MOVE the sample, its container/nestsIn contract is wrong.`)
       st.enter = () => seat(0, SEAT_Y, 0)
-      st.timeline = (p) => { evolve(p) }
+      st.timeline = () => { S[vessel].userData.setLevel(startLevel) } // hold — never fill on a transfer
     }
   } else if (equipment === 'centrifuge' || action === 'elute') {
     // benchtop centrifuge, rotor spins over p (verbatim stationSpin). The sample
@@ -665,6 +678,55 @@ export function configureStation(st, o) {
     wrapHandoff(st, S, prevVessel, vessel, startColor, startLevel)
   }
   hideLabels(st.group)
+}
+
+// A NEST move (Stage-18): "transfer the column to a clean tube". You pick up the spin
+// COLUMN and drop it INTO a fresh collection tube — the vessel travels, the liquid does
+// NOT (it stays in the column's bed). So: both vessels on the bench, the clean tube EMPTY
+// and never filling, NO pipette rig, and the column lifts → travels over → lowers into the
+// tube's mouth (the destination's drop-in approach). At p=1 the column sits in the tube.
+function configureNestMove(st, S, o) {
+  const { columnKey, tubeKey, columnSeatY, tubeSeatY, color, level } = o
+  const AX = -0.85, BX = 0.7, Z = 0        // column starts left, the clean tube waits right
+  const LIFT = 1.9                          // how high the column rises to clear the rims
+  const NEST_Y = tubeSeatY + 0.42           // seated depth: dropped into the tube's mouth
+  const NEST_SCALE = 0.84                   // slims the column so it sits INSIDE the tube, not around it
+  // frame both vessels (base → top), never the (absent) pipette rig
+  st.frameAnchors = [
+    new Vector3(AX, columnSeatY, Z), new Vector3(AX, columnSeatY + 1.7, Z),
+    new Vector3(BX, tubeSeatY, Z), new Vector3(BX, tubeSeatY + 1.8, Z),
+  ]
+
+  st.enter = () => {
+    S.only(tubeKey)
+    const col = S[columnKey], tube = S[tubeKey]
+    col.visible = true; tube.visible = true
+    col.rotation.set(0, 0, 0); tube.rotation.set(0, 0, 0)
+    col.scale.setScalar(1)
+    col.userData.setColor?.(color); col.userData.setLevel?.(level) // column keeps its bed contents
+    tube.userData.setLevel?.(0)                                    // fresh clean tube — empty
+    S.snapTo(col, st.x + AX, columnSeatY, Z)
+    S.snapTo(tube, st.x + BX, tubeSeatY, Z)
+  }
+
+  st.timeline = (p) => {
+    const col = S[columnKey], tube = S[tubeKey]
+    col.visible = true; tube.visible = true
+    tube.userData.setLevel?.(0)              // the clean tube NEVER fills — no liquid moves
+    S.snapTo(tube, st.x + BX, tubeSeatY, Z)
+    let x, y, sc = 1
+    if (p < 0.34) {                          // 1 · lift the column straight up off the bench
+      x = AX; y = demo.lerp(columnSeatY, columnSeatY + LIFT, demo.easeInOut(p / 0.34))
+    } else if (p < 0.66) {                   // 2 · carry it across, held high, over the clean tube
+      x = demo.lerp(AX, BX, demo.easeInOut((p - 0.34) / 0.32)); y = columnSeatY + LIFT
+    } else {                                 // 3 · lower it DOWN INTO the tube's mouth (drop-in)
+      const e = demo.easeInOut((p - 0.66) / 0.34)
+      x = BX; y = demo.lerp(columnSeatY + LIFT, NEST_Y, e); sc = demo.lerp(1, NEST_SCALE, e)
+    }
+    col.scale.setScalar(sc)
+    col.userData.setLevel?.(level)           // contents unchanged the whole way
+    S.snapTo(col, st.x + x, y, Z)
+  }
 }
 
 // Wrap a station's enter/timeline with a visible container hand-off: for the first

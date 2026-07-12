@@ -70,6 +70,22 @@ export function nestsInto(sourceToken, destToken) {
   return !!(src && src.nestsIn && src.nestsIn.includes(destToken))
 }
 
+// Classify a `transfer` from the CONTRACT so the renderer branches on a decision, not a
+// tableau — and a test can pin it so a regression can't silently become a fill:
+//   'nest'     — source nests into destination (spin_column → tube): the VESSEL moves,
+//                lifted and seated into a clean tube; the liquid stays in the bed.
+//   'contents' — different vessel, no nest (microtube → spin_column): the LIQUID is
+//                pipetted A→B.
+//   'rest'     — same vessel type, or no previous container: nothing to move. A FILL here
+//                would be an `add` wearing a transfer's name, so the renderer holds + warns.
+export function transferKind(prevContainer, container) {
+  const prev = prevContainer ? CONTAINER_CONTRACT[prevContainer] : null
+  if (!prev) return 'rest'
+  if (nestsInto(prevContainer, container)) return 'nest'
+  const dst = CONTAINER_CONTRACT[container] || CONTAINER_CONTRACT.generic
+  return prev.vessel !== dst.vessel ? 'contents' : 'rest'
+}
+
 // Equipment declares where a container sits inside it and the PATH the container
 // follows to get there (never a naive lerp toward a point). Consumed by the
 // station branches (centrifuge rotor slot, freezer door, gel tank).
