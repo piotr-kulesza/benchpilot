@@ -4,6 +4,7 @@ import { createSoundboard } from '../lib/sounds.js'
 import { resolveCommand, hasWake, stripWake } from '../lib/voiceIntent.js'
 import { dispatchIntent } from '../lib/voiceDispatch.js'
 import { createArming, isCancel } from '../lib/voiceArming.js'
+import { isScratch, isSaveNote } from '../lib/noteDictation.js'
 
 const API_BASE = import.meta.env.VITE_API_BASE || ''
 const CONFIRM_WINDOW_MS = 8000 // how long a "say it again" reset stays armed
@@ -25,30 +26,45 @@ async function relayLLM(system, user) {
 // Voice: another thin interface over the SAME runtime the buttons drive. The wake word ARMS
 // the assistant for a few seconds; while armed, any utterance is a command — so you can pause
 // and think after "benchpilot". Mic is off until turned on; everything stays operable by hand.
-export default function VoiceControl({ controls, context, board: boardProp }) {
+export default function VoiceControl({ controls, context, board: boardProp, note }) {
   const board = useMemo(() => boardProp || createSoundboard(), [boardProp])
   const [line, setLine] = useState(null) // { heard, message, ok }
   const [armed, setArmed] = useState(false)
 
-  // keep live refs so the recognition callbacks never dispatch into a stale step/timer
+  // keep live refs so the recognition callbacks never dispatch into a stale step/timer/note
   const ctxRef = useRef(context); ctxRef.current = context
   const ctrlRef = useRef(controls); ctrlRef.current = controls
+  const noteRef = useRef(note); noteRef.current = note
   const pendingResetRef = useRef(0)
 
   // the armed-window machine: wake → armed (blip on the edge); silence → disarm quietly.
   const arming = useMemo(() => createArming({
-    onArm: () => { setArmed(true); board.wake() },      // the blip fires the instant the word lands
-    onDisarm: () => { setArmed(false); board.disarm() }, // quiet stand-down, never an error sound
+    onArm: () => { setArmed(true); board.wake() },       // the blip fires the instant the word lands
+    // quiet stand-down (never an error sound); silent while a note is being dictated
+    onDisarm: () => { setArmed(false); if (!noteRef.current?.active) board.disarm() },
   }), [board])
   useEffect(() => () => arming.destroy(), [arming])
 
-  // interim speech: arm on the wake word (instantly), otherwise just keep the window open
+  // interim speech: while dictating a note the words stream INTO the note (live caret);
+  // otherwise arm on the wake word (instantly) or just keep the window open.
   const onInterim = useCallback((text) => {
+    if (noteRef.current?.active) { noteRef.current.interim(text); return }
     if (hasWake(text)) arming.wake()
     else if (arming.armed) arming.speech()
   }, [arming])
 
   const onFinal = useCallback(async (transcript) => {
+    // NOTE MODE takes precedence: the whole utterance is note content, unless it's a control.
+    const n = noteRef.current
+    if (n?.active) {
+      const said = String(transcript || '').trim()
+      if (!said) return
+      if (isScratch(said)) { n.discard(); setLine({ heard: said, message: 'Scratched', ok: false }); return }
+      if (isSaveNote(said)) { n.commit(); setLine({ heard: said, message: 'Saved', ok: true }); return }
+      n.append(said); setLine(null) // the note surface shows it — don't compete with a status line
+      return
+    }
+
     const addressed = hasWake(transcript)
     if (addressed) arming.wake()                 // ensure armed (idempotent; blips only if new)
     if (!addressed && !arming.armed) return       // not addressed and not armed → ignore, stay private
@@ -59,6 +75,15 @@ export default function VoiceControl({ controls, context, board: boardProp }) {
     if (isCancel(body)) { arming.cancel(); setLine({ heard: body, message: 'Stood down', ok: false }); return }
 
     const intent = await resolveCommand({ command: body, context: ctxRef.current, llm: relayLLM })
+
+    // "note …" / "make a note" ENTERS dictation mode (its own record), not a one-shot save
+    if (intent.action === 'add_note') {
+      const c = ctxRef.current
+      n?.begin({ step: c?.stepNumber, stepTitle: c?.stepTitle, seed: intent.args?.text })
+      board.record(); setLine(null) // note mode takes over; the armed window lapses silently
+      return
+    }
+
     const confirmed = intent.action === 'reset_timer' && (Date.now() - pendingResetRef.current) < CONFIRM_WINDOW_MS
     const res = dispatchIntent(intent, ctrlRef.current, ctxRef.current, { confirmed })
     pendingResetRef.current = res.needsConfirm ? Date.now() : 0
@@ -99,21 +124,24 @@ export default function VoiceControl({ controls, context, board: boardProp }) {
   }
 
   const denied = error === 'mic-denied' || error === 'no-mic'
-  const label = denied ? 'Mic blocked' : armed ? 'Ready…' : listening ? 'Listening' : 'Voice'
+  const noteActive = !!note?.active
+  const state = denied ? 'denied' : noteActive ? 'note' : armed ? 'armed' : listening ? 'live' : 'off'
+  const label = denied ? 'Mic blocked' : noteActive ? 'Recording note' : armed ? 'Ready — speak' : listening ? 'Listening' : 'Voice'
   return (
     <>
       <button
-        className={`mic-btn${listening ? ' mic-live' : ''}${armed ? ' mic-armed' : ''}${denied ? ' mic-denied' : ''}`}
+        className={`mic-btn mic-${state}`}
         type="button" onClick={onToggle} aria-pressed={listening}
         title={denied ? 'Microphone blocked — allow it in the browser'
           : armed ? 'Armed — say a command' : listening ? 'Listening — click to stop' : 'Enable voice control'}
       >
         <MicIcon muted={!listening} />
         <span className="mic-label">{label}</span>
-        {listening && !armed && <span className="mic-pulse" aria-hidden="true" />}
+        {listening && !armed && !noteActive && <span className="mic-pulse" aria-hidden="true" />}
       </button>
 
-      {(listening || line) && (
+      {/* the note surface (step panel) owns the display while dictating — don't compete here */}
+      {!noteActive && (listening || line) && (
         <div className={`voice-hud${armed ? ' vh-armed' : ''}${line ? (line.ok ? ' vh-ok' : ' vh-no') : ''}`} role="status" aria-live="polite">
           {line ? (
             <>
@@ -121,8 +149,16 @@ export default function VoiceControl({ controls, context, board: boardProp }) {
               <span className="vh-arrow">→</span>
               <span className="vh-msg">{line.message}</span>
             </>
+          ) : armed ? (
+            <span className="vh-idle vh-live">{interim ? `“${interim}”` : 'Ready — say a command…'}</span>
+          ) : interim ? (
+            <span className="vh-idle vh-live">“{interim}”</span>
           ) : (
-            <span className="vh-idle">{interim || (armed ? 'Ready — say a command…' : 'Say “benchpilot”, then your command')}</span>
+            // nobody guesses a voice UI's vocabulary — show the few things it knows
+            <span className="vh-vocab">
+              Say <b>“benchpilot”</b>, then:
+              <em>next</em><em>start the timer</em><em>how long is left</em><em>note: …</em>
+            </span>
           )}
         </div>
       )}

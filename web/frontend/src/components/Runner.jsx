@@ -4,10 +4,12 @@ import Complete from './Complete.jsx'
 import StationView from '../vessel/StationView.jsx'
 import VoiceControl from './VoiceControl.jsx'
 import NoteComposer from './NoteComposer.jsx'
+import NoteDictation from './NoteDictation.jsx'
 import RunRecord from './RunRecord.jsx'
 import { useCountdown } from '../hooks/useCountdown.js'
 import { useRunLog } from '../hooks/useRunLog.js'
 import { useRunState } from '../hooks/useRunState.js'
+import { useNoteDictation } from '../hooks/useNoteDictation.js'
 import { createSoundboard } from '../lib/sounds.js'
 import { Button } from '../ui/primitives.jsx'
 import StepTimeline from './StepTimeline.jsx'
@@ -48,6 +50,18 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
   const log = useRunLog(runId)
   const protoName = stepText({ text: protocol?.title, text_en: protocol?.title_en }, lang) || protocol?.title || 'Protocol'
   const titleOf = (idx) => shortLabel(steps[idx], lang)
+
+  // dictated-note mode: a note anchored to the step it was begun on. On commit it lands in
+  // the log (highest-value row); on discard nothing is saved. Cues via the shared board.
+  const note = useNoteDictation({
+    onCommit: (text, meta) => {
+      const t = String(text || '').trim()
+      if (!t) return
+      log.emit('note', { step: meta?.step ?? i + 1, stepTitle: meta?.stepTitle ?? titleOf(i), text: t })
+      board.accepted()
+    },
+    onDiscard: () => board.discard(),
+  })
 
   const step = steps[Math.min(i, steps.length - 1)]
   const altIndex = altByStep[step.index] || 0
@@ -173,7 +187,7 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
     }
     return {
       stepIndex: i, stepNumber: i + 1, stepCount: steps.length,
-      stepText: stepText(eff, lang),
+      stepText: stepText(eff, lang), stepTitle: titleOf(i),
       hasTimer: !!timer, running: !!timer?.running, done: !!timer?.done, remaining: timer?.remaining ?? 0,
       alternatives, openQuestion, hasHazard,
     }
@@ -229,12 +243,13 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
           <LogGlyph /><span className="log-btn-label">Run log</span>
           {log.events.length > 0 && <span className="log-count num">{log.events.length}</span>}
         </button>
-        <VoiceControl controls={controls} context={voiceContext} board={board} />
+        <VoiceControl controls={controls} context={voiceContext} board={board} note={note} />
       </header>
 
       <div className="runner-body">
         <section className="step-col" aria-label="Current step">
           <div className="step-col-scroll">
+            {note.active && <NoteDictation note={note} />}
             <StepCard
               key={step.index}
               step={step} answers={answers} altIndex={altIndex}
