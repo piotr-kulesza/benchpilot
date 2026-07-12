@@ -4,7 +4,7 @@ import { dispatchIntent } from './voiceDispatch.js'
 const mkControls = () => ({
   next: vi.fn(), back: vi.fn(), goto: vi.fn(),
   startTimer: vi.fn(), pauseTimer: vi.fn(), resetTimer: vi.fn(),
-  countPass: vi.fn(), chooseAlternative: vi.fn(), answerQuestion: vi.fn(),
+  countPass: vi.fn(), chooseAlternative: vi.fn(), answerQuestion: vi.fn(), addNote: vi.fn(),
 })
 
 describe('dispatchIntent — navigation', () => {
@@ -127,5 +127,15 @@ describe('dispatchIntent — passes, alternatives, answers', () => {
     const c = mkControls()
     dispatchIntent({ action: 'answer_question', args: { key: 'cells', value: 'le' }, confidence: 0.9 }, c, {})
     expect(c.answerQuestion).toHaveBeenCalledWith('cells', 'le')
+  })
+  it('add_note records the spoken text; an empty note is refused', () => {
+    const c = mkControls()
+    const r = dispatchIntent({ action: 'add_note', args: { text: 'pellet looked loose' }, confidence: 1 }, c, {})
+    expect(c.addNote).toHaveBeenCalledWith('pellet looked loose')
+    expect(r).toMatchObject({ ok: true, message: 'Noted: “pellet looked loose”' })
+    const c2 = mkControls()
+    const r2 = dispatchIntent({ action: 'add_note', args: { text: '  ' }, confidence: 1 }, c2, {})
+    expect(c2.addNote).not.toHaveBeenCalled()
+    expect(r2.ok).toBe(false)
   })
 })

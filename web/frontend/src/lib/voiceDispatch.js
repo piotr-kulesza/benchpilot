@@ -95,6 +95,13 @@ export function dispatchIntent(intent, controls = {}, context = {}, opts = {}) {
     case 'repeat_step':
       controls.countPass?.(); return accepted('Counted a pass')
 
+    case 'add_note': {
+      const text = String(args.text || '').trim()
+      if (!text) return rejected('Nothing to note — say “note: …”')
+      controls.addNote?.(text)
+      return accepted(`Noted: “${text}”`)
+    }
+
     case 'choose_alternative': {
       const idx = resolveAltIndex(args, context)
       if (idx == null) return rejected("Couldn't match that option")

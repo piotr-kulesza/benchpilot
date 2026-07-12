@@ -47,6 +47,15 @@ describe('local fast path', () => {
     expect(localIntent('step 12')).toMatchObject({ action: 'goto', args: { step: 12 } })
     expect(localIntent('go to step eleven')).toMatchObject({ action: 'goto', args: { step: 11 } })
   })
+  it('captures a spoken note VERBATIM (preserving case), else an empty note body', () => {
+    expect(localIntent('note: pellet looked loose')).toEqual({ action: 'add_note', args: { text: 'pellet looked loose' }, confidence: 1 })
+    expect(localIntent('make a note that the RNA looked degraded')).toMatchObject({ action: 'add_note', args: { text: 'the RNA looked degraded' } })
+    expect(localIntent('jot down check the pH and OD260').args.text).toBe('check the pH and OD260') // case kept
+    expect(localIntent('make a note')).toEqual({ action: 'add_note', args: { text: '' }, confidence: 1 })
+  })
+  it('does not treat "noted" as a note command', () => {
+    expect(localIntent('noted')).toBeNull()
+  })
   it('returns null for the long tail (defers to the LLM)', () => {
     expect(localIntent('which tube do I use for the flow-through')).toBeNull()
     expect(localIntent('jump to the elution step')).toBeNull() // no number → not an explicit goto

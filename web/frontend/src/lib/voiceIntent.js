@@ -13,7 +13,7 @@
 export const INTENT_ACTIONS = [
   'next', 'back', 'goto',
   'start_timer', 'pause_timer', 'reset_timer', 'time_remaining',
-  'repeat_step', 'count_pass',
+  'repeat_step', 'count_pass', 'add_note',
   'choose_alternative', 'answer_question',
   'unknown',
 ]
@@ -70,9 +70,21 @@ function parseStepNumber(tok) {
 const GOTO_RE = /^(?:go\s*to|goto|jump\s*to|skip\s*to|move\s*to|take me to)\s+(?:step\s+)?(\w+)\b/
 const STEP_RE = /^step\s+(\w+)\s*$/
 
+// "note: pellet looked loose", "make a note that the pellet was loose", "add a note …".
+// The text after the note phrase is the body, captured VERBATIM from the original casing
+// (matched on the raw utterance, not the lowercased one). This is the payoff of voice:
+// recording a deviation without stripping a glove.
+const NOTE_RE = /^(?:make|take|add|write|leave|log|record)\s+(?:a\s+|the\s+)?note(?:\s+(?:that|saying|about|of|down))?\s*[:,-]?\s*([\s\S]*)$/i
+// "jot down …" / "note down …" imply a note without the literal word
+const NOTE_JOT_RE = /^(?:jot\b(?:\s+(?:down|this|that))?|note\s+down)\s*(?:(?:a|the)\s+)?(?:note\b\s*(?:that\b)?\s*[:,-]?\s*)?([\s\S]*)$/i
+const NOTE_BARE_RE = /^note\b(?:\s+(?:that|saying))?\s*[:,-]?\s*([\s\S]*)$/i
+
 export function localIntent(body) {
-  const t = String(body || '').toLowerCase().trim()
-  if (!t) return null
+  const raw = String(body || '').trim()
+  if (!raw) return null
+  const nm = raw.match(NOTE_RE) || raw.match(NOTE_JOT_RE) || raw.match(NOTE_BARE_RE)
+  if (nm) return { action: 'add_note', args: { text: nm[1].trim() }, confidence: 1 }
+  const t = raw.toLowerCase()
   const g = t.match(GOTO_RE) || t.match(STEP_RE)
   if (g) {
     const n = parseStepNumber(g[1])
@@ -98,6 +110,7 @@ export const INTENT_SYSTEM = [
   '  time_remaining  — the user is asking how much time is left (read-only)',
   '  count_pass      — log one pass/cycle of a repeated step',
   '  repeat_step     — repeat / re-run the current step',
+  '  add_note        — record a free-text bench note; args {"text": "<verbatim>"}',
   '  choose_alternative — pick one either/or method; args {"index": <0-based>} or {"label": "..."}',
   '  answer_question — answer the step\'s open question; args {"key": "...", "value": "..."}',
   '  unknown         — anything you are not confident about',
