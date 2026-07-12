@@ -33,7 +33,6 @@ export default function HomeHero() {
           <div className="hero-scene-holder" />
         )}
       </div>
-      <div className="hero-scene-cap">live — the real scene, idling</div>
     </div>
   )
 }
