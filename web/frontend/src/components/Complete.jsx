@@ -2,7 +2,7 @@ import { deriveIntakeFields, localize } from '../lib/runtime.js'
 import { Button } from '../ui/primitives.jsx'
 
 // A calm end screen that echoes the decisions the user made — a receipt of the run.
-export default function Complete({ protocol, answers, onRestart }) {
+export default function Complete({ protocol, answers, onRestart, onViewRecord }) {
   const fields = deriveIntakeFields(protocol)
   const answered = fields
     .map((f) => ({ label: labelFor(f), value: displayValue(f, answers[f.answerKey]) }))
@@ -28,7 +28,10 @@ export default function Complete({ protocol, answers, onRestart }) {
         </div>
       )}
 
-      <Button variant="primary" onClick={onRestart}>↺ Back to start</Button>
+      <div className="complete-actions">
+        {onViewRecord && <Button variant="primary" onClick={onViewRecord}>View run record →</Button>}
+        <Button variant={onViewRecord ? 'secondary' : 'primary'} onClick={onRestart}>↺ Back to start</Button>
+      </div>
     </div>
   )
 }

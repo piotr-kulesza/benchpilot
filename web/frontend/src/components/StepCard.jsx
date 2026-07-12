@@ -23,7 +23,8 @@ import {
 // scene data (temp / ×g), either/or choice, resolved conditionals, reagents, tracked
 // repeats, timer, and hazards (negatives loudest). English-only (lang defaults 'en').
 export default function StepCard({
-  step, answers, altIndex, countdown, timer, onPickAlt, passes, onPass, onAnswerInline, temp, lang = 'en',
+  step, answers, altIndex, countdown, timer, onPickAlt, passes, onPass, onAnswerInline,
+  onAckHazard, ackedHazards = {}, stepIndex, temp, lang = 'en',
 }) {
   const eff = hasAlternatives(step) ? selectAlternative(step, altIndex) : step
 
@@ -136,13 +137,22 @@ export default function StepCard({
         </div>
       )}
 
-      {/* hazards — negatives rendered as critical alerts */}
+      {/* hazards — negatives rendered as critical alerts; critical ones can be acknowledged
+          (recorded in the run log) so a dismissed warning is on the record */}
       {hazards.length > 0 && (
         <div className="block">
           {hazards.map((h, i) => {
             const critical = isCriticalHazard(h) || isCriticalHazard((eff.hazards || [])[i])
+            const acked = ackedHazards[`${stepIndex}:${h}`]
             return (
-              <Alert key={i} tone={critical ? 'hazard' : 'warn'} critical={critical}>{h}</Alert>
+              <div className="hz-item" key={i}>
+                <Alert tone={critical ? 'hazard' : 'warn'} critical={critical}>{h}</Alert>
+                {critical && onAckHazard && (
+                  acked
+                    ? <span className="hz-acked">✓ acknowledged</span>
+                    : <button className="hz-ack" type="button" onClick={() => onAckHazard(h)}>Acknowledge</button>
+                )}
+              </div>
             )
           })}
         </div>

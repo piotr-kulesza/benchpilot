@@ -3,18 +3,27 @@ import StepCard from './StepCard.jsx'
 import Complete from './Complete.jsx'
 import StationView from '../vessel/StationView.jsx'
 import VoiceControl from './VoiceControl.jsx'
+import NoteComposer from './NoteComposer.jsx'
+import RunRecord from './RunRecord.jsx'
 import { useCountdown } from '../hooks/useCountdown.js'
+import { useRunLog } from '../hooks/useRunLog.js'
 import { createSoundboard } from '../lib/sounds.js'
 import { Button, Badge } from '../ui/primitives.jsx'
 import StepTimeline from './StepTimeline.jsx'
 import {
-  PHASE_LABEL, selectAlternative, hasAlternatives, stepText,
+  PHASE_LABEL, selectAlternative, hasAlternatives, stepText, shortLabel,
   effectiveStep, timerSeconds, extractTemperature, elapsedFraction,
   stepHazards, isCriticalHazard, resolveConditionals,
 } from '../lib/runtime.js'
 
 const KIND_LABEL = { action: 'Action', wait: 'Wait', spin: 'Spin', prepare: 'Prep', measure: 'Measure', caution: 'Caution', storage: 'Storage' }
 const PHASE_TONE = { procedure: 'accent', quality_control: 'info' }
+
+// human labels for the intake parameters we log (fall back to raw key/value otherwise)
+const ANSWER_LABEL = { cells: 'Cell count', kit: 'Kit' }
+const ANSWER_VALUE = { cells: { le: '≤5×10⁶ cells', gt: '>5×10⁶ cells' }, kit: { mini: 'Mini', micro: 'Micro' } }
+const answerLabel = (k) => ANSWER_LABEL[k] || k
+const answerValueLabel = (k, v) => ANSWER_VALUE[k]?.[v] || v
 
 // One step at a time, in a stable 1/3 – 2/3 split: everything textual on the left
 // (scrolls, sticky title + controls), the 3D scene on the right (never resizes).
@@ -26,9 +35,18 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
   const [altByStep, setAltByStep] = useState({})
   const [passByStep, setPassByStep] = useState({})
   const [finished, setFinished] = useState(false)
+  const [ackedHazards, setAckedHazards] = useState({})
+  const [recordOpen, setRecordOpen] = useState(false)
   // one soundboard for the whole run — the single cue source (voice feedback + the timer
   // alarm). Shared with VoiceControl so both play through the same (gesture-resumed) audio.
   const board = useMemo(() => createSoundboard(), [])
+
+  // the run log — persisted per protocol, resumes on reload. Emitted ONLY from the control
+  // callbacks below, the single choke point both the buttons and the voice dispatcher hit.
+  const runId = protocol?.source || protocol?.title || 'default'
+  const log = useRunLog(runId)
+  const protoName = stepText({ text: protocol?.title, text_en: protocol?.title_en }, lang) || protocol?.title || 'Protocol'
+  const titleOf = (idx) => shortLabel(steps[idx], lang)
 
   const step = steps[Math.min(i, steps.length - 1)]
   const altIndex = altByStep[step.index] || 0
@@ -47,27 +65,98 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
   const next = () => { if (i >= steps.length - 1) setFinished(true); else setI((n) => Math.min(n + 1, steps.length - 1)) }
   const back = () => setI((n) => Math.max(0, n - 1))
 
+  // timer controls, wrapped once so BOTH the on-screen strip and the voice dispatcher run
+  // the identical path — countdown + a log event. Never call countdown.start/pause/reset
+  // directly from the UI, or a click and a spoken command would log differently.
+  const timerStartedRef = useRef(false)
+  const startTimer = () => {
+    board.resume()
+    if (!timerStartedRef.current) { timerStartedRef.current = true; log.emit('timer_started', { step: i + 1, stepTitle: titleOf(i), nominal: timed }) }
+    else log.emit('timer_resumed', { step: i + 1, stepTitle: titleOf(i) })
+    countdown.start()
+  }
+  const pauseTimer = () => { log.emit('timer_paused', { step: i + 1, stepTitle: titleOf(i), elapsed: Math.round((timed || 0) - countdown.remaining) }); countdown.pause() }
+  const resetTimer = () => { log.emit('timer_reset', { step: i + 1, stepTitle: titleOf(i), elapsed: Math.round((timed || 0) - countdown.remaining) }); countdown.reset(); timerStartedRef.current = false }
+
   // THE most important sound: the timer-done alarm, on the false→true completion edge,
   // whether the run is hand- or voice-driven (a scientist who walked away must hear it).
+  // The same edge logs the completion with its real (nominal) duration.
   const wasDone = useRef(false)
   useEffect(() => {
-    if (countdown.done && !wasDone.current) board.timerDone()
+    if (countdown.done && !wasDone.current) { board.timerDone(); log.emit('timer_completed', { step: i + 1, stepTitle: titleOf(i), nominal: timed }) }
     wasDone.current = countdown.done
-  }, [countdown.done, board])
+  }, [countdown.done]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Voice dispatches into THESE — the exact same callbacks the on-screen buttons call, so
-  // hand and voice share one source of truth and can never drift. (board.resume() on start
-  // unblocks WebAudio from a real user gesture.)
+  // hand and voice share one source of truth and can never drift. Each mutation ALSO emits
+  // its log event here, at the single seam.
   const controls = {
     next, back,
     goto: (idx) => setI(Math.max(0, Math.min(idx, steps.length - 1))),
-    startTimer: () => { board.resume(); countdown.start() },
-    pauseTimer: () => countdown.pause(),
-    resetTimer: () => countdown.reset(),
-    countPass: () => setPassByStep((m) => ({ ...m, [step.index]: (m[step.index] || 1) + 1 })),
-    chooseAlternative: (idx) => setAltByStep((m) => ({ ...m, [step.index]: idx })),
-    answerQuestion: (k, v) => setAnswers((a) => ({ ...a, [k]: v })),
+    startTimer, pauseTimer, resetTimer,
+    countPass: () => {
+      const nc = (passByStep[step.index] || 1) + 1
+      setPassByStep((m) => ({ ...m, [step.index]: nc }))
+      log.emit('pass_counted', { step: i + 1, stepTitle: titleOf(i), pass: nc })
+    },
+    chooseAlternative: (idx) => {
+      setAltByStep((m) => ({ ...m, [step.index]: idx }))
+      log.emit('alternative_chosen', { step: i + 1, stepTitle: titleOf(i), index: idx, label: shortLabel(selectAlternative(step, idx), lang) })
+    },
+    answerQuestion: (k, v) => {
+      setAnswers((a) => ({ ...a, [k]: v }))
+      log.emit('intake_answer', { step: i + 1, stepTitle: titleOf(i), key: k, value: v, label: answerLabel(k), valueLabel: answerValueLabel(k, v) })
+    },
+    addNote: (text) => {
+      const t = String(text || '').trim()
+      if (t) log.emit('note', { step: i + 1, stepTitle: titleOf(i), text: t })
+    },
+    ackHazard: (text) => {
+      const key = `${i}:${text}`
+      if (ackedHazards[key]) return
+      setAckedHazards((m) => ({ ...m, [key]: true }))
+      log.emit('hazard_ack', { step: i + 1, stepTitle: titleOf(i), text })
+    },
   }
+
+  // run start (once) + intake answers + every step entered/left — logged from the step
+  // index itself, so a jump from the timeline, a keyboard arrow, or a spoken "next" all
+  // record identically. Refs make it fire once even under StrictMode's double-invoke.
+  const seededRef = useRef(false)
+  const loggedStepRef = useRef(-1)
+  useEffect(() => {
+    if (!seededRef.current) {
+      seededRef.current = true
+      if (log.events.length === 0) {
+        log.emit('run_started', { step: i + 1, stepTitle: titleOf(i), name: protoName })
+        for (const [k, v] of Object.entries(answers || {})) {
+          if (v == null || v === '') continue
+          log.emit('intake_answer', { step: i + 1, stepTitle: titleOf(i), key: k, value: v, label: answerLabel(k), valueLabel: answerValueLabel(k, v) })
+        }
+        loggedStepRef.current = i
+        log.emit('step_entered', { step: i + 1, stepTitle: titleOf(i) })
+      } else {
+        loggedStepRef.current = i // resuming a persisted run — continue its log silently
+      }
+      return
+    }
+    if (loggedStepRef.current !== i) {
+      const p = loggedStepRef.current
+      log.emit('step_left', { step: p + 1, stepTitle: titleOf(p) })
+      loggedStepRef.current = i
+      timerStartedRef.current = false
+      log.emit('step_entered', { step: i + 1, stepTitle: titleOf(i) })
+    }
+  }, [i]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // run completed — logged once when the last step is finished
+  const finishedRef = useRef(false)
+  useEffect(() => {
+    if (finished && !finishedRef.current) { finishedRef.current = true; log.emit('run_completed', { step: i + 1, stepTitle: titleOf(i) }) }
+  }, [finished]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // leaving mid-run is a real outcome worth recording (explicit exit, not StrictMode churn)
+  const handleExit = () => { if (!finishedRef.current) log.emit('run_abandoned', { step: i + 1, stepTitle: titleOf(i) }); onExit() }
 
   // Read-only context the intent layer needs to resolve "how long is left", "start it",
   // "the micro kit", and to gate a hazard cue on landing.
@@ -114,8 +203,20 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
     return stepText(e, lang) || stepText(n, lang)
   }, [i, steps, altByStep])
 
+  const recordEl = (
+    <RunRecord
+      open={recordOpen} events={log.events} meta={{ protocol: protoName }}
+      onClose={() => setRecordOpen(false)} onClear={log.clear}
+    />
+  )
+
   if (finished) {
-    return <div className="app"><Complete protocol={protocol} answers={answers} onRestart={onExit} /></div>
+    return (
+      <div className="app">
+        <Complete protocol={protocol} answers={answers} onRestart={handleExit} onViewRecord={() => setRecordOpen(true)} />
+        {recordEl}
+      </div>
+    )
   }
 
   const passes = passByStep[step.index] || 0
@@ -123,10 +224,14 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
   return (
     <div className="runner" data-phase={step.phase}>
       <header className="runner-top">
-        <button type="button" className="brand rt-brand" onClick={onExit} title="Back to home">
+        <button type="button" className="brand rt-brand" onClick={handleExit} title="Back to home">
           <span className="dot" /> benchpilot
         </button>
         <StepTimeline steps={steps} current={i} onJump={setI} />
+        <button className="log-btn" type="button" onClick={() => setRecordOpen(true)} title="Run record">
+          <LogGlyph /><span className="log-btn-label">Run log</span>
+          {log.events.length > 0 && <span className="log-count num">{log.events.length}</span>}
+        </button>
         <VoiceControl controls={controls} context={voiceContext} board={board} />
       </header>
 
@@ -143,13 +248,17 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
             <StepCard
               key={step.index}
               step={step} answers={answers} altIndex={altIndex}
-              countdown={countdown} timer={timer} temp={temp}
-              onPickAlt={(idx) => setAltByStep((m) => ({ ...m, [step.index]: idx }))}
+              countdown={{ remaining: countdown.remaining, running: countdown.running, done: countdown.done, start: startTimer, pause: pauseTimer, reset: resetTimer }}
+              timer={timer} temp={temp}
+              onPickAlt={controls.chooseAlternative}
               passes={Math.max(passes, 1)}
-              onPass={() => setPassByStep((m) => ({ ...m, [step.index]: (m[step.index] || 1) + 1 }))}
-              onAnswerInline={(k, v) => setAnswers((a) => ({ ...a, [k]: v }))}
+              onPass={controls.countPass}
+              onAnswerInline={controls.answerQuestion}
+              onAckHazard={controls.ackHazard}
+              ackedHazards={ackedHazards} stepIndex={i}
               lang={lang}
             />
+            <NoteComposer onAdd={controls.addNote} step={i + 1} />
           </div>
 
           <div className="step-col-foot">
@@ -172,6 +281,17 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
           />
         </section>
       </div>
+
+      {recordEl}
     </div>
+  )
+}
+
+function LogGlyph() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M6 3h9l4 4v14H6z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M9 12h6M9 16h6M9 8h3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
   )
 }

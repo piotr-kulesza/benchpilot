@@ -137,6 +137,21 @@ export function describeEvent(e, timers) {
   }
 }
 
+// Ready-to-render chronological rows for the on-screen record — notes flagged distinct,
+// timer-completed rows enriched with the real elapsed. Keeps the component free of logic.
+export function timelineRows(events) {
+  const timers = pairTimers(events)
+  return events.map((e, i) => ({
+    at: e.at,
+    step: e.step ?? null,
+    kind: e.type === EVENTS.NOTE ? 'note'
+      : e.type === EVENTS.HAZARD_ACK ? 'hazard'
+        : (e.type === EVENTS.RUN_STARTED || e.type === EVENTS.RUN_COMPLETED || e.type === EVENTS.RUN_ABANDONED) ? 'run'
+          : 'system',
+    text: describeEvent({ ...e, _i: i }, timers),
+  }))
+}
+
 // ── the view model: what the record screen renders and what the Markdown formats ──
 export function summarize(events, meta = {}) {
   const first = events[0]
