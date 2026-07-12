@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest'
+import { readFileSync, readdirSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import {
   SCENE_RECIPES, resolveRecipe, sampleContainerSequence, resolveContainer, resolveRemoval,
+  findTransferHandoffDefects,
 } from './sceneRecipe.js'
 import { resolveBehavior } from './behavior.js'
 import { ACTIONS } from '../lib/runtime.js'
@@ -109,5 +112,54 @@ describe('sample-follow container sequence', () => {
   it('handles an empty protocol', () => {
     expect(sampleContainerSequence([])).toEqual([])
     expect(sampleContainerSequence()).toEqual([])
+  })
+})
+
+describe('transfer hand-off defect guard', () => {
+  it('flags a transfer whose container carried forward unchanged (no destination)', () => {
+    // step 2 is a transfer but names no container → it stays microtube like step 1
+    const steps = [
+      { index: 1, action: 'pour_add' },
+      { index: 2, action: 'transfer' }, // DEFECT: no destination, carries microtube
+    ]
+    expect(findTransferHandoffDefects(steps)).toEqual([{ index: 2, container: 'microtube' }])
+  })
+
+  it('accepts a transfer that names a distinct destination', () => {
+    const steps = [
+      { index: 1, action: 'pour_add' },
+      { index: 2, action: 'transfer', container: 'spin_column' },
+    ]
+    expect(findTransferHandoffDefects(steps)).toEqual([])
+  })
+
+  it('accepts a transfer that names the same vessel TYPE (aliquot tube→tubes)', () => {
+    const steps = [
+      { index: 1, action: 'pour_add', container: 'tube' },
+      { index: 2, action: 'transfer', container: 'tube' }, // destination WAS declared
+    ]
+    expect(findTransferHandoffDefects(steps)).toEqual([])
+  })
+
+  it('does not flag elute/seed that reuse a vessel type (out of scope)', () => {
+    const steps = [
+      { index: 1, action: 'seed', container: 'flask' },
+      { index: 2, action: 'seed', container: 'flask' }, // legit: reseed new flasks
+    ]
+    expect(findTransferHandoffDefects(steps)).toEqual([])
+  })
+})
+
+// COVERAGE ASSERTION (Stage 12): the same guard the renderer warns with, run over
+// EVERY bundled protocol. A hardcoded transfer→spin_column special-case masked a
+// missing destination container for weeks; this makes the invariant non-negotiable.
+describe('bundled protocols name every transfer destination', () => {
+  const dir = fileURLToPath(new URL('../../public/protocols/', import.meta.url))
+  const files = readdirSync(dir).filter((f) => f.endsWith('.json') && f !== 'index.json')
+
+  it.each(files)('%s has no carried-forward transfer (hand-off always fires)', (file) => {
+    const proto = JSON.parse(readFileSync(dir + file, 'utf8'))
+    const defects = findTransferHandoffDefects(proto.steps || [])
+    expect(defects, `${file}: ${JSON.stringify(defects)}`).toEqual([])
   })
 })

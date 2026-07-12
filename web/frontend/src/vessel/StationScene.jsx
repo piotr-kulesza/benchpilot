@@ -14,7 +14,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera, OrthographicCamera } from '@react-three/drei'
 import { FogExp2, Color, Vector3, Group, Mesh, TorusGeometry, SphereGeometry, MeshStandardMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
-import { resolveRecipe, sampleContainerSequence, resolveRemoval } from './sceneRecipe.js'
+import { resolveRecipe, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects } from './sceneRecipe.js'
 import { containerContract, resolveInstrument } from './containerContract.js'
 import { reagentName, reagentVolume, effectiveStep, selectAlternative, hasAlternatives } from '../lib/runtime.js'
 import * as demo from '../scene/demoScene.js'
@@ -705,6 +705,13 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', v
   // only dollies the camera and glides the single sample. ──
   useEffect(() => {
     if (!demo.getSample()) return undefined
+    // A transfer whose destination container == the previous container never actually
+    // moves the sample — the parse omitted the destination and it carried forward.
+    // Warn loudly; a silent fallback is exactly how the "load column" defect hid.
+    for (const d of findTransferHandoffDefects(steps)) {
+      console.warn(`[benchpilot] transfer step ${d.index} does not name a destination container ` +
+        `(stays "${d.container}") — the hand-off cannot fire. This is a parse defect: every transfer must set \`container\`.`)
+    }
     const stations = []
     steps.forEach((baseStep, i) => {
       const altIdx = altByStep[baseStep.index] || 0

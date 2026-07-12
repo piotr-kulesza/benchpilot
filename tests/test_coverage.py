@@ -97,3 +97,46 @@ def test_containers_are_parsed_beyond_microtube(parsed):
                 seen.add(s.container)
     non_tube = seen - {"microtube", "tube"}
     assert non_tube, f"expected plate/gel/flask/etc. containers to be parsed, saw only {seen}"
+
+
+# ── Stage-12 invariants: the two defects a hardcoded special-case had masked ──
+
+def _reagent_material_names(proto):
+    names = set()
+    for m in proto.materials:
+        for v in (m.name, m.name_en):
+            if v and v.strip():
+                names.add(v.strip().casefold())
+    for s in proto.steps:
+        for r in s.reagents:
+            for v in (r.name, r.name_en):
+                if v and v.strip():
+                    names.add(v.strip().casefold())
+    return names
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_no_reagent_name_in_hazards(parsed, name):
+    # a hazard is a caution/warning/prohibition, NEVER a bare reagent/material name
+    p = parsed[name]
+    names = _reagent_material_names(p)
+    offenders = [(s.index, h) for s in p.steps for h in s.hazards
+                 if h.strip().casefold() in names]
+    assert not offenders, f"{name}: reagent/material names leaked into hazards: {offenders}"
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_moves_name_their_destination_container(parsed, name):
+    # transfer/elute/seed are exactly where the sample changes vessels — each MUST
+    # name its destination, or the renderer's hand-off never fires.
+    p = parsed[name]
+    missing = [(s.index, s.action) for s in p.steps
+               if s.action in ("transfer", "elute", "seed") and not s.container]
+    assert not missing, f"{name}: move-steps without a destination container: {missing}"
+
+
+def test_western_drain_is_discard_not_measure(parsed):
+    # "Drain the membrane of excess developing solution" is a discard, not a reading
+    drains = [s for s in parsed["western"].steps
+              if s.action == "measure" and (s.text_en or s.text or "").lower().lstrip().startswith("drain")]
+    assert not drains, f"a drain step is still tagged measure: {[s.index for s in drains]}"

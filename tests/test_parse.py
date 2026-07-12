@@ -115,6 +115,37 @@ def test_negative_hazard_and_gap_represented():
     assert len(p.open_parameters) == 1
 
 
+def test_normalize_strips_reagent_name_from_hazards():
+    from core.parse import normalize_parsed
+    data = {
+        "materials": [],
+        "steps": [{
+            "index": 1, "action": "electrophorese", "text": "Transfer at 100 V.",
+            "reagents": [{"name": "cold transfer buffer"}],
+            "hazards": ["cold transfer buffer", "keep it cold"],
+            "hazards_en": ["cold transfer buffer", "keep it cold"],
+        }],
+    }
+    out = normalize_parsed(data)
+    s = out["steps"][0]
+    # the bare reagent name is dropped; the real caution (aligned _en) survives
+    assert s["hazards"] == ["keep it cold"]
+    assert s["hazards_en"] == ["keep it cold"]
+
+
+def test_normalize_reclassifies_drain_measure_to_discard():
+    from core.parse import normalize_parsed
+    data = {"steps": [
+        {"index": 1, "action": "measure", "kind": "measure",
+         "text_en": "Drain the membrane of excess developing solution, wrap and expose."},
+        {"index": 2, "action": "measure", "kind": "measure",
+         "text_en": "Read the absorbance in the plate reader at 450 nm."},
+    ]}
+    out = normalize_parsed(data)
+    assert out["steps"][0]["action"] == "discard" and out["steps"][0]["kind"] == "action"
+    assert out["steps"][1]["action"] == "measure"  # a genuine reading is untouched
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

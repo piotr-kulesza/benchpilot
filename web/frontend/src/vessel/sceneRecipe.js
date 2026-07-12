@@ -100,3 +100,23 @@ export function sampleContainerSequence(steps = []) {
   }
   return out
 }
+
+// A `transfer` is the ONE action that, by definition, moves the sample into a NEW
+// vessel — so it MUST name that destination in its own `container`. When it doesn't,
+// the container simply CARRIES forward from the previous step: the sample-follow sees
+// no change, the hand-off never fires, and the tube quietly fills. That is the DATA
+// DEFECT the `transfer → spin_column` hardcode masked for weeks (the "load column"
+// regression). Surface every transfer that fails to name its own destination — never
+// silently tolerate it. A transfer that explicitly names a vessel (even the same TYPE,
+// e.g. aliquoting a tube into fresh tubes) is fine: the destination WAS declared.
+export function findTransferHandoffDefects(steps = []) {
+  const seq = sampleContainerSequence(steps)
+  const out = []
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i]
+    if (!s || typeof s !== 'object' || s.action !== 'transfer') continue
+    const named = s.container && CONTAINERS[s.container]
+    if (!named) out.push({ index: s.index != null ? s.index : i, container: seq[i] })
+  }
+  return out
+}

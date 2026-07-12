@@ -106,9 +106,15 @@ if none fits, use "generic"):
   "heat"          - heat shock / water bath at an elevated temperature
   "cool_ice"      - place on / keep on ice
   "transfer"      - move the sample to a new tube or column
-  "discard"       - discard flow-through / waste (odrzucić przesącz)
+  "discard"       - discard flow-through / waste (odrzucić przesącz), OR DRAIN /
+                    BLOT / DECANT / POUR OFF excess liquid off a membrane, slide,
+                    gel or plate. Removing liquid is "discard", NOT "measure".
   "elute"         - the final elution spin (collects the product into a clean tube)
-  "measure"       - QC / read on an instrument (NanoDrop, Bioanalyzer)
+  "measure"       - QUANTIFY or READ the sample on an instrument: NanoDrop,
+                    Bioanalyzer, plate reader, microscope, transilluminator/gel doc,
+                    haemocytometer count. `measure` REQUIRES a reading/observation.
+                    "Drain the membrane of excess solution" is NOT a measurement —
+                    it is a "discard".
   "thermocycle"   - a CYCLIC thermal program (PCR/qPCR): repeated denature/anneal/
                     extend. ONLY for the cycled block; a single timed hold stays
                     "incubate_wait"/"heat". Emit ONE thermocycle step with repeat.count
@@ -155,8 +161,21 @@ CONTAINER (where the SAMPLE now sits) — set `container` per step:
   CRITICAL: `container` is where the SAMPLE goes, NEVER where a REAGENT lives.
   "Add 350 µl RW1 FROM THE BOTTLE" does NOT set container:bottle — the sample stays
   in its column. If the step names no new home for the sample, OMIT `container`
-  entirely (it persists from the previous step). The very first vessel may be named
-  or default to microtube.
+  entirely (it persists from the previous step).
+  MOVE STEPS MUST NAME THEIR DESTINATION. A step whose action MOVES the sample —
+  `transfer`, `elute`, `seed` — is exactly the moment the sample changes vessels, so
+  it MUST carry the destination `container`. This is where the parser most often
+  fails: do NOT leave it to the reader, and do NOT attach the new container to the
+  FOLLOWING step — the container changes ON the step that performs the move.
+    "Transfer the sample onto the RNeasy column"   -> transfer, container: spin_column
+    "Transfer the column to a clean tube"          -> transfer, container: tube
+    "Centrifuge 1 min to elute the RNA"            -> elute,    container: eluate_tube
+    "Seed the cells into new culture flasks"       -> seed,     container: flask
+    "Spread on an LB agar plate"                   -> seed,     container: agar_plate
+  Every `elute` collects the product into a clean tube -> container: eluate_tube.
+  Every `seed` dispenses into the culture vessel it names (flask / dish / agar_plate).
+  Set `container` on the FIRST step too — the sample must not depend on a default;
+  name where the very first sample sits (e.g. microtube, flask, tube).
 
 WASHES that do NOT spin (well plate, membrane, slide, flask — no centrifuge) must
   decompose into pour_add (the wash buffer) + discard (pour/aspirate it off),
@@ -203,9 +222,15 @@ For each step extract, when present:
     QIAshredder/spin-column option is "centrifuge", the needle/plunger/dounce
     option is "homogenize" (NOT "centrifuge", NOT "generic").
   - hazards: [string] in the ORIGINAL language. hazards_en: the SAME hazards in
-    English, aligned by index. INCLUDE negative / critical instructions here, not
-    just dangers. "Nie wirować" ("Do NOT centrifuge") IS a hazard. So are "pod
-    wyciągiem" (fume hood), "trzymać na lodzie" (keep on ice), "pracować szybko".
+    English, aligned by index. A hazard is a CAUTION, WARNING, or PROHIBITION —
+    especially NEGATIVES and safety/handling risks. INCLUDE negative / critical
+    instructions here, not just dangers. "Nie wirować" ("Do NOT centrifuge") IS a
+    hazard; so are "do not exceed 45 s", "do not vortex", "do not let the membrane
+    dry", "pod wyciągiem" (fume hood), "trzymać na lodzie" (keep on ice), "pracować
+    szybko" (work quickly). A hazard is NOT a reagent, NOT a material, and NOT a
+    plain condition: "cold transfer buffer" is a REAGENT (it belongs in `reagents`),
+    "at 100 V" is a CONDITION (it belongs in the step text) — NEITHER is a hazard.
+    Never put a bare reagent/material name in `hazards`.
   - prep_ahead: true if this should be done BEFORE the procedure clock starts
     (making fresh buffer, premixing DNase I + RDD, etc.).
   - gaps: [{parameter, question}] for any value left underspecified / "to be
@@ -345,6 +370,78 @@ def _extract_json(raw: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# deterministic normalization — enforce invariants the LLM sometimes violates,
+# independent of the prompt. Pure and idempotent so it is unit-testable offline.
+# ---------------------------------------------------------------------------
+
+# leading verbs that mean "remove liquid" — a `measure` that starts with one of
+# these is a drain/blot, not a reading (Western "Drain the membrane …" mis-tag).
+_DRAIN_LEAD = re.compile(
+    r"^\s*(?:drain|blot|decant|wick|soak\s+off|pour\s+(?:off|away)|aspirate\s+off)\b",
+    re.IGNORECASE,
+)
+
+
+def normalize_parsed(data: dict) -> dict:
+    """Enforce parse invariants deterministically (see Stage 12):
+
+    1. A hazard is a caution/warning/prohibition — never a bare reagent or material
+       name. Drop any hazard string that EXACTLY matches a reagent/material name in
+       the protocol (aligning the parallel `hazards_en` by index).
+    2. `measure` requires a reading. A step whose instruction LEADS with a removal
+       verb (drain/blot/decant/…) and names no instrument is a `discard`, not a
+       measurement.
+
+    Container-on-move is intentionally NOT auto-filled here: a missing destination on
+    a transfer/elute/seed is a real defect the renderer guard must surface, not one
+    to silently paper over.
+    """
+    if not isinstance(data, dict):
+        return data
+
+    # names that are reagents/materials, not hazards — exact-match, case-folded.
+    names: set[str] = set()
+    for m in data.get("materials") or []:
+        for k in ("name", "name_en"):
+            v = (m or {}).get(k)
+            if v and v.strip():
+                names.add(v.strip().casefold())
+    for s in data.get("steps") or []:
+        for r in s.get("reagents") or []:
+            for k in ("name", "name_en"):
+                v = (r or {}).get(k)
+                if v and v.strip():
+                    names.add(v.strip().casefold())
+
+    for s in data.get("steps") or []:
+        # 1 — strip reagent/material names that leaked into hazards
+        hz = s.get("hazards") or []
+        if hz:
+            hz_en = s.get("hazards_en") or []
+            keep, keep_en = [], []
+            for i, h in enumerate(hz):
+                is_name = isinstance(h, str) and h.strip().casefold() in names
+                if is_name:
+                    continue
+                keep.append(h)
+                if i < len(hz_en):
+                    keep_en.append(hz_en[i])
+            s["hazards"] = keep
+            if "hazards_en" in s:
+                s["hazards_en"] = keep_en if hz_en else s["hazards_en"]
+
+        # 2 — a drain/blot mis-tagged as measure is really a discard
+        if s.get("action") == "measure":
+            lead = s.get("text_en") or s.get("text") or ""
+            if _DRAIN_LEAD.search(lead):
+                s["action"] = "discard"
+                if s.get("kind") == "measure":
+                    s["kind"] = "action"
+
+    return data
+
+
+# ---------------------------------------------------------------------------
 # public API
 # ---------------------------------------------------------------------------
 
@@ -371,5 +468,5 @@ def parse_protocol(
         if use_cache:
             _cache_put(key, raw)
 
-    data = _extract_json(raw)
+    data = normalize_parsed(_extract_json(raw))
     return Protocol.from_dict(data, source=source)

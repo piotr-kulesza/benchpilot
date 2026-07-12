@@ -327,6 +327,7 @@
       "text_en": "Transfer the sample onto the RNeasy column.",
       "kind": "action",
       "action": "transfer",
+      "container": "spin_column",
       "duration_seconds": null,
       "spin": null,
       "reagents": [],
@@ -629,6 +630,7 @@
       "text_en": "Transfer the column to a clean tube.",
       "kind": "action",
       "action": "transfer",
+      "container": "tube",
       "duration_seconds": null,
       "spin": null,
       "reagents": [],
@@ -738,6 +740,7 @@
       "text_en": "Centrifuge 1 min at ≥ 8000 × g to elute the RNA.",
       "kind": "spin",
       "action": "elute",
+      "container": "eluate_tube",
       "duration_seconds": 60,
       "spin": {
         "duration_seconds": 60,

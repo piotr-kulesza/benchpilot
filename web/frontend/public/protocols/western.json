@@ -129,12 +129,8 @@
       "conditionals": [],
       "repeat": null,
       "alternatives": [],
-      "hazards": [
-        "cold transfer buffer"
-      ],
-      "hazards_en": [
-        "cold transfer buffer"
-      ],
+      "hazards": [],
+      "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
       "verbatim": "3. Transfer the proteins from the gel onto a nitrocellulose membrane at 100 V for 60 min in cold transfer buffer."
@@ -620,8 +616,8 @@
       "phase": "procedure",
       "text": "Drain the membrane of excess developing solution (do not let it dry), wrap in plastic wrap, and expose to X-ray film. An initial 10 sec exposure should indicate the proper exposure time.",
       "text_en": "Drain the membrane of excess developing solution (do not let it dry), wrap in plastic wrap, and expose to X-ray film. An initial 10 sec exposure should indicate the proper exposure time.",
-      "kind": "measure",
-      "action": "measure",
+      "kind": "action",
+      "action": "discard",
       "container": "membrane",
       "duration_seconds": 10,
       "spin": null,
