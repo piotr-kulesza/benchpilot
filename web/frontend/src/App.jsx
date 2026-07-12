@@ -204,7 +204,7 @@ function MainApp() {
         answers={answers}
         setAnswers={setAnswers}
         initialStep={initialStep}
-        onExit={() => go('intake')}
+        onExit={() => go('home')}
         onStartOver={startOver}
         bench={bench}
       />
