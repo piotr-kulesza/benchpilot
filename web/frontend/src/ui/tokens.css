@@ -4,9 +4,11 @@
    bright surface; the UI stays out of its way.
    ───────────────────────────────────────────────────────────────────────────── */
 :root {
-  /* type families */
-  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* type families — self-hosted IBM Plex, one declaration each. No named system
+     faces: the app must render in Plex, never silently fall back (Stage-14 #5).
+     The bare generic is only a last resort if the woff2 truly fails to load. */
+  --font-sans: 'IBM Plex Sans', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
 
   /* ── colour — warm-neutral dark ──────────────────────────────────────────── */
   --c-surface:    #16150f;   /* app background (deepest) */

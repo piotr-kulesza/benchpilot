@@ -4,7 +4,7 @@
 // Cinematic/Isometric view toggle — it's a control FOR the scene. All step data lives
 // in the left column now.
 
-import { Component, useMemo, useState } from 'react'
+import { Component, useEffect, useMemo, useState } from 'react'
 import './vessel.css'
 import Fallback from './Fallback.jsx'
 import StationCanvas from './StationCanvas.jsx'
@@ -34,9 +34,29 @@ function primaryReagent(reagents = []) {
   return reagents.find((r) => r.volume) || reagents[0]
 }
 
+// The in-world labels bake their text into a canvas texture; a canvas `font` string
+// does NOT wait for the CSS webfont, so drawing before the face has loaded freezes
+// the labels in the fallback face. Gate the 3D mount until the label faces are ready
+// (the DOM keeps showing the static fallback for the ~few ms this takes).
+const LABEL_FACES = ["500 42px 'IBM Plex Sans'", "400 42px 'IBM Plex Sans'", "500 26px 'IBM Plex Mono'"]
+function labelFontsLoaded() {
+  try { return LABEL_FACES.every((f) => document.fonts.check(f)) } catch { return true }
+}
+
 export default function StationView({ protocol, activeIndex = 0, answers = {}, lang = 'en', progress = 1, running = false, altByStep = {} }) {
   const [view, setView] = useState('cinematic')
   const [use3D] = useState(() => webglAvailable())
+  const [fontsReady, setFontsReady] = useState(labelFontsLoaded)
+
+  useEffect(() => {
+    if (fontsReady) return undefined
+    let alive = true
+    Promise.all(LABEL_FACES.map((f) => document.fonts.load(f)))
+      .then(() => document.fonts.ready)
+      .then(() => { if (alive) setFontsReady(true) })
+      .catch(() => { if (alive) setFontsReady(true) }) // never trap the scene behind a font error
+    return () => { alive = false }
+  }, [fontsReady])
 
   const steps = protocol?.steps || []
   const baseStep = steps[Math.max(0, Math.min(activeIndex, steps.length - 1))] || { action: 'generic', reagents: [] }
@@ -51,7 +71,7 @@ export default function StationView({ protocol, activeIndex = 0, answers = {}, l
   return (
     <div className="vessel">
       <div className="vessel-stage">
-        {use3D ? (
+        {use3D && fontsReady ? (
           <GLBoundary fallback={fallback}>
             <StationCanvas
               protocol={protocol} activeIndex={activeIndex} answers={answers} lang={lang}

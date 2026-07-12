@@ -17,8 +17,9 @@ body {
 h1, h2, h3, h4 { font-weight: 600; line-height: var(--lh-tight); letter-spacing: -0.01em; }
 p { line-height: var(--lh); }
 a { color: inherit; }
-button { font: inherit; color: inherit; }
-input, textarea { font: inherit; color: inherit; }
+/* form controls don't inherit fonts by default — force the app face onto every one
+   (this is the usual cause of stray system-font surfaces). */
+button, input, textarea, select { font: inherit; color: inherit; }
 ::placeholder { color: var(--c-ink-faint); }
 
 /* one focus style, everywhere; only for keyboard users */
