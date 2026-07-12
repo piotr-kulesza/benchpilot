@@ -2,7 +2,6 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import Home from './components/Home.jsx'
 import Intake from './components/Intake.jsx'
 import Runner from './components/Runner.jsx'
-import { Button } from './ui/primitives.jsx'
 import { partitionSteps } from './lib/runtime.js'
 
 // Dev-only harness routes: ?models=1 (model gallery) and ?matrix=1 (animation
@@ -174,11 +173,10 @@ function MainApp() {
   return (
     <div className="app">
       <div className="topbar">
-        <Button variant="ghost" size="sm" onClick={() => go('home')}>← Home</Button>
-        <div className="brand">
+        <button type="button" className="brand brand-btn" onClick={() => go('home')} title="Back to home">
           <span className="dot" /> benchpilot
           {source && <small>&nbsp;· {source}</small>}
-        </div>
+        </button>
         <span className="spacer" />
       </div>
       <Intake protocol={protocol} notes={notes} answers={answers} setAnswers={setAnswers} onStart={() => go('run')} lang={lang} />
