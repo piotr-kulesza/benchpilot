@@ -368,7 +368,7 @@
   animation: pl-in var(--dur) var(--ease); }
 .pl-inner { display: flex; flex-direction: column; align-items: center; gap: var(--sp-8); padding: var(--sp-8); text-align: center; }
 .pl-stage { display: flex; align-items: center; gap: var(--sp-5); }
-.pl-card { width: 208px; padding: var(--sp-5); border-radius: var(--r-4); background: var(--c-raised); box-shadow: var(--elev-2); display: flex; flex-direction: column; }
+.pl-card { width: 208px; height: 172px; box-sizing: border-box; padding: var(--sp-5); border-radius: var(--r-4); background: var(--c-raised); box-shadow: var(--elev-2); display: flex; flex-direction: column; justify-content: center; }
 .pl-prose { gap: 11px; position: relative; overflow: hidden; }
 .pl-line { height: 9px; border-radius: var(--r-pill); background: var(--c-raised-3); }
 .pl-scan { position: absolute; left: 0; right: 0; top: 0; height: 54px; pointer-events: none;
