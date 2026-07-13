@@ -29,9 +29,7 @@ export default function Home({ examples, onPickExample, onParse, parseState }) {
           <div className="brand home-brand"><BrandWord /></div>
           <h1>Paste a messy lab protocol → a runnable, timed, gap-flagged 3D walkthrough you can follow at the bench.</h1>
           <p className="home-sub">
-            Protocols are written to be archived, not to be followed. benchpilot turns the prose
-            into a run — live timers, hazards up front, the missing numbers asked about before
-            you start, and one sample moving through the real glassware.
+            Protocols are written to be archived, not to be followed. benchpilot turns the prose into a run.
           </p>
           <div className="hero-cta">
             {featured && (
