@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import Home from './components/Home.jsx'
 import Intake from './components/Intake.jsx'
 import BrandWord from './ui/BrandWord.jsx'
+import ParseLoading from './components/ParseLoading.jsx'
 import Runner from './components/Runner.jsx'
 import { partitionSteps } from './lib/runtime.js'
 import { makeRunId, orphanRunKeys } from './lib/runState.js'
@@ -209,5 +210,10 @@ function MainApp() {
     )
   }
 
-  return page
+  return (
+    <>
+      {page}
+      {parseState.status === 'loading' && <ParseLoading />}
+    </>
+  )
 }

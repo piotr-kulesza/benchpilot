@@ -359,6 +359,35 @@
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
 
+/* ── "Reading your protocol" — a full-screen, HONEST loading state. Indeterminate on
+   purpose: no fake ETA, no progress bar measuring nothing. The left card is messy prose
+   being scanned; the right card resolves into a runnable structure — the product's thesis,
+   in motion. ─────────────────────────────────────────────────────────────────────────── */
+.parse-loading { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--c-surface) 90%, transparent); backdrop-filter: blur(7px);
+  animation: pl-in var(--dur) var(--ease); }
+.pl-inner { display: flex; flex-direction: column; align-items: center; gap: var(--sp-8); padding: var(--sp-8); text-align: center; }
+.pl-stage { display: flex; align-items: center; gap: var(--sp-5); }
+.pl-card { width: 208px; padding: var(--sp-5); border-radius: var(--r-4); background: var(--c-raised); box-shadow: var(--elev-2); display: flex; flex-direction: column; }
+.pl-prose { gap: 11px; position: relative; overflow: hidden; }
+.pl-line { height: 9px; border-radius: var(--r-pill); background: var(--c-raised-3); }
+.pl-scan { position: absolute; left: 0; right: 0; top: 0; height: 54px; pointer-events: none;
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--c-accent) 26%, transparent) 50%, transparent);
+  animation: pl-sweep 2s cubic-bezier(.4, 0, .2, 1) infinite; }
+.pl-arrow { color: var(--c-ink-faint); font-size: 1.6rem; animation: pl-pulse 2s ease infinite; }
+.pl-run { gap: 13px; }
+.pl-step { display: flex; align-items: center; gap: 10px; opacity: 0; animation: pl-resolve 2.2s ease infinite; }
+.pl-dot { width: 15px; height: 15px; border-radius: var(--r-pill); background: var(--c-accent); flex: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent) 18%, transparent); }
+.pl-bar { height: 9px; border-radius: var(--r-pill); background: color-mix(in srgb, var(--c-accent) 34%, var(--c-raised-3)); }
+.pl-copy { display: flex; flex-direction: column; gap: var(--sp-2); max-width: 32rem; }
+.pl-title { font-size: var(--fs-title); font-weight: 600; letter-spacing: -0.01em; color: var(--c-ink); }
+.pl-sub { color: var(--c-ink-dim); line-height: var(--lh); }
+@keyframes pl-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pl-sweep { 0% { transform: translateY(-58px); opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 100% { transform: translateY(196px); opacity: 0; } }
+@keyframes pl-resolve { 0%, 8% { opacity: 0; transform: translateY(5px); } 26%, 82% { opacity: 1; transform: none; } 100% { opacity: 0.16; transform: none; } }
+@keyframes pl-pulse { 0%, 100% { opacity: 0.45; transform: translateX(-2px); } 50% { opacity: 1; transform: translateX(2px); } }
+@media (prefers-reduced-motion: reduce) { .pl-scan, .pl-arrow { animation: none; } .pl-step { animation: none; opacity: 1; } }
+
 /* the WebGL fallback fills the stage calmly */
 .stage-fallback { position: absolute; inset: 0; display: grid; place-items: center; background: var(--c-sunken); }
 
