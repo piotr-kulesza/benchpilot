@@ -430,16 +430,31 @@ export function configureStation(st, o) {
       S[vessel].userData.setLevel(evolve(p) + Math.sin(p * 26) * 0.02) // surface ripple over carried level
     }
   } else if (action === 'vortex_mix') {
-    // a real VORTEX MIXER; the vessel presses into its rubber cup and shakes.
-    const mixer = demo.buildVortexMixer()
-    st.group.add(mixer)
-    st.updatables.push(mixer)
-    st.enter = () => seat(0, 0.82, 0) // seated in the mixer cup
-    st.timeline = (p) => {
-      const v = S[vessel]
-      evolve(p) // holds the carried contents (start == end for a vortex)
-      v.rotation.z = Math.sin(p * 46) * 0.16 // rapid orbital wobble in the cup
-      v.rotation.x = Math.cos(p * 46) * 0.08
+    if (FLAT) {
+      // A FLAT vessel (plate / dish / membrane / slide / gel / culture flask) can't press
+      // into a tube vortexer, and TILTING one dips a corner THROUGH THE FLOOR. Agitate it in
+      // place instead: a tight in-plane orbital jiggle on the bench — stays flat, never leaves
+      // the surface, reads as mixing. No tube-vortexer device (it doesn't belong under a plate).
+      st.enter = () => seat(0, SEAT_Y, 0)
+      st.timeline = (p) => {
+        const v = S[vessel]
+        evolve(p)
+        v.rotation.set(0, 0, 0) // stay flat on the bench
+        const a = p * 40
+        S.at(v, st.x + Math.cos(a) * 0.05, 0, Math.sin(a) * 0.05)
+      }
+    } else {
+      // a real VORTEX MIXER; the tube presses into its rubber cup and shakes.
+      const mixer = demo.buildVortexMixer()
+      st.group.add(mixer)
+      st.updatables.push(mixer)
+      st.enter = () => seat(0, 0.82, 0) // seated in the mixer cup
+      st.timeline = (p) => {
+        const v = S[vessel]
+        evolve(p) // holds the carried contents (start == end for a vortex)
+        v.rotation.z = Math.sin(p * 46) * 0.16 // rapid orbital wobble in the cup
+        v.rotation.x = Math.cos(p * 46) * 0.08
+      }
     }
   } else if (action === 'homogenize') {
     // MANUAL homogenization: a syringe dips into the tube and the plunger pumps
