@@ -71,7 +71,7 @@ export default function Home({ examples, onPickExample, onParse, parseState }) {
         </div>
         {busy && (
           <div className="state inline"><span className="spinner" aria-hidden="true" />
-            <span>Reading your protocol… usually 10–20&nbsp;s.</span></div>
+            <span>Reading your protocol…</span></div>
         )}
         {parseState?.status === 'error' && (
           <Alert tone="warn">{parseState.message} The examples below still run.</Alert>

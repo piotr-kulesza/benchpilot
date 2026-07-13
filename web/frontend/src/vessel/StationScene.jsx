@@ -15,7 +15,7 @@ import { PerspectiveCamera } from '@react-three/drei'
 import { FogExp2, Color, Vector3, Box3, Group, Mesh, RingGeometry, SphereGeometry, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
 import { resolveRecipe, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects } from './sceneRecipe.js'
-import { containerContract, resolveInstrument, transferKind } from './containerContract.js'
+import { containerContract, resolveInstrument, isInstrumentReading, transferKind } from './containerContract.js'
 import { reagentName, reagentVolume, effectiveStep, selectAlternative, hasAlternatives } from '../lib/runtime.js'
 import * as demo from '../scene/demoScene.js'
 import { resolveScenePreset } from '../scene/scenePresets.js'
@@ -298,6 +298,7 @@ export function configureStation(st, o) {
     if (name) v.userData.setLabel(name, vol || '')
     v.userData.setColor(startColor)
     v.userData.setLevel(startLevel)
+    if (v.userData.setCap) v.userData.setCap(true) // a capped vessel arrives SEALED; a pour opens it
     v.visible = true
     v.rotation.set(0, 0, 0)
     v.scale.setScalar(1) // clear any per-station scale (e.g. the thermocycler's shrunk tube)
@@ -343,6 +344,7 @@ export function configureStation(st, o) {
       st.enter = () => { seat(0, SEAT_Y, 0); demo.pipRest(st); prep.userData.setLevel(PREP_FULL) }
       st.timeline = (p) => {
         const v = S[vessel]
+        if (v.userData.setCap) v.userData.setCap(!(p > 0.1 && p < 0.95)) // uncap to receive
         demo.pipetteRun(st, new Vector3(draw.x, draw.y, draw.z), { x: disp.x, y: toY, z: disp.z }, p,
           { color: streamColor, fill: 0.8, approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: C.entryPoint })
         const done = (p > 0.62 ? demo.easeInOut((p - 0.62) / 0.38) : 0)
@@ -359,6 +361,7 @@ export function configureStation(st, o) {
       st.enter = () => { seat(0, SEAT_Y, 0); demo.pipRest(st) }
       st.timeline = (p) => {
         const v = S[vessel]
+        if (v.userData.setCap) v.userData.setCap(!(p > 0.1 && p < 0.95)) // uncap for the passes
         const n = reags.length, seg = 1 / n
         const k = Math.min(n - 1, Math.floor(p / seg))
         const lp = demo.clamp((p - k * seg) / seg, 0, 1)
@@ -743,7 +746,15 @@ export function configureStation(st, o) {
     // 96-well plate on a PLATE READER, a tube on a NanoDrop, a culture flask under an
     // INVERTED MICROSCOPE, a slide under a LIGHT MICROSCOPE (100× oil), a gel on a UV
     // TRANSILLUMINATOR. The vessel rests on/in the instrument while it reads — no spin.
-    const inst = resolveInstrument('measure', container)
+    let inst = resolveInstrument('measure', container)
+    // GUARD (Stage 38): a wrong instrument is worse than a missing one. If the container maps
+    // to a device but the step isn't actually a modelled reading/observation (e.g. "weigh the
+    // crystals" — no balance in the vocabulary), do NOT put the vessel on a plausible-looking
+    // device. Rest it on the bench, and warn so the unmodelled (measure, container) is visible.
+    if (inst !== 'bench' && !isInstrumentReading(o.text)) {
+      console.warn(`[benchpilot] measure "${(o.text || '').slice(0, 60)}" on ${container} is not a modelled instrument reading — resting on the bench, not faking ${inst}.`)
+      inst = 'bench'
+    }
     // rest the sample on an instrument's stage at its stated height (flat vessels are
     // otherwise pinned to the bench by seat()'s FLAT guard), reading progress ramping.
     const onStage = (dev, sy, k = 1.3) => {
@@ -993,7 +1004,8 @@ function stationParams(baseStep, lang, altIdx, chain, producedInRun) {
   // this run; a do-ahead buffer (in the intake checklist) stays a normal bottle.
   const drawsFrom = (step.draws_from && producedInRun && producedInRun.has(step.draws_from)) ? step.draws_from : null
   return { action: step.action, equipment, colorHex, vol, title, sub, seconds: step.duration_seconds, start, end, cycles, reagents,
-           target: step.target || 'sample', produces: step.produces || null, drawsFrom }
+           target: step.target || 'sample', produces: step.produces || null, drawsFrom,
+           text: step.text_en || step.text || '' }
 }
 
 export default function StationScene({ protocol, activeIndex = 0, lang = 'en', altByStep = {}, timerRef: timerProp, chromeless = false }) {
@@ -1139,7 +1151,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       configureStation(st, {
         action: o.action, equipment: o.equipment, container, prevContainer, color: o.colorHex, name: o.title, vol: o.vol, seconds: o.seconds,
         startColor: o.start.color, startLevel: o.start.level, endColor: o.end.color, endLevel: o.end.level, cycles: o.cycles, reagents: o.reagents,
-        drawsFrom: o.drawsFrom, produces: o.produces,
+        drawsFrom: o.drawsFrom, produces: o.produces, text: o.text,
       })
       // MEASURE the framing from the equipment now — group is still at the origin and
       // carries only the instrument (not the label/decal added below), so this is the

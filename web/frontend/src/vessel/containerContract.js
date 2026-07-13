@@ -45,11 +45,11 @@ export const CONTAINER_CONTRACT = {
   tube:        { vessel: 'tube',      orientation: 'upright', flat: false, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.9, z: 0, approach: 'top' }, entryPoint: 0.55, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
   spin_column: { vessel: 'column',    orientation: 'upright', flat: false, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 1.35, z: 0, approach: 'top' }, entryPoint: 1.2, liquid: 'column', emptyMotion: 'tip', framing: 'tall', nestsIn: ['tube', 'eluate_tube', 'microtube'] },
   eluate_tube: { vessel: 'elu',       orientation: 'upright', flat: false, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.7, z: 0, approach: 'top' }, entryPoint: 0.42, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
-  cryovial:    { vessel: 'cryovial',  orientation: 'upright', flat: false, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.7, z: 0, approach: 'top' }, entryPoint: 0.45, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
+  cryovial:    { vessel: 'cryovial',  orientation: 'upright', flat: false, capped: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.7, z: 0, approach: 'top' }, entryPoint: 0.45, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
   bottle:      { vessel: 'tube',      orientation: 'upright', flat: false, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.9, z: 0, approach: 'top' }, entryPoint: 0.7, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
   // flat-lying vessels — seat on the bench, aspirated (NEVER tipped), wide framing
   well_plate:  { vessel: 'wellplate', orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: -0.98, y: 0.55, z: 0.77, approach: 'top' }, entryPoint: 0.5, liquid: 'well', emptyMotion: 'aspirate', framing: 'wide' },
-  flask:       { vessel: 'flask',     orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 1.45, y: 1.0, z: 0.41, approach: 'angled', tilt: -0.62, depth: 0.95 }, liquid: 'shallow', emptyMotion: 'aspirate', framing: 'wide', contentsState: 'monolayer' },
+  flask:       { vessel: 'flask',     orientation: 'flat', flat: true, capped: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 1.45, y: 1.0, z: 0.41, approach: 'angled', tilt: -0.62, depth: 0.95 }, liquid: 'shallow', emptyMotion: 'aspirate', framing: 'wide', contentsState: 'monolayer' },
   dish:        { vessel: 'dish',      orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.35, z: 0, approach: 'top' }, entryPoint: 0.3, liquid: 'shallow', emptyMotion: 'aspirate', framing: 'wide' },
   slide:       { vessel: 'slide',     orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0.35, y: 0.35, z: 0, approach: 'top' }, entryPoint: 0.3, liquid: 'film', emptyMotion: 'aspirate', framing: 'wide', nestsIn: ['staining_tray'] },
   membrane:    { vessel: 'membrane',  orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.35, z: 0, approach: 'top' }, entryPoint: 0.3, liquid: 'bands', emptyMotion: 'aspirate', framing: 'wide' },
@@ -126,10 +126,21 @@ const FAMILY = {
   measure: ['plate_reader', 'nanodrop', 'inverted_microscope', 'light_microscope', 'uv_transilluminator'],
 }
 
-// Resolve (family, container) → instrument id, or 'bench' when nothing fits.
+// Resolve (family, container) → instrument id, or 'bench' when nothing fits. The fallback
+// ALWAYS terminates at the bench — never at a merely-plausible device.
 export function resolveInstrument(family, container) {
   for (const id of FAMILY[family] || []) {
     if (INSTRUMENTS[id].accepts.includes(container)) return id
   }
   return 'bench'
+}
+
+// A `measure` earns an INSTRUMENT only when the step actually describes a reading or an
+// observation we model. An UNMODELLED measure — "dry the crystals and weigh them"; there is
+// no balance in the vocabulary — must NOT borrow the nearest-looking device (a flask on a
+// microscope). It rests on the bench: a wrong instrument is worse than a missing one. This is
+// a keyword whitelist of the instruments + observations we DO model; anything else → bench.
+const READING_RE = /\b(nanodrop|bioanalyz|tapestation|spectrophotom|spectromet|fluoromet|luminomet|qubit|absorbance|fluoresc|microscop|transillumin|illuminat|photograph|densitomet|imag(?:e|ing|er)|h[ae]mocytomet|cytomet|confluen|viabilit|morpholog|monolayer|cells?|bands?|a260|a280|od600|\brin\b|visuali[sz]|examin|observ|inspect|monitor|count|read|reader|quantif|spectr|\buv\b|\bod\b|\bnm\b)/i
+export function isInstrumentReading(text) {
+  return READING_RE.test(String(text || ''))
 }

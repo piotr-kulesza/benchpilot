@@ -1843,11 +1843,12 @@ export {
     // EXTERNAL screw thread near the top of the body
     for(var t=0;t<4;t++){ var thr=new THREE.Mesh(new THREE.TorusGeometry(R*0.95,0.015,8,28), pp);
       thr.rotation.x=Math.PI/2; thr.position.y=top-0.06-t*0.075; grp.add(thr); }
-    // colour-coded ribbed screw cap
+    // colour-coded ribbed screw cap — cap + ribs in ONE group so setCap lifts them together
+    var cryoCapGrp=new THREE.Group(); cryoCapGrp.position.y=top+0.09; grp.add(cryoCapGrp);
     var cap=new THREE.Mesh(new THREE.CylinderGeometry(R*1.06,R*1.06,0.2,28), matPlastic(0x8f2f6a));
-    cap.position.y=top+0.09; grp.add(cap);
+    cryoCapGrp.add(cap);
     for(var r=0;r<22;r++){ var ra=r/22*Math.PI*2; var rib=new THREE.Mesh(new THREE.BoxGeometry(0.012,0.16,0.026), matPlastic(0x8f2f6a));
-      rib.position.set(Math.cos(ra)*R*1.07,top+0.09,Math.sin(ra)*R*1.07); rib.rotation.y=-ra; grp.add(rib); }
+      rib.position.set(Math.cos(ra)*R*1.07,0,Math.sin(ra)*R*1.07); rib.rotation.y=-ra; cryoCapGrp.add(rib); }
     var liq=new THREE.Mesh(new THREE.CylinderGeometry(R*0.82,R*0.72,1,24), liquidMat());
     grp.add(liq);
     var label=makeLabel("",""); label.position.set(0,top+0.55,0); grp.add(label);
@@ -1855,6 +1856,17 @@ export {
       var h=Math.max(0.02, lv*(bodyH*0.8)); liq.scale.set(1,h,1); liq.position.y=0.28+h/2;
       liq.material.color.copy(color); liq.material.emissive.copy(color);
     }, label);
+    // CAP (Stage 38): off to pour in, back on after — same as the flask/bottle.
+    var cryoCap={ open:0, tOpen:0 };
+    grp.userData.setCap=function(on){ cryoCap.tOpen = on ? 0 : 1; };
+    var _cryoUpd=grp.userData.update;
+    grp.userData.update=function(dt){
+      if(_cryoUpd) _cryoUpd(dt);
+      cryoCap.open = lerp(cryoCap.open, cryoCap.tOpen, 1-Math.pow(0.0009,dt));
+      var o=cryoCap.open;
+      cryoCapGrp.position.set(-o*0.2, top+0.09 + o*0.4, 0);
+      cryoCapGrp.rotation.z = o*1.15;
+    };
     return grp;
   }
 
@@ -1925,10 +1937,12 @@ export {
     neckPivot.rotation.z=-0.62;                               // cant out toward the corner
     var neck=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.2,0.52,24), psMat.clone());
     neck.position.y=0.24; neckPivot.add(neck);
+    // cap + its ribs live in ONE group so setCap can lift them off the neck together
+    var flaskCapGrp=new THREE.Group(); flaskCapGrp.position.y=0.55; neckPivot.add(flaskCapGrp);
     var cap=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,0.18,28), matPlastic(0x3f7fd0));
-    cap.position.y=0.55; neckPivot.add(cap);
+    flaskCapGrp.add(cap);
     for(var rc=0;rc<18;rc++){ var ra=rc/18*Math.PI*2; var rib=new THREE.Mesh(new THREE.BoxGeometry(0.012,0.14,0.026), matPlastic(0x3f7fd0));
-      rib.position.set(Math.cos(ra)*0.205,0.55,Math.sin(ra)*0.205); rib.rotation.y=-ra; cap.parent.add(rib); }
+      rib.position.set(Math.cos(ra)*0.205,0,Math.sin(ra)*0.205); rib.rotation.y=-ra; flaskCapGrp.add(rib); }
     // MEDIUM — a shallow layer flooding the flat base (NOT a tall column)
     var liq=new THREE.Mesh(new THREE.BoxGeometry(L-0.22,1,W-0.22), liquidMat());
     grp.add(liq);
@@ -1965,6 +1979,18 @@ export {
     // (film gone, cells rounded up and suspended in the medium).
     grp.userData.setMono=function(v){ monoMat.opacity=clamp(v,0,1)*0.5; placeCells(v); };
     grp.userData.setMono(1);
+    // CAP (Stage 38): you take the cap OFF to pour in and put it back ON — the same
+    // treatment bottles get. setCap(true)=sealed; setCap(false)=lifted up the neck + aside.
+    var flaskCap={ open:0, tOpen:0 };
+    grp.userData.setCap=function(on){ flaskCap.tOpen = on ? 0 : 1; };
+    var _flaskUpd=grp.userData.update;
+    grp.userData.update=function(dt){
+      if(_flaskUpd) _flaskUpd(dt);
+      flaskCap.open = lerp(flaskCap.open, flaskCap.tOpen, 1-Math.pow(0.0009,dt));
+      var o=flaskCap.open;
+      flaskCapGrp.position.set(-o*0.16, 0.55 + o*0.5, 0); // lift off + slide aside
+      flaskCapGrp.rotation.z = o*1.1;                      // tilt aside
+    };
     return grp;
   }
 
@@ -2211,6 +2237,9 @@ export {
         b.userData.setCap(!(p>0.03 && p<0.36));
         b.userData.setLevel(1 - 0.22*clamp(p/0.30,0,1));
       }
+      // the RECEIVING vessel (flask / cryovial) uncaps BEFORE the tip reaches its neck and
+      // re-caps once it leaves — a tip through a closed cap is the same lie as through glass.
+      if(v.userData.setCap) v.userData.setCap(!(p>0.1 && p<0.95));
       // for an ANGLED neck the dispense point is the neck MOUTH (its own height),
       // NOT the seat plane — otherwise the tip dips onto the flat top face.
       var toY = (disp.approach==='angled' && disp.y!=null) ? disp.y : Y;
