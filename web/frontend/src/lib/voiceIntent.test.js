@@ -32,14 +32,37 @@ describe('local fast path', () => {
     ['pause', 'pause_timer'], ['pause the timer', 'pause_timer'], ['hold on', 'pause_timer'],
     ['reset', 'reset_timer'], ['reset the timer', 'reset_timer'],
     ['how long is left', 'time_remaining'], ['how much time remaining', 'time_remaining'],
-    ["I've added the ethanol, count a pass", 'count_pass'], ['another pass', 'count_pass'],
+    ['count a pass', 'count_pass'], ['another pass', 'count_pass'],
     ['repeat this step', 'repeat_step'], ['do that again', 'repeat_step'],
+    ['how many steps to go', 'steps_remaining'], ['steps left', 'steps_remaining'],
+    ['skip this step', 'skip_step'],
+    // filler-tolerant, but still an EXACT command underneath
+    ['ok next please', 'next'], ['um, pause the timer', 'pause_timer'], ['next step please', 'next'],
   ]
   for (const [text, action] of cases) {
     it(`"${text}" → ${action}`, () => {
       expect(localIntent(text)?.action).toBe(action)
     })
   }
+
+  // THE Stage-37 invariant: the fast path only ever returns a confident exact match, else
+  // null (fall through to Claude). It NEVER returns 'unknown', and it never SWALLOWS an
+  // utterance whose meaning is not that bare command.
+  it('never returns unknown — a non-match is null, deferred to Claude', () => {
+    const deferred = [
+      'back to the ethanol step',      // means goto, NOT back
+      'how long do I spin',            // a protocol QUESTION, not "time left"
+      "I've added the ethanol, count a pass", // a sentence, not the bare command
+      'do I centrifuge after this',
+      'which buffer did I add three steps ago',
+      'is 2-mercaptoethanol in this one',
+      'put me back on the spin',
+    ]
+    for (const u of deferred) {
+      const r = localIntent(u)
+      expect(r, `"${u}" should defer`).toBeNull()
+    }
+  })
   it('resolves an explicit goto locally, extracting the step number', () => {
     expect(localIntent('go to step 11')).toEqual({ action: 'goto', args: { step: 11 }, confidence: 1 })
     expect(localIntent('jump to 3')).toMatchObject({ action: 'goto', args: { step: 3 } })
@@ -118,6 +141,22 @@ describe('resolveIntent', () => {
     expect(llm).toHaveBeenCalledOnce()
   })
 
+  it('a protocol QUESTION defers to Claude and returns an answer to be spoken', async () => {
+    const llm = vi.fn(async (_sys, user) => {
+      expect(user).toContain('which buffer did I add three steps ago')
+      return '{"action":"answer","args":{"text":"You added RW1 buffer."},"confidence":0.9}'
+    })
+    const r = await resolveIntent({ transcript: 'benchpilot which buffer did I add three steps ago', context: ctx, llm })
+    expect(r).toMatchObject({ action: 'answer', args: { text: 'You added RW1 buffer.' }, source: 'llm' })
+  })
+
+  it('an out-of-protocol question comes back as "the protocol doesn\'t say", not a guess', async () => {
+    const llm = vi.fn(async () => '{"action":"answer","args":{"text":"The protocol doesn\'t say."},"confidence":0.9}')
+    const r = await resolveIntent({ transcript: 'benchpilot what temperature is the room', context: ctx, llm })
+    expect(r).toMatchObject({ action: 'answer' })
+    expect(r.args.text).toMatch(/doesn't say/i)
+  })
+
   it('degrades to unknown (not a crash) when the llm throws', async () => {
     const llm = vi.fn(async () => { throw new Error('network down') })
     const r = await resolveIntent({ transcript: 'benchpilot which reagent is this', context: ctx, llm })
@@ -152,16 +191,33 @@ describe('resolveCommand (bare command — the armed-window seam, no wake word)'
 })
 
 describe('buildIntentUser', () => {
-  it('summarises timer + alternatives + open question compactly', () => {
+  it('summarises the current step, timer, alternatives + open question', () => {
     const u = buildIntentUser('use the micro kit', {
       stepNumber: 3, stepCount: 24, stepText: 'Bind the RNA',
       hasTimer: false, alternatives: ['Mini kit', 'Micro kit'],
       openQuestion: { key: 'kit', prompt: 'Which kit?', options: [{ value: 'mini', label: 'Mini' }, { value: 'micro', label: 'Micro' }] },
     })
-    expect(u).toContain('Step 3 of 24')
-    expect(u).toContain('Timer: none')
+    expect(u).toContain('step 3 of 24')
+    expect(u).toContain('TIMER: none')
     expect(u).toContain('[1] Micro kit')
     expect(u).toContain('key "kit"')
-    expect(u).toContain('User said: "use the micro kit"')
+    expect(u).toContain('USER SAID: "use the micro kit"')
+  })
+
+  it('carries the WHOLE protocol so Claude can answer about past/future/materials', () => {
+    const u = buildIntentUser('how many spins are left', {
+      stepNumber: 6, stepCount: 26, stepText: 'Centrifuge 15 s', stepAction: 'centrifuge',
+      reagents: [{ name: 'RW1 buffer', volume: '350 µl' }], hazards: ['Do NOT vortex'],
+      hasTimer: false,
+      materials: ['RLT buffer', '2-mercaptoethanol'],
+      outline: [{ n: 1, title: 'On ice' }, { n: 6, title: 'Spin' }, { n: 24, title: 'Elute' }],
+      answers: { kit: 'micro' },
+    })
+    expect(u).toContain('RW1 buffer (350 µl)')
+    expect(u).toContain('hazards: Do NOT vortex')
+    expect(u).toContain('MATERIALS: RLT buffer, 2-mercaptoethanol')
+    expect(u).toContain('PROTOCOL OUTLINE')
+    expect(u).toContain('24. Elute')
+    expect(u).toContain('INTAKE ANSWERS: kit=micro')
   })
 })

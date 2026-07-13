@@ -53,10 +53,10 @@ describe('dispatchIntent — timer', () => {
     dispatchIntent({ action: 'pause_timer', confidence: 1 }, c, { hasTimer: true, running: true })
     expect(c.pauseTimer).toHaveBeenCalledOnce()
   })
-  it('time_remaining is read-only and reports minutes+seconds', () => {
+  it('time_remaining is read-only and SPEAKS natural language (not "1m 35s")', () => {
     const c = mkControls()
     const r = dispatchIntent({ action: 'time_remaining', confidence: 1 }, c, { hasTimer: true, remaining: 95 })
-    expect(r).toMatchObject({ ok: true, message: '1m 35s remaining' })
+    expect(r).toMatchObject({ ok: true, message: '1 minute 35 seconds remaining', speak: '1 minute 35 seconds remaining' })
     expect(Object.values(c).every((fn) => fn.mock.calls.length === 0)).toBe(true)
   })
 })
@@ -137,5 +137,46 @@ describe('dispatchIntent — passes, alternatives, answers', () => {
     const r2 = dispatchIntent({ action: 'add_note', args: { text: '  ' }, confidence: 1 }, c2, {})
     expect(c2.addNote).not.toHaveBeenCalled()
     expect(r2.ok).toBe(false)
+  })
+})
+
+describe('dispatchIntent — the app SPEAKS what it knows (answers)', () => {
+  it('answer relays Claude\'s text to be SPOKEN, marks it kind:answer, and never acts', () => {
+    const c = mkControls()
+    const r = dispatchIntent({ action: 'answer', args: { text: 'You added RW1 buffer three steps ago.' }, confidence: 0.9 }, c, {})
+    expect(r).toMatchObject({ ok: true, speak: 'You added RW1 buffer three steps ago.', kind: 'answer', cue: null })
+    expect(Object.values(c).every((fn) => fn.mock.calls.length === 0)).toBe(true)
+  })
+  it('"the protocol doesn\'t say" is a first-class SPOKEN answer, not a rejection', () => {
+    const c = mkControls()
+    const r = dispatchIntent({ action: 'answer', args: { text: "The protocol doesn't say." }, confidence: 0.9 }, c, {})
+    expect(r).toMatchObject({ ok: true, kind: 'answer', speak: "The protocol doesn't say." })
+  })
+  it('a low-confidence QUESTION still answers — the gate only guards state changes', () => {
+    const c = mkControls()
+    const r = dispatchIntent({ action: 'answer', args: { text: 'Two spins remain.' }, confidence: 0.3 }, c, {})
+    expect(r).toMatchObject({ ok: true, kind: 'answer' }) // read-only → not gated out
+  })
+  it('steps_remaining counts across the protocol and speaks it', () => {
+    const c = mkControls()
+    const r = dispatchIntent({ action: 'steps_remaining', confidence: 1 }, c, { stepIndex: 5, stepCount: 26 })
+    expect(r).toMatchObject({ ok: true, speak: '20 steps to go.', kind: 'answer' })
+    const last = dispatchIntent({ action: 'steps_remaining', confidence: 1 }, mkControls(), { stepIndex: 25, stepCount: 26 })
+    expect(last.speak).toBe('This is the last step.')
+  })
+})
+
+describe('dispatchIntent — skip and cancel', () => {
+  it('skip_step advances via the SAME next control (one source of truth)', () => {
+    const c = mkControls()
+    const r = dispatchIntent({ action: 'skip_step', confidence: 1 }, c, { stepIndex: 3, stepCount: 26 })
+    expect(c.next).toHaveBeenCalledOnce()
+    expect(r).toMatchObject({ ok: true, message: 'Skipped' })
+  })
+  it('cancel stands down silently — no cue, nothing touched', () => {
+    const c = mkControls()
+    const r = dispatchIntent({ action: 'cancel', confidence: 1 }, c, {})
+    expect(r.cue).toBeNull()
+    expect(Object.values(c).every((fn) => fn.mock.calls.length === 0)).toBe(true)
   })
 })
