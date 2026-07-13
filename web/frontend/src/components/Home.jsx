@@ -43,7 +43,7 @@ export default function Home({ examples, onPickExample, onParse, parseState }) {
         <HomeHero />
       </header>
 
-      <Panel id="byo" title="Bring your own" sub="Drop a file or paste the text. Usually ready in 10–20 s.">
+      <Panel id="byo" title="Bring your own" sub="Drop a file or paste the text.">
         <div className="upload-grid">
           <div
             className={`filedrop${drag ? ' drag' : ''}${busy ? ' disabled' : ''}`}
@@ -78,7 +78,7 @@ export default function Home({ examples, onPickExample, onParse, parseState }) {
         )}
       </Panel>
 
-      <Panel title="Or run an example" sub="Eight techniques benchpilot was never tuned for, plus the RNA reference. Each one runs instantly and renders its own equipment.">
+      <Panel title="Or run an example">
         <div className="ex-grid">
           {examples.map((ex) => {
             const thumb = heroThumb(ex.id)
