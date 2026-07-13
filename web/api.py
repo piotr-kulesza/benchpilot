@@ -75,7 +75,9 @@ def parse_text(req: ParseTextRequest) -> dict:
     """Parse pasted protocol text and return the schema dict."""
     _require_key()
     text = ingest(req.text)
-    protocol = parse_protocol(text, source="pasted")
+    # use_cache=False: the serverless filesystem is read-only, so core's disk cache
+    # would raise. Each request parses fresh.
+    protocol = parse_protocol(text, source="pasted", use_cache=False)
     return protocol.to_dict()
 
 
@@ -125,7 +127,7 @@ async def parse_file(file: UploadFile = File(...)) -> dict:
         fh.write(await file.read())
     try:
         text = ingest(tmp)
-        protocol = parse_protocol(text, source=file.filename or "upload")
+        protocol = parse_protocol(text, source=file.filename or "upload", use_cache=False)
         return protocol.to_dict()
     finally:
         try:

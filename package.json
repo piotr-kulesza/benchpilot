@@ -1,0 +1,8 @@
+{
+  "name": "benchpilot",
+  "private": true,
+  "description": "Root build shim for Vercel: builds the Vite frontend in web/frontend so its dist mounts at the site root, alongside the Python API in /api.",
+  "scripts": {
+    "build": "npm --prefix web/frontend install && npm --prefix web/frontend run build"
+  }
+}

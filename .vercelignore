@@ -1,0 +1,29 @@
+# .vercelignore REPLACES .gitignore for Vercel uploads, so it must list EVERYTHING to skip.
+# Secrets and caches must never reach the build/function bundle.
+.env
+.env.*
+.cache
+.pytest_cache
+.venv
+.git
+.vercel
+.DS_Store
+.claude
+
+# dependencies + build artifacts are rebuilt remotely
+node_modules
+web/frontend/node_modules
+web/frontend/dist
+
+# dev-only material the deploy never needs
+dev-shots
+web/frontend/dev-shots
+tests
+docs
+prompts
+outputs
+scripts
+
+# web/api.py is the LOCAL-dev server; the deployed API is api/index.py (avoids a
+# second, competing Python entrypoint)
+web/api.py

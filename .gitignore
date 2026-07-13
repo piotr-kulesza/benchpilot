@@ -19,3 +19,11 @@ outputs/*.html
 
 # OS
 .DS_Store
+.vercel
+
+# Vercel / uv / npm build artifacts (regenerated on build; never committed)
+/node_modules
+/package-lock.json
+/pyproject.toml
+/uv.lock
+/.python-version
