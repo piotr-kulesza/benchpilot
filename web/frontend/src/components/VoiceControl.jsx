@@ -9,6 +9,21 @@ import { isScratch, isSaveNote } from '../lib/noteDictation.js'
 const API_BASE = import.meta.env.VITE_API_BASE || ''
 const CONFIRM_WINDOW_MS = 8000 // how long a "say it again" reset stays armed
 
+// SPEECH — the deliberate reversal (Stage 37): an ANSWER is read aloud. Web Speech Synthesis,
+// so no backend and no key. Sounds are for what the app DID; speech is for what it KNOWS. It
+// must be interruptible — a new wake word stops it instantly (stopSpeech, called on wake).
+function speak(text) {
+  try {
+    const synth = typeof window !== 'undefined' && window.speechSynthesis
+    if (!synth || !text) return
+    synth.cancel() // never let two answers overlap
+    const u = new SpeechSynthesisUtterance(String(text))
+    u.rate = 1.03
+    synth.speak(u)
+  } catch { /* speech is a bonus; it must never break the runner */ }
+}
+function stopSpeech() { try { window.speechSynthesis?.cancel() } catch { /* ignore */ } }
+
 // The default production llm for the long tail: a thin relay to the backend, which holds
 // the API key and calls a small fast model. No key ever reaches the browser. If the backend
 // is absent it throws → resolveCommand degrades to `unknown` and the local fast path keeps
@@ -49,7 +64,7 @@ export default function VoiceControl({ controls, context, board: boardProp, note
   // otherwise arm on the wake word (instantly) or just keep the window open.
   const onInterim = useCallback((text) => {
     if (noteRef.current?.active) { noteRef.current.interim(text); return }
-    if (hasWake(text)) arming.wake()
+    if (hasWake(text)) { stopSpeech(); arming.wake() } // a new wake word interrupts a spoken answer
     else if (arming.armed) arming.speech()
   }, [arming])
 
@@ -66,7 +81,7 @@ export default function VoiceControl({ controls, context, board: boardProp, note
     }
 
     const addressed = hasWake(transcript)
-    if (addressed) arming.wake()                 // ensure armed (idempotent; blips only if new)
+    if (addressed) { stopSpeech(); arming.wake() } // a new wake word interrupts a spoken answer + arms
     if (!addressed && !arming.armed) return       // not addressed and not armed → ignore, stay private
 
     const body = addressed ? stripWake(transcript) : String(transcript || '').trim()
@@ -75,6 +90,9 @@ export default function VoiceControl({ controls, context, board: boardProp, note
     if (isCancel(body)) { arming.cancel(); setLine({ heard: body, message: 'Stood down', ok: false }); return }
 
     const intent = await resolveCommand({ command: body, context: ctxRef.current, llm: relayLLM })
+
+    // Claude read it as a stand-down ("that's all", "leave it") — disarm, like the isCancel fast path.
+    if (intent.action === 'cancel') { arming.cancel(); setLine({ heard: body, message: 'Stood down', ok: false }); return }
 
     // "note …" / "make a note" ENTERS dictation mode (its own record), not a one-shot save
     if (intent.action === 'add_note') {
@@ -89,7 +107,8 @@ export default function VoiceControl({ controls, context, board: boardProp, note
     pendingResetRef.current = res.needsConfirm ? Date.now() : 0
 
     if (res.cue) board[res.cue]?.()
-    setLine({ heard: body, message: res.message, ok: res.ok })
+    if (res.speak) speak(res.speak)               // an ANSWER: read it aloud (interruptible)
+    setLine({ heard: body, message: res.message, ok: res.ok, kind: res.kind })
     // stay armed briefly for a follow-up after a real command; on a miss, keep the window open to retry
     if (res.ok) arming.commandHandled()
     else arming.speech()
@@ -105,14 +124,17 @@ export default function VoiceControl({ controls, context, board: boardProp, note
     prevStepRef.current = idx
   }, [context?.stepIndex, context?.hasHazard, listening, board])
 
-  // fade the transcript line after a few seconds
+  // fade the transcript line after a few seconds — an answer lingers longer (it's meant to be
+  // read/confirmed, not just acknowledged).
   useEffect(() => {
     if (!line) return undefined
-    const id = setTimeout(() => setLine(null), 4200)
+    const id = setTimeout(() => setLine(null), line.kind === 'answer' ? 9000 : 4200)
     return () => clearTimeout(id)
   }, [line])
 
-  const onToggle = () => { board.resume(); toggle() }
+  // turning voice off (or unmounting) must silence any answer mid-sentence
+  useEffect(() => () => stopSpeech(), [])
+  const onToggle = () => { board.resume(); if (listening) stopSpeech(); toggle() }
 
   if (!supported) {
     return (
@@ -156,19 +178,32 @@ export default function VoiceControl({ controls, context, board: boardProp, note
           {!noteActive && (
             <div className="vd-hud">
               {line ? (
-                <><span className="vd-heard">“{line.heard}”</span><span className="vd-arrow">→</span><span className={`vd-msg${line.ok ? ' vd-ok' : ' vd-no'}`}>{line.message}</span></>
+                line.kind === 'answer' ? (
+                  <><span className="vd-speak" aria-hidden="true"><SpeakIcon /></span><span className="vd-heard">“{line.heard}”</span><span className="vd-answer" role="status">{line.message}</span></>
+                ) : (
+                  <><span className="vd-heard">“{line.heard}”</span><span className="vd-arrow">→</span><span className={`vd-msg${line.ok ? ' vd-ok' : ' vd-no'}`}>{line.message}</span></>
+                )
               ) : armed ? (
-                <span className="vd-live">{interim ? `“${interim}”` : 'Say a command…'}</span>
+                <span className="vd-live">{interim ? `“${interim}”` : 'Say a command or ask a question…'}</span>
               ) : interim ? (
                 <span className="vd-live">“{interim}”</span>
               ) : (
-                <span className="vd-vocab">Try: <em>next</em><em>start the timer</em><em>how long is left</em><em>note: …</em></span>
+                <span className="vd-vocab">Try: <em>next</em><em>start the timer</em><em>how many spins are left?</em><em>note: …</em></span>
               )}
             </div>
           )}
         </>
       )}
     </div>
+  )
+}
+
+function SpeakIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor" />
+      <path d="M16 8.5a4 4 0 0 1 0 7M18.5 6a7 7 0 0 1 0 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none" />
+    </svg>
   )
 }
 

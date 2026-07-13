@@ -105,7 +105,9 @@ def resolve_intent(req: IntentRequest) -> dict:
     client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from env
     msg = client.messages.create(
         model=INTENT_MODEL,
-        max_tokens=120,  # a one-line JSON intent — keep it snappy
+        # a one-line JSON intent for a command; an `answer` also carries a 1-2 sentence
+        # spoken reply, so leave room for the text without ever inviting a paragraph.
+        max_tokens=256,
         system=req.system,
         messages=[{"role": "user", "content": req.user}],
     )

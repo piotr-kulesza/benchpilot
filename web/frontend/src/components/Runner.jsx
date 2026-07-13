@@ -18,6 +18,7 @@ import {
   selectAlternative, hasAlternatives, stepText, shortLabel,
   effectiveStep, timerSeconds, extractTemperature, elapsedFraction,
   stepHazards, isCriticalHazard, resolveConditionals,
+  reagentName, reagentVolume, localize,
 } from '../lib/runtime.js'
 
 
@@ -183,10 +184,25 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
 
   // Read-only context the intent layer needs to resolve "how long is left", "start it",
   // "the micro kit", and to gate a hazard cue on landing.
+  // The WHOLE protocol, so Claude can answer "which buffer three steps ago", "do I spin
+  // after this", "how many spins left" — a stable outline + materials that don't change per
+  // step (only when the protocol / language / chosen methods do).
+  const outline = useMemo(
+    () => steps.map((s, idx) => ({ n: idx + 1, title: shortLabel(hasAlternatives(s) ? selectAlternative(s, altByStep[s.index] || 0) : s, lang) })),
+    [steps, lang, altByStep],
+  )
+  const materials = useMemo(
+    () => (protocol?.materials || []).map((m) => localize(m, 'name', lang)).filter(Boolean),
+    [protocol, lang],
+  )
+
   const voiceContext = useMemo(() => {
     const hz = stepHazards(eff, lang)
     const hasHazard = hz.some((h, idx) => isCriticalHazard(h) || isCriticalHazard((eff.hazards || [])[idx]))
     const alternatives = hasAlternatives(step) ? step.alternatives.map((a) => stepText(a, lang)) : []
+    const reagents = (eff.reagents || []).map((r) => ({ name: reagentName(r, lang), volume: reagentVolume(r, lang) || '' })).filter((r) => r.name)
+    const rp = eff.repeat
+    const repeat = rp ? (rp.count ? `${rp.count}×` : (rp.reason_en || rp.reason || 'repeat')) : null
     const { undecided } = resolveConditionals(eff, answers)
     let openQuestion = null
     if (undecided.length) {
@@ -199,12 +215,13 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
     }
     return {
       stepIndex: i, stepNumber: i + 1, stepCount: steps.length,
-      stepText: stepText(eff, lang), stepTitle: titleOf(i),
+      stepText: stepText(eff, lang), stepTitle: titleOf(i), stepAction: eff.action,
+      reagents, hazards: hz, durationSeconds: eff.duration_seconds || null, repeat,
       hasTimer: !!timer, running: !!timer?.running, done: !!timer?.done, remaining: timer?.remaining ?? 0,
-      alternatives, openQuestion, hasHazard,
+      alternatives, openQuestion, hasHazard, outline, materials, answers,
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [i, steps.length, eff, step, answers, timer?.remaining, timer?.running, timer?.done])
+  }, [i, steps.length, eff, step, answers, timer?.remaining, timer?.running, timer?.done, outline, materials])
 
   // keyboard: → / space = next, ← = back (gloved hands, arrows for review).
   useEffect(() => {
