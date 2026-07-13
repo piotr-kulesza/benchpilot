@@ -45,7 +45,7 @@ function labelFontsLoaded() {
 // clock from the stable `timerRef` (mutated in place), so none of these props change on a
 // tick and the whole 3D subtree is skipped. It re-renders only on a real change — a new
 // step, a chosen alternative, a bench flip.
-function StationView({ protocol, activeIndex = 0, answers = {}, lang = 'en', timerRef, altByStep = {}, chromeless = false, bench = 'dark' }) {
+function StationView({ protocol, activeIndex = 0, answers = {}, lang = 'en', timerRef, altByStep = {}, chromeless = false }) {
   const [use3D] = useState(() => webglAvailable())
   const [fontsReady, setFontsReady] = useState(labelFontsLoaded)
 
@@ -77,7 +77,7 @@ function StationView({ protocol, activeIndex = 0, answers = {}, lang = 'en', tim
             <StationCanvas
               protocol={protocol} activeIndex={activeIndex} answers={answers} lang={lang}
               timerRef={timerRef}
-              altByStep={altByStep} chromeless={chromeless} bench={bench}
+              altByStep={altByStep} chromeless={chromeless}
             />
           </GLBoundary>
         ) : fallback}

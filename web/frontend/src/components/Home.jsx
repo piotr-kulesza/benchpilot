@@ -7,7 +7,7 @@ import { heroThumb } from './heroThumbs.js'
 // The service front door: lead with the live bench (the most beautiful thing in the
 // product), then bring-your-own (drop / paste), then the example cards — each showing the
 // distinctive equipment it renders, the argument that this generalises.
-export default function Home({ examples, onPickExample, onParse, parseState, bench = 'dark' }) {
+export default function Home({ examples, onPickExample, onParse, parseState }) {
   const [text, setText] = useState('')
   const [drag, setDrag] = useState(false)
   const fileRef = useRef(null)
@@ -42,7 +42,7 @@ export default function Home({ examples, onPickExample, onParse, parseState, ben
             <Button variant="ghost" size="lg" onClick={scrollToUpload}>Bring your own ↓</Button>
           </div>
         </div>
-        <HomeHero bench={bench} />
+        <HomeHero />
       </header>
 
       <Panel id="byo" title="Bring your own" sub="Drop a file or paste the text. Usually ready in 10–20 s.">
@@ -83,7 +83,7 @@ export default function Home({ examples, onPickExample, onParse, parseState, ben
       <Panel title="Or run an example" sub="Eight techniques benchpilot was never tuned for, plus the RNA reference. Each one runs instantly and renders its own equipment.">
         <div className="ex-grid">
           {examples.map((ex) => {
-            const thumb = heroThumb(ex.id, bench)
+            const thumb = heroThumb(ex.id)
             return (
               <Card as="button" className="ex-card" key={ex.id} onClick={() => onPickExample(ex)} disabled={busy}>
                 <div className="ex-thumb">

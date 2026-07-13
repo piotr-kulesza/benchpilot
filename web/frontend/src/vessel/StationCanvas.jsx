@@ -6,7 +6,7 @@ import { Canvas } from '@react-three/fiber'
 import * as THREE from 'three'
 import StationScene from './StationScene.jsx'
 
-export default function StationCanvas({ protocol, activeIndex, answers, lang, timerRef, altByStep, chromeless, bench }) {
+export default function StationCanvas({ protocol, activeIndex, answers, lang, timerRef, altByStep, chromeless }) {
   return (
     <Canvas
       // Cap the pixel ratio at 1.5: on a retina display dpr=2 renders 4× the pixels
@@ -33,7 +33,6 @@ export default function StationCanvas({ protocol, activeIndex, answers, lang, ti
         timerRef={timerRef}
         altByStep={altByStep}
         chromeless={chromeless}
-        bench={bench}
       />
     </Canvas>
   )

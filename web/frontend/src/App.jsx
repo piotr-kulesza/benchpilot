@@ -3,10 +3,6 @@ import Home from './components/Home.jsx'
 import Intake from './components/Intake.jsx'
 import BrandWord from './ui/BrandWord.jsx'
 import Runner from './components/Runner.jsx'
-import ThemeToggle from './components/ThemeToggle.jsx'
-import BenchToggle from './components/BenchToggle.jsx'
-import { useTheme } from './hooks/useTheme.js'
-import { useBench } from './hooks/useBench.js'
 import { partitionSteps } from './lib/runtime.js'
 import { makeRunId, orphanRunKeys } from './lib/runState.js'
 
@@ -70,8 +66,6 @@ export default function App() {
 function MainApp() {
   const q = new URLSearchParams(window.location.search)
   const persisted = loadSession()
-  const { theme, toggle } = useTheme()
-  const { bench, toggle: toggleBench } = useBench()
 
   const [examples, setExamples] = useState([])
   const [protocol, setProtocol] = useState(persisted?.protocol || null)
@@ -184,7 +178,7 @@ function MainApp() {
   if (route === 'home' || !protocol) {
     page = (
       <div className="app">
-        <Home examples={examples} onPickExample={pickExample} onParse={parseUpload} parseState={parseState} bench={bench} />
+        <Home examples={examples} onPickExample={pickExample} onParse={parseUpload} parseState={parseState} />
       </div>
     )
   } else if (route === 'run') {
@@ -197,7 +191,6 @@ function MainApp() {
         setAnswers={setAnswers}
         initialStep={initialStep}
         onExit={() => go('home')}
-        bench={bench}
       />
     )
   } else {
@@ -215,11 +208,5 @@ function MainApp() {
     )
   }
 
-  return (
-    <>
-      {page}
-      <BenchToggle bench={bench} onToggle={toggleBench} />
-      <ThemeToggle theme={theme} onToggle={toggle} />
-    </>
-  )
+  return page
 }

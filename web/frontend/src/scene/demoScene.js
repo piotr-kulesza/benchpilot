@@ -1636,7 +1636,7 @@ export function undockSample(lift = false) {
   // behind the subject, and a corner vignette. Dark preset recedes to near-black; light
   // preset is the pre-Stage-24 warm greige room. All values come from preset.backdrop.
   function makeCineBackdrop(preset){
-    var bd=(preset||resolveScenePreset('dark')).backdrop, w=640,h=640;
+    var bd=(preset||resolveScenePreset()).backdrop, w=640,h=640;
     var c=document.createElement("canvas"); c.width=w; c.height=h; var g=c.getContext("2d");
     var grad=g.createLinearGradient(0,0,0,h);
     for(var i=0;i<bd.stops.length;i++) grad.addColorStop(bd.stops[i][0], bd.stops[i][1]);
@@ -1661,7 +1661,7 @@ export function undockSample(lift = false) {
   // near-black epoxy; light = the pre-Stage-24 warm-grey resin. All from preset.bench.
   function buildFloor(totalLen, preset){
     totalLen = totalLen || 0;
-    var b=(preset||resolveScenePreset('dark')).bench;
+    var b=(preset||resolveScenePreset()).bench;
     var W = totalLen + 140;
     var bc=document.createElement("canvas"); bc.width=512; bc.height=512; var bg2=bc.getContext("2d");
     bg2.fillStyle=b.texBase; bg2.fillRect(0,0,512,512);

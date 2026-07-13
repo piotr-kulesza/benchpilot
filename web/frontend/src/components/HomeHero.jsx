@@ -11,7 +11,7 @@ const StationView = lazy(() => import('../vessel/StationView.jsx'))
 // breathes). Index into the bundled RNA protocol.
 const HERO_STEP = 4
 
-export default function HomeHero({ bench = 'dark' }) {
+export default function HomeHero() {
   const [protocol, setProtocol] = useState(null)
 
   useEffect(() => {
@@ -27,7 +27,7 @@ export default function HomeHero({ bench = 'dark' }) {
       <div className="hero-scene-frame">
         {protocol ? (
           <Suspense fallback={<div className="hero-scene-holder" />}>
-            <StationView protocol={protocol} activeIndex={HERO_STEP} hasTimer={false} progress={1} running={false} chromeless bench={bench} />
+            <StationView protocol={protocol} activeIndex={HERO_STEP} chromeless />
           </Suspense>
         ) : (
           <div className="hero-scene-holder" />

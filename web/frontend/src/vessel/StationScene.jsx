@@ -981,10 +981,10 @@ function stationParams(baseStep, lang, altIdx, chain, producedInRun) {
            target: step.target || 'sample', produces: step.produces || null, drawsFrom }
 }
 
-export default function StationScene({ protocol, activeIndex = 0, lang = 'en', altByStep = {}, timerRef: timerProp, chromeless = false, bench = 'dark' }) {
+export default function StationScene({ protocol, activeIndex = 0, lang = 'en', altByStep = {}, timerRef: timerProp, chromeless = false }) {
   ensureMaps()
-  // the active scene preset (surfaces + backdrop + fog + lights as one coherent set)
-  const preset = useMemo(() => resolveScenePreset(bench), [bench])
+  // the one scene preset (surfaces + backdrop + fog + lights as one coherent set)
+  const preset = useMemo(() => resolveScenePreset(), [])
   const presetRef = useRef(preset); presetRef.current = preset
   // The countdown lives in a STABLE ref owned by the runner (mutated in place at 10 Hz),
   // so the frame loop reads the live clock WITHOUT this component ever re-rendering on a
