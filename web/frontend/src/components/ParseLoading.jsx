@@ -32,7 +32,6 @@ export default function ParseLoading() {
 
         <div className="pl-copy">
           <h1 className="pl-title">Reading your protocol…</h1>
-          <p className="pl-sub">Finding the steps, timers, hazards and the questions it leaves open.</p>
         </div>
       </div>
     </div>
