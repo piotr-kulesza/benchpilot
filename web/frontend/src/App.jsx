@@ -128,19 +128,20 @@ function MainApp() {
 
   // Adopting a protocol (pick example / upload / paste / re-start the same one) ALWAYS
   // starts a NEW run: a fresh id, empty state, old runs swept. Nothing is inherited.
-  const adopt = (p, src) => {
+  const adopt = (p, src, dest = 'intake') => {
     const id = freshRunId(); pruneOldRuns(id); setRunId(id)
     setProtocol(p); setSource(src); setParseState({ status: 'idle' })
     setAnswers({}) // a fresh protocol starts with fresh intake answers
     saveSession({ runId: id, protocol: p, source: src, lang, answers: {} })
-    go('intake')
+    go(dest)
   }
 
   const pickExample = (ex) => {
     setParseState({ status: 'loading' })
     fetch('protocols/' + ex.file)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`Could not load ${ex.name} (${r.status})`))))
-      .then((p) => adopt(p, ex.name))
+      // examples run straight away — skip the intake; open questions surface inline in the run
+      .then((p) => adopt(p, ex.name, 'run'))
       .catch((e) => setParseState({ status: 'error', message: e.message }))
   }
 
