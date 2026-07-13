@@ -27,3 +27,9 @@ outputs/*.html
 /pyproject.toml
 /uv.lock
 /.python-version
+
+# Working notes, dev prompts, and standalone demos — local-only, not shipped in the repo.
+HANDOFF.md
+WHAT_IT_IS.md
+prompts/
+demos/
