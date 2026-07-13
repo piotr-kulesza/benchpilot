@@ -21,7 +21,7 @@ export default function ParseLoading() {
           <span className="pl-arrow">→</span>
           {/* resolving into a runnable structure */}
           <div className="pl-card pl-run">
-            {[0, 1, 2, 3].map((i) => (
+            {[0, 1, 2, 3, 4].map((i) => (
               <span key={i} className="pl-step" style={{ animationDelay: `${0.5 + i * 0.28}s` }}>
                 <span className="pl-dot" />
                 <span className="pl-bar" style={{ width: `${64 + ((i * 37) % 30)}%` }} />
