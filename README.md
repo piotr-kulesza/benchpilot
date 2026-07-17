@@ -3,6 +3,8 @@
 **Paste a messy lab protocol → get a runnable, timed, gap-flagged 3D walkthrough
 you can actually follow at the bench.**
 
+**▶ Try it live: https://benchpilot.vercel.app**
+
 Protocols are prose — a Word doc, a PDF, a paragraph in a paper's methods, often
 written by someone else and always missing something. Timings are buried in
 sentences, values are underspecified ("350 µl for ≤5×10⁶ cells, 600 µl for more"
