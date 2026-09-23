@@ -1,0 +1,14 @@
+{
+  "_doc": "Known audit defects accepted EXPLICITLY, with a date and a clearing condition. schema-audit.mjs (bundle mode only — never --file, so a fresh parse is always judged in full) moves a matching defect out of the headline count into 'accepted exceptions'. An exception that no longer matches a defect is itself reported as a defect, so it is deleted rather than left to rot.",
+  "exceptions": [
+    {
+      "protocol": "pcr",
+      "step": 2,
+      "rule": "first-step-names-container",
+      "added": "2026-09-24",
+      "reason": "Pre-gate parse: the first sample step (pipette_mix; step 1 is a side prepare) names no vessel.",
+      "effect": "None visible: the player defaults an unnamed first vessel to a microtube, which is what this step uses.",
+      "clears_when": "PCR is next re-parsed through the gate (scripts/reparse_examples.py pcr -> scripts/audited_parse.py)."
+    }
+  ]
+}

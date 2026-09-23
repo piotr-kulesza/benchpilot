@@ -36,6 +36,17 @@ const GENERIC_CONTAINER = resolveContainer('__no_such_container__')
 const isUnknownAction = (a) => resolveRecipe(a) === GENERIC_RECIPE && a !== 'generic'
 const isUnknownContainer = (c) => resolveContainer(c) === GENERIC_CONTAINER && c !== 'generic'
 
+// Accepted exceptions (bundle mode only): dated, with a clearing condition. A matching
+// defect leaves the headline count; an exception matching nothing is a defect itself.
+const EXC_FILE = path.join(process.cwd(), 'scripts', 'audit-exceptions.json')
+const EXCEPTIONS = !FILE && fs.existsSync(EXC_FILE) ? JSON.parse(fs.readFileSync(EXC_FILE, 'utf8')).exceptions : []
+const excUsed = new Set()
+const isAccepted = (pid, d) => {
+  const k = EXCEPTIONS.findIndex((e) => e.protocol === pid && e.step === d.index && e.rule === (d.rule || d.why))
+  if (k >= 0) excUsed.add(k)
+  return k >= 0
+}
+
 const index = FILE
   ? [{ id: path.basename(FILE, '.json'), name: path.basename(FILE), file: path.resolve(FILE) }]
   : JSON.parse(fs.readFileSync(path.join(DIR, 'index.json'), 'utf8'))
@@ -96,23 +107,37 @@ for (const meta of wanted) {
     unmodelledInstruments: findUnmodelledInstruments(steps),
     aspirateOnlyRemovals: tipDefects,
   }
+  // move accepted exceptions out of the defect lists (bundle mode only)
+  entry.acceptedExceptions = []
+  for (const field of ['parseInvariantDefects', 'targetDefects', 'transferHandoffDefects', 'prepareOnSampleDefects', 'instrumentDefects']) {
+    entry[field] = entry[field].filter((d) => {
+      if (!isAccepted(meta.id, d)) return true
+      entry.acceptedExceptions.push({ ...d, field })
+      return false
+    })
+  }
   entry.defectCount = entry.unknownActions.length + entry.unknownContainers.length +
     entry.targetDefects.length + entry.transferHandoffDefects.length + entry.prepareOnSampleDefects.length +
     entry.instrumentDefects.length + entry.parseInvariantDefects.length
   report.push(entry)
 }
 
+// an exception that matched no defect is stale — report it as a defect so it is deleted
+const staleExceptions = EXCEPTIONS.filter((_, k) => !excUsed.has(k) && (!only.length || only.includes(EXCEPTIONS[k].protocol)))
+
 if (JSON_OUT) {
   console.log(JSON.stringify({
     report,
+    staleExceptions,
     actions: [...actionTally.values()].sort((a, b) => b.count - a.count),
     containers: [...containerTally.values()].sort((a, b) => b.count - a.count),
   }, null, 2))
-  process.exit(report.some((r) => r.defectCount) ? 1 : 0)
+  process.exit(report.some((r) => r.defectCount) || staleExceptions.length ? 1 : 0)
 }
 
 const totalSteps = report.reduce((n, r) => n + r.steps, 0)
-const totalDefects = report.reduce((n, r) => n + r.defectCount, 0)
+const totalDefects = report.reduce((n, r) => n + r.defectCount, 0) + staleExceptions.length
+const totalAccepted = report.reduce((n, r) => n + r.acceptedExceptions.length, 0)
 const genericSteps = [...actionTally.values()].filter((a) => a.unknown || a.key === 'generic').reduce((n, a) => n + a.count, 0)
 
 console.log(`\nbenchpilot scene audit — ${report.length} protocols, ${totalSteps} steps\n`)
@@ -144,6 +169,14 @@ const unknownC = [...containerTally.values()].filter((c) => c.unknown)
 if (unknownA.length) console.log(`  actions NOT in the recipe map: ${unknownA.map((a) => `${a.key}×${a.count}`).join(', ')}`)
 if (unknownC.length) console.log(`  containers NOT in the container map: ${unknownC.map((c) => `${c.key}×${c.count}`).join(', ')}`)
 console.log(`  steps that render generic/bench: ${genericSteps}/${totalSteps} (${Math.round((genericSteps / totalSteps) * 100)}%)`)
-console.log(`\ntotal defects: ${totalDefects}\n`)
+if (totalAccepted || staleExceptions.length) {
+  console.log(`\naccepted exceptions (scripts/audit-exceptions.json) — NOT counted as defects`)
+  for (const r of report) for (const d of r.acceptedExceptions) {
+    const e = EXCEPTIONS.find((x) => x.protocol === r.id && x.step === d.index && x.rule === (d.rule || d.why))
+    console.log(`  ${r.id} step ${d.index}: ${d.rule || d.why}  (since ${e.added}; clears when ${e.clears_when})`)
+  }
+  for (const e of staleExceptions) console.log(`  ✗ STALE: ${e.protocol} step ${e.step} ${e.rule} no longer occurs — delete this exception (counted as a defect)`)
+}
+console.log(`\ntotal defects: ${totalDefects}${totalAccepted ? `   (accepted exceptions: ${totalAccepted})` : ''}\n`)
 
 process.exitCode = totalDefects === 0 ? 0 : 1
