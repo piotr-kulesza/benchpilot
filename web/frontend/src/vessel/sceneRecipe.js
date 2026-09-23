@@ -52,9 +52,11 @@ export const SCENE_RECIPES = Object.fromEntries(
 )
 
 // ─── what a step STATES — the conditions an instrument choice may rest on ──
-// The schema carries no structured temperature/agitation/equipment fields, so the
-// parsed step's text (original + English) is the source, exactly as the runner's
-// Temp chip (runtime.extractTemperature) reads it. Pure; unknown → empty.
+// Structured `step.conditions` (temperature_c, room_temperature, on_ice, agitation,
+// instruments) are the source of truth PER FIELD when present (not undefined/null — a
+// stated false or [] counts). Any field the schema does not carry falls back to the
+// parsed step's text (original + English), read the way the runner's Temp chip
+// (runtime.extractTemperature) reads it. Pure; unknown → empty.
 //   tempC      first stated temperature in °C (signed), or null
 //   roomTemp   "room temperature" / RT
 //   onIce      "on ice"
@@ -79,7 +81,7 @@ const NAMED = [
   ['transilluminator',  /transillumin|gel ?doc/i],
 ]
 
-export function stepConditions(step) {
+function conditionsFromText(step) {
   const hay = `${step?.text || ''} ${step?.text_en || ''}`
   // a minus counts only when it is not a range dash ("55-60°C" is 55, not −60)
   const m = hay.match(/(^|[^\d\s])\s*([-−–]\s*)?(\d{1,3}(?:\.\d+)?)\s*°?\s*C(?![a-zA-Z])/)
@@ -90,6 +92,19 @@ export function stepConditions(step) {
     onIce: /\bon ice\b|na lodzie|w lodzie/i.test(hay),
     agitation: /agitat|shak|rocking|wytrząs|kołys|orbital/i.test(hay),
     names: NAMED.filter(([, re]) => re.test(hay)).map(([id]) => id),
+  }
+}
+
+export function stepConditions(step) {
+  const text = conditionsFromText(step)
+  const sc = step?.conditions && typeof step.conditions === 'object' ? step.conditions : {}
+  const has = (k) => sc[k] !== undefined && sc[k] !== null
+  return {
+    tempC: has('temperature_c') ? Number(sc.temperature_c) : text.tempC,
+    roomTemp: has('room_temperature') ? !!sc.room_temperature : text.roomTemp,
+    onIce: has('on_ice') ? !!sc.on_ice : text.onIce,
+    agitation: has('agitation') ? !!sc.agitation : text.agitation,
+    names: Array.isArray(sc.instruments) ? sc.instruments.map(String) : text.names,
   }
 }
 

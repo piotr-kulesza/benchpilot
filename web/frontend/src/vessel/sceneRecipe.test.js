@@ -474,3 +474,42 @@ describe('bundled protocols name only the instruments their steps require', () =
     expect(defects, `${file}: ${JSON.stringify(defects)}`).toEqual([])
   })
 })
+
+// When the schema grows structured conditions (step.conditions), they are the source of
+// truth and the text regex is only the fallback, PER FIELD. The change must be a no-op
+// for the player: structured values equal to what the text says resolve identically.
+describe('stepConditions prefers structured step.conditions, falls back to text per field', () => {
+  const text_en = 'Incubate 15 min at room temperature.'
+  it('a structured field wins over what the text says', () => {
+    const c = stepConditions({ text_en, conditions: { temperature_c: 37, room_temperature: false, on_ice: true, agitation: true, instruments: ['co2_incubator'] } })
+    expect(c).toEqual({ tempC: 37, roomTemp: false, onIce: true, agitation: true, names: ['co2_incubator'] })
+  })
+  it('a structured false / empty list is a statement, not an absence', () => {
+    const c = stepConditions({ text_en: 'Grow in 37°C shaking incubator.', conditions: { agitation: false, instruments: [] } })
+    expect(c.agitation).toBe(false)
+    expect(c.names).toEqual([])
+    expect(c.tempC).toBe(37) // not given structurally → read from the text
+  })
+  it('absent or null fields fall back to the text', () => {
+    expect(stepConditions({ text_en, conditions: { temperature_c: null } })).toEqual(stepConditions({ text_en }))
+    expect(stepConditions({ text_en, conditions: {} })).toEqual(stepConditions({ text_en }))
+  })
+  it('is a no-op for every bundled step when the structured values match the text', () => {
+    const dir = fileURLToPath(new URL('../../public/protocols/', import.meta.url))
+    const files = readdirSync(dir).filter((f) => f.endsWith('.json') && f !== 'index.json')
+    for (const f of files) {
+      const steps = JSON.parse(readFileSync(dir + f, 'utf8')).steps
+      const seq = sampleContainerSequence(steps)
+      steps.forEach((s, i) => {
+        const fromText = stepConditions(s)
+        const structured = { ...s, conditions: {
+          temperature_c: fromText.tempC, room_temperature: fromText.roomTemp, on_ice: fromText.onIce,
+          agitation: fromText.agitation, instruments: fromText.names,
+        } }
+        expect(stepConditions(structured), `${f} step ${s.index}`).toEqual(fromText)
+        const r = (st) => resolveRecipe(st.action, { container: seq[i], conditions: stepConditions(st) }).equipment
+        expect(r(structured), `${f} step ${s.index}`).toBe(r(s))
+      })
+    }
+  })
+})
