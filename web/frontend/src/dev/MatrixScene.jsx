@@ -8,7 +8,7 @@ import { PerspectiveCamera } from '@react-three/drei'
 import { FogExp2, Group, Color } from 'three'
 import * as demo from '../scene/demoScene.js'
 import { configureStation } from '../vessel/StationScene.jsx'
-import { resolveRecipe } from '../vessel/sceneRecipe.js'
+import { resolveRecipe, stepConditions } from '../vessel/sceneRecipe.js'
 import { reagentColor } from '../vessel/theme.js'
 
 const LIGHT_SCALE = 3.3
@@ -32,7 +32,7 @@ function Lights() {
   )
 }
 
-export function MatrixScene({ action = 'pour_add', container = 'microtube', from = null, p = 0.5 }) {
+export function MatrixScene({ action = 'pour_add', container = 'microtube', from = null, text = '', p = 0.5 }) {
   const { gl, scene } = useThree()
   const stRef = useRef(null)
   const pRef = useRef(0)
@@ -53,13 +53,17 @@ export function MatrixScene({ action = 'pour_add', container = 'microtube', from
     ensureMaps()
     const S = demo.initSample()
     S.vessels.forEach((v) => v.userData.label && (v.userData.label.visible = false))
-    const recipe = resolveRecipe(action)
+    // the step the harness drives: its text carries the stated conditions, so the
+    // instrument is chosen exactly as the runner chooses it (resolveRecipe + stepConditions)
+    const step = { action, container, text_en: text }
+    const recipe = resolveRecipe(action, { container, conditions: stepConditions(step) })
     const endColor = new Color(reagentColor(action)).getHex()
     const st = { group: new Group(), updatables: [], reagents: {}, pip: null, enter: null, timeline: null, x: 0, cen: null, dev: null, vis: 0, _vstate: -1 }
     configureStation(st, {
       action, equipment: recipe.equipment, container, prevContainer: from || null,
       color: endColor, name: action, vol: '', seconds: 30,
       startColor: INIT_COLOR, startLevel: 0.4, endColor, endLevel: recipe.anim.fill, cycles: 30,
+      text,
     })
     scene.add(st.group)
     demo.setSnap(true); st.enter?.(); demo.setSnap(false)
@@ -70,7 +74,7 @@ export function MatrixScene({ action = 'pour_add', container = 'microtube', from
       demo.undockSample()
       S.vessels.forEach((v) => { scene.remove(v); disposeGroup(v) })
     }
-  }, [scene, action, container, from])
+  }, [scene, action, container, from, text])
 
   useFrame((_s, dt) => {
     const st = stRef.current; if (!st) return

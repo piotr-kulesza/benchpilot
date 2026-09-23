@@ -3,7 +3,7 @@
 // (id · kind · intended orientation | action×container · p) so a headless auditor
 // can read the intent straight off the frame.
 import { lazy, Suspense } from 'react'
-import { getModel, MODEL_IDS } from './registry.js'
+import { getModel, MODEL_IDS, matrixText } from './registry.js'
 
 const DevCanvas = lazy(() => import('./DevCanvas.jsx'))
 
@@ -21,18 +21,21 @@ export default function DevView() {
   const container = q('container', 'microtube')
   const from = q('from', null)
   const to = q('to', null)
+  // the step text the matrix cell drives (its stated conditions pick the instrument);
+  // &text= overrides the cell's representative text from the registry
+  const text = q('text', matrixText(action, container))
   const p = parseFloat(q('p', '0.5'))
   const bare = q('bare') != null
   const model = getModel(item)
 
   const caption = mode === 'matrix'
-    ? `${action} · ${from ? `${from}→${to || container}` : container} · p=${p.toFixed(2)}`
+    ? `${action} · ${from ? `${from}→${to || container}` : container} · p=${p.toFixed(2)}${text ? ` · "${text.slice(0, 70)}${text.length > 70 ? '…' : ''}"` : ''}`
     : `${item} · ${model?.kind || '?'} · ${model?.orient || ''}`
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#0c0d10' }}>
       <Suspense fallback={<div style={{ color: '#889', padding: 16 }}>loading 3D…</div>}>
-        <DevCanvas mode={mode} item={item} angle={angle} action={action} container={container} from={from} to={to} p={p} bare={bare} />
+        <DevCanvas mode={mode} item={item} angle={angle} action={action} container={container} from={from} to={to} text={text} p={p} bare={bare} />
       </Suspense>
       {!bare && (
         <div style={{

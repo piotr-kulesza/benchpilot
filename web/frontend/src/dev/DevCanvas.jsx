@@ -6,7 +6,7 @@ import * as THREE from 'three'
 import { GalleryScene } from './DevScene.jsx'
 import { MatrixScene } from './MatrixScene.jsx'
 
-export default function DevCanvas({ mode, item, angle, action, container, from, to, p, bare }) {
+export default function DevCanvas({ mode, item, angle, action, container, from, to, text, p, bare }) {
   return (
     <Canvas
       dpr={[1, 2]}
@@ -19,7 +19,7 @@ export default function DevCanvas({ mode, item, angle, action, container, from, 
       }}
     >
       {mode === 'matrix'
-        ? <MatrixScene action={action} container={container} from={from} to={to} p={p} />
+        ? <MatrixScene action={action} container={container} from={from} to={to} text={text} p={p} />
         : <GalleryScene item={item} angle={angle} bare={bare} />}
     </Canvas>
   )

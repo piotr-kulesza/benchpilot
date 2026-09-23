@@ -65,7 +65,7 @@ export const MATRIX_ACTIONS = [
   { action: 'measure',        containers: ['microtube', 'well_plate', 'flask', 'slide', 'gel'] },
   { action: 'thermocycle',    containers: ['microtube'] },
   { action: 'electrophorese', containers: ['gel', 'membrane'] },
-  { action: 'store',          containers: ['cryovial', 'microtube'] },
+  { action: 'store',          containers: ['cryovial', 'microtube', 'flask'] },
   { action: 'seed',           containers: ['flask', 'dish', 'agar_plate', 'well_plate'] },
   { action: 'stain',          containers: ['slide', 'gel'] },
 ]
@@ -79,5 +79,34 @@ export const MATRIX_TRANSITIONS = [
   ['microtube', 'flask'], ['microtube', 'slide'],
 ]
 
+// store / heat / incubate_wait / measure take their instrument from what the step
+// STATES (sceneRecipe.resolveRecipe), not from the action — so a cell with no text
+// would render the bench and prove nothing. Each such cell carries a representative
+// step text (verbatim from a bundled protocol where one exists) and the instrument
+// that text must resolve to (`expect`), pinned by src/dev/registry.test.js.
+// ?matrix=1&text=… overrides the cell's text.
+export const MATRIX_TEXT = {
+  'incubate_wait:microtube':  { expect: 'incubation_block', text: 'Incubate at 56 °C for 10 min in a heat block.' },
+  'incubate_wait:well_plate': { expect: 'plate_shaker', text: 'Block with gentle agitation for 1-2 h at room temperature.' },       // elisa 10
+  'incubate_wait:membrane':   { expect: 'plate_shaker', text: 'Incubate for 1 hr at room temperature with gentle agitation.' },    // western 7
+  'incubate_wait:slide':      { expect: 'bench', text: 'Let the crystal violet stand for 1 min.' },                               // gram_stain 4
+  'incubate_wait:flask':      { expect: 'co2_incubator', text: 'Incubate the flask at 37 °C for 5 min to detach the cells.' },
+  'heat:microtube':           { expect: 'water_bath', text: 'Heat shock each transformation tube by placing the bottom 1/2 to 2/3 of the tube into a 42°C water bath for 30-60 secs.' }, // transformation 5
+  'heat:slide':               { expect: 'bench', text: 'Heat-fix the smear by passing the slide through a flame two or three times.' }, // gram_stain 2
+  'measure:microtube':        { expect: 'nanodrop', text: 'NanoDrop: A260/280 around 2.0; A260/230 in the range 2.0–2.2.' },     // neutrophil_rna 26
+  'measure:well_plate':       { expect: 'plate_reader', text: 'Read the absorbance in the plate reader at 450 nm.' },              // elisa 27
+  'measure:flask':            { expect: 'inverted_microscope', text: 'Observe the cells under the microscope for detachment.' },   // passaging 7
+  'measure:slide':            { expect: 'light_microscope', text: 'Examine the slide under the light microscope using the oil immersion (100x) objective.' }, // gram_stain 15
+  'measure:gel':              { expect: 'uv_transilluminator', text: 'Place the gel on the transilluminator to visualize and photograph the DNA bands under UV light.' }, // agarose_gel 12
+  'store:cryovial':           { expect: 'freezer', text: 'Place the cryovials into an isopropanol freezing container and transfer to a -80°C freezer overnight.' }, // cryopreservation 6
+  'store:microtube':          { expect: 'freezer', text: 'Keep the RNA on ice until measurement, store at −80°C.' },              // neutrophil_rna 25
+  'store:flask':              { expect: 'co2_incubator', text: 'Return the cells to the 37°C, 5% CO2 incubator.' },               // passaging 14
+}
+
+// The representative text for a cell ('' when its action needs none).
+export function matrixText(action, container) {
+  return MATRIX_TEXT[`${action}:${container}`]?.text || ''
+}
+
 // Flat list of matrix cells for the harness to enumerate.
-export const MATRIX_CELLS = MATRIX_ACTIONS.flatMap((a) => a.containers.map((c) => ({ action: a.action, container: c })))
+export const MATRIX_CELLS = MATRIX_ACTIONS.flatMap((a) => a.containers.map((c) => ({ action: a.action, container: c, text: matrixText(a.action, c) })))
