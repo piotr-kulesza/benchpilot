@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from core.ingest import ingest
-from core.parse import parse_protocol
+from core.validate import ParseFailedValidation, parse_validated
 
 app = FastAPI(title="benchpilot api")
 app.add_middleware(
@@ -24,6 +24,20 @@ app.add_middleware(
 )
 
 INTENT_MODEL = os.environ.get("BENCHPILOT_INTENT_MODEL", "claude-haiku-4-5-20251001")
+
+
+def _validated(text: str, source: str) -> dict:
+    """Parse through the vessel-rule gate (core/validate.py). A parse that breaks a rule
+    is re-parsed; if every attempt breaks one the user gets a 422 naming the rules, never
+    the bad parse. If the rules cannot be applied the parse is returned LABELLED
+    validation.status = "unchecked" — the UI shows that the run was not checked."""
+    try:
+        return parse_validated(text, source=source)
+    except ParseFailedValidation as exc:
+        raise HTTPException(status_code=422, detail=(
+            "This protocol parsed, but the result broke the parse rules on every attempt "
+            f"({exc}). It was not shown, because a run that puts the sample in the wrong "
+            "vessel would teach the wrong thing. Try again, or simplify the text.")) from exc
 
 
 def _require_key() -> None:
@@ -47,8 +61,7 @@ class ParseTextRequest(BaseModel):
 @app.post("/api/parse")
 def parse_text(req: ParseTextRequest) -> dict:
     _require_key()
-    proto = parse_protocol(ingest(req.text), source="pasted", use_cache=False)
-    return proto.to_dict()
+    return _validated(ingest(req.text), source="pasted")
 
 
 class IntentRequest(BaseModel):
@@ -80,8 +93,7 @@ async def parse_file(file: UploadFile = File(...)) -> dict:
     try:
         with open(tmp, "wb") as fh:
             fh.write(await file.read())
-        proto = parse_protocol(ingest(tmp), source=file.filename or "upload", use_cache=False)
-        return proto.to_dict()
+        return _validated(ingest(tmp), source=file.filename or "upload")
     finally:
         try:
             os.remove(tmp)

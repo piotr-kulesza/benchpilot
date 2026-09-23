@@ -21,7 +21,7 @@ import {
   stepHazards,
   extractTemperature,
   partitionSteps,
-  isActionableStep,
+  isActionableStep, pastedValidation, validationNotice
 } from './runtime.js'
 
 describe('shortLabel — compact chip label for the step timeline', () => {
@@ -330,5 +330,30 @@ describe('partitionSteps — prep-ahead leaves the run (Stage 34)', () => {
   it('isActionableStep is false for a prep-ahead step, true for a just-in-time prep', () => {
     expect(isActionableStep(steps[0])).toBe(false)
     expect(isActionableStep(steps[2])).toBe(true)
+  })
+})
+
+// The live paste path is gated server-side (core/validate.py). FAIL CLOSED on the client:
+// a pasted parse that does not report a passed validation is shown as NOT checked.
+describe('pasted protocol validation (fail closed)', () => {
+  it('a server response with no validation block is treated as unchecked', () => {
+    const v = pastedValidation({ steps: [] })
+    expect(v.status).toBe('unchecked')
+    expect(v.reason).toMatch(/did not report/i)
+  })
+  it('keeps the server verdict when there is one', () => {
+    expect(pastedValidation({ validation: { status: 'passed' } }).status).toBe('passed')
+    expect(pastedValidation({ validation: { status: 'unchecked', reason: 'rules missing' } }))
+      .toEqual({ status: 'unchecked', reason: 'rules missing' })
+  })
+  it('an unknown status is not trusted as passed', () => {
+    expect(pastedValidation({ validation: { status: 'ok' } }).status).toBe('unchecked')
+  })
+  it('only a non-passed pasted run shows a notice; bundled examples (no block) show none', () => {
+    expect(validationNotice({ steps: [] })).toBe(null)
+    expect(validationNotice({ validation: { status: 'passed' } })).toBe(null)
+    const n = validationNotice({ validation: { status: 'unchecked', reason: 'rules missing' } })
+    expect(n.text).toMatch(/not checked/i)
+    expect(n.text).toMatch(/rules missing/)
   })
 })

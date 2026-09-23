@@ -475,3 +475,35 @@ function slug(s) {
     .replace(/^-+|-+$/g, '')
     .slice(0, 32)
 }
+
+// ---------------------------------------------------------------------------
+// pasted-protocol validation (fail closed)
+// ---------------------------------------------------------------------------
+//
+// A pasted protocol is parsed live and gated server-side on the vessel rules
+// (core/validate.py): "passed", or "unchecked" when the rules could not be applied (a
+// parse that breaks them is re-parsed, or refused with a 422). The client FAILS CLOSED:
+// a response with no validation block, or a status it does not recognise, is treated as
+// NOT checked — never silently as validated. Bundled examples carry no block (they are
+// audited offline) and show nothing.
+
+export function pastedValidation(protocol) {
+  const v = protocol && protocol.validation
+  if (!v || typeof v !== 'object') {
+    return { status: 'unchecked', reason: 'The server did not report a validation result.' }
+  }
+  if (v.status === 'passed') return v
+  return { status: 'unchecked', reason: v.reason || `Unrecognised validation status "${v.status}".` }
+}
+
+// The notice to show for a run, or null. Only a run that carries a validation block (a
+// pasted one) and did not pass gets one.
+export function validationNotice(protocol) {
+  const v = protocol && protocol.validation
+  if (!v || v.status === 'passed') return null
+  return {
+    tone: 'warn',
+    text: 'This run was not checked against the parse rules, so a step may put the sample in the wrong vessel. '
+      + `Check each step against your protocol. (${v.reason || 'reason not reported'})`,
+  }
+}

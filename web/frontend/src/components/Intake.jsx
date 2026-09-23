@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   deriveIntakeFields, isCriticalHazard, humanDuration, localize,
-  stepText, reagentName, reagentVolume, stepHazards, PHASE_LABEL,
+  stepText, reagentName, reagentVolume, stepHazards, PHASE_LABEL, validationNotice,
 } from '../lib/runtime.js'
 import { Panel, Card, Input, Alert, Button, Chip, Segmented, Badge } from '../ui/primitives.jsx'
 
@@ -14,6 +14,7 @@ export default function Intake({ protocol, notes = [], answers, setAnswers, onSt
   const [checked, setChecked] = useState({})
   const globalHazards = useMemo(() => collectGlobalHazards(protocol, lang), [protocol, lang])
   const answeredCount = fields.filter((f) => answers[f.answerKey]).length
+  const notChecked = validationNotice(protocol) // a pasted run the parse gate could not check
 
   const setAnswer = (key, value) => setAnswers((a) => ({ ...a, [key]: a[key] === value ? undefined : value }))
 
@@ -24,6 +25,8 @@ export default function Intake({ protocol, notes = [], answers, setAnswers, onSt
         <h1>{localize(protocol, 'title', lang)}</h1>
         <p className="summary">{localize(protocol, 'summary', lang)}</p>
       </header>
+
+      {notChecked && <Alert tone={notChecked.tone}>{notChecked.text}</Alert>}
 
       {fields.length > 0 && (
         <Panel title="Open questions" sub={`benchpilot found ${fields.length} decision${fields.length === 1 ? '' : 's'} this protocol leaves open. Answer them once and we resolve the right volumes and paths as you go.`}>

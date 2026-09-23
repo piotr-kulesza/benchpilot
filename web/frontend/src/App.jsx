@@ -4,7 +4,7 @@ import Intake from './components/Intake.jsx'
 import BrandWord from './ui/BrandWord.jsx'
 import ParseLoading from './components/ParseLoading.jsx'
 import Runner from './components/Runner.jsx'
-import { partitionSteps } from './lib/runtime.js'
+import { partitionSteps, pastedValidation } from './lib/runtime.js'
 import { makeRunId, orphanRunKeys } from './lib/runState.js'
 
 // Dev-only harness routes: ?models=1 (model gallery) and ?matrix=1 (animation
@@ -148,7 +148,8 @@ function MainApp() {
 
   const parseUpload = ({ text, file }) => {
     setParseState({ status: 'loading' })
-    const done = (p) => adopt(p, file ? file.name : 'Pasted protocol')
+    // fail closed: a pasted parse without a passed validation is labelled NOT checked
+    const done = (p) => adopt({ ...p, validation: pastedValidation(p) }, file ? file.name : 'Pasted protocol')
     const fail = (msg) => setParseState({ status: 'error', message: msg })
     const req = file
       ? (() => { const fd = new FormData(); fd.append('file', file); return fetch(`${API_BASE}/api/parse-file`, { method: 'POST', body: fd }) })()

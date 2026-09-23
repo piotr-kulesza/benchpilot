@@ -39,7 +39,7 @@ except ImportError as exc:  # pragma: no cover - optional dependency
     ) from exc
 
 from core.ingest import ingest        # noqa: E402
-from core.parse import parse_protocol  # noqa: E402
+from core.validate import ParseFailedValidation, parse_validated  # noqa: E402
 
 app = FastAPI(title="benchpilot live-parse")
 
@@ -54,6 +54,20 @@ app.add_middleware(
 
 class ParseTextRequest(BaseModel):
     text: str
+
+
+def _validated(text: str, source: str) -> dict:
+    """Parse through the vessel-rule gate (core/validate.py). A parse that breaks a rule
+    is re-parsed; if every attempt breaks one the user gets a 422 naming the rules, never
+    the bad parse. If the rules cannot be applied the parse is returned LABELLED
+    validation.status = "unchecked" — the UI shows that the run was not checked."""
+    try:
+        return parse_validated(text, source=source)
+    except ParseFailedValidation as exc:
+        raise HTTPException(status_code=422, detail=(
+            "This protocol parsed, but the result broke the parse rules on every attempt "
+            f"({exc}). It was not shown, because a run that puts the sample in the wrong "
+            "vessel would teach the wrong thing. Try again, or simplify the text.")) from exc
 
 
 def _require_key() -> None:
@@ -75,10 +89,9 @@ def parse_text(req: ParseTextRequest) -> dict:
     """Parse pasted protocol text and return the schema dict."""
     _require_key()
     text = ingest(req.text)
-    # use_cache=False: the serverless filesystem is read-only, so core's disk cache
-    # would raise. Each request parses fresh.
-    protocol = parse_protocol(text, source="pasted", use_cache=False)
-    return protocol.to_dict()
+    # parse_validated never uses core's disk cache (read-only on serverless) and gates the
+    # parse on the vessel rules; see _validated.
+    return _validated(text, source="pasted")
 
 
 class IntentRequest(BaseModel):
@@ -127,8 +140,7 @@ async def parse_file(file: UploadFile = File(...)) -> dict:
         fh.write(await file.read())
     try:
         text = ingest(tmp)
-        protocol = parse_protocol(text, source=file.filename or "upload", use_cache=False)
-        return protocol.to_dict()
+        return _validated(text, source=file.filename or "upload")
     finally:
         try:
             os.remove(tmp)

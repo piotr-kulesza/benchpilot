@@ -257,3 +257,64 @@ def test_every_vessel_rule_carries_an_honest_evidence_label():
     for r in load_vessel_rules()["rules"]:
         assert r["evidence"]["kind"] in ("real", "hand-edited-only"), r["id"]
         assert r["evidence"]["detail"], r["id"]
+
+
+# ---------------------------------------------------------------------------
+# The live paste path's gate (api/index.py, web/api.py): parse, check the vessel rules,
+# re-parse a failing parse, and label the result — fail CLOSED: a parse that could not be
+# validated is labelled "unchecked", never passed off as validated.
+# ---------------------------------------------------------------------------
+
+_FRESH = os.path.join(os.path.dirname(__file__), "fixtures", "fresh_parse")
+_RUN1 = open(os.path.join(_FRESH, "neutrophil_rna.txt"), encoding="utf-8").read()
+_RUN2 = open(os.path.join(_FRESH, "neutrophil_rna__run2.txt"), encoding="utf-8").read()
+
+
+def _scripted(*responses):
+    calls = []
+
+    def llm(system, user):
+        calls.append(1)
+        return responses[min(len(calls), len(responses)) - 1]
+
+    llm.calls = calls
+    return llm
+
+
+def test_validate_protocol_passed_failed_unchecked():
+    from core.validate import validate_protocol
+    good = parse_protocol("x", llm=lambda s, u: _RUN1, use_cache=False).to_dict()
+    bad = parse_protocol("x", llm=lambda s, u: _RUN2, use_cache=False).to_dict()
+    assert validate_protocol(good)["status"] == "passed"
+    v = validate_protocol(bad)
+    assert v["status"] == "failed" and v["defects"][0]["rule"] == "eluate-tube-entered-only-by-elute"
+    # rules that cannot be loaded -> UNCHECKED, with the reason; never "passed"
+    u = validate_protocol(good, rules_path="/nonexistent/vessel_rules.json")
+    assert u["status"] == "unchecked" and u["reason"]
+
+
+def test_parse_validated_reparses_a_failing_parse():
+    from core.validate import parse_validated
+    llm = _scripted(_RUN2, _RUN1)
+    d = parse_validated("x", llm=llm, source="pasted")
+    assert len(llm.calls) == 2
+    assert d["validation"]["status"] == "passed"
+    assert d["validation"]["attempts"] == 2
+
+
+def test_parse_validated_raises_when_every_attempt_fails():
+    from core.validate import ParseFailedValidation, parse_validated
+    llm = _scripted(_RUN2)
+    try:
+        parse_validated("x", llm=llm, source="pasted", attempts=2)
+    except ParseFailedValidation as e:
+        assert len(llm.calls) == 2
+        assert e.defects[0]["rule"] == "eluate-tube-entered-only-by-elute"
+    else:
+        raise AssertionError("a parse that never validates must not be returned")
+
+
+def test_parse_validated_labels_unchecked_when_it_cannot_validate():
+    from core.validate import parse_validated
+    d = parse_validated("x", llm=lambda s, u: _RUN1, source="pasted", rules_path="/nonexistent.json")
+    assert d["validation"]["status"] == "unchecked"

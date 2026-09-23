@@ -61,3 +61,50 @@ def find_vessel_rule_defects(steps: list, rules: dict) -> list[dict]:
         if named:
             current = named
     return out
+
+
+# ---------------------------------------------------------------------------
+# The live paste path's gate. FAIL CLOSED: a parse that cannot be validated is labelled
+# "unchecked" (the UI says so) — it is never passed off as validated.
+# ---------------------------------------------------------------------------
+
+class ParseFailedValidation(RuntimeError):
+    """Every attempt broke a vessel rule; `defects` holds the last attempt's."""
+
+    def __init__(self, defects: list[dict], attempts: int):
+        self.defects = defects
+        self.attempts = attempts
+        rules = ", ".join(sorted({d["rule"] for d in defects}))
+        super().__init__(f"parse broke {len(defects)} vessel rule(s) on every one of {attempts} attempts: {rules}")
+
+
+def validate_protocol(data: dict, rules_path: str = RULES_FILE) -> dict:
+    """{"status": "passed"|"failed"|"unchecked", ...} for one parsed protocol dict."""
+    try:
+        rules = load_vessel_rules(rules_path)
+        defects = find_vessel_rule_defects(data.get("steps") or [], rules)
+    except Exception as exc:  # noqa: BLE001 — any failure to validate is "unchecked", loudly
+        return {"status": "unchecked", "reason": f"vessel rules could not be applied: {exc}", "defects": []}
+    return {"status": "failed" if defects else "passed", "defects": defects,
+            "rules": [r["id"] for r in rules["rules"]], "rules_version": rules.get("version")}
+
+
+def parse_validated(text: str, llm=None, source: str = "", attempts: int = 2,
+                    rules_path: str = RULES_FILE) -> dict:
+    """Parse (never cached), check the vessel rules, re-parse a failing parse.
+
+    Returns the protocol dict with a `validation` block attached: "passed", or
+    "unchecked" when the rules could not be applied. Raises ParseFailedValidation when
+    every attempt breaks a rule — a failing parse is never returned."""
+    from .parse import parse_protocol  # local: validate stays importable without parse deps
+
+    last: list[dict] = []
+    for attempt in range(1, attempts + 1):
+        data = parse_protocol(text, llm=llm, source=source, use_cache=False).to_dict()
+        v = validate_protocol(data, rules_path)
+        if v["status"] != "failed":
+            v["attempts"] = attempt
+            data["validation"] = v
+            return data
+        last = v["defects"]
+    raise ParseFailedValidation(last, attempts)
