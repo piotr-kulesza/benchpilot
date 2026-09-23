@@ -1877,36 +1877,45 @@ export {
   function buildWellPlate(){
     var grp=new THREE.Group();
     var BX=2.9, BZ=1.95, BH=0.34;
-    // OPAQUE moulded body (translucent hid the wells as internal pillars)
-    var body=new THREE.Mesh(new THREE.BoxGeometry(BX,BH,BZ), new THREE.MeshStandardMaterial({ color:0xe3e8ee, roughness:0.5, metalness:0, envMapIntensity:0.5 }));
-    body.position.y=0.17; body.castShadow=true; body.receiveShadow=true; grp.add(body);
+    // The wells are BORES cut into the plate. A solid box would cap them, so the plate is
+    // two parts: an opaque lower body up to the well floors, and a WELL DECK on top — the
+    // plate outline extruded with 96 round holes, so every bore has real walls going down
+    // to a dark floor. (The old wells were dark cups standing proud of a solid top: pegs.)
+    var WELL_D=0.11, FLOOR_Y=BH-WELL_D, WELL_R=0.082;
+    var bodyMat=new THREE.MeshStandardMaterial({ color:0xe3e8ee, roughness:0.5, metalness:0, envMapIntensity:0.5 });
+    var wallMat=new THREE.MeshStandardMaterial({ color:0xc4ccd6, roughness:0.6, metalness:0, envMapIntensity:0.4 });
+    // the lower body shares the deck's SIDE material so the plate's flank reads as one face
+    var body=new THREE.Mesh(new THREE.BoxGeometry(BX,FLOOR_Y,BZ), wallMat);
+    body.position.y=FLOOR_Y/2; body.castShadow=true; body.receiveShadow=true; grp.add(body);
     var skirt=new THREE.Mesh(new THREE.BoxGeometry(BX+0.1,0.06,BZ+0.1), matPlastic(0xc4ccd6));
     skirt.position.y=0.03; grp.add(skirt);
     // A1 corner NOTCH — a clipped corner cue (a small dark chamfer at one corner)
     var notch=new THREE.Mesh(new THREE.BoxGeometry(0.22,BH+0.02,0.22), matPlastic(0x9aa4b0));
     notch.position.set(-BX/2+0.02,0.17,-BZ/2+0.02); notch.rotation.y=Math.PI/4; grp.add(notch);
-    // 96 SHALLOW wells — short dark cups just proud of the plate top (reads as a grid
-    // of wells, NOT tall pillars), each with a dark floor disc.
-    var boreGeo=new THREE.CylinderGeometry(0.082,0.072,0.11,14,1,true);
-    var boreMat=new THREE.MeshStandardMaterial({ color:0x2a323c, metalness:0.1, roughness:0.75, side:THREE.DoubleSide });
-    var inst=new THREE.InstancedMesh(boreGeo, boreMat, 96); var m=new THREE.Matrix4(); var idx=0;
-    var floorGeo=new THREE.CircleGeometry(0.072,14);
-    var floors=new THREE.InstancedMesh(floorGeo, boreMat, 96); var mf=new THREE.Matrix4();
+    // the 8×12 grid, A1 back-left; a dark floor disc at the bottom of every bore
+    var deck=new THREE.Shape();
+    deck.moveTo(-BX/2,-BZ/2); deck.lineTo(BX/2,-BZ/2); deck.lineTo(BX/2,BZ/2); deck.lineTo(-BX/2,BZ/2); deck.lineTo(-BX/2,-BZ/2);
+    var floorMat=new THREE.MeshStandardMaterial({ color:0x2a323c, metalness:0.1, roughness:0.75 });
+    var floors=new THREE.InstancedMesh(new THREE.CircleGeometry(WELL_R,14), floorMat, 96); var mf=new THREE.Matrix4(); var idx=0;
     var awx=0, awz=0; var stepX=(BX-0.5)/11, stepZ=(BZ-0.42)/7;
     for(var c=0;c<12;c++) for(var r=0;r<8;r++){
       var x=-(BX-0.5)/2+c*stepX, z=-(BZ-0.42)/2+r*stepZ;
-      m.makeTranslation(x,0.36,z); inst.setMatrixAt(idx,m);          // shallow cup, flush-proud of the top
-      mf.makeRotationX(-Math.PI/2); mf.setPosition(x,0.315,z); floors.setMatrixAt(idx,mf);
+      var hole=new THREE.Path(); hole.absarc(x,-z,WELL_R,0,Math.PI*2,true); deck.holes.push(hole); // shape y = −world z
+      mf.makeRotationX(-Math.PI/2); mf.setPosition(x,FLOOR_Y+0.003,z); floors.setMatrixAt(idx,mf);
       idx++;
       if(c===1 && r===7){ awx=x; awz=z; }   // the active (front-left) well
     }
-    inst.instanceMatrix.needsUpdate=true; floors.instanceMatrix.needsUpdate=true; grp.add(inst); grp.add(floors);
-    // sample liquid in the active well
-    var liq=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.06,1,16), liquidMat());
-    liq.position.set(awx,0.33,awz); grp.add(liq);
+    floors.instanceMatrix.needsUpdate=true; grp.add(floors);
+    var deckGeo=new THREE.ExtrudeGeometry(deck,{ depth:WELL_D, bevelEnabled:false, curveSegments:14 });
+    deckGeo.rotateX(-Math.PI/2);                 // extrude along +y; lies flat
+    var deckMesh=new THREE.Mesh(deckGeo,[bodyMat,wallMat]); // caps = plate top, sides = bore walls
+    deckMesh.position.y=FLOOR_Y; deckMesh.castShadow=true; deckMesh.receiveShadow=true; grp.add(deckMesh);
+    // sample liquid in the active well — it fills the bore from its floor up
+    var liq=new THREE.Mesh(new THREE.CylinderGeometry(WELL_R-0.008,WELL_R-0.008,1,16), liquidMat());
+    liq.position.set(awx,FLOOR_Y+0.01,awz); grp.add(liq);
     var label=makeLabel("","96-well"); label.position.set(awx,0.9,awz); grp.add(label);
     attachSampleLiquid(grp, liq, function(liq,lv,color){
-      var h=Math.max(0.006, lv*0.09); liq.scale.set(1,h,1); liq.position.y=0.32+h/2;
+      var h=Math.max(0.006, lv*(WELL_D-0.012)); liq.scale.set(1,h,1); liq.position.y=FLOOR_Y+0.004+h/2;
       liq.material.color.copy(color); liq.material.emissive.copy(color);
     }, label, 0); // empty wells at rest
     return grp;
