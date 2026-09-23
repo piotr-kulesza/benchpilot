@@ -156,6 +156,51 @@ export function resolveRecipe(action, ctx) {
   return equipment === base.equipment ? base : { ...base, equipment }
 }
 
+// The instrument rule as an AUDIT invariant, over any resolver (default: the real one).
+// For every store / heat / incubate_wait / measure step (and each of its either/or
+// alternatives), the instrument it resolves to — at the sample's carried container —
+// must be one the step's stated conditions REQUIRE and whose container list includes
+// that vessel. The bench is always acceptable. `why`:
+//   not-required              the step states nothing that calls for this instrument
+//   rejects-container         the instrument does not take the sample's vessel
+//   contradicts-room-temp     a room-temperature step inside a temperature-controlled device
+//   stands-in-for-unmodelled  the step names an instrument we have no model for, and a
+//                             modelled device is shown in its place
+const TEMPERATURE_CONTROLLED = new Set(['water_bath', 'freezer', 'co2_incubator', 'ice_bucket', 'incubation_block'])
+const realResolve = (step, container, conditions) => resolveRecipe(step.action, { container, conditions }).equipment
+export function findInstrumentDefects(steps = [], resolve = realResolve) {
+  const seq = sampleContainerSequence(steps)
+  const out = []
+  steps.forEach((s, i) => {
+    if (!s || typeof s !== 'object') return
+    for (const v of [s, ...(Array.isArray(s.alternatives) ? s.alternatives : [])]) {
+      if (!CANDIDATES[v.action]) continue
+      const c = stepConditions(v)
+      const instrument = resolve(v, seq[i], c)
+      if (!instrument || instrument === 'bench') continue
+      const row = (why) => out.push({ index: s.index != null ? s.index : i, action: v.action, container: seq[i], instrument, why })
+      const req = INSTRUMENT_REQUIRES[instrument]
+      if (!req || !req(c)) row('not-required')
+      if (!INSTRUMENTS[instrument] || !INSTRUMENTS[instrument].accepts.includes(seq[i])) row('rejects-container')
+      if (c.roomTemp && TEMPERATURE_CONTROLLED.has(instrument)) row('contradicts-room-temp')
+      if (c.names.some((n) => UNMODELLED.includes(n))) row('stands-in-for-unmodelled')
+    }
+  })
+  return out
+}
+
+// Steps that NAME an instrument we have no model for — they render on the bench. Not a
+// defect (a missing instrument is honest) but a coverage gap worth seeing, like a
+// `generic` fallback.
+export function findUnmodelledInstruments(steps = []) {
+  const out = []
+  steps.forEach((s, i) => {
+    const names = s && typeof s === 'object' ? stepConditions(s).names.filter((n) => UNMODELLED.includes(n)) : []
+    if (names.length) out.push({ index: s.index != null ? s.index : i, action: s.action, names })
+  })
+  return out
+}
+
 // ─── container axis ──────────────────────────────────────────────────────
 // container → { geo (geometry key the Scene mounts), removal (how liquid leaves) }.
 //   removal 'tip'      — the vessel tilts and dumps (a tube you can pick up)
