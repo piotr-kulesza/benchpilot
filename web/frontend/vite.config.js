@@ -6,6 +6,12 @@ import react from '@vitejs/plugin-react'
 // pointed at via VITE_API_BASE without touching the bundled path.
 export default defineConfig({
   plugins: [react()],
+  // Pin the dev port: every capture script defaults to BASE=http://localhost:4319,
+  // and the harness routes (?models=1, ?matrix=1) only exist on the DEV server.
+  // strictPort makes a port clash fail loudly instead of silently moving the
+  // server somewhere the scripts will not find it.
+  server: { port: 4319, strictPort: true },
+  preview: { port: 4319, strictPort: true },
   build: {
     rollupOptions: {
       output: {
