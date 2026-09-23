@@ -41,7 +41,7 @@ export function MatrixScene({ action = 'pour_add', container = 'microtube', from
   // env once
   useEffect(() => {
     demo.setRenderer(gl); demo.setScene(scene); ensureMaps()
-    scene.environment = demo.buildEnvMap('cinematic')
+    scene.environment = demo.buildEnvMap()
     scene.background = demo.makeCineBackdrop()
     scene.environmentIntensity = 2.5; scene.backgroundIntensity = 1.19
     const f = demo.LOOK.cinematic.fog; scene.fog = new FogExp2(f.color, f.density)
