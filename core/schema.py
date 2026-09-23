@@ -56,6 +56,17 @@ CONTAINERS = (
     "generic",
 )
 
+# Instruments a step can NAME. Soft vocabulary: the parser should use these ids, but
+# an unknown id is kept verbatim (it still tells the player "an instrument was named").
+# Kept in lockstep with NAMED in web/frontend/src/vessel/sceneRecipe.js (a Vitest test
+# reads this tuple and fails on drift).
+INSTRUMENTS = (
+    "shaking_incubator", "co2_incubator", "water_bath", "heat_block", "freezer",
+    "liquid_nitrogen", "plate_shaker", "microwave", "flame", "thermocycler",
+    "nanodrop", "bioanalyzer", "plate_reader", "microscope", "hemocytometer",
+    "transilluminator",
+)
+
 
 # ---------------------------------------------------------------------------
 # small coercion helpers
@@ -90,6 +101,20 @@ def _list(v: Any) -> list:
     if isinstance(v, list):
         return v
     return [v]
+
+
+def _opt_bool(v: Any) -> Optional[bool]:
+    """Tri-state: None = not stated; otherwise a real bool ("false"/"0"/"no" -> False)."""
+    if v is None or v == "":
+        return None
+    if isinstance(v, bool):
+        return v
+    s = _s(v).lower()
+    if s in ("false", "0", "no", "n"):
+        return False
+    if s in ("true", "1", "yes", "y"):
+        return True
+    return bool(v)
 
 
 def _action(v: Any) -> str:
@@ -234,6 +259,34 @@ class Material:
                    note=_opt_s(d.get("note")), note_en=_opt_s(d.get("note_en")))
 
 
+@dataclass
+class StepConditions:
+    """What a step STATES about its physical conditions — the facts the player's
+    instrument resolver may rest on (an instrument appears only when these require
+    one). Every field is tri-state: None means "not stated here", and the player then
+    falls back to reading the step text; a value (including False / []) is the
+    parser's statement and wins over the text."""
+    temperature_c: Optional[float] = None   # first stated temperature, signed (°C)
+    room_temperature: Optional[bool] = None
+    on_ice: Optional[bool] = None
+    agitation: Optional[bool] = None        # shaking / rocking / gentle agitation
+    instruments: Optional[list[str]] = None  # ids from INSTRUMENTS the step NAMES
+
+    @classmethod
+    def from_dict(cls, d: Any) -> Optional["StepConditions"]:
+        if not isinstance(d, dict):
+            return None
+        inst = d.get("instruments")
+        return cls(
+            temperature_c=_opt_num(d.get("temperature_c")),
+            room_temperature=_opt_bool(d.get("room_temperature")),
+            on_ice=_opt_bool(d.get("on_ice")),
+            agitation=_opt_bool(d.get("agitation")),
+            instruments=(None if inst is None else
+                         [_s(x).lower() for x in _list(inst) if _s(x)]),
+        )
+
+
 # ---------------------------------------------------------------------------
 # Step
 # ---------------------------------------------------------------------------
@@ -253,6 +306,7 @@ class Step:
     source_index: Optional[int] = None  # original emitted position — audit trail after just-in-time reordering
     duration_seconds: Optional[float] = None
     spin: Optional[Spin] = None
+    conditions: Optional[StepConditions] = None  # stated temperature / ice / agitation / instruments
     reagents: list[Reagent] = field(default_factory=list)
     conditionals: list[Conditional] = field(default_factory=list)
     repeat: Optional[Repeat] = None
@@ -290,6 +344,7 @@ class Step:
                           if _opt_num(d.get("source_index")) is not None else None),
             duration_seconds=_opt_num(d.get("duration_seconds")),
             spin=Spin.from_dict(d.get("spin")),
+            conditions=StepConditions.from_dict(d.get("conditions")),
             reagents=[Reagent.from_dict(r) for r in _list(d.get("reagents"))],
             conditionals=[Conditional.from_dict(c) for c in _list(d.get("conditionals"))],
             repeat=Repeat.from_dict(d.get("repeat")),

@@ -95,6 +95,10 @@ function conditionsFromText(step) {
   }
 }
 
+// The instrument ids the text regex can recognise — the same vocabulary the parser
+// fills `conditions.instruments` from (core/schema.py INSTRUMENTS; lockstep-tested).
+export const NAMED_INSTRUMENTS = NAMED.map(([id]) => id)
+
 export function stepConditions(step) {
   const text = conditionsFromText(step)
   const sc = step?.conditions && typeof step.conditions === 'object' ? step.conditions : {}

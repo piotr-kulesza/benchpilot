@@ -283,6 +283,35 @@ For each step extract, when present:
     error; one hidden in a checklist the user needed at the bench is a real one. Only
     preparations are ever prep_ahead — a step that acts on the sample (adds to it, keeps
     it on ice) is part of the run and is NEVER prep_ahead.
+  - conditions: what THIS step states about its physical conditions — the ONLY
+    facts the animation may use to put an instrument on screen. Report what the
+    step SAYS, never what a lab would typically use:
+      • temperature_c: the stated temperature in °C as a signed number ("37°C" -> 37,
+        "−80 °C" -> -80, "below -150°C" -> -150, "42 °C water bath" -> 42). For a
+        range use the lower bound. null when the step states no temperature.
+      • room_temperature: true when it says room temperature / RT / "w temperaturze
+        pokojowej"; otherwise false.
+      • on_ice: true when the sample is (kept / incubated / thawed) ON ice at this
+        step; otherwise false. "Take the cells out of −80 °C and thaw on ice" -> true.
+      • agitation: true when it states shaking / rocking / gentle agitation /
+        orbital motion; otherwise false.
+      • instruments: the instruments the step's text NAMES, as ids from this list:
+        shaking_incubator, co2_incubator, water_bath, heat_block, freezer,
+        liquid_nitrogen, plate_shaker, microwave, flame, thermocycler, nanodrop,
+        bioanalyzer, plate_reader, microscope, hemocytometer, transilluminator.
+        Name an instrument ONLY if the text names it (or names the reading only that
+        instrument makes: "A260/280" -> nanodrop, "absorbance at 450 nm" ->
+        plate_reader). A dewar / LN2 vapour phase -> liquid_nitrogen; a "5 % CO2
+        incubator" -> co2_incubator; a "shaking incubator" -> shaking_incubator (NOT
+        co2_incubator, NOT plate_shaker). A named instrument not in the list: give a
+        short snake_case id of your own. None named -> [].
+    Give `conditions` on EVERY step (all fields), including prepare steps.
+      "Incubate 15 min at room temperature" -> {temperature_c: null,
+        room_temperature: true, on_ice: false, agitation: false, instruments: []}
+      "Grow in 37°C shaking incubator for 45 min" -> {temperature_c: 37,
+        room_temperature: false, on_ice: false, agitation: true,
+        instruments: ["shaking_incubator"]}
+      "Record the input cell number and the obtained yield" -> all false/null, [].
   - gaps: [{parameter, question}] for any value left underspecified / "to be
     determined" AT THIS STEP. Surface it as an answerable question (English is fine).
   - verbatim: the original source sentence(s) this step came from (audit trail).
@@ -324,6 +353,8 @@ Return JSON of exactly this shape:
     "draws_from": str|null,  // a step USING a prepared mixture: that mixture's `produces` id
     "duration_seconds": number|null,
     "spin": {"duration_seconds": number|null, "rcf_min": number|null, "note": str|null}|null,
+    "conditions": {"temperature_c": number|null, "room_temperature": bool, "on_ice": bool,
+                   "agitation": bool, "instruments": [str]},
     "reagents": [{"name": str, "name_en": str|null, "volume": str|null, "volume_en": str|null, "condition": str|null, "condition_en": str|null}],
     "conditionals": [{"condition": str, "condition_en": str|null, "then": str, "then_en": str|null}],
     "repeat": {"count": int|null, "reason": str|null, "reason_en": str|null}|null,

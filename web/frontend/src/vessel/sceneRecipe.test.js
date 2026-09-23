@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import {
   SCENE_RECIPES, resolveRecipe, sampleContainerSequence, resolveContainer, resolveRemoval,
   findTransferHandoffDefects, findPrepareOnSampleDefects, findTargetDefects, actsOnSample,
-  exitLiftPoint, stepConditions, findInstrumentDefects,
+  exitLiftPoint, stepConditions, findInstrumentDefects, NAMED_INSTRUMENTS,
 } from './sceneRecipe.js'
 import { resolveBehavior } from './behavior.js'
 import { ACTIONS } from '../lib/runtime.js'
@@ -511,5 +511,18 @@ describe('stepConditions prefers structured step.conditions, falls back to text 
         expect(r(structured), `${f} step ${s.index}`).toBe(r(s))
       })
     }
+  })
+})
+
+// The parser fills step.conditions.instruments from core/schema.py INSTRUMENTS; the
+// text fallback recognises NAMED_INSTRUMENTS. One vocabulary, two languages — drift
+// would make a parsed id the resolver never checks, or a regex id the parser never emits.
+describe('instrument vocabulary lockstep with the parser schema', () => {
+  it('core/schema.py INSTRUMENTS equals NAMED_INSTRUMENTS', () => {
+    const py = readFileSync(fileURLToPath(new URL('../../../../core/schema.py', import.meta.url)), 'utf8')
+    const block = py.match(/^INSTRUMENTS = \(([\s\S]*?)^\)/m)
+    expect(block, 'INSTRUMENTS tuple not found in core/schema.py').toBeTruthy()
+    const ids = [...block[1].matchAll(/"([a-z0-9_]+)"/g)].map((m) => m[1])
+    expect([...ids].sort()).toEqual([...NAMED_INSTRUMENTS].sort())
   })
 })

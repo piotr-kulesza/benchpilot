@@ -190,3 +190,48 @@ if __name__ == "__main__":
             fn()
             print(f"ok  {name}")
     print("all passed")
+
+
+# ---------------------------------------------------------------------------
+# Structured step conditions — the fields the scene's instrument resolver reads
+# (web/frontend/src/vessel/sceneRecipe.js stepConditions: temperature_c,
+# room_temperature, on_ice, agitation, instruments). Absent -> None, so the player
+# falls back to reading the text; present -> the parser's statement wins.
+# ---------------------------------------------------------------------------
+
+from core.schema import Step, StepConditions, INSTRUMENTS  # noqa: E402
+from core.parse import SYSTEM_PROMPT  # noqa: E402
+
+
+def test_step_conditions_absent_is_none():
+    s = Step.from_dict({"text": "Wait 1 min."})
+    assert s.conditions is None
+    # and it serialises as null, which the player reads as "fall back to the text"
+    from dataclasses import asdict
+    assert asdict(s)["conditions"] is None
+
+
+def test_step_conditions_parse_and_coerce():
+    s = Step.from_dict({"text": "Return the cells to the 37°C, 5% CO2 incubator.",
+                        "conditions": {"temperature_c": "37", "room_temperature": False,
+                                       "on_ice": None, "agitation": "false",
+                                       "instruments": ["CO2_Incubator", " ", None]}})
+    c = s.conditions
+    assert isinstance(c, StepConditions)
+    assert c.temperature_c == 37
+    assert c.room_temperature is False      # a stated false is a statement
+    assert c.on_ice is None                 # null stays "not stated" -> text fallback
+    assert c.agitation is False             # "false" string coerces to False
+    assert c.instruments == ["co2_incubator"]  # lower-cased, blanks dropped
+
+
+def test_step_conditions_keep_unknown_instruments_verbatim():
+    c = StepConditions.from_dict({"instruments": ["sonicator", "nanodrop"]})
+    assert c.instruments == ["sonicator", "nanodrop"]
+
+
+def test_instrument_vocabulary_is_in_the_prompt():
+    for name in INSTRUMENTS:
+        assert name in SYSTEM_PROMPT, name
+    for field in ("temperature_c", "room_temperature", "on_ice", "agitation", "instruments"):
+        assert field in SYSTEM_PROMPT, field
