@@ -2059,12 +2059,17 @@ export {
     var gel=new THREE.Mesh(new THREE.BoxGeometry(1.7,0.16,1.1),
       new THREE.MeshPhysicalMaterial({ color:0xd8c98a, roughness:0.5, transparent:true, opacity:0.5, envMapIntensity:0.5 }));
     gel.position.y=0.16; grp.add(gel);
-    // wells across the top edge
+    // wells across the top edge — slots cut INTO the slab. They are children of the gel
+    // mesh, so y is in ITS local space: the slab top is +0.08. Each slot sinks 0.06 into
+    // the gel with its mouth flush at the surface (the old 0.245 was a group-space height
+    // and left them hovering ~0.16 above the gel, casting their own shadows).
+    var GEL_TOP=0.08;
     var wellMat=new THREE.MeshBasicMaterial({ color:0x1c2128 });
-    for(var w=0;w<6;w++){ var wl=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.02,0.05), wellMat);
-      wl.position.set(-0.6+w*0.24,0.245,-0.45); gel.add(wl); }
+    for(var w=0;w<6;w++){ var wl=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.06,0.05), wellMat);
+      wl.position.set(-0.6+w*0.24,GEL_TOP-0.03+0.002,-0.45); gel.add(wl); }
+    // the loaded band runs IN the gel, just under its surface
     var band=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.02,0.05), new THREE.MeshBasicMaterial({ color:COL.lysis, transparent:true, opacity:0 }));
-    band.position.set(-0.36,0.245,-0.4); gel.add(band);
+    band.position.set(-0.36,GEL_TOP-0.01+0.002,-0.4); gel.add(band);
     var label=makeLabel("","gel"); label.position.set(0,0.8,0); grp.add(label);
     attachSampleLiquid(grp, band, function(b,lv,color){
       b.material.color.copy(color); b.material.opacity=Math.min(0.9,lv*1.3);
