@@ -27,7 +27,8 @@ if os.path.exists(envp):
             os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
 
 from core.ingest import ingest  # noqa: E402
-from core.parse import default_llm, parse_protocol  # noqa: E402
+from core.parse import default_llm  # noqa: E402
+from audited_parse import audited_parse  # noqa: E402  (a bad parse is re-parsed, never saved)
 
 FIX = os.path.join(ROOT, "tests", "fixtures")
 OUT = os.path.join(FIX, "fresh_parse")
@@ -54,7 +55,8 @@ def run(name: str) -> str:
         captured["raw"] = llm(system, user)
         return captured["raw"]
 
-    p = parse_protocol(text, llm=rec, source=src, use_cache=False)  # validates it parses
+    # gated: a parse that breaks the audit is re-parsed; `captured` holds the ACCEPTED raw
+    p = audited_parse(text, llm=rec, source=src, use_cache=False)
     os.makedirs(OUT, exist_ok=True)
     label = os.path.splitext(os.path.basename(name))[0] if os.path.sep in name else name.replace("@", "__run")
     with open(os.path.join(OUT, label + ".txt"), "w", encoding="utf-8") as fh:

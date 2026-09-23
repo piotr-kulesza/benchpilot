@@ -47,7 +47,9 @@ def _load_dotenv() -> None:
 _load_dotenv()
 
 from core.ingest import ingest          # noqa: E402
-from core.parse import parse_protocol    # noqa: E402
+from core.parse import parse_protocol    # noqa: E402,F401
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from audited_parse import audited_parse   # noqa: E402  (the parse gate: audit, re-parse a bad parse)
 from core.schema import Protocol, Step   # noqa: E402
 
 
@@ -276,7 +278,7 @@ def main() -> None:
     text = ingest(inp)
     print(f"[parse_check] extracted {len(text)} chars of text")
 
-    protocol = parse_protocol(text, source=os.path.basename(inp))
+    protocol = audited_parse(text, source=os.path.basename(inp))
     print(f"[parse_check] parsed: {len(protocol.steps)} steps, "
           f"{len(protocol.open_parameters)} open parameters, "
           f"{len(protocol.materials)} materials")

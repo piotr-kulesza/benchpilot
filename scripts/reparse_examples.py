@@ -21,7 +21,9 @@ if os.path.exists(envp):
             k, v = line.split("=", 1)
             os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
 
-from core.parse import parse_protocol, default_llm  # noqa: E402
+from core.parse import default_llm  # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from audited_parse import audited_parse  # noqa: E402  (a bad parse is re-parsed, never saved)
 
 FIX = os.path.join(ROOT, "tests", "fixtures")
 # the examples that contain a side preparation (Stage 33 survey)
@@ -38,7 +40,7 @@ for pid in PIDS:
         _c["raw"] = raw
         return raw
 
-    parse_protocol(text, llm=rec, source=pid + ".txt", use_cache=False)  # validates it parses
+    audited_parse(text, llm=rec, source=pid + ".txt", use_cache=False)  # parses AND passes the audit
     with open(os.path.join(FIX, "cache", pid + ".txt"), "w", encoding="utf-8") as fh:
         fh.write(captured["raw"])
     print(f"  re-parsed {pid} ({len(captured['raw'])} chars)")

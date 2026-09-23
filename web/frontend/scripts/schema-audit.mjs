@@ -11,19 +11,24 @@
 //   node scripts/schema-audit.mjs            # all bundled protocols
 //   node scripts/schema-audit.mjs pcr western
 //   node scripts/schema-audit.mjs --json     # machine-readable, for an agent loop
+//   node scripts/schema-audit.mjs --file parsed.json [--json]
+//        audit ONE parsed protocol (any path) — the parse pipeline's gate: exit 1 when it
+//        breaks a parse invariant, so a bad parse is re-parsed instead of bundled
 import fs from 'fs'
 import path from 'path'
 import {
   resolveRecipe, resolveContainer, resolveRemoval,
   sampleContainerSequence, findTargetDefects,
   findTransferHandoffDefects, findPrepareOnSampleDefects,
-  findInstrumentDefects, findUnmodelledInstruments,
+  findInstrumentDefects, findUnmodelledInstruments, findParseInvariantDefects,
 } from '../src/vessel/sceneRecipe.js'
 
 const DIR = path.join(process.cwd(), 'public', 'protocols')
 const argv = process.argv.slice(2)
 const JSON_OUT = argv.includes('--json')
-const only = argv.filter((a) => !a.startsWith('--'))
+const fileIdx = argv.indexOf('--file')
+const FILE = fileIdx >= 0 ? argv[fileIdx + 1] : null
+const only = argv.filter((a, i) => !a.startsWith('--') && !(fileIdx >= 0 && i === fileIdx + 1))
 
 // A resolver fell back iff it returns the same object as an impossible key.
 const GENERIC_RECIPE = resolveRecipe('__no_such_action__')
@@ -31,8 +36,10 @@ const GENERIC_CONTAINER = resolveContainer('__no_such_container__')
 const isUnknownAction = (a) => resolveRecipe(a) === GENERIC_RECIPE && a !== 'generic'
 const isUnknownContainer = (c) => resolveContainer(c) === GENERIC_CONTAINER && c !== 'generic'
 
-const index = JSON.parse(fs.readFileSync(path.join(DIR, 'index.json'), 'utf8'))
-const wanted = only.length ? index.filter((p) => only.includes(p.id)) : index
+const index = FILE
+  ? [{ id: path.basename(FILE, '.json'), name: path.basename(FILE), file: path.resolve(FILE) }]
+  : JSON.parse(fs.readFileSync(path.join(DIR, 'index.json'), 'utf8'))
+const wanted = only.length && !FILE ? index.filter((p) => only.includes(p.id)) : index
 
 const report = []
 const actionTally = new Map()
@@ -44,7 +51,7 @@ const bump = (map, key, unknown) => {
 }
 
 for (const meta of wanted) {
-  const data = JSON.parse(fs.readFileSync(path.join(DIR, meta.file), 'utf8'))
+  const data = JSON.parse(fs.readFileSync(path.resolve(DIR, meta.file), 'utf8'))
   const steps = data.steps || []
   const seq = sampleContainerSequence(steps)
 
@@ -80,6 +87,9 @@ for (const meta of wanted) {
     targetDefects: findTargetDefects(steps),
     transferHandoffDefects: findTransferHandoffDefects(steps),
     prepareOnSampleDefects: findPrepareOnSampleDefects(steps),
+    // the parse prompt's vessel MUSTs (elute -> eluate_tube, only elute enters it, the
+    // first step names its vessel, seed names its destination)
+    parseInvariantDefects: findParseInvariantDefects(steps),
     // Hard constraints 1 + 7: an instrument only when the step's stated conditions
     // require it and it takes the sample's vessel — never from the action alone.
     instrumentDefects: findInstrumentDefects(steps),
@@ -88,7 +98,7 @@ for (const meta of wanted) {
   }
   entry.defectCount = entry.unknownActions.length + entry.unknownContainers.length +
     entry.targetDefects.length + entry.transferHandoffDefects.length + entry.prepareOnSampleDefects.length +
-    entry.instrumentDefects.length
+    entry.instrumentDefects.length + entry.parseInvariantDefects.length
   report.push(entry)
 }
 
@@ -98,7 +108,7 @@ if (JSON_OUT) {
     actions: [...actionTally.values()].sort((a, b) => b.count - a.count),
     containers: [...containerTally.values()].sort((a, b) => b.count - a.count),
   }, null, 2))
-  process.exit(0)
+  process.exit(report.some((r) => r.defectCount) ? 1 : 0)
 }
 
 const totalSteps = report.reduce((n, r) => n + r.steps, 0)
@@ -121,6 +131,7 @@ for (const r of report) {
   show('target contradicts action', r.targetDefects, (d) => `${d.why} (target=${d.target})`)
   show('transfer names no destination', r.transferHandoffDefects, (d) => `carries ${d.container} forward — hand-off never fires`)
   show('prepare targets the sample vessel', r.prepareOnSampleDefects, (d) => `mix would be made in the sample's ${d.container}`)
+  show('parse invariant broken', r.parseInvariantDefects, (d) => `${d.rule} (${d.action}, container=${d.container})`)
   show('guessed instrument', r.instrumentDefects, (d) => `${d.action} → ${d.instrument} on ${d.container}: ${d.why}`)
   show('names an unmodelled instrument → renders as bench', r.unmodelledInstruments, (d) => `${d.action} — ${d.names.join(', ')}`)
   show('removal from an aspirate-only vessel', r.aspirateOnlyRemovals, (d) => `${d.action} from ${d.container} — must aspirate, never tip`)
