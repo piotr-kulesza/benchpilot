@@ -1020,9 +1020,11 @@ export function undockSample(lift = false) {
     // migrating bands (lanes) — move from the wells (back) toward the front
     var bands=[];
     var bandMat = new THREE.MeshBasicMaterial({ color:0x2f6ad0, transparent:true, opacity:0.85 });
+    // Children of the gel mesh → y is in ITS local space (slab top +0.07). The old 0.735
+    // was a group-space height: it put the bands ~1.4 up, floating ABOVE the tank lid.
     for(var l=0;l<5;l++){ var bx=-0.8+l*0.4;
       var band=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.02,0.05), bandMat.clone());
-      band.position.set(bx,0.735,-0.5); gel.add(band); bands.push(band); }
+      band.position.set(bx,0.07-0.01+0.002,-0.5); gel.add(band); bands.push(band); }
     // power supply box with a voltage readout
     var box = new THREE.Mesh(new THREE.BoxGeometry(0.9,0.7,0.6), matPainted(0xd8dee6,0.44));
     box.position.set(1.9,0.35,0.1); box.castShadow=true; grp.add(box);
