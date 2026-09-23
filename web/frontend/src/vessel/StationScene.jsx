@@ -14,8 +14,8 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera } from '@react-three/drei'
 import { FogExp2, Color, Vector3, Box3, Group, Mesh, RingGeometry, SphereGeometry, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
-import { resolveRecipe, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects } from './sceneRecipe.js'
-import { containerContract, resolveInstrument, isInstrumentReading, transferKind } from './containerContract.js'
+import { resolveRecipe, stepConditions, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects } from './sceneRecipe.js'
+import { containerContract, transferKind } from './containerContract.js'
 import { reagentName, reagentVolume, effectiveStep, selectAlternative, hasAlternatives } from '../lib/runtime.js'
 import * as demo from '../scene/demoScene.js'
 import { resolveScenePreset } from '../scene/scenePresets.js'
@@ -556,12 +556,15 @@ export function configureStation(st, o) {
     // benchtop centrifuge, rotor spins over p (verbatim stationSpin). The sample
     // arrives at its carried level and spins down to the chained end level.
     demo.stationSpin(st, BT, { vessel, vlabel: name || '', vsub: vol || '', color: endColor, lStart: startLevel, lEnd: endLevel, cenLabel: 'Centrifuge', cenSub: vol || '', seconds })
-  } else if (action === 'incubate_wait') {
-    // EQUIPMENT CONTRACT: pick the instrument the container actually goes in — a tube
-    // BLOCK for tubes, a plate SHAKER for plates/membranes, a CO₂ INCUBATOR for
-    // flasks/dishes. If nothing accepts it, fall back to the bench (never a wrong
-    // instrument). A compact progress-timer dial rides over the sample in every case.
-    const inst = resolveInstrument('incubate', container)
+  } else if ((action === 'incubate_wait' && equipment !== 'ice_bucket') || (action === 'store' && equipment === 'co2_incubator')) {
+    // EQUIPMENT CONTRACT: the instrument was resolved from the container AND the step's
+    // stated conditions (resolveRecipe) — a tube BLOCK only when one is named, a plate
+    // SHAKER only under stated agitation, a CO₂ INCUBATOR for a culture vessel at body
+    // temperature. Anything else is the bench (never a wrong instrument). A `store` into
+    // the CO₂ incubator shares this staging but holds still: the flask is simply back on
+    // its shelf. A compact progress-timer dial rides over the sample in every case.
+    const inst = equipment
+    const incubating = action === 'incubate_wait'
     // (the countdown progress dial is built generically for every station below and
     // driven by the real timer — no per-action ring here.)
     let seatFn = () => S.at(S[vessel], st.x, SEAT_Y, 0)
@@ -578,11 +581,13 @@ export function configureStation(st, o) {
       // The DETACHMENT is the whole point of the step but it's small + behind glass.
       // As the step resolves: OPEN the door and PUSH the camera in close on the flask
       // (contract framing 'wide' → a low, close frame) so the detached cells read.
-      motionFn = (p) => { inc.userData.setDoor(p > 0.5) }
-      st.pushCam = (p) => demo.easeInOut(demo.clamp((p - 0.35) / 0.4, 0, 1))
-      st.pushTarget = C.framing === 'wide'
-        ? { pos: [0, 1.2, 3.7], look: [0, 0.62, -1.25] }   // level, between the shelves, on the flask
-        : { pos: [0, 1.4, 3.0], look: [0, 0.9, -1.0] }
+      if (incubating) {
+        motionFn = (p) => { inc.userData.setDoor(p > 0.5) }
+        st.pushCam = (p) => demo.easeInOut(demo.clamp((p - 0.35) / 0.4, 0, 1))
+        st.pushTarget = C.framing === 'wide'
+          ? { pos: [0, 1.2, 3.7], look: [0, 0.62, -1.25] }   // level, between the shelves, on the flask
+          : { pos: [0, 1.4, 3.0], look: [0, 0.9, -1.0] }
+      }
     } else if (inst === 'incubation_block') {
       const block = demo.buildColdBlock(); block.position.set(0, 0, 0) // centred UNDER the tube
       st.group.add(block); st.updatables.push(block)
@@ -594,11 +599,11 @@ export function configureStation(st, o) {
       const v = S[vessel]
       // contentsState (passaging hero): during a flask incubation the adherent
       // MONOLAYER visibly DETACHES (trypsinisation) — confluent → cleared.
-      if (v.userData.setMono) v.userData.setMono(1 - demo.easeInOut(demo.clamp((p - 0.3) / 0.5, 0, 1)))
+      if (incubating && v.userData.setMono) v.userData.setMono(1 - demo.easeInOut(demo.clamp((p - 0.3) / 0.5, 0, 1)))
       v.userData.setLevel(evolve(p) + Math.sin(p * 10) * 0.02) // holds carried contents
       if (motionFn) motionFn(p)
     }
-  } else if (action === 'heat') {
+  } else if (action === 'heat' && equipment === 'water_bath') {
     // WATER BATH — a warm water-filled tub with the tube half-submerged + steam,
     // deliberately unlike the dry incubation block. Warm glow + bubbles ramp with p.
     const bath = demo.buildWaterBath()
@@ -632,7 +637,7 @@ export function configureStation(st, o) {
       }
       S[vessel].userData.setLevel(evolve(p) + Math.sin(p * 12) * 0.02) // holds carried contents
     }
-  } else if (action === 'cool_ice') {
+  } else if (action === 'cool_ice' || equipment === 'ice_bucket') {
     // ice bucket + a cold cast that deepens with p (frost creep) + a faint shiver.
     const ice = demo.buildIceBucket()
     ice.position.set(0, 0, 0.3)
@@ -676,7 +681,7 @@ export function configureStation(st, o) {
     st.dev = gel
     st.enter = () => seat(-1.7, SEAT_Y, 0.9) // sample waits beside the tank (loaded into it)
     st.timeline = (p) => { evolve(p); gel.userData.setProgress?.(p) }
-  } else if (action === 'store') {
+  } else if (action === 'store' && equipment === 'freezer') {
     // end-state storage: the vessel glides INTO the freezer; the door closes; frost breathes.
     const fr = demo.buildFreezer()
     fr.position.set(0.1, 0, -1.5)
@@ -741,20 +746,14 @@ export function configureStation(st, o) {
       S[vessel].userData.setLevel(demo.lerp(startLevel, Math.max(startLevel, endLevel, 0.7), f))
       if (p > 0.2) S[vessel].userData.setColor(endColor) // dye floods over
     }
-  } else if (equipment === 'reader') {
+  } else if (action === 'measure') {
     // EQUIPMENT CONTRACT: read each vessel on the instrument it actually goes in — a
     // 96-well plate on a PLATE READER, a tube on a NanoDrop, a culture flask under an
     // INVERTED MICROSCOPE, a slide under a LIGHT MICROSCOPE (100× oil), a gel on a UV
     // TRANSILLUMINATOR. The vessel rests on/in the instrument while it reads — no spin.
-    let inst = resolveInstrument('measure', container)
-    // GUARD (Stage 38): a wrong instrument is worse than a missing one. If the container maps
-    // to a device but the step isn't actually a modelled reading/observation (e.g. "weigh the
-    // crystals" — no balance in the vocabulary), do NOT put the vessel on a plausible-looking
-    // device. Rest it on the bench, and warn so the unmodelled (measure, container) is visible.
-    if (inst !== 'bench' && !isInstrumentReading(o.text)) {
-      console.warn(`[benchpilot] measure "${(o.text || '').slice(0, 60)}" on ${container} is not a modelled instrument reading — resting on the bench, not faking ${inst}.`)
-      inst = 'bench'
-    }
+    // The instrument was resolved from the container AND the reading the step names
+    // (resolveRecipe): "record the yield" or an unmodelled Bioanalyzer rests on the bench.
+    const inst = equipment
     // rest the sample on an instrument's stage at its stated height (flat vessels are
     // otherwise pinned to the bench by seat()'s FLAT guard), reading progress ramping.
     const onStage = (dev, sy, k = 1.3) => {
@@ -807,7 +806,7 @@ export function configureStation(st, o) {
   const prevVessel = prevContainer ? containerContract(prevContainer).vessel : null
   // `transfer` is now handled BY the hand-off wrapper (it IS an A→B move). Only the
   // actions that run their own vessel choreography stay excluded.
-  const custom = action === 'store' || equipment === 'centrifuge'
+  const custom = (action === 'store' && equipment === 'freezer') || equipment === 'centrifuge'
   if (prevVessel && prevVessel !== vessel && !custom && !st._skipHandoff) {
     wrapHandoff(st, S, prevVessel, vessel, startColor, startLevel)
   }
@@ -980,9 +979,10 @@ function useContainers(steps) {
 }
 
 // Per-step build + display params for one station in the line.
-function stationParams(baseStep, lang, altIdx, chain, producedInRun) {
+function stationParams(baseStep, lang, altIdx, chain, producedInRun, container) {
   const step = effectiveStep(baseStep, altIdx) // follow the chosen either/or method
-  const { equipment } = resolveRecipe(step.action)
+  // the instrument comes from the action + the sample's container + what the step states
+  const { equipment } = resolveRecipe(step.action, { container, conditions: stepConditions(step) })
   // EVERY reagent (name · volume · colour), so a multi-reagent step renders all of them,
   // not just the first. Deduped by name so a conditional volume (the SAME reagent listed
   // as 350 µl / 600 µl variants) stays one bottle, not two.
@@ -1146,7 +1146,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       const altIdx = altByStep[baseStep.index] || 0
       const container = containers[i] || 'microtube'
       const prevContainer = i > 0 ? (containers[i - 1] || 'microtube') : null
-      const o = stationParams(baseStep, lang, altIdx, stateChain[i], producedInRun)
+      const o = stationParams(baseStep, lang, altIdx, stateChain[i], producedInRun, container)
       const st = { group: new Group(), updatables: [], reagents: {}, pip: null, enter: null, timeline: null, x: i * SPACING, cen: null, dev: null, vis: 0, _vstate: -1 }
       configureStation(st, {
         action: o.action, equipment: o.equipment, container, prevContainer, color: o.colorHex, name: o.title, vol: o.vol, seconds: o.seconds,

@@ -17,6 +17,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { resolveBehavior } from './behavior.js'
+import { INSTRUMENTS } from './containerContract.js'
 
 // action → { equipment }. `anim` is filled in from behavior.js below.
 // equipment is the STATION device; the sample's vessel is the container axis.
@@ -27,16 +28,16 @@ const RECIPES = {
   vortex_mix:     { equipment: 'bench' },
   homogenize:     { equipment: 'syringe' },
   centrifuge:     { equipment: 'centrifuge' },
-  incubate_wait:  { equipment: 'incubation_block' },
-  heat:           { equipment: 'heat_block' },
+  incubate_wait:  { equipment: 'bench' },          // instrument from the step's conditions — see resolveRecipe
+  heat:           { equipment: 'bench' },          // idem
   cool_ice:       { equipment: 'ice_bucket' },
   transfer:       { equipment: 'bench' },        // no baked destination — container decides
   discard:        { equipment: 'bench' },
   elute:          { equipment: 'centrifuge' },    // the elution spin
-  measure:        { equipment: 'reader' },
+  measure:        { equipment: 'bench' },          // idem
   thermocycle:    { equipment: 'thermocycler' },
   electrophorese: { equipment: 'gel_rig' },
-  store:          { equipment: 'freezer' },
+  store:          { equipment: 'bench' },          // idem
   seed:           { equipment: 'bench' },          // container = flask/dish/agar_plate
   stain:          { equipment: 'staining_tray' },
   generic:        { equipment: 'bench' },
@@ -50,9 +51,109 @@ export const SCENE_RECIPES = Object.fromEntries(
   ]),
 )
 
-// Resolve an action to its scene recipe; unknown / missing → generic.
-export function resolveRecipe(action) {
-  return SCENE_RECIPES[action] || SCENE_RECIPES.generic
+// ─── what a step STATES — the conditions an instrument choice may rest on ──
+// The schema carries no structured temperature/agitation/equipment fields, so the
+// parsed step's text (original + English) is the source, exactly as the runner's
+// Temp chip (runtime.extractTemperature) reads it. Pure; unknown → empty.
+//   tempC      first stated temperature in °C (signed), or null
+//   roomTemp   "room temperature" / RT
+//   onIce      "on ice"
+//   agitation  shaking / rocking / agitation
+//   names      the instruments the text NAMES (modelled or not)
+const NAMED = [
+  ['shaking_incubator', /shaking incubator|incubator shaker|shaker incubator/i],
+  ['co2_incubator',     /\bCO\s?2\b|CO₂/i],
+  ['water_bath',        /water[- ]?bath|łaźni/i],
+  ['heat_block',        /heat(?:ing)? block|dry block|thermo-?block|thermomixer|blok grzej|termoblok/i],
+  ['freezer',           /freezer|zamrażar/i],
+  ['liquid_nitrogen',   /liquid nitrogen|\bLN2\b|dewar|ciekł\w* azot/i],
+  ['plate_shaker',      /plate shaker|rocker|rocking platform/i],
+  ['microwave',         /microwave|mikrofal/i],
+  ['flame',             /flame|burner|płomie/i],
+  ['thermocycler',      /thermocycler|thermal cycler|termocykler/i],
+  ['nanodrop',          /nanodrop|spectrophotomet|A2[368]0/i],
+  ['bioanalyzer',       /bioanaly|tapestation/i],
+  ['plate_reader',      /plate reader|absorbance|\bOD\s?\d{3}\b|\b\d{3}\s?nm\b/i],
+  ['microscope',        /microscop|confluen|morpholog|viabilit|detach/i],
+  ['hemocytometer',     /h(?:a)?emocytomet|counting chamber|neubauer|bürker/i],
+  ['transilluminator',  /transillumin|gel ?doc/i],
+]
+
+export function stepConditions(step) {
+  const hay = `${step?.text || ''} ${step?.text_en || ''}`
+  // a minus counts only when it is not a range dash ("55-60°C" is 55, not −60)
+  const m = hay.match(/(^|[^\d\s])\s*([-−–]\s*)?(\d{1,3}(?:\.\d+)?)\s*°?\s*C(?![a-zA-Z])/)
+  const tempC = m ? (m[2] ? -1 : 1) * Number(m[3]) : null
+  return {
+    tempC,
+    roomTemp: /room temp|\bRT\b|pokojow/i.test(hay),
+    onIce: /\bon ice\b|na lodzie|w lodzie/i.test(hay),
+    agitation: /agitat|shak|rocking|wytrząs|kołys|orbital/i.test(hay),
+    names: NAMED.filter(([, re]) => re.test(hay)).map(([id]) => id),
+  }
+}
+
+// What each instrument REQUIRES the step to state before it may appear. An instrument
+// whose requirement does not hold is a guess — and a guessed instrument is worse than
+// none (docs/scene-review.md, hard constraints 1 and 7). Exported so the offline audit
+// checks the resolver's output against the same rules.
+const named = (c, id) => (c.names || []).includes(id)
+const bodyTemp = (c) => c.tempC != null && c.tempC >= 30 && c.tempC <= 40
+export const INSTRUMENT_REQUIRES = {
+  water_bath:          (c) => named(c, 'water_bath'),
+  freezer:             (c) => named(c, 'freezer') || (c.tempC != null && c.tempC <= -15 && c.tempC > -100),
+  co2_incubator:       (c) => named(c, 'co2_incubator') || (bodyTemp(c) && !c.roomTemp),
+  plate_shaker:        (c) => !!c.agitation,
+  ice_bucket:          (c) => !!c.onIce,
+  incubation_block:    (c) => named(c, 'heat_block'),
+  nanodrop:            (c) => named(c, 'nanodrop'),
+  plate_reader:        (c) => named(c, 'plate_reader'),
+  inverted_microscope: (c) => named(c, 'microscope'),
+  light_microscope:    (c) => named(c, 'microscope') || named(c, 'hemocytometer'),
+  uv_transilluminator: (c) => named(c, 'transilluminator'),
+}
+
+// Named instruments we have NO model for. When a step names one, the honest render is
+// the bench — never the nearest-looking device (a dewar is not a −80 freezer, a shaking
+// incubator is not a dry block, a Bioanalyzer is not a NanoDrop).
+export const UNMODELLED = ['shaking_incubator', 'liquid_nitrogen', 'bioanalyzer', 'microwave', 'flame', 'thermocycler']
+const VETO = {
+  store: ['liquid_nitrogen'],
+  incubate_wait: ['shaking_incubator'],
+}
+
+// action → the instruments it MAY use, in preference order. The first whose requirement
+// holds and which accepts the sample's container wins; otherwise the bench.
+const CANDIDATES = {
+  store:         ['freezer', 'co2_incubator'],
+  heat:          ['water_bath'],
+  incubate_wait: ['ice_bucket', 'plate_shaker', 'co2_incubator', 'incubation_block'],
+  measure:       ['nanodrop', 'plate_reader', 'inverted_microscope', 'light_microscope', 'uv_transilluminator'],
+}
+const NO_CONDITIONS = { tempC: null, roomTemp: false, onIce: false, agitation: false, names: [] }
+
+// Which instrument (or 'bench') an action uses on this container under these conditions.
+export function resolveInstrumentFor(action, container, conditions) {
+  const c = { ...NO_CONDITIONS, ...(conditions || {}) }
+  if ((VETO[action] || []).some((id) => named(c, id))) return 'bench'
+  if (action === 'store' && c.tempC != null && c.tempC <= -100) return 'bench' // cryogenic — no dewar model
+  // stated agitation on a vessel the shaker cannot take is not a reason to try the next device
+  if (action === 'incubate_wait' && c.agitation && !c.onIce && !INSTRUMENTS.plate_shaker.accepts.includes(container)) return 'bench'
+  for (const id of CANDIDATES[action] || []) {
+    if (INSTRUMENT_REQUIRES[id](c) && INSTRUMENTS[id].accepts.includes(container)) return id
+  }
+  return 'bench'
+}
+
+// Resolve an action to its scene recipe; unknown / missing → generic. The action alone
+// never names an instrument for store / heat / incubate_wait / measure: pass the sample's
+// `container` and the step's `conditions` (stepConditions(step)) and the instrument is
+// chosen from those — the bench whenever they do not determine one.
+export function resolveRecipe(action, ctx) {
+  const base = SCENE_RECIPES[action] || SCENE_RECIPES.generic
+  if (!ctx || !CANDIDATES[action]) return base
+  const equipment = resolveInstrumentFor(action, ctx.container, ctx.conditions)
+  return equipment === base.equipment ? base : { ...base, equipment }
 }
 
 // ─── container axis ──────────────────────────────────────────────────────

@@ -119,6 +119,11 @@ export const INSTRUMENTS = {
   inverted_microscope: { accepts: ['flask', 'dish'] },           // observe adherent cells from below
   light_microscope:    { accepts: ['slide'] },                   // Gram / haemocytometer, 100× oil
   uv_transilluminator: { accepts: ['gel'] },                     // visualise DNA bands under UV
+  // named-only instruments (store / heat / on-ice families) — chosen by sceneRecipe's
+  // resolveRecipe from the step's stated conditions, never from the action alone
+  water_bath:          { accepts: ['microtube', 'tube', 'spin_column', 'eluate_tube', 'cryovial'] },
+  freezer:             { accepts: ['microtube', 'tube', 'spin_column', 'eluate_tube', 'cryovial'] },
+  ice_bucket:          { accepts: ['microtube', 'tube', 'spin_column', 'eluate_tube', 'cryovial'] },
 }
 
 const FAMILY = {
