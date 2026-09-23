@@ -16,6 +16,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 from core.parse import parse_protocol  # noqa: E402
 from core.schema import ACTIONS  # noqa: E402
+from condition_merge import apply_sidecar  # noqa: E402  (scripts/ is on sys.path when run as a script)
 
 FIX = os.path.join(ROOT, "tests", "fixtures")
 OUT = os.path.join(ROOT, "web", "frontend", "public", "protocols")
@@ -59,6 +60,9 @@ def main() -> None:
             text = open(os.path.join(FIX, "protocols", pid + ".txt"), encoding="utf-8").read()
             raw = open(os.path.join(FIX, "cache", pid + ".txt"), encoding="utf-8").read()
             d = parse_protocol(text, llm=lambda s, u, _r=raw: _r, source=pid + ".txt", use_cache=False).to_dict()
+        # structured step conditions come from a FRESH parse, merged by verbatim match
+        # (tests/fixtures/conditions/<id>.json) — the frozen step list is untouched
+        apply_sidecar(d, pid)
         with open(os.path.join(OUT, pid + ".json"), "w", encoding="utf-8") as fh:
             json.dump(d, fh, ensure_ascii=False, indent=2)
         stations = [s for s in d["steps"] if actionable(s)]

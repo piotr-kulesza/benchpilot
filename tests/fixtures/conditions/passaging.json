@@ -1,0 +1,137 @@
+{
+  "source": "tests/fixtures/fresh_parse/passaging.txt",
+  "steps": {
+    "1": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "2": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "3": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": true,
+        "instruments": []
+      }
+    },
+    "4": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "5": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": true,
+        "instruments": []
+      }
+    },
+    "6": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": true,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "7": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": [
+          "microscope"
+        ]
+      }
+    },
+    "8": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "9": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "10": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "11": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "12": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": [
+          "hemocytometer"
+        ]
+      }
+    },
+    "13": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "14": {
+      "conditions": {
+        "temperature_c": 37,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": [
+          "co2_incubator"
+        ]
+      }
+    }
+  }
+}

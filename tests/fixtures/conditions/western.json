@@ -1,0 +1,158 @@
+{
+  "source": "tests/fixtures/fresh_parse/western.txt",
+  "steps": {
+    "1": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "2": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "3": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "4": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": true,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "5": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": true,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "7": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": true,
+        "on_ice": false,
+        "agitation": true,
+        "instruments": []
+      }
+    },
+    "8": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "9": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "11": {
+      "conditions": {
+        "temperature_c": 4,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": true,
+        "instruments": []
+      }
+    },
+    "12": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "13": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "15": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": true,
+        "on_ice": false,
+        "agitation": true,
+        "instruments": []
+      }
+    },
+    "16": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "17": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "18": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": true,
+        "on_ice": false,
+        "agitation": true,
+        "instruments": []
+      }
+    },
+    "19": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": true,
+        "on_ice": false,
+        "agitation": true,
+        "instruments": []
+      }
+    },
+    "20": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    }
+  }
+}

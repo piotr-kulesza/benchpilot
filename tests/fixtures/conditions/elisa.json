@@ -1,0 +1,252 @@
+{
+  "source": "tests/fixtures/fresh_parse/elisa.txt",
+  "steps": {
+    "1": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "2": {
+      "conditions": {
+        "temperature_c": 4,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "3": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "4": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "5": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "6": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": true,
+        "on_ice": false,
+        "agitation": true,
+        "instruments": []
+      }
+    },
+    "7": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "8": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "9": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "10": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": true,
+        "on_ice": false,
+        "agitation": true,
+        "instruments": []
+      }
+    },
+    "11": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "12": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "13": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": true,
+        "on_ice": false,
+        "agitation": true,
+        "instruments": []
+      }
+    },
+    "14": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "15": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "16": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "17": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": true,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "18": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "19": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "20": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "21": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": true,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "22": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "23": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "24": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "25": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": true,
+        "instruments": [
+          "plate_shaker"
+        ]
+      }
+    },
+    "26": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": true,
+        "instruments": []
+      }
+    },
+    "27": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": [
+          "plate_reader"
+        ]
+      }
+    }
+  }
+}

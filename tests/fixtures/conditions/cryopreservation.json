@@ -1,0 +1,72 @@
+{
+  "source": "tests/fixtures/fresh_parse/cryopreservation.txt",
+  "steps": {
+    "1": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "2": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "3": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "4": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": true,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "5": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "6": {
+      "conditions": {
+        "temperature_c": -80,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": [
+          "freezer"
+        ]
+      }
+    },
+    "7": {
+      "conditions": {
+        "temperature_c": -150,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": [
+          "liquid_nitrogen"
+        ]
+      }
+    }
+  }
+}

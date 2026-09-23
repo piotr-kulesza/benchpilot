@@ -81,6 +81,15 @@
       "source_index": 0,
       "duration_seconds": 1500,
       "spin": null,
+      "conditions": {
+        "temperature_c": -80,
+        "room_temperature": false,
+        "on_ice": true,
+        "agitation": false,
+        "instruments": [
+          "freezer"
+        ]
+      },
       "reagents": [],
       "conditionals": [],
       "repeat": null,
@@ -109,6 +118,15 @@
       "source_index": 1,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": 37,
+        "room_temperature": true,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": [
+          "stationary_incubator"
+        ]
+      },
       "reagents": [
         {
           "name": "LB agar plate (with appropriate antibiotic)",
@@ -149,6 +167,13 @@
       "source_index": 2,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [
         {
           "name": "DNA",
@@ -194,6 +219,13 @@
       "source_index": 3,
       "duration_seconds": 1500,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": true,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [],
       "conditionals": [],
       "repeat": null,
@@ -222,6 +254,15 @@
       "source_index": 4,
       "duration_seconds": 45,
       "spin": null,
+      "conditions": {
+        "temperature_c": 42,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": [
+          "water_bath"
+        ]
+      },
       "reagents": [],
       "conditionals": [],
       "repeat": null,
@@ -255,6 +296,13 @@
       "source_index": 5,
       "duration_seconds": 120,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": true,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [],
       "conditionals": [],
       "repeat": null,
@@ -283,6 +331,13 @@
       "source_index": 6,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [
         {
           "name": "LB or SOC media (without antibiotic)",
@@ -316,6 +371,15 @@
       "source_index": 7,
       "duration_seconds": 2700,
       "spin": null,
+      "conditions": {
+        "temperature_c": 37,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": true,
+        "instruments": [
+          "shaking_incubator"
+        ]
+      },
       "reagents": [],
       "conditionals": [],
       "repeat": null,
@@ -340,6 +404,13 @@
       "source_index": 8,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [],
       "conditionals": [],
       "repeat": null,
@@ -369,6 +440,15 @@
       "source_index": 9,
       "duration_seconds": 57600,
       "spin": null,
+      "conditions": {
+        "temperature_c": 37,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": [
+          "stationary_incubator"
+        ]
+      },
       "reagents": [],
       "conditionals": [],
       "repeat": null,

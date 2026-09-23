@@ -81,6 +81,13 @@
       "source_index": 0,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [
         {
           "name": "anti-coagulant",
@@ -118,6 +125,13 @@
         "rcf_min": 1000,
         "note": "1,000-10,000 x g at 4°C; remove the pellet"
       },
+      "conditions": {
+        "temperature_c": 4,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [],
       "conditionals": [],
       "repeat": null,
@@ -142,6 +156,13 @@
       "source_index": 2,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [],
       "conditionals": [],
       "repeat": null,
@@ -166,6 +187,13 @@
       "source_index": 3,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [
         {
           "name": "capture antibody",
@@ -212,6 +240,13 @@
       "source_index": 4,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [
         {
           "name": "diluted capture antibody",
@@ -245,6 +280,13 @@
       "source_index": 5,
       "duration_seconds": 7200,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": true,
+        "on_ice": false,
+        "agitation": true,
+        "instruments": []
+      },
       "reagents": [],
       "conditionals": [
         {
@@ -282,6 +324,13 @@
       "source_index": 6,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [
         {
           "name": "wash buffer",
@@ -319,6 +368,13 @@
       "source_index": 7,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [],
       "conditionals": [],
       "repeat": {
@@ -347,6 +403,13 @@
       "source_index": 8,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [
         {
           "name": "blocking buffer",
@@ -380,6 +443,13 @@
       "source_index": 9,
       "duration_seconds": 3600,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": true,
+        "on_ice": false,
+        "agitation": true,
+        "instruments": []
+      },
       "reagents": [],
       "conditionals": [],
       "repeat": null,
@@ -404,6 +474,13 @@
       "source_index": 10,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [
         {
           "name": "dilution buffer",
@@ -442,6 +519,13 @@
       "source_index": 11,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [
         {
           "name": "diluted samples and standards",
@@ -475,6 +559,13 @@
       "source_index": 12,
       "duration_seconds": 7200,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": true,
+        "on_ice": false,
+        "agitation": true,
+        "instruments": []
+      },
       "reagents": [],
       "conditionals": [],
       "repeat": null,
@@ -499,6 +590,13 @@
       "source_index": 13,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [
         {
           "name": "wash buffer",
@@ -536,6 +634,13 @@
       "source_index": 14,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [],
       "conditionals": [],
       "repeat": {
@@ -564,6 +669,13 @@
       "source_index": 15,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [
         {
           "name": "pre-diluted detection antibody",
@@ -597,6 +709,13 @@
       "source_index": 16,
       "duration_seconds": 7200,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": true,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [],
       "conditionals": [],
       "repeat": null,
@@ -621,6 +740,13 @@
       "source_index": 17,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [
         {
           "name": "wash buffer",
@@ -658,6 +784,13 @@
       "source_index": 18,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [],
       "conditionals": [],
       "repeat": {
@@ -686,6 +819,13 @@
       "source_index": 19,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [
         {
           "name": "HRP-conjugated secondary antibody",
@@ -719,6 +859,13 @@
       "source_index": 20,
       "duration_seconds": 3600,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": true,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [],
       "conditionals": [],
       "repeat": null,
@@ -743,6 +890,13 @@
       "source_index": 21,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [
         {
           "name": "wash buffer",
@@ -780,6 +934,13 @@
       "source_index": 22,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [],
       "conditionals": [],
       "repeat": {
@@ -808,6 +969,13 @@
       "source_index": 23,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [
         {
           "name": "TMB enzyme substrate",
@@ -841,6 +1009,15 @@
       "source_index": 24,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": true,
+        "instruments": [
+          "plate_shaker"
+        ]
+      },
       "reagents": [],
       "conditionals": [],
       "repeat": null,
@@ -870,6 +1047,13 @@
       "source_index": 25,
       "duration_seconds": 60,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": true,
+        "instruments": []
+      },
       "reagents": [
         {
           "name": "stop solution",
@@ -903,6 +1087,15 @@
       "source_index": 26,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": [
+          "plate_reader"
+        ]
+      },
       "reagents": [],
       "conditionals": [],
       "repeat": null,

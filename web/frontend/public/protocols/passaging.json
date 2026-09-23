@@ -57,6 +57,13 @@
       "source_index": 0,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [],
       "conditionals": [],
       "repeat": null,
@@ -81,6 +88,13 @@
       "source_index": 1,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [],
       "conditionals": [],
       "repeat": null,
@@ -105,6 +119,13 @@
       "source_index": 2,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": true,
+        "instruments": []
+      },
       "reagents": [
         {
           "name": "balanced salt solution without calcium and magnesium",
@@ -142,6 +163,13 @@
       "source_index": 3,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [],
       "conditionals": [],
       "repeat": null,
@@ -166,6 +194,13 @@
       "source_index": 4,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": true,
+        "instruments": []
+      },
       "reagents": [
         {
           "name": "dissociation reagent (trypsin or TrypLE)",
@@ -199,6 +234,13 @@
       "source_index": 5,
       "duration_seconds": 120,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": true,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [],
       "conditionals": [],
       "repeat": null,
@@ -223,6 +265,15 @@
       "source_index": 6,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": [
+          "microscope"
+        ]
+      },
       "reagents": [],
       "conditionals": [
         {
@@ -254,6 +305,13 @@
       "source_index": 7,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [
         {
           "name": "complete growth medium",
@@ -294,6 +352,13 @@
       "source_index": 8,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [],
       "conditionals": [],
       "repeat": null,
@@ -321,6 +386,13 @@
         "duration_seconds": 300,
         "rcf_min": 200,
         "note": "200 x g for 5 to 10 minutes"
+      },
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
       },
       "reagents": [],
       "conditionals": [],
@@ -351,6 +423,13 @@
       "source_index": 10,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [
         {
           "name": "complete growth medium",
@@ -389,6 +468,15 @@
       "source_index": 11,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": [
+          "hemocytometer"
+        ]
+      },
       "reagents": [
         {
           "name": "Trypan blue",
@@ -422,6 +510,13 @@
       "source_index": 12,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      },
       "reagents": [],
       "conditionals": [],
       "repeat": null,
@@ -451,6 +546,15 @@
       "source_index": 13,
       "duration_seconds": null,
       "spin": null,
+      "conditions": {
+        "temperature_c": 37,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": [
+          "co2_incubator"
+        ]
+      },
       "reagents": [],
       "conditionals": [],
       "repeat": null,

@@ -94,7 +94,14 @@
       ],
       "prep_ahead": true,
       "gaps": [],
-      "verbatim": "Bufor lizujący: dodać 10 µl 2-merkaptoetanolu na 1 ml RLT; przygotować pod wyciągiem, zużyć w ciągu 24 h."
+      "verbatim": "Bufor lizujący: dodać 10 µl 2-merkaptoetanolu na 1 ml RLT; przygotować pod wyciągiem, zużyć w ciągu 24 h.",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
     },
     {
       "index": 2,
@@ -135,7 +142,14 @@
       "hazards_en": [],
       "prep_ahead": true,
       "gaps": [],
-      "verbatim": "Do buforu RPE dodać etanol zgodnie z instrukcją zestawu, jeśli nie zostało to wykonane."
+      "verbatim": "Do buforu RPE dodać etanol zgodnie z instrukcją zestawu, jeśli nie zostało to wykonane.",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
     },
     {
       "index": 4,
@@ -163,7 +177,14 @@
       ],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Powierzchnię i pipety przetrzeć środkiem usuwającym rybonukleazy. Do momentu lizy trzymać próbki na lodzie."
+      "verbatim": "Powierzchnię i pipety przetrzeć środkiem usuwającym rybonukleazy. Do momentu lizy trzymać próbki na lodzie.",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": true,
+        "agitation": false,
+        "instruments": []
+      }
     },
     {
       "index": 5,
@@ -217,7 +238,14 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Osad neutrofili zlizować bezpośrednio w buforze RLT z 2-merkaptoetanolem: 350 µl dla ≤ 5×10⁶ komórek, 600 µl dla większej liczby. Wymieszać do całkowitej lizy."
+      "verbatim": "Osad neutrofili zlizować bezpośrednio w buforze RLT z 2-merkaptoetanolem: 350 µl dla ≤ 5×10⁶ komórek, 600 µl dla większej liczby. Wymieszać do całkowitej lizy.",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
     },
     {
       "index": 6,
@@ -267,7 +295,14 @@
           "hazards_en": [],
           "prep_ahead": false,
           "gaps": [],
-          "verbatim": "Zhomogenizować lizat na kolumnie QIAshredder (2 min, maksymalne obroty) lub przepuścić 5-krotnie przez igłę 20–21 G."
+          "verbatim": "Zhomogenizować lizat na kolumnie QIAshredder (2 min, maksymalne obroty) lub przepuścić 5-krotnie przez igłę 20–21 G.",
+          "conditions": {
+            "temperature_c": null,
+            "room_temperature": false,
+            "on_ice": false,
+            "agitation": false,
+            "instruments": []
+          }
         },
         {
           "index": 6,
@@ -295,14 +330,28 @@
           "hazards_en": [],
           "prep_ahead": false,
           "gaps": [],
-          "verbatim": "Zhomogenizować lizat na kolumnie QIAshredder (2 min, maksymalne obroty) lub przepuścić 5-krotnie przez igłę 20–21 G."
+          "verbatim": "Zhomogenizować lizat na kolumnie QIAshredder (2 min, maksymalne obroty) lub przepuścić 5-krotnie przez igłę 20–21 G.",
+          "conditions": {
+            "temperature_c": null,
+            "room_temperature": false,
+            "on_ice": false,
+            "agitation": false,
+            "instruments": []
+          }
         }
       ],
       "hazards": [],
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Zhomogenizować lizat na kolumnie QIAshredder (2 min, maksymalne obroty) lub przepuścić 5-krotnie przez igłę 20–21 G."
+      "verbatim": "Zhomogenizować lizat na kolumnie QIAshredder (2 min, maksymalne obroty) lub przepuścić 5-krotnie przez igłę 20–21 G.",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
     },
     {
       "index": 7,
@@ -339,7 +388,14 @@
       ],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Dodać jedną objętość 70% etanolu i wymieszać pipetą. Nie wirować."
+      "verbatim": "Dodać jedną objętość 70% etanolu i wymieszać pipetą. Nie wirować.",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
     },
     {
       "index": 8,
@@ -363,7 +419,14 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Przenieść próbkę na kolumnę RNeasy, wirować 15 s przy ≥ 8000 × g, odrzucić przesącz. Powtórzyć dla pozostałej objętości."
+      "verbatim": "Przenieść próbkę na kolumnę RNeasy, wirować 15 s przy ≥ 8000 × g, odrzucić przesącz. Powtórzyć dla pozostałej objętości.",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
     },
     {
       "index": 9,
@@ -395,7 +458,14 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Przenieść próbkę na kolumnę RNeasy, wirować 15 s przy ≥ 8000 × g, odrzucić przesącz. Powtórzyć dla pozostałej objętości."
+      "verbatim": "Przenieść próbkę na kolumnę RNeasy, wirować 15 s przy ≥ 8000 × g, odrzucić przesącz. Powtórzyć dla pozostałej objętości.",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
     },
     {
       "index": 10,
@@ -428,7 +498,14 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Dodać 350 µl buforu RW1, wirować 15 s, odrzucić przesącz."
+      "verbatim": "Dodać 350 µl buforu RW1, wirować 15 s, odrzucić przesącz.",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
     },
     {
       "index": 11,
@@ -456,7 +533,14 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Dodać 350 µl buforu RW1, wirować 15 s, odrzucić przesącz."
+      "verbatim": "Dodać 350 µl buforu RW1, wirować 15 s, odrzucić przesącz.",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
     },
     {
       "index": 3,
@@ -497,7 +581,14 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Przygotować mieszaninę DNazy I z buforem RDD (10 µl DNazy I + 70 µl RDD na próbkę)."
+      "verbatim": "Przygotować mieszaninę DNazy I z buforem RDD (10 µl DNazy I + 70 µl RDD na próbkę).",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
     },
     {
       "index": 12,
@@ -530,7 +621,14 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Nanieść 80 µl mieszaniny DNazy I na membranę kolumny, inkubować 15 min w temperaturze pokojowej."
+      "verbatim": "Nanieść 80 µl mieszaniny DNazy I na membranę kolumny, inkubować 15 min w temperaturze pokojowej.",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
     },
     {
       "index": 13,
@@ -554,7 +652,14 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Nanieść 80 µl mieszaniny DNazy I na membranę kolumny, inkubować 15 min w temperaturze pokojowej."
+      "verbatim": "Nanieść 80 µl mieszaniny DNazy I na membranę kolumny, inkubować 15 min w temperaturze pokojowej.",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": true,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
     },
     {
       "index": 14,
@@ -587,7 +692,14 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Dodać 350 µl RW1, wirować 15 s, odrzucić przesącz."
+      "verbatim": "Dodać 350 µl RW1, wirować 15 s, odrzucić przesącz.",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
     },
     {
       "index": 15,
@@ -615,7 +727,14 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Dodać 350 µl RW1, wirować 15 s, odrzucić przesącz."
+      "verbatim": "Dodać 350 µl RW1, wirować 15 s, odrzucić przesącz.",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
     },
     {
       "index": 16,
@@ -648,7 +767,14 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Płukać 500 µl buforu RPE (wirować 15 s), następnie ponownie 500 µl RPE (wirować 2 min)."
+      "verbatim": "Płukać 500 µl buforu RPE (wirować 15 s), następnie ponownie 500 µl RPE (wirować 2 min).",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
     },
     {
       "index": 17,
@@ -676,7 +802,14 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Płukać 500 µl buforu RPE (wirować 15 s), następnie ponownie 500 µl RPE (wirować 2 min)."
+      "verbatim": "Płukać 500 µl buforu RPE (wirować 15 s), następnie ponownie 500 µl RPE (wirować 2 min).",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
     },
     {
       "index": 18,
@@ -709,7 +842,14 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Płukać 500 µl buforu RPE (wirować 15 s), następnie ponownie 500 µl RPE (wirować 2 min)."
+      "verbatim": "Płukać 500 µl buforu RPE (wirować 15 s), następnie ponownie 500 µl RPE (wirować 2 min).",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
     },
     {
       "index": 19,
@@ -737,7 +877,14 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Płukać 500 µl buforu RPE (wirować 15 s), następnie ponownie 500 µl RPE (wirować 2 min)."
+      "verbatim": "Płukać 500 µl buforu RPE (wirować 15 s), następnie ponownie 500 µl RPE (wirować 2 min).",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
     },
     {
       "index": 20,
@@ -761,7 +908,14 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Przenieść kolumnę na czystą probówkę i wirować 1 min bez dodawania buforu."
+      "verbatim": "Przenieść kolumnę na czystą probówkę i wirować 1 min bez dodawania buforu.",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
     },
     {
       "index": 21,
@@ -789,7 +943,14 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Przenieść kolumnę na czystą probówkę i wirować 1 min bez dodawania buforu."
+      "verbatim": "Przenieść kolumnę na czystą probówkę i wirować 1 min bez dodawania buforu.",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
     },
     {
       "index": 22,
@@ -837,7 +998,14 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Eluować w 30–50 µl wody wolnej od rybonukleaz (Micro: 14 µl); odczekać 1 min, wirować 1 min przy ≥ 8000 × g."
+      "verbatim": "Eluować w 30–50 µl wody wolnej od rybonukleaz (Micro: 14 µl); odczekać 1 min, wirować 1 min przy ≥ 8000 × g.",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
     },
     {
       "index": 23,
@@ -861,7 +1029,14 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Eluować w 30–50 µl wody wolnej od rybonukleaz (Micro: 14 µl); odczekać 1 min, wirować 1 min przy ≥ 8000 × g."
+      "verbatim": "Eluować w 30–50 µl wody wolnej od rybonukleaz (Micro: 14 µl); odczekać 1 min, wirować 1 min przy ≥ 8000 × g.",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
     },
     {
       "index": 24,
@@ -889,7 +1064,14 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Eluować w 30–50 µl wody wolnej od rybonukleaz (Micro: 14 µl); odczekać 1 min, wirować 1 min przy ≥ 8000 × g."
+      "verbatim": "Eluować w 30–50 µl wody wolnej od rybonukleaz (Micro: 14 µl); odczekać 1 min, wirować 1 min przy ≥ 8000 × g.",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
     },
     {
       "index": 25,
@@ -919,7 +1101,16 @@
       ],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "RNA trzymać na lodzie do pomiaru, przechowywać w −80°C. Unikać wielokrotnego zamrażania i rozmrażania."
+      "verbatim": "RNA trzymać na lodzie do pomiaru, przechowywać w −80°C. Unikać wielokrotnego zamrażania i rozmrażania.",
+      "conditions": {
+        "temperature_c": -80,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": [
+          "freezer"
+        ]
+      }
     },
     {
       "index": 26,
@@ -943,7 +1134,16 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "NanoDrop: A260/280 około 2,0; A260/230 w zakresie 2,0–2,2. Niskie A260/230 wskazuje na resztki buforów."
+      "verbatim": "NanoDrop: A260/280 około 2,0; A260/230 w zakresie 2,0–2,2. Niskie A260/230 wskazuje na resztki buforów.",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": [
+          "nanodrop"
+        ]
+      }
     },
     {
       "index": 27,
@@ -972,7 +1172,16 @@
           "question": "What RIN acceptance threshold should be used for neutrophil RNA (to be established with the laboratory)?"
         }
       ],
-      "verbatim": "Integralność RNA: Bioanalyzer lub TapeStation (RIN). U neutrofili RIN bywa niższy niż u limfocytów; próg akceptacji ustalić z laboratorium."
+      "verbatim": "Integralność RNA: Bioanalyzer lub TapeStation (RIN). U neutrofili RIN bywa niższy niż u limfocytów; próg akceptacji ustalić z laboratorium.",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": [
+          "bioanalyzer"
+        ]
+      }
     },
     {
       "index": 28,
@@ -996,7 +1205,14 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Odnotować liczbę komórek wejściowych oraz uzyskaną wydajność."
+      "verbatim": "Odnotować liczbę komórek wejściowych oraz uzyskaną wydajność.",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
     },
     {
       "index": 29,
@@ -1024,7 +1240,14 @@
       ],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "RNA neutrofili szybko ulega degradacji, a komórki łatwo się aktywują. Lizować możliwie zaraz po izolacji, pracować szybko i na lodzie."
+      "verbatim": "RNA neutrofili szybko ulega degradacji, a komórki łatwo się aktywują. Lizować możliwie zaraz po izolacji, pracować szybko i na lodzie.",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": true,
+        "agitation": false,
+        "instruments": []
+      }
     },
     {
       "index": 30,
@@ -1048,7 +1271,14 @@
       "hazards_en": [],
       "prep_ahead": false,
       "gaps": [],
-      "verbatim": "Częstym problemem jest zanieczyszczenie genomowym DNA. W razie potrzeby wydłużyć lub powtórzyć trawienie DNazą, ewentualnie zastosować wariant z eliminacją gDNA (RNeasy Plus)."
+      "verbatim": "Częstym problemem jest zanieczyszczenie genomowym DNA. W razie potrzeby wydłużyć lub powtórzyć trawienie DNazą, ewentualnie zastosować wariant z eliminacją gDNA (RNeasy Plus).",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
     },
     {
       "index": 31,
@@ -1093,7 +1323,14 @@
           "question": "Will the analysis be bulk or single-cell?"
         }
       ],
-      "verbatim": "Do ustalenia na miejscu: zestaw, liczba komórek wejściowych, objętości lizy i elucji, docelowy RIN oraz typ analizy (bulk lub single-cell)."
+      "verbatim": "Do ustalenia na miejscu: zestaw, liczba komórek wejściowych, objętości lizy i elucji, docelowy RIN oraz typ analizy (bulk lub single-cell).",
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
     }
   ],
   "open_parameters": [

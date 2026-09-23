@@ -1,0 +1,105 @@
+{
+  "source": "tests/fixtures/fresh_parse/transformation.txt",
+  "steps": {
+    "1": {
+      "conditions": {
+        "temperature_c": -80,
+        "room_temperature": false,
+        "on_ice": true,
+        "agitation": false,
+        "instruments": [
+          "freezer"
+        ]
+      }
+    },
+    "2": {
+      "conditions": {
+        "temperature_c": 37,
+        "room_temperature": true,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": [
+          "stationary_incubator"
+        ]
+      }
+    },
+    "3": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "4": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": true,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "5": {
+      "conditions": {
+        "temperature_c": 42,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": [
+          "water_bath"
+        ]
+      }
+    },
+    "6": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": true,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "7": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "8": {
+      "conditions": {
+        "temperature_c": 37,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": true,
+        "instruments": [
+          "shaking_incubator"
+        ]
+      }
+    },
+    "9": {
+      "conditions": {
+        "temperature_c": null,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": []
+      }
+    },
+    "10": {
+      "conditions": {
+        "temperature_c": 37,
+        "room_temperature": false,
+        "on_ice": false,
+        "agitation": false,
+        "instruments": [
+          "stationary_incubator"
+        ]
+      }
+    }
+  }
+}
