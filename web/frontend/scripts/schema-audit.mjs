@@ -20,8 +20,13 @@ import {
   resolveRecipe, resolveContainer, resolveRemoval,
   sampleContainerSequence, findTargetDefects,
   findTransferHandoffDefects, findPrepareOnSampleDefects,
-  findInstrumentDefects, findUnmodelledInstruments, findParseInvariantDefects,
+  findInstrumentDefects, findUnmodelledInstruments,
 } from '../src/vessel/sceneRecipe.js'
+import { findVesselRuleDefects, loadVesselRules, ruleEvidence } from './lib/vesselRules.mjs'
+
+// parse-time vessel rules — DATA in core/vessel_rules.json (shared with core/validate.py)
+const VESSEL_RULES = loadVesselRules()
+const EVIDENCE = ruleEvidence(VESSEL_RULES)
 
 const DIR = path.join(process.cwd(), 'public', 'protocols')
 const argv = process.argv.slice(2)
@@ -98,9 +103,8 @@ for (const meta of wanted) {
     targetDefects: findTargetDefects(steps),
     transferHandoffDefects: findTransferHandoffDefects(steps),
     prepareOnSampleDefects: findPrepareOnSampleDefects(steps),
-    // the parse prompt's vessel MUSTs (elute -> eluate_tube, only elute enters it, the
-    // first step names its vessel, seed names its destination)
-    parseInvariantDefects: findParseInvariantDefects(steps),
+    // the parse prompt's vessel MUSTs, as data (core/vessel_rules.json)
+    parseInvariantDefects: findVesselRuleDefects(steps, VESSEL_RULES),
     // Hard constraints 1 + 7: an instrument only when the step's stated conditions
     // require it and it takes the sample's vessel — never from the action alone.
     instrumentDefects: findInstrumentDefects(steps),
@@ -156,7 +160,8 @@ for (const r of report) {
   show('target contradicts action', r.targetDefects, (d) => `${d.why} (target=${d.target})`)
   show('transfer names no destination', r.transferHandoffDefects, (d) => `carries ${d.container} forward — hand-off never fires`)
   show('prepare targets the sample vessel', r.prepareOnSampleDefects, (d) => `mix would be made in the sample's ${d.container}`)
-  show('parse invariant broken', r.parseInvariantDefects, (d) => `${d.rule} (${d.action}, container=${d.container})`)
+  // the evidence label keeps a rule that has only ever fired on hand-edited fixtures honest
+  show('parse invariant broken', r.parseInvariantDefects, (d) => `${d.rule} (${d.action}, container=${d.container})  [rule evidence: ${EVIDENCE[d.rule]?.kind}]`)
   show('guessed instrument', r.instrumentDefects, (d) => `${d.action} → ${d.instrument} on ${d.container}: ${d.why}`)
   show('names an unmodelled instrument → renders as bench', r.unmodelledInstruments, (d) => `${d.action} — ${d.names.join(', ')}`)
   show('removal from an aspirate-only vessel', r.aspirateOnlyRemovals, (d) => `${d.action} from ${d.container} — must aspirate, never tip`)

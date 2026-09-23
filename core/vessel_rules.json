@@ -1,0 +1,30 @@
+{
+  "_doc": "Parse-time vessel rules as DATA — the MUSTs the parse prompt states about WHERE THE SAMPLE SITS, checked on every parse. One file, two readers: core/validate.py (the parse gate and the live API) and web/frontend/scripts/lib/vesselRules.mjs (schema-audit). Both walk the SAMPLE steps (a `prepare` is on the side and is skipped), tracking the sample's current vessel. `when` selects steps: action (one or a list), first_sample_step, or enters (the step names this vessel while the sample is elsewhere). `require` must then hold: container (an exact vessel, or \"named\" = any known vessel) or action. Only rules no correct parse breaks belong here. `evidence.kind` is honest: \"real\" if a real parse has broken it, \"hand-edited-only\" if it has only gone red on a hand-edited fixture — a rule that has never fired on real data may be encoding a belief rather than a constraint.",
+  "version": 1,
+  "rules": [
+    {
+      "id": "elute-collects-into-eluate-tube",
+      "when": { "action": "elute" },
+      "require": { "container": "eluate_tube" },
+      "evidence": { "kind": "hand-edited-only", "detail": "Red only on neutrophil run 1 with its elute step's container removed; no real parse has broken it." }
+    },
+    {
+      "id": "eluate-tube-entered-only-by-elute",
+      "when": { "enters": "eluate_tube" },
+      "require": { "action": "elute" },
+      "evidence": { "kind": "real", "detail": "Broken by neutrophil_rna run 2 (tests/fixtures/fresh_parse/neutrophil_rna__run2.txt), step 22: the 'add water' pour_add put the sample into the eluate tube a step before the elution." }
+    },
+    {
+      "id": "first-step-names-container",
+      "when": { "first_sample_step": true },
+      "require": { "container": "named" },
+      "evidence": { "kind": "real", "detail": "Broken by the bundled pre-gate PCR parse, step 2 (accepted exception in web/frontend/scripts/audit-exceptions.json)." }
+    },
+    {
+      "id": "move-names-destination",
+      "when": { "action": ["seed"] },
+      "require": { "container": "named" },
+      "evidence": { "kind": "hand-edited-only", "detail": "Red only on neutrophil run 1 with a step hand-edited into a seed with no vessel; no real parse has broken it. (transfer is covered by findTransferHandoffDefects.)" }
+    }
+  ]
+}

@@ -235,3 +235,25 @@ def test_instrument_vocabulary_is_in_the_prompt():
         assert name in SYSTEM_PROMPT, name
     for field in ("temperature_c", "room_temperature", "on_ice", "agitation", "instruments"):
         assert field in SYSTEM_PROMPT, field
+
+
+# ---------------------------------------------------------------------------
+# Vessel rules as DATA (core/vessel_rules.json), read by core/validate.py here and by
+# web/frontend/scripts/lib/vesselRules.mjs in the audit. Both must pass the same cases.
+# ---------------------------------------------------------------------------
+
+def test_vessel_rule_conformance_cases():
+    from core.validate import find_vessel_rule_defects, load_vessel_rules
+    rules = load_vessel_rules()
+    cases = json.load(open(os.path.join(os.path.dirname(__file__), "fixtures", "vessel_rule_cases.json"),
+                           encoding="utf-8"))["cases"]
+    for c in cases:
+        got = [[d["index"], d["rule"]] for d in find_vessel_rule_defects(c["steps"], rules)]
+        assert got == c["expect"], c["name"]
+
+
+def test_every_vessel_rule_carries_an_honest_evidence_label():
+    from core.validate import load_vessel_rules
+    for r in load_vessel_rules()["rules"]:
+        assert r["evidence"]["kind"] in ("real", "hand-edited-only"), r["id"]
+        assert r["evidence"]["detail"], r["id"]

@@ -4,8 +4,9 @@ import { fileURLToPath } from 'node:url'
 import {
   SCENE_RECIPES, resolveRecipe, sampleContainerSequence, resolveContainer, resolveRemoval,
   findTransferHandoffDefects, findPrepareOnSampleDefects, findTargetDefects, actsOnSample,
-  exitLiftPoint, stepConditions, findInstrumentDefects, NAMED_INSTRUMENTS, findParseInvariantDefects,
+  exitLiftPoint, stepConditions, findInstrumentDefects, NAMED_INSTRUMENTS, CONTAINER_TOKENS,
 } from './sceneRecipe.js'
+import { findVesselRuleDefects, loadVesselRules } from '../../scripts/lib/vesselRules.mjs'
 import { resolveBehavior } from './behavior.js'
 import { ACTIONS } from '../lib/runtime.js'
 
@@ -527,38 +528,24 @@ describe('instrument vocabulary lockstep with the parser schema', () => {
   })
 })
 
-// Parse-time invariants: rules the parse prompt states as MUSTs about WHERE THE SAMPLE
-// SITS, checked on every fresh parse so a parse that breaks one fails loudly and is
-// re-parsed instead of bundled (scripts/audited_parse.py). Measured motive: two runs of
-// the same prompt on the same document disagreed on the eluate tube.
-describe("findParseInvariantDefects — the prompt's vessel MUSTs as assertions", () => {
-  const rules = (steps) => findParseInvariantDefects(steps).map((d) => [d.index, d.rule])
-  const ok = [
-    { index: 1, action: 'pour_add', container: 'microtube' },
-    { index: 2, action: 'transfer', container: 'spin_column' },
-    { index: 3, action: 'pour_add' },
-    { index: 4, action: 'elute', container: 'eluate_tube' },
-  ]
-  it('accepts a parse that keeps every vessel rule', () => {
-    expect(rules(ok)).toEqual([])
+// Parse-time vessel rules are DATA (core/vessel_rules.json), read by this interpreter
+// (schema-audit) and by core/validate.py (the parse gate + the live API). Both run the
+// same conformance cases — that is what stops two readers of one file drifting.
+describe('vessel rules (core/vessel_rules.json) — conformance with core/validate.py', () => {
+  const cases = JSON.parse(readFileSync(fileURLToPath(new URL('../../../../tests/fixtures/vessel_rule_cases.json', import.meta.url)), 'utf8')).cases
+  it.each(cases.map((c) => [c.name, c]))('%s', (_, c) => {
+    expect(findVesselRuleDefects(c.steps).map((d) => [d.index, d.rule])).toEqual(c.expect)
   })
-  it('every elute collects into an eluate_tube', () => {
-    expect(rules([ok[0], { index: 2, action: 'elute' }])).toEqual([[2, 'elute-collects-into-eluate-tube']])
-    expect(rules([ok[0], { index: 2, action: 'elute', container: 'tube' }])).toEqual([[2, 'elute-collects-into-eluate-tube']])
+  it('every rule carries an honest evidence label', () => {
+    for (const r of loadVesselRules().rules) {
+      expect(['real', 'hand-edited-only'], r.id).toContain(r.evidence.kind)
+      expect(r.evidence.detail, r.id).toBeTruthy()
+    }
   })
-  it('only an elute puts the sample into an eluate_tube (run 2: water added "into" the eluate tube)', () => {
-    expect(rules([ok[0], { index: 2, action: 'pour_add', container: 'eluate_tube' }, { index: 3, action: 'elute', container: 'eluate_tube' }]))
-      .toEqual([[2, 'eluate-tube-entered-only-by-elute']])
-  })
-  it('staying in an eluate_tube after the elution is fine (the sample does not re-enter it)', () => {
-    expect(rules([...ok, { index: 5, action: 'measure', container: 'eluate_tube' }])).toEqual([])
-  })
-  it('the first sample step names its vessel (a prepare, on the side, does not count)', () => {
-    expect(rules([{ index: 1, action: 'prepare', container: 'tube' }, { index: 2, action: 'pipette_mix' }]))
-      .toEqual([[2, 'first-step-names-container']])
-  })
-  it('every seed names the vessel it dispenses into', () => {
-    expect(rules([{ index: 1, action: 'pour_add', container: 'tube' }, { index: 2, action: 'seed' }]))
-      .toEqual([[2, 'move-names-destination']])
+  it('core/schema.py CONTAINERS equals the scene container vocabulary', () => {
+    const py = readFileSync(fileURLToPath(new URL('../../../../core/schema.py', import.meta.url)), 'utf8')
+    const block = py.match(/^CONTAINERS = \(([\s\S]*?)^\)/m)
+    const ids = [...block[1].matchAll(/"([a-z0-9_]+)"/g)].map((m) => m[1])
+    expect([...ids].sort()).toEqual([...CONTAINER_TOKENS].sort())
   })
 })

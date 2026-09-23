@@ -244,6 +244,9 @@ const CONTAINERS = {
   generic:     { geo: 'tube',     removal: 'tip' },
 }
 
+// The closed container vocabulary (lockstep-tested against core/schema.py CONTAINERS).
+export const CONTAINER_TOKENS = Object.keys(CONTAINERS)
+
 // Resolve a container token → { geo, removal }; unknown/missing → generic (a tube).
 export function resolveContainer(container) {
   return CONTAINERS[container] || CONTAINERS.generic
@@ -347,39 +350,5 @@ export function findPrepareOnSampleDefects(steps = []) {
       out.push({ index: s.index != null ? s.index : i, container: s.container })
     }
   }
-  return out
-}
-
-// Parse-time invariants — rules the parse prompt states as MUSTs about WHERE THE SAMPLE
-// SITS, checked on every fresh parse (scripts/audited_parse.py runs them via
-// schema-audit.mjs) so a parse that breaks one fails loudly and is re-parsed instead of
-// being bundled. Only rules no correct bundled parse breaks belong here: a broader
-// "only a move step may change the vessel" would reject correct parses (pouring agarose
-// into the casting tray, electro-transfer onto a membrane).
-//   elute-collects-into-eluate-tube   every `elute` names container eluate_tube
-//   eluate-tube-entered-only-by-elute nothing but an `elute` moves the sample INTO an
-//                                     eluate_tube (two runs of the same document once
-//                                     put it on the "add water" step instead)
-//   first-step-names-container        the first sample step says where the sample sits
-//   move-names-destination            every `seed` names the vessel it dispenses into
-//                                     (`transfer` is findTransferHandoffDefects)
-export function findParseInvariantDefects(steps = []) {
-  const out = []
-  let current = null
-  let seenSampleStep = false
-  steps.forEach((s, i) => {
-    if (!s || typeof s !== 'object' || s.action === 'prepare') return
-    const idx = s.index != null ? s.index : i
-    const named = s.container && CONTAINERS[s.container] ? s.container : null
-    const row = (rule) => out.push({ index: idx, rule, action: s.action || null, container: s.container || null })
-    if (!seenSampleStep) {
-      seenSampleStep = true
-      if (!named) row('first-step-names-container')
-    }
-    if (s.action === 'elute' && named !== 'eluate_tube') row('elute-collects-into-eluate-tube')
-    if (named === 'eluate_tube' && current !== 'eluate_tube' && s.action !== 'elute') row('eluate-tube-entered-only-by-elute')
-    if (s.action === 'seed' && !named) row('move-names-destination')
-    if (named) current = named
-  })
   return out
 }
