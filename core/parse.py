@@ -23,6 +23,27 @@ from .schema import Protocol, _s
 # An `llm` is any callable (system_prompt, user_prompt) -> raw model text.
 LLM = Callable[[str, str], str]
 
+
+class ParseOutputError(ValueError):
+    """The model's response could not become a Protocol."""
+
+
+class OutputTruncated(ParseOutputError):
+    """The response hit max_tokens and stops mid-JSON. Distinct from bad JSON: re-calling
+    with the same input truncates again, so callers must not retry it — the protocol is
+    too long for one pass at this max_tokens."""
+
+    def __init__(self, raw_chars: int, max_tokens: Optional[int] = None,
+                 output_tokens: Optional[int] = None, detected: str = "stop_reason"):
+        self.raw_chars, self.max_tokens, self.output_tokens, self.detected = raw_chars, max_tokens, output_tokens, detected
+        cap = f" at max_tokens={max_tokens}" if max_tokens else ""
+        super().__init__(f"output truncated{cap}: the parse was cut off after {raw_chars} chars "
+                         f"({'stop_reason=max_tokens' if detected == 'stop_reason' else 'JSON ends inside an open string/object'})")
+
+
+class MalformedOutput(ParseOutputError):
+    """The response is complete but is not valid JSON — a model error; a retry may succeed."""
+
 DEFAULT_MODEL = "claude-opus-4-8"
 _CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".cache")
 
@@ -427,14 +448,48 @@ def default_llm(model: str = DEFAULT_MODEL, max_tokens: int = 32000) -> LLM:
         ) as stream:
             for text in stream.text_stream:
                 parts.append(text)
-        return "".join(parts)
+            final = stream.get_final_message()
+        text = "".join(parts)
+        _raise_on_stop(final, max_tokens=max_tokens, text=text)  # a cut-off parse is not a parse
+        return text
 
     return _call
+
+
+def _raise_on_stop(final, max_tokens: int, text: str) -> None:
+    """Raise OutputTruncated when the API says the response stopped at max_tokens."""
+    if getattr(final, "stop_reason", None) == "max_tokens":
+        usage = getattr(final, "usage", None)
+        raise OutputTruncated(len(text), max_tokens=max_tokens,
+                              output_tokens=getattr(usage, "output_tokens", None), detected="stop_reason")
 
 
 # ---------------------------------------------------------------------------
 # JSON extraction (models sometimes wrap JSON in prose / fences)
 # ---------------------------------------------------------------------------
+
+def _ends_open(raw: str) -> bool:
+    """True when the text ends inside an unterminated string or an unclosed {/[ — the
+    signature of a response cut off mid-JSON (used when no stop_reason is available,
+    e.g. an injected llm or a replayed raw response)."""
+    depth, in_str, esc, started = 0, False, False, False
+    for ch in raw:
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+        elif ch == '"':
+            in_str = True
+        elif ch in "{[":
+            depth += 1
+            started = True
+        elif ch in "}]":
+            depth -= 1
+    return started and (in_str or depth > 0)
+
 
 def _extract_json(raw: str) -> dict:
     raw = raw.strip()
@@ -449,8 +504,14 @@ def _extract_json(raw: str) -> dict:
     # fall back to the outermost {...} span
     start, end = raw.find("{"), raw.rfind("}")
     if start != -1 and end != -1 and end > start:
-        return json.loads(raw[start : end + 1])
-    raise ValueError("Model response did not contain parseable JSON.")
+        try:
+            return json.loads(raw[start : end + 1])
+        except json.JSONDecodeError:
+            pass
+    # say WHY: cut off mid-JSON (truncated) vs complete-but-invalid (malformed)
+    if _ends_open(raw[start:] if start != -1 else raw):
+        raise OutputTruncated(len(raw), detected="unterminated")
+    raise MalformedOutput(f"model response ({len(raw)} chars) is not valid JSON")
 
 
 # ---------------------------------------------------------------------------
@@ -622,11 +683,11 @@ def parse_protocol(
     user = USER_TEMPLATE.format(text=text)
     key = _cache_key(SYSTEM_PROMPT, user)
 
-    raw: Optional[str] = _cache_get(key) if use_cache else None
-    if raw is None:
-        raw = llm(SYSTEM_PROMPT, user)
-        if use_cache:
-            _cache_put(key, raw)
+    cached: Optional[str] = _cache_get(key) if use_cache else None
+    raw = cached if cached is not None else llm(SYSTEM_PROMPT, user)
+    parsed = _extract_json(raw)  # raises OutputTruncated / MalformedOutput — never cached
+    if use_cache and cached is None:
+        _cache_put(key, raw)
 
-    data = arrange_preparations(normalize_parsed(_extract_json(raw)))
+    data = arrange_preparations(normalize_parsed(parsed))
     return Protocol.from_dict(data, source=source)

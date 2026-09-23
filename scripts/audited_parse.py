@@ -24,6 +24,7 @@ sys.path.insert(0, ROOT)
 
 from core.parse import (  # noqa: E402
     LLM, SYSTEM_PROMPT, USER_TEMPLATE, _CACHE_DIR, _cache_key, _cache_put, parse_protocol,
+    MalformedOutput, OutputTruncated,
 )
 from core.schema import Protocol  # noqa: E402
 
@@ -67,7 +68,16 @@ def audited_parse(text: str, *, source: str = "", llm: Optional[LLM] = None, use
     last: list[str] = []
     for attempt in range(1, attempts + 1):
         # only the first attempt may be served from the cache; a retry is a fresh call
-        p = parse_protocol(text, llm=llm, source=source, use_cache=use_cache and attempt == 1)
+        try:
+            p = parse_protocol(text, llm=llm, source=source, use_cache=use_cache and attempt == 1)
+        except OutputTruncated as exc:
+            # never retried: the same input truncates again — say so, once, loudly
+            log(f"!! PARSE TRUNCATED ({source or 'protocol'}): {exc}")
+            raise
+        except MalformedOutput as exc:
+            last = [f"malformed output: {exc}"]
+            log(f"!! PARSE REJECTED ({source or 'protocol'}, attempt {attempt}/{attempts}): {exc} — re-parsing")
+            continue
         last = audit(p.to_dict())
         if not last:
             if use_cache and attempt > 1:
