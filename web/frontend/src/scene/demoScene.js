@@ -903,13 +903,24 @@ export function undockSample(lift = false) {
     var inWall=new THREE.Mesh(new THREE.PlaneGeometry(3.1,2.2), innerMat); inWall.position.set(0,1.2,-1.39); grp.add(inWall);
     for(var s=0;s<2;s++){ var shelf=new THREE.Mesh(new THREE.BoxGeometry(2.8,0.03,1.7), matBrushed(0x8a94a0)); shelf.position.set(0,0.62+s*0.95,-0.15); grp.add(shelf); }
     var doorPivot=new THREE.Group(); doorPivot.position.set(-1.6,1.2,0.95); grp.add(doorPivot);
-    var frame=new THREE.Mesh(new THREE.BoxGeometry(3.2,2.3,0.1), matPainted(0xc4c9cf,0.5)); frame.position.set(1.6,0,0); doorPivot.add(frame);
-    var glass=new THREE.Mesh(new THREE.BoxGeometry(2.7,1.95,0.05), glassMaterial()); glass.position.set(1.6,0,0.03); doorPivot.add(glass);
-    var handle=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.3,12), matBrushed(0x868f9b)); handle.position.set(2.9,0,0.16); doorPivot.add(handle);
+    // The door is a FRAME of four rails around the glass — the old 3.2×2.3 solid slab sat
+    // behind the glass and made the "glass" door opaque, hiding the flask. Door-local x
+    // runs 0..3.2 from the hinge; the glass fills 0.25..2.95 × −0.95..0.75; the deeper top
+    // rail carries the readout.
+    var railMat=matPainted(0xc4c9cf,0.5);
+    function rail(w,h,x,y){ var r=new THREE.Mesh(new THREE.BoxGeometry(w,h,0.1), railMat); r.position.set(x,y,0); doorPivot.add(r); }
+    rail(0.25,2.3, 0.125,0);      // hinge side
+    rail(0.25,2.3, 3.075,0);      // handle side
+    rail(2.7,0.2, 1.6,-1.05);     // bottom
+    rail(2.7,0.4, 1.6,0.95);      // top — the display panel
+    var glass=new THREE.Mesh(new THREE.BoxGeometry(2.7,1.7,0.05), glassMaterial()); glass.position.set(1.6,-0.1,0.03); doorPivot.add(glass);
+    var handle=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.3,12), matBrushed(0x868f9b)); handle.position.set(3.075,-0.1,0.16); doorPivot.add(handle);
     var dc=document.createElement("canvas"); dc.width=200; dc.height=90; var dg=dc.getContext("2d");
     var dTex=new THREE.CanvasTexture(dc); dTex.anisotropy=MAX_ANISO;
     dg.fillStyle="#0d1218"; dg.fillRect(0,0,200,90); dg.fillStyle="#8fcabf"; dg.font="700 30px 'IBM Plex Mono'"; dg.textAlign="left"; dg.fillText("37°C",12,40); dg.fillStyle="#6fb8f0"; dg.font="700 22px 'IBM Plex Mono'"; dg.fillText("5% CO₂",12,72); dTex.needsUpdate=true;
-    var disp=new THREE.Mesh(new THREE.PlaneGeometry(0.7,0.32), new THREE.MeshBasicMaterial({map:dTex,transparent:true})); disp.position.set(1.3,2.1,0.96); grp.add(disp);
+    // the readout is mounted ON the door's top rail (front face at +0.05), so it is in
+    // front of the cabinet when closed and swings WITH the door — never left hanging in air
+    var disp=new THREE.Mesh(new THREE.PlaneGeometry(0.7,0.32), new THREE.MeshBasicMaterial({map:dTex,transparent:true})); disp.position.set(1.6,0.95,0.056); doorPivot.add(disp);
     var label=makeLabel("CO₂ incubator",""); label.position.set(0,2.75,0); grp.add(label);
     var ist={ door:0, tDoor:0 };
     grp.userData.label=label;
