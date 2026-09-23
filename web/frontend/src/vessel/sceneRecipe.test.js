@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import {
   SCENE_RECIPES, resolveRecipe, sampleContainerSequence, resolveContainer, resolveRemoval,
   findTransferHandoffDefects, findPrepareOnSampleDefects, findTargetDefects, actsOnSample,
-  exitLiftPoint, stepConditions,
+  exitLiftPoint, stepConditions, findInstrumentDefects,
 } from './sceneRecipe.js'
 import { resolveBehavior } from './behavior.js'
 import { ACTIONS } from '../lib/runtime.js'
@@ -435,5 +435,42 @@ describe('bundled protocols resolve every instrument-bearing step honestly', () 
     ['gram_stain', 15, 'light_microscope'],
   ])('%s step %i → %s', (id, index, expected) => {
     expect(resolveAt(id, index)).toBe(expected)
+  })
+})
+
+// The same rules as an offline invariant (scripts/schema-audit.mjs): every instrument a
+// step resolves to must be one its stated conditions require and its container fits.
+describe('findInstrumentDefects — the instrument rule as an audit', () => {
+  it('flags an instrument the step does not require, one that rejects the container, and a room-temperature step in a temperature-controlled device', () => {
+    const resolve = () => 'freezer' // a regressed resolver: the action alone decides
+    const steps = [
+      { index: 1, action: 'store', container: 'flask', text_en: 'Return the cells to the incubator.' },
+      { index: 2, action: 'store', container: 'microtube', text_en: 'Keep at room temperature.' },
+    ]
+    const d = findInstrumentDefects(steps, resolve)
+    expect(d.map((x) => [x.index, x.why])).toEqual([
+      [1, 'not-required'], [1, 'rejects-container'],
+      [2, 'not-required'], [2, 'contradicts-room-temp'],
+    ])
+  })
+  it('flags a device standing in for a named unmodelled one', () => {
+    const d = findInstrumentDefects(
+      [{ index: 3, action: 'incubate_wait', container: 'flask', text_en: 'Grow in 37°C shaking incubator.' }],
+      () => 'co2_incubator',
+    )
+    expect(d.map((x) => x.why)).toContain('stands-in-for-unmodelled')
+  })
+  it('accepts the bench, always', () => {
+    expect(findInstrumentDefects([{ index: 1, action: 'measure', container: 'eluate_tube', text_en: 'Record the yield.' }])).toEqual([])
+  })
+})
+
+describe('bundled protocols name only the instruments their steps require', () => {
+  const dir = fileURLToPath(new URL('../../public/protocols/', import.meta.url))
+  const files = readdirSync(dir).filter((f) => f.endsWith('.json') && f !== 'index.json')
+  it.each(files)('%s has no guessed instrument', (file) => {
+    const proto = JSON.parse(readFileSync(dir + file, 'utf8'))
+    const defects = findInstrumentDefects(proto.steps || [])
+    expect(defects, `${file}: ${JSON.stringify(defects)}`).toEqual([])
   })
 })
