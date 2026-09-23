@@ -76,7 +76,9 @@ const NAMED = [
   ['nanodrop',          /nanodrop|spectrophotomet|A2[368]0/i],
   ['bioanalyzer',       /bioanaly|tapestation/i],
   ['plate_reader',      /plate reader|absorbance|\bOD\s?\d{3}\b|\b\d{3}\s?nm\b/i],
-  ['microscope',        /microscop|confluen|morpholog|viabilit|detach/i],
+  // NOT "viability" / "detach": assessing viability or detachment names no instrument
+  // (trypan + haemocytometer, a counter, or a microscope — the protocol does not say)
+  ['microscope',        /microscop|confluen|morpholog/i],
   ['hemocytometer',     /h(?:a)?emocytomet|counting chamber|neubauer|bürker/i],
   ['transilluminator',  /transillumin|gel ?doc/i],
 ]

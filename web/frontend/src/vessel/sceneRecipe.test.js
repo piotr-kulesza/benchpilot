@@ -429,7 +429,7 @@ describe('bundled protocols resolve every instrument-bearing step honestly', () 
     ['neutrophil_rna', 26, 'nanodrop'],   // NanoDrop A260/280
     ['neutrophil_rna', 27, 'bench'],      // Bioanalyzer / TapeStation — unmodelled
     ['neutrophil_rna', 28, 'bench'],      // record the yield — paperwork
-    ['passaging', 1, 'inverted_microscope'], // monitor viability of the adherent culture
+    ['passaging', 1, 'bench'],              // "monitor viability" names no instrument — a GAP, not a microscope
     ['elisa', 27, 'plate_reader'],        // absorbance in the plate reader
     ['agarose_gel', 12, 'uv_transilluminator'],
     ['gram_stain', 15, 'light_microscope'],
