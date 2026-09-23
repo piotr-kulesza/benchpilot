@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import {
   SCENE_RECIPES, resolveRecipe, sampleContainerSequence, resolveContainer, resolveRemoval,
   findTransferHandoffDefects, findPrepareOnSampleDefects, findTargetDefects, actsOnSample,
-  exitLiftPoint,
+  exitLiftPoint, stepConditions,
 } from './sceneRecipe.js'
 import { resolveBehavior } from './behavior.js'
 import { ACTIONS } from '../lib/runtime.js'
@@ -236,5 +236,204 @@ describe('bundled protocols keep side preparations off the sample', () => {
     const proto = JSON.parse(readFileSync(dir + file, 'utf8'))
     const defects = findTargetDefects(proto.steps || [])
     expect(defects, `${file}: ${JSON.stringify(defects)}`).toEqual([])
+  })
+})
+
+// ─── root cause #1: an action may name an instrument only when the step requires one ──
+// store / heat / incubate_wait / measure used to name a device from the action alone:
+// every store went in the freezer, every heat in the water bath, every incubation in a
+// block, every measure on a reader. The rule now: the ACTION + CONTAINER + the step's
+// stated CONDITIONS must determine the instrument; otherwise the answer is the bench.
+// A missing instrument is acceptable, a guessed one never is (scene-review.md, hard
+// constraints 1 and 7).
+
+const ACTION_ALONE_DECIDES_NOTHING = ['store', 'heat', 'incubate_wait', 'measure']
+const bench = { tempC: null, roomTemp: false, onIce: false, agitation: false, names: [] }
+const cond = (over) => ({ ...bench, ...over })
+const equip = (action, container, conditions) => resolveRecipe(action, { container, conditions }).equipment
+
+describe('stepConditions — what a step states, read from its parsed text', () => {
+  const c = (text_en) => stepConditions({ text_en })
+  it('reads a signed temperature in °C, or null when none is stated', () => {
+    expect(c('Return the cells to the 37°C, 5% CO2 incubator.').tempC).toBe(37)
+    expect(c('Keep the RNA on ice until measurement, store at −80°C.').tempC).toBe(-80)
+    expect(c('transfer into the liquid nitrogen dewar (vapor phase, below -150°C)').tempC).toBe(-150)
+    expect(c('Wait 1 min.').tempC).toBe(null)
+  })
+  it('flags room temperature, ice and agitation', () => {
+    expect(c('Incubate 15 min at room temperature.').roomTemp).toBe(true)
+    expect(c('Incubate the competent cell/DNA mixture on ice for 20-30 mins.').onIce).toBe(true)
+    expect(c('Incubate for 1 hr at room temperature with gentle agitation.').agitation).toBe(true)
+    expect(c('Grow in 37°C shaking incubator for 45 min.').agitation).toBe(true)
+    expect(c('Incubate for 2 h at room temperature.').agitation).toBe(false)
+  })
+  it('lists the instruments the text names — and only those', () => {
+    expect(c('Grow in 37°C shaking incubator for 45 min.').names).toContain('shaking_incubator')
+    expect(c('Grow in 37°C shaking incubator for 45 min.').names).not.toContain('co2_incubator')
+    expect(c('Return the cells to the 37°C, 5% CO2 incubator.').names).toContain('co2_incubator')
+    expect(c('placing the bottom of the tube into a 42°C water bath for 30-60 secs').names).toContain('water_bath')
+    expect(c('The next day, transfer the frozen cryovials into the liquid nitrogen dewar').names).toContain('liquid_nitrogen')
+    expect(c('NanoDrop: A260/280 around 2.0').names).toContain('nanodrop')
+    expect(c('RNA integrity: Bioanalyzer or TapeStation (RIN).').names).toContain('bioanalyzer')
+    expect(c('RNA integrity: Bioanalyzer or TapeStation (RIN).').names).not.toContain('nanodrop')
+    expect(c('Record the input cell number and the obtained yield.').names).toEqual([])
+    expect(c('Final extension: 72°C for 7 min.').names).toEqual([])
+    expect(c('Wait 1 min.').names).toEqual([])
+  })
+  it('reads the original language when there is no translation', () => {
+    expect(stepConditions({ text: 'Inkubować 15 min w temperaturze pokojowej.' }).roomTemp).toBe(true)
+  })
+})
+
+describe('resolveRecipe — the action alone never names an instrument', () => {
+  it.each(ACTION_ALONE_DECIDES_NOTHING)('%s with no container or conditions → bench', (action) => {
+    expect(resolveRecipe(action).equipment).toBe('bench')
+    expect(equip(action, 'microtube', bench)).toBe('bench')
+  })
+})
+
+// Finding #1 — store always showed the freezer.
+describe('store: the stated temperature and named cabinet decide, else the bench', () => {
+  it('37 °C + a named CO₂ incubator, on a culture vessel → the CO₂ incubator (never the freezer)', () => {
+    expect(equip('store', 'flask', cond({ tempC: 37, names: ['co2_incubator'] }))).toBe('co2_incubator')
+  })
+  it('−80 °C on a tube-like vessel → the freezer', () => {
+    expect(equip('store', 'cryovial', cond({ tempC: -80, names: ['freezer'] }))).toBe('freezer')
+    expect(equip('store', 'eluate_tube', cond({ tempC: -80, onIce: true }))).toBe('freezer')
+  })
+  it('liquid nitrogen / ≤ −150 °C → the bench: there is no dewar model, and a −80 freezer is a different instrument', () => {
+    expect(equip('store', 'cryovial', cond({ tempC: -150, names: ['liquid_nitrogen'] }))).toBe('bench')
+    expect(equip('store', 'cryovial', cond({ tempC: -196 }))).toBe('bench')
+  })
+  it('4 °C, or no temperature at all → the bench (no fridge model; a freezer is not a fridge)', () => {
+    expect(equip('store', 'microtube', cond({ tempC: 4 }))).toBe('bench')
+    expect(equip('store', 'microtube', bench)).toBe('bench')
+  })
+})
+
+// Finding #2 — heat always showed the water bath.
+describe('heat: only a NAMED water bath earns the bath, and only for a vessel it takes', () => {
+  it('a named water bath with a tube → the water bath', () => {
+    expect(equip('heat', 'microtube', cond({ tempC: 42, names: ['water_bath'] }))).toBe('water_bath')
+  })
+  it('a temperature alone does not say bath, block or thermocycler → the bench', () => {
+    expect(equip('heat', 'microtube', cond({ tempC: 72 }))).toBe('bench')
+    expect(equip('heat', 'microtube', cond({ tempC: 94 }))).toBe('bench')
+  })
+  it('a slide never goes in a water bath, even if the step names one', () => {
+    expect(equip('heat', 'slide', cond({ names: ['flame'] }))).toBe('bench')
+    expect(equip('heat', 'slide', cond({ names: ['water_bath'] }))).toBe('bench')
+  })
+  it('a named but unmodelled heater (microwave, flame) → the bench', () => {
+    expect(equip('heat', 'flask', cond({ names: ['microwave'] }))).toBe('bench')
+  })
+})
+
+// Findings #3 and #4 — incubate_wait always showed a block/shaker/incubator by container.
+describe('incubate_wait: conditions decide, and room temperature needs no instrument', () => {
+  it('a shaking incubator is not a dry block and not a plate shaker → the bench (no model)', () => {
+    expect(equip('incubate_wait', 'microtube', cond({ tempC: 37, agitation: true, names: ['shaking_incubator'] }))).toBe('bench')
+    expect(equip('incubate_wait', 'flask', cond({ tempC: 37, agitation: true, names: ['shaking_incubator'] }))).toBe('bench')
+  })
+  it('room temperature, or a bare wait, needs no instrument → the bench', () => {
+    expect(equip('incubate_wait', 'spin_column', cond({ roomTemp: true }))).toBe('bench')
+    expect(equip('incubate_wait', 'spin_column', bench)).toBe('bench')
+    expect(equip('incubate_wait', 'flask', cond({ roomTemp: true }))).toBe('bench')
+    expect(equip('incubate_wait', 'well_plate', cond({ roomTemp: true }))).toBe('bench')
+  })
+  it('stated agitation on a plate or membrane → the plate shaker', () => {
+    expect(equip('incubate_wait', 'membrane', cond({ roomTemp: true, agitation: true }))).toBe('plate_shaker')
+    expect(equip('incubate_wait', 'well_plate', cond({ agitation: true, names: ['plate_shaker'] }))).toBe('plate_shaker')
+  })
+  it('agitation on a vessel the shaker does not take → the bench', () => {
+    expect(equip('incubate_wait', 'microtube', cond({ agitation: true }))).toBe('bench')
+  })
+  it('on ice → the ice bucket, for a vessel it takes', () => {
+    expect(equip('incubate_wait', 'microtube', cond({ onIce: true }))).toBe('ice_bucket')
+    expect(equip('incubate_wait', 'well_plate', cond({ onIce: true }))).toBe('bench')
+  })
+  it('a culture vessel at body temperature, or a named CO₂ incubator → the CO₂ incubator', () => {
+    expect(equip('incubate_wait', 'flask', cond({ tempC: 37 }))).toBe('co2_incubator')
+    expect(equip('incubate_wait', 'dish', cond({ names: ['co2_incubator'] }))).toBe('co2_incubator')
+  })
+  it('an agar plate at 37 °C needs a bacterial incubator — unmodelled → the bench, never the CO₂ cabinet', () => {
+    expect(equip('incubate_wait', 'agar_plate', cond({ tempC: 37 }))).toBe('bench')
+  })
+  it('a temperature alone on a tube does not say block or bath → the bench', () => {
+    expect(equip('incubate_wait', 'microtube', cond({ tempC: 56 }))).toBe('bench')
+  })
+  it('a named heat block with a tube → the block', () => {
+    expect(equip('incubate_wait', 'microtube', cond({ tempC: 56, names: ['heat_block'] }))).toBe('incubation_block')
+  })
+})
+
+// Finding #4 — measure put every eluate tube on the NanoDrop.
+describe('measure: the reading the step names picks the instrument, else the bench', () => {
+  it('a named NanoDrop reading on a tube → the NanoDrop', () => {
+    expect(equip('measure', 'eluate_tube', cond({ names: ['nanodrop'] }))).toBe('nanodrop')
+  })
+  it('recording a number is paperwork → the bench', () => {
+    expect(equip('measure', 'eluate_tube', bench)).toBe('bench')
+  })
+  it('a Bioanalyzer/TapeStation is not a NanoDrop → the bench (no model)', () => {
+    expect(equip('measure', 'eluate_tube', cond({ names: ['bioanalyzer'] }))).toBe('bench')
+  })
+  it('each modelled reading goes to its own instrument, and only for a vessel it takes', () => {
+    expect(equip('measure', 'well_plate', cond({ names: ['plate_reader'] }))).toBe('plate_reader')
+    expect(equip('measure', 'flask', cond({ names: ['microscope'] }))).toBe('inverted_microscope')
+    expect(equip('measure', 'slide', cond({ names: ['microscope'] }))).toBe('light_microscope')
+    expect(equip('measure', 'slide', cond({ names: ['hemocytometer'] }))).toBe('light_microscope')
+    expect(equip('measure', 'gel', cond({ names: ['transilluminator'] }))).toBe('uv_transilluminator')
+    expect(equip('measure', 'well_plate', cond({ names: ['nanodrop'] }))).toBe('bench')
+    expect(equip('measure', 'eluate_tube', cond({ names: ['plate_reader'] }))).toBe('bench')
+  })
+})
+
+// End to end over the bundled protocols: every store / heat / incubate_wait / measure
+// step, resolved exactly as the runner resolves it (its step text + the sample's carried
+// container). Pinned so a finding cannot silently come back.
+describe('bundled protocols resolve every instrument-bearing step honestly', () => {
+  const dir = fileURLToPath(new URL('../../public/protocols/', import.meta.url))
+  const load = (id) => JSON.parse(readFileSync(dir + `${id}.json`, 'utf8'))
+  const resolveAt = (id, index) => {
+    const steps = load(id).steps
+    const i = steps.findIndex((s) => s.index === index)
+    const s = steps[i]
+    return resolveRecipe(s.action, { container: sampleContainerSequence(steps)[i], conditions: stepConditions(s) }).equipment
+  }
+  it.each([
+    // finding #1 — store
+    ['passaging', 14, 'co2_incubator'],   // return the cells to the 37 °C, 5 % CO₂ incubator
+    ['cryopreservation', 6, 'freezer'],   // −80 °C freezer overnight
+    ['cryopreservation', 7, 'bench'],     // liquid nitrogen dewar — unmodelled
+    ['neutrophil_rna', 25, 'freezer'],    // store at −80 °C
+    ['pcr', 7, 'bench'],                  // hold at 4 °C
+    // finding #2 — heat
+    ['transformation', 5, 'water_bath'],  // 42 °C water bath, named
+    ['pcr', 4, 'bench'],                  // initial denaturation 94 °C — no instrument named
+    ['pcr', 6, 'bench'],                  // final extension 72 °C — no instrument named
+    ['agarose_gel', 2, 'bench'],          // microwave — unmodelled
+    ['gram_stain', 2, 'bench'],           // heat-fix the slide in a flame — unmodelled
+    // finding #3 — incubate at 37 °C
+    ['transformation', 8, 'bench'],       // 37 °C shaking incubator — unmodelled
+    ['transformation', 10, 'bench'],      // plates at 37 °C overnight — bacterial incubator unmodelled
+    // finding #4 — incubate with no instrument
+    ['neutrophil_rna', 13, 'bench'],      // 15 min at room temperature
+    ['neutrophil_rna', 23, 'bench'],      // wait 1 min
+    ['passaging', 6, 'bench'],            // room temperature, ~2 min (was the CO₂ incubator)
+    ['elisa', 17, 'bench'],               // 2 h at room temperature, no agitation
+    ['transformation', 4, 'ice_bucket'],  // on ice
+    ['western', 7, 'plate_shaker'],       // gentle agitation, membrane
+    ['elisa', 10, 'plate_shaker'],        // gentle agitation, plate
+    // finding #4 — measure
+    ['neutrophil_rna', 26, 'nanodrop'],   // NanoDrop A260/280
+    ['neutrophil_rna', 27, 'bench'],      // Bioanalyzer / TapeStation — unmodelled
+    ['neutrophil_rna', 28, 'bench'],      // record the yield — paperwork
+    ['passaging', 1, 'inverted_microscope'], // monitor viability of the adherent culture
+    ['elisa', 27, 'plate_reader'],        // absorbance in the plate reader
+    ['agarose_gel', 12, 'uv_transilluminator'],
+    ['gram_stain', 15, 'light_microscope'],
+  ])('%s step %i → %s', (id, index, expected) => {
+    expect(resolveAt(id, index)).toBe(expected)
   })
 })
