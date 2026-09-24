@@ -28,12 +28,14 @@ INTENT_MODEL = os.environ.get("BENCHPILOT_INTENT_MODEL", "claude-haiku-4-5-20251
 
 
 def _validated(text: str, source: str) -> dict:
-    """Parse through the vessel-rule gate (core/validate.py). A parse that breaks a rule
-    is re-parsed; if every attempt breaks one the user gets a 422 naming the rules, never
-    the bad parse. If the rules cannot be applied the parse is returned LABELLED
+    """Parse through the vessel-rule gate (core/validate.py), ONE attempt. A parse that
+    breaks a rule is a 422 naming the rules, returned at once — never the bad parse. If the rules cannot be applied the parse is returned LABELLED
     validation.status = "unchecked" — the UI shows that the run was not checked."""
     try:
-        return parse_validated(text, source=source)
+        # ONE attempt: a long parse takes ~3 min, so a retry cannot finish inside the
+        # function limit (300 s) — it would turn a clear 422 into a platform timeout.
+        # Retries live in the offline bundle pipeline (scripts/audited_parse.py).
+        return parse_validated(text, source=source, attempts=1)
     except ProtocolTooLong as exc:
         # refused BEFORE the parse call: the predicted output would not fit — nothing was
         # parsed and the user was not charged for a truncated run
@@ -52,10 +54,10 @@ def _validated(text: str, source: str) -> dict:
             "Nothing was shown. Please try again.")) from exc
     except MalformedOutput as exc:
         raise HTTPException(status_code=502, detail=(
-            f"The parser returned invalid output on every attempt ({exc}). Please try again.")) from exc
+            f"The parser returned invalid output ({exc}). Please try again.")) from exc
     except ParseFailedValidation as exc:
         raise HTTPException(status_code=422, detail=(
-            "This protocol parsed, but the result broke the parse rules on every attempt "
+            "This protocol parsed, but the result broke the parse rules "
             f"({exc}). It was not shown, because a run that puts the sample in the wrong "
             "vessel would teach the wrong thing. Try again, or simplify the text.")) from exc
 

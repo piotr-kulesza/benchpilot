@@ -48,18 +48,31 @@ def post(api, text="a protocol"):
     return api.parse_text(api.ParseTextRequest(text=text))
 
 
-def test_a_failing_parse_is_reparsed_and_the_good_one_served(api):
-    api.responses[:] = [RUN2, RUN1]
+# ONE attempt on the paste path: a single parse call takes ~3 min on a long protocol, so a
+# retry cannot finish inside the function limit (300 s) and would turn a clear 422 into a
+# platform timeout. Retries stay in the offline bundle pipeline, which has no clock.
+
+def test_a_passing_parse_is_served_after_one_call(api):
+    api.responses[:] = [RUN1]
     d = post(api)
-    assert d["validation"]["status"] == "passed" and d["validation"]["attempts"] == 2
+    assert d["validation"]["status"] == "passed" and d["validation"]["attempts"] == 1
+    assert len(api.calls) == 1
 
 
-def test_a_parse_that_never_validates_is_a_422_not_a_run(api):
-    api.responses[:] = [RUN2]
+def test_a_failing_parse_is_a_422_immediately_naming_the_rule_no_retry(api):
+    api.responses[:] = [RUN2, RUN1]          # a retry WOULD pass — it must not be made
     with pytest.raises(HTTPException) as e:
         post(api)
     assert e.value.status_code == 422
     assert "eluate-tube-entered-only-by-elute" in e.value.detail
+    assert len(api.calls) == 1
+
+
+def test_malformed_output_is_a_502_after_one_call(api):
+    api.responses[:] = ['{"steps": [ {"index": 1,, } ]}', RUN1]
+    with pytest.raises(HTTPException) as e:
+        post(api)
+    assert e.value.status_code == 502 and len(api.calls) == 1
 
 
 def test_a_parse_that_cannot_be_validated_is_labelled_unchecked(api, monkeypatch):
