@@ -98,23 +98,23 @@ def parse_validated(text: str, llm=None, source: str = "", attempts: int = 2,
     every attempt breaks a rule — a failing parse is never returned. OutputTruncated
     propagates at once: the same input truncates again, so it is never retried.
     MalformedOutput (complete but invalid JSON) is retried like a rule failure."""
-    from .parse import MalformedOutput, parse_protocol  # local: validate stays importable without parse deps
+    from .parse import MalformedOutput, ParseTransportError, parse_protocol  # local import
 
     last: list[dict] = []
-    malformed: Optional[MalformedOutput] = None
+    retryable: Optional[Exception] = None   # malformed output or a dropped stream
     for attempt in range(1, attempts + 1):
         try:
             data = parse_protocol(text, llm=llm, source=source, use_cache=False).to_dict()
-        except MalformedOutput as exc:
-            malformed = exc
+        except (MalformedOutput, ParseTransportError) as exc:
+            retryable = exc
             continue
-        malformed = None
+        retryable = None
         v = validate_protocol(data, rules_path)
         if v["status"] != "failed":
             v["attempts"] = attempt
             data["validation"] = v
             return data
         last = v["defects"]
-    if malformed is not None and not last:
-        raise malformed
+    if retryable is not None and not last:
+        raise retryable
     raise ParseFailedValidation(last, attempts)

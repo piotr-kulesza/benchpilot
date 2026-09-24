@@ -39,7 +39,7 @@ except ImportError as exc:  # pragma: no cover - optional dependency
     ) from exc
 
 from core.ingest import ingest        # noqa: E402
-from core.parse import MalformedOutput, OutputTruncated, ProtocolTooLong  # noqa: E402
+from core.parse import MalformedOutput, OutputTruncated, ParseTransportError, ProtocolTooLong  # noqa: E402
 from core.validate import ParseFailedValidation, parse_validated  # noqa: E402
 
 app = FastAPI(title="benchpilot live-parse")
@@ -76,6 +76,10 @@ def _validated(text: str, source: str) -> dict:
         raise HTTPException(status_code=413, detail=(
             f"This protocol is too long to parse in one pass: the parse output was truncated "
             f"({exc}). Nothing was shown. Try pasting one section of the protocol at a time.")) from exc
+    except ParseTransportError as exc:
+        raise HTTPException(status_code=504, detail=(
+            f"The connection to the parser dropped before the parse finished ({exc}). "
+            "Nothing was shown. Please try again.")) from exc
     except MalformedOutput as exc:
         raise HTTPException(status_code=502, detail=(
             f"The parser returned invalid output on every attempt ({exc}). Please try again.")) from exc

@@ -28,6 +28,12 @@ class ParseOutputError(ValueError):
     """The model's response could not become a Protocol."""
 
 
+class ParseTransportError(RuntimeError):
+    """The connection dropped before the response was complete (e.g. "peer closed
+    connection without sending complete message body" minutes into a long stream).
+    Not an output problem: nothing was received to judge, and a retry may succeed."""
+
+
 class OutputTruncated(ParseOutputError):
     """The response hit max_tokens and stops mid-JSON. Distinct from bad JSON: re-calling
     with the same input truncates again, so callers must not retry it — the protocol is
@@ -482,15 +488,24 @@ def default_llm(model: str = DEFAULT_MODEL, max_tokens: int = MAX_OUTPUT_TOKENS)
         # Stream: the bilingual+action output is large, and the SDK requires
         # streaming for high max_tokens. We accumulate the full text and return it.
         parts: list[str] = []
-        with client.messages.stream(
-            model=model,
-            max_tokens=max_tokens,
-            system=system,
-            messages=[{"role": "user", "content": user}],
-        ) as stream:
-            for text in stream.text_stream:
-                parts.append(text)
-            final = stream.get_final_message()
+        try:
+            with client.messages.stream(
+                model=model,
+                max_tokens=max_tokens,
+                system=system,
+                messages=[{"role": "user", "content": user}],
+            ) as stream:
+                for text in stream.text_stream:
+                    parts.append(text)
+                final = stream.get_final_message()
+        except anthropic.APIStatusError:
+            raise  # the API answered with an error status: not a transport drop
+        except Exception as exc:  # noqa: BLE001 — classify, then re-raise below
+            transport = isinstance(exc, (anthropic.APIConnectionError, anthropic.APITimeoutError)) or \
+                type(exc).__module__.split(".")[0] in ("httpx", "httpx2", "httpcore", "httpcore2", "h11")
+            if not transport:
+                raise
+            raise ParseTransportError(f"connection dropped after {sum(map(len, parts))} chars: {exc}") from exc
         text = "".join(parts)
         _raise_on_stop(final, max_tokens=max_tokens, text=text)  # a cut-off parse is not a parse
         return text

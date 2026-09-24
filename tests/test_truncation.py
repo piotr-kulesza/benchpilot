@@ -88,3 +88,46 @@ def test_the_bundle_gate_does_not_retry_a_truncation():
     assert len(llm.calls) == 1
 
 # (the /api/parse 413 path is covered in tests/test_api_gate.py)
+
+
+# A connection dropped mid-response (measured: the tenth protocol's second attempt died
+# with "peer closed connection without sending complete message body" after minutes of
+# streaming) is a TRANSPORT failure — not truncation, not bad JSON. It is retryable.
+
+def dropping_then(*responses):
+    calls = []
+
+    def llm(system, user):
+        calls.append(1)
+        r = responses[min(len(calls), len(responses)) - 1]
+        if r is None:
+            raise P.ParseTransportError("peer closed connection mid-response")
+        return r
+
+    llm.calls = calls
+    return llm
+
+
+def test_a_dropped_stream_is_retried_by_the_api_gate():
+    from core.validate import parse_validated
+    llm = dropping_then(None, GOOD)
+    d = parse_validated("x", llm=llm, source="pasted", attempts=2)
+    assert len(llm.calls) == 2 and d["validation"]["status"] == "passed"
+
+
+def test_a_stream_that_keeps_dropping_raises_the_transport_error():
+    from core.validate import parse_validated
+    with pytest.raises(P.ParseTransportError):
+        parse_validated("x", llm=dropping_then(None), source="pasted", attempts=2)
+
+
+def test_the_bundle_gate_retries_a_dropped_stream_and_logs_each_attempts_time():
+    from audited_parse import audited_parse
+    log = []
+    audited_parse("x", llm=dropping_then(None, GOOD), source="t", use_cache=False, log=log.append)
+    assert any("TRANSPORT" in line for line in log)
+    assert any("attempt 2/" in line and "s" in line for line in log)
+
+
+def test_transport_errors_are_distinct_from_output_errors():
+    assert not issubclass(P.ParseTransportError, P.ParseOutputError)

@@ -17,6 +17,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 from typing import Callable, Optional
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -24,7 +25,7 @@ sys.path.insert(0, ROOT)
 
 from core.parse import (  # noqa: E402
     LLM, SYSTEM_PROMPT, USER_TEMPLATE, _CACHE_DIR, _cache_key, _cache_put, parse_protocol,
-    MalformedOutput, OutputTruncated, ProtocolTooLong,
+    MalformedOutput, OutputTruncated, ParseTransportError, ProtocolTooLong,
 )
 from core.schema import Protocol  # noqa: E402
 
@@ -69,9 +70,15 @@ def audited_parse(text: str, *, source: str = "", llm: Optional[LLM] = None, use
     last: list[str] = []
     for attempt in range(1, attempts + 1):
         # only the first attempt may be served from the cache; a retry is a fresh call
+        t0 = time.monotonic()
+        took = lambda: f"{time.monotonic() - t0:.0f}s"  # noqa: E731 — per-attempt wall-clock
         try:
             p = parse_protocol(text, llm=llm, source=source, use_cache=use_cache and attempt == 1,
                                count_tokens=count_tokens)
+        except ParseTransportError as exc:
+            last = [f"transport: {exc}"]
+            log(f"!! PARSE TRANSPORT FAILURE ({source or 'protocol'}, attempt {attempt}/{attempts}, {took()}): {exc} — re-parsing")
+            continue
         except ProtocolTooLong as exc:
             log(f"!! PARSE REFUSED BEFORE CALLING ({source or 'protocol'}): {exc}")
             raise
@@ -83,6 +90,7 @@ def audited_parse(text: str, *, source: str = "", llm: Optional[LLM] = None, use
             last = [f"malformed output: {exc}"]
             log(f"!! PARSE REJECTED ({source or 'protocol'}, attempt {attempt}/{attempts}): {exc} — re-parsing")
             continue
+        log(f"   parse {source or 'protocol'}: attempt {attempt}/{attempts} returned after {took()}")
         last = audit(p.to_dict())
         if not last:
             if use_cache and attempt > 1:
