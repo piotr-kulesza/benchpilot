@@ -34,6 +34,8 @@ def api(monkeypatch):
         return llm
 
     monkeypatch.setattr(core.parse, "default_llm", fake_default_llm)
+    # the live path pre-flights with the token counter; stub it (offline tests never call out)
+    monkeypatch.setattr(core.parse, "default_token_counter", lambda *a, **k: (lambda text: 1_000))
     # load the deployed entrypoint by path (api/ has no __init__.py — keep the deploy dir clean)
     spec = importlib.util.spec_from_file_location("benchpilot_api_index", os.path.join(ROOT, "api", "index.py"))
     mod = importlib.util.module_from_spec(spec)

@@ -24,7 +24,7 @@ sys.path.insert(0, ROOT)
 
 from core.parse import (  # noqa: E402
     LLM, SYSTEM_PROMPT, USER_TEMPLATE, _CACHE_DIR, _cache_key, _cache_put, parse_protocol,
-    MalformedOutput, OutputTruncated,
+    MalformedOutput, OutputTruncated, ProtocolTooLong,
 )
 from core.schema import Protocol  # noqa: E402
 
@@ -62,14 +62,19 @@ def audit(data: dict) -> list[str]:
 
 
 def audited_parse(text: str, *, source: str = "", llm: Optional[LLM] = None, use_cache: bool = True,
-                  attempts: int = 3, log: Callable[[str], None] = print) -> Protocol:
+                  attempts: int = 3, log: Callable[[str], None] = print,
+                  count_tokens: Optional[Callable[[str], int]] = None) -> Protocol:
     """parse_protocol, gated by the audit. Returns the first parse with no defects."""
     key = _cache_key(SYSTEM_PROMPT, USER_TEMPLATE.format(text=text))
     last: list[str] = []
     for attempt in range(1, attempts + 1):
         # only the first attempt may be served from the cache; a retry is a fresh call
         try:
-            p = parse_protocol(text, llm=llm, source=source, use_cache=use_cache and attempt == 1)
+            p = parse_protocol(text, llm=llm, source=source, use_cache=use_cache and attempt == 1,
+                               count_tokens=count_tokens)
+        except ProtocolTooLong as exc:
+            log(f"!! PARSE REFUSED BEFORE CALLING ({source or 'protocol'}): {exc}")
+            raise
         except OutputTruncated as exc:
             # never retried: the same input truncates again — say so, once, loudly
             log(f"!! PARSE TRUNCATED ({source or 'protocol'}): {exc}")

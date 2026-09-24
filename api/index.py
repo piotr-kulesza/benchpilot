@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from core.ingest import ingest
-from core.parse import MalformedOutput, OutputTruncated
+from core.parse import MalformedOutput, OutputTruncated, ProtocolTooLong
 from core.validate import ParseFailedValidation, parse_validated
 
 app = FastAPI(title="benchpilot api")
@@ -34,6 +34,12 @@ def _validated(text: str, source: str) -> dict:
     validation.status = "unchecked" — the UI shows that the run was not checked."""
     try:
         return parse_validated(text, source=source)
+    except ProtocolTooLong as exc:
+        # refused BEFORE the parse call: the predicted output would not fit — nothing was
+        # parsed and the user was not charged for a truncated run
+        raise HTTPException(status_code=413, detail=(
+            f"This protocol is too long to turn into a run in one pass ({exc}). It was not "
+            "parsed and you were not charged. Paste one section of the protocol at a time.")) from exc
     except OutputTruncated as exc:
         # distinct from a rule failure: a truncated parse is the protocol being too long
         # for one pass, not the parse being wrong — never retried (it would truncate again)

@@ -41,6 +41,30 @@ class OutputTruncated(ParseOutputError):
                          f"({'stop_reason=max_tokens' if detected == 'stop_reason' else 'JSON ends inside an open string/object'})")
 
 
+class ProtocolTooLong(ParseOutputError):
+    """Refused before any parse call: the predicted output exceeds the budget. Nothing
+    was parsed and nothing was charged for a parse."""
+
+    def __init__(self, input_tokens: int, predicted_output: int, budget: int):
+        self.input_tokens, self.predicted_output, self.budget = input_tokens, predicted_output, budget
+        super().__init__(f"protocol too long to parse in one pass: {input_tokens} input tokens predict "
+                         f"~{predicted_output} output tokens, over the {budget}-token budget")
+
+
+def estimate_output_tokens(input_tokens: int) -> int:
+    """Predicted parse output for a protocol of `input_tokens` (conservative; see above)."""
+    return int(round(input_tokens * OUTPUT_PER_INPUT_TOKEN))
+
+
+def preflight(text: str, count_tokens: Callable[[str], int]) -> dict:
+    """Count the protocol's tokens and refuse it if the predicted output does not fit."""
+    n = int(count_tokens(text))
+    predicted = estimate_output_tokens(n)
+    if predicted > OUTPUT_BUDGET:
+        raise ProtocolTooLong(n, predicted, OUTPUT_BUDGET)
+    return {"input_tokens": n, "predicted_output": predicted, "budget": OUTPUT_BUDGET}
+
+
 class MalformedOutput(ParseOutputError):
     """The response is complete but is not valid JSON — a model error; a retry may succeed."""
 
@@ -49,6 +73,15 @@ DEFAULT_MODEL = "claude-opus-4-8"
 # The call streams, and only produced tokens are billed, so asking for the ceiling costs
 # nothing extra — it only stops a long protocol from being truncated at an arbitrary cap.
 MAX_OUTPUT_TOKENS = 128_000
+
+# PRE-FLIGHT. A protocol whose parse would not fit is refused BEFORE the parse call, so a
+# user is never charged for a truncated run. Output is predicted from the protocol's own
+# token count: across the ten real fresh parses (tests/fixtures/fresh_parse/) the trimmed
+# output ran 3.7-9.3 tokens per source token (highest: ELISA's many near-identical
+# steps). The prediction uses the highest observed ratio, and the budget keeps 10 %
+# headroom under the ceiling; output-truncation detection remains the backstop.
+OUTPUT_PER_INPUT_TOKEN = 9.3
+OUTPUT_BUDGET = int(MAX_OUTPUT_TOKENS * 0.9)
 _CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".cache")
 
 
@@ -465,6 +498,18 @@ def default_llm(model: str = DEFAULT_MODEL, max_tokens: int = MAX_OUTPUT_TOKENS)
     return _call
 
 
+def default_token_counter(model: str = DEFAULT_MODEL) -> Callable[[str], int]:
+    """Count a protocol's tokens with the API's token counter (no generation, no charge)."""
+
+    def _count(text: str) -> int:
+        import anthropic  # lazy import
+
+        return anthropic.Anthropic().messages.count_tokens(
+            model=model, messages=[{"role": "user", "content": text}]).input_tokens
+
+    return _count
+
+
 def _raise_on_stop(final, max_tokens: int, text: str) -> None:
     """Raise OutputTruncated when the API says the response stopped at max_tokens."""
     if getattr(final, "stop_reason", None) == "max_tokens":
@@ -680,6 +725,7 @@ def parse_protocol(
     llm: Optional[LLM] = None,
     source: str = "",
     use_cache: bool = True,
+    count_tokens: Optional[Callable[[str], int]] = None,
 ) -> Protocol:
     """Parse protocol `text` into a `Protocol` using a single, cached llm call.
 
@@ -687,12 +733,16 @@ def parse_protocol(
     Anthropic client is used (needs ANTHROPIC_API_KEY).
     """
     if llm is None:
+        # the live path: pre-flight by default, so it can never be skipped by accident
         llm = default_llm()
+        count_tokens = count_tokens or default_token_counter()
 
     user = USER_TEMPLATE.format(text=text)
     key = _cache_key(SYSTEM_PROMPT, user)
 
     cached: Optional[str] = _cache_get(key) if use_cache else None
+    if cached is None and count_tokens is not None:
+        preflight(text, count_tokens)  # raises ProtocolTooLong before any parse call
     raw = cached if cached is not None else llm(SYSTEM_PROMPT, user)
     parsed = _extract_json(raw)  # raises OutputTruncated / MalformedOutput — never cached
     if use_cache and cached is None:
