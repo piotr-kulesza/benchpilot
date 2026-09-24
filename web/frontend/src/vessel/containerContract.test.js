@@ -47,7 +47,6 @@ describe("transferKind — gels and membranes are 'place', never a pipette run",
     expect(transferKind('membrane', 'tube')).toBe('place')
     expect(transferKind('microtube', 'membrane')).toBe('place')
     expect(transferKind('gel', 'tube')).toBe('place')
-    expect(transferKind('microtube', 'gel')).toBe('place')
   })
   it('same-vessel gel/membrane steps stay rest', () => {
     expect(transferKind('gel', 'gel')).toBe('rest')
@@ -55,5 +54,18 @@ describe("transferKind — gels and membranes are 'place', never a pipette run",
   })
   it('other vessels are unchanged', () => {
     expect(transferKind('microtube', 'well_plate')).toBe('contents')
+  })
+})
+
+// Loading samples from a tube into gel WELLS is done with a pipette — the one gel
+// transfer that is a contents move. (Nothing is ever pipetted out of a gel, or into or
+// out of a membrane.)
+describe('transferKind — loading a gel from a tube is a pipette run', () => {
+  it('tube-like source into a gel is contents', () => {
+    for (const src of ['microtube', 'tube', 'eluate_tube', 'cryovial']) expect(transferKind(src, 'gel'), src).toBe('contents')
+  })
+  it('a flat source into a gel, or anything into a membrane, is still place', () => {
+    expect(transferKind('well_plate', 'gel')).toBe('place')
+    expect(transferKind('microtube', 'membrane')).toBe('place')
   })
 })

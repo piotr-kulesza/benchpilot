@@ -77,6 +77,7 @@ export const MATRIX_TRANSITIONS = [
   ['microtube', 'spin_column'], ['spin_column', 'eluate_tube'],
   ['gel', 'membrane'], ['flask', 'microtube'], ['microtube', 'cryovial'],
   ['microtube', 'flask'], ['microtube', 'slide'],
+  ['microtube', 'gel'],   // loading gel wells from a tube — pipetted (the gel exception)
 ]
 
 // store / heat / incubate_wait / measure take their instrument from what the step

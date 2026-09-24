@@ -83,6 +83,7 @@ export function nestsInto(sourceToken, destToken) {
 //                would be an `add` wearing a transfer's name, so the renderer holds + warns.
 //   'place'    — a gel or membrane on either side: no liquid crosses (a blot moves
 //                protein electrically), so NO pipette — both rest side by side (#5).
+//                Except loading a gel from a tube-like vessel: that IS pipetted.
 const NEVER_PIPETTED = new Set(['gel', 'membrane'])
 export function transferKind(prevContainer, container) {
   const prev = prevContainer ? CONTAINER_CONTRACT[prevContainer] : null
@@ -90,6 +91,8 @@ export function transferKind(prevContainer, container) {
   if (nestsInto(prevContainer, container)) return 'nest'
   const dst = CONTAINER_CONTRACT[container] || CONTAINER_CONTRACT.generic
   if (prev.vessel === dst.vessel) return 'rest'
+  // the one exception: LOADING a gel's wells from a tube is a pipette run
+  if (container === 'gel' && prev.orientation === 'upright') return 'contents'
   if (NEVER_PIPETTED.has(prevContainer) || NEVER_PIPETTED.has(container)) return 'place'
   return 'contents'
 }
