@@ -69,6 +69,10 @@ CRITICAL RULES
   NEVER leave source-language text with no `_en` companion — the default UI is
   English and would otherwise leak the original language.
 - Output ONE JSON object and nothing else. No markdown fences, no commentary.
+- OMIT EMPTY FIELDS: leave out any key whose value would be null, [], {}, false or "".
+  The reader fills those defaults, so writing them only wastes output. (Keep a field
+  whose value is 0 or a non-empty value.) The ONE exception: ALWAYS include `conditions`
+  on every step, even as {} — inside it, omit its empty fields the same way.
 - Parse the WHOLE protocol in this single response.
 
 WHAT TO EXTRACT
@@ -326,13 +330,12 @@ For each step extract, when present:
         incubator" -> co2_incubator; a "shaking incubator" -> shaking_incubator (NOT
         co2_incubator, NOT plate_shaker). A named instrument not in the list: give a
         short snake_case id of your own. None named -> [].
-    Give `conditions` on EVERY step (all fields), including prepare steps.
-      "Incubate 15 min at room temperature" -> {temperature_c: null,
-        room_temperature: true, on_ice: false, agitation: false, instruments: []}
-      "Grow in 37°C shaking incubator for 45 min" -> {temperature_c: 37,
-        room_temperature: false, on_ice: false, agitation: true,
-        instruments: ["shaking_incubator"]}
-      "Record the input cell number and the obtained yield" -> all false/null, [].
+    Give `conditions` on EVERY step, including prepare steps — omit its empty fields
+    (false / null / []); {} means the step states none of them.
+      "Incubate 15 min at room temperature" -> {"room_temperature": true}
+      "Grow in 37°C shaking incubator for 45 min" -> {"temperature_c": 37,
+        "agitation": true, "instruments": ["shaking_incubator"]}
+      "Record the input cell number and the obtained yield" -> {}
   - gaps: [{parameter, question}] for any value left underspecified / "to be
     determined" AT THIS STEP. Surface it as an answerable question (English is fine).
   - verbatim: the original source sentence(s) this step came from (audit trail).

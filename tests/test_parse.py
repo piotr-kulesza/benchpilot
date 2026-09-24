@@ -220,7 +220,9 @@ def test_step_conditions_parse_and_coerce():
     assert isinstance(c, StepConditions)
     assert c.temperature_c == 37
     assert c.room_temperature is False      # a stated false is a statement
-    assert c.on_ice is None                 # null stays "not stated" -> text fallback
+    # inside a PRESENT conditions object an omitted/null field is "stated: nothing" —
+    # the model omits empty fields; only an absent object means "fall back to the text"
+    assert c.on_ice is False
     assert c.agitation is False             # "false" string coerces to False
     assert c.instruments == ["co2_incubator"]  # lower-cased, blanks dropped
 

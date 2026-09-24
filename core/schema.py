@@ -263,9 +263,10 @@ class Material:
 class StepConditions:
     """What a step STATES about its physical conditions — the facts the player's
     instrument resolver may rest on (an instrument appears only when these require
-    one). Every field is tri-state: None means "not stated here", and the player then
-    falls back to reading the step text; a value (including False / []) is the
-    parser's statement and wins over the text."""
+    one). The OBJECT is the statement: when a step carries `conditions`, every field is
+    the parser's statement and wins over the text — a field the model omitted (it omits
+    empty fields) means false / [] / no temperature. When a step carries no `conditions`
+    at all, nothing was stated and the player falls back to reading the step text."""
     temperature_c: Optional[float] = None   # first stated temperature, signed (°C)
     room_temperature: Optional[bool] = None
     on_ice: Optional[bool] = None
@@ -276,14 +277,12 @@ class StepConditions:
     def from_dict(cls, d: Any) -> Optional["StepConditions"]:
         if not isinstance(d, dict):
             return None
-        inst = d.get("instruments")
         return cls(
             temperature_c=_opt_num(d.get("temperature_c")),
-            room_temperature=_opt_bool(d.get("room_temperature")),
-            on_ice=_opt_bool(d.get("on_ice")),
-            agitation=_opt_bool(d.get("agitation")),
-            instruments=(None if inst is None else
-                         [_s(x).lower() for x in _list(inst) if _s(x)]),
+            room_temperature=bool(_opt_bool(d.get("room_temperature"))),
+            on_ice=bool(_opt_bool(d.get("on_ice"))),
+            agitation=bool(_opt_bool(d.get("agitation"))),
+            instruments=[_s(x).lower() for x in _list(d.get("instruments")) if _s(x)],
         )
 
 
