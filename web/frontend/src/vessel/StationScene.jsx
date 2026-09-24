@@ -94,6 +94,21 @@ function expandByProps(box, obj) {
   }
   for (const c of obj.children) expandByProps(box, c)
 }
+// #11 — a pipette dispensing down a flask's canted neck rests, tilted, with its body
+// reaching up and out along the neck axis; the camera must take it in. Frame it by an
+// ANCHOR at the pipette's top in that resting pose — the tip path itself is unchanged.
+// Top = neck mouth + axis × (0.75 standoff + 0.62 tip offset + 1.58 scaled body) + margin.
+function frameAngledPipette(st, disp, offsetX = 0, offsetZ = 0) {
+  if (!disp || disp.approach !== 'angled') return
+  const tilt = disp.tilt != null ? disp.tilt : -0.62
+  const ax = Math.sin(-tilt), ay = Math.cos(-tilt)
+  const reach = 0.75 + 0.62 + 1.58 + 0.25
+  const top = new Vector3(offsetX + (disp.x || 0) + ax * reach, (disp.y || 0) + ay * reach, offsetZ + (disp.z || 0))
+  // the stand the pipette came from stays in frame too (its base at PIP_STAND, radius ~0.55)
+  const stand = new Vector3(demo.PIP_STAND.x - 0.6, 0, demo.PIP_STAND.z)
+  st.frameAnchors = [...(st.frameAnchors || []), top, stand]
+}
+
 function computeStationFrame(st) {
   st.group.updateMatrixWorld(true)
   _frameBox.makeEmpty()
@@ -394,6 +409,7 @@ export function configureStation(st, o) {
     if (reags.length <= 1 && !fromMix) {
       // UNCHANGED single-reagent path: resident pipette rig + bottle; fill ramps in the dispense window.
       demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: C.entryPoint })
+      frameAngledPipette(st, C.dispense, 0)
     } else if (prep) {
       // DRAW FROM THE CARRIED MIX (Stage 36). The prep tube was made at its own station and
       // is glided HERE (placePreps + the frame loop) — one object, moved, not a copy. The
@@ -851,6 +867,7 @@ export function configureStation(st, o) {
   } else if (action === 'seed') {
     // dispense the sample into the culture vessel; on agar, a spreader then sweeps it out.
     demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: C.entryPoint })
+    frameAngledPipette(st, C.dispense, 0)
     if (container === 'agar_plate') {
       const spr = demo.buildSpreader()
       spr.scale.setScalar(0.9)
@@ -1077,6 +1094,7 @@ function configurePipetteTransfer(st, S, o) {
   ]
 
   demo.addPipetteRig(st)
+  if (dstAngled) frameAngledPipette(st, dstDisp, BX, Z)
 
   st.enter = () => {
     S.only(toKey)
