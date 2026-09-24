@@ -376,3 +376,11 @@ export function pourPlan(step) {
   const saysPour = /\bpour/i.test(`${step?.text_en || ''} ${step?.text || ''}`)
   return { pour: reagentIndex >= 0 || saysPour, reagentIndex }
 }
+
+// #14 — how liquid leaves the vessel at a discard: the container's own rule (a plate,
+// dish, membrane, slide, gel is ALWAYS aspirated), unless the step itself says
+// "aspirate", which makes even a tube a pipette removal.
+export function removalFor(container, text) {
+  if (/aspirat/i.test(String(text || ''))) return 'aspirate'
+  return resolveRemoval(container)
+}

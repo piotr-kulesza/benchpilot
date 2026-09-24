@@ -14,7 +14,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera } from '@react-three/drei'
 import { FogExp2, Color, Vector3, Box3, Group, Mesh, RingGeometry, SphereGeometry, CylinderGeometry, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
-import { resolveRecipe, stepConditions, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects, exitLiftPoint, pourPlan } from './sceneRecipe.js'
+import { resolveRecipe, stepConditions, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects, exitLiftPoint, pourPlan, removalFor } from './sceneRecipe.js'
 import { containerContract, transferKind, sideBySide } from './containerContract.js'
 import { reagentName, reagentVolume, effectiveStep, selectAlternative, hasAlternatives } from '../lib/runtime.js'
 import * as demo from '../scene/demoScene.js'
@@ -545,7 +545,8 @@ export function configureStation(st, o) {
   } else if (action === 'discard') {
     // remove liquid — motion follows the CURRENT container: a tube TIPS into the
     // waste; a plate/dish/membrane is ASPIRATED (pipette suck-out — never tip it).
-    if (removal === 'aspirate') {
+    // The step's own "aspirate" makes even a tube a pipette removal (#14).
+    if (removalFor(container, o.text) === 'aspirate') {
       // resident pipette sucks the liquid out (its stand comes with the rig — a
       // genuine pipetting station); the level drains as it draws up.
       // aspirate AT the container's dispense point (a well / the flask surface),

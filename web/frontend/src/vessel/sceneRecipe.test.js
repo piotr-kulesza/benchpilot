@@ -5,7 +5,7 @@ import {
   SCENE_RECIPES, resolveRecipe, sampleContainerSequence, resolveContainer, resolveRemoval,
   findTransferHandoffDefects, findPrepareOnSampleDefects, findTargetDefects, actsOnSample,
   exitLiftPoint, stepConditions, findInstrumentDefects, NAMED_INSTRUMENTS, CONTAINER_TOKENS,
-  findUnmodelledInstruments, pourPlan,
+  findUnmodelledInstruments, pourPlan, removalFor,
 } from './sceneRecipe.js'
 import { findVesselRuleDefects, loadVesselRules } from '../../scripts/lib/vesselRules.mjs'
 import { resolveBehavior } from './behavior.js'
@@ -615,5 +615,18 @@ describe('pourPlan — pour vs pipette', () => {
     expect(pourPlan({ reagents: [r('x', '25 ml')] }).pour).toBe(true)
     expect(pourPlan({ reagents: [r('x', '2 milliliters')] }).pour).toBe(true)
     expect(pourPlan({ text_en: 'Add the html buffer', reagents: [r('x', '5 µl')] }).pour).toBe(false)
+  })
+})
+
+// #14: the step's own word decides how liquid leaves. "Aspirate and discard the
+// supernatant" is a pipette, even from a tube; only an unstated tube removal tips.
+describe('removalFor — the text can require aspiration', () => {
+  it('"aspirate" makes a tube aspirate', () => {
+    expect(removalFor('tube', 'Aspirate and discard the supernatant, taking care not to disturb the pellet.')).toBe('aspirate')
+    expect(removalFor('microtube', 'Remove the supernatant by aspiration.')).toBe('aspirate')
+  })
+  it('an unstated tube removal still tips; a flat vessel always aspirates', () => {
+    expect(removalFor('microtube', 'Discard the flow-through.')).toBe('tip')
+    expect(removalFor('well_plate', 'Discard the wash buffer.')).toBe('aspirate')
   })
 })
