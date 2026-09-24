@@ -205,6 +205,14 @@ export function undockSample(lift = false) {
     }
     function widest(lines, font){ g.font=font; var w=0; for(var i=0;i<lines.length;i++) w=Math.max(w,g.measureText(lines[i]).width); return w; }
     function draw(t2,s2){
+      // NOTHING to say -> NO plate: an empty label used to paint a blank dark bar that
+      // floated over the vessel (the cryovial) carrying no information
+      if(!String(t2||"").trim() && !String(s2||"").trim()){
+        c.width=4; c.height=4; g=c.getContext("2d"); g.clearRect(0,0,4,4);
+        if(tex) tex.needsUpdate=true;
+        if(sp){ sp.scale.set(0.0001,0.0001,1); sp.userData.worldH=0; }
+        return;
+      }
       var mLines=wrap(t2, FMAIN, MAXW);          // name (may wrap)
       var sLines=s2?wrap(s2, FSUB, MAXW):[];      // volume / spec (mono, may wrap)
       var textW=Math.max(widest(mLines,FMAIN), widest(sLines,FSUB));
@@ -230,7 +238,8 @@ export function undockSample(lift = false) {
     tex=new THREE.CanvasTexture(c); tex.anisotropy=MAX_ANISO;
     sp=new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, transparent:true, depthTest:false, depthWrite:false }));
     sp.renderOrder=999;
-    sp.scale.set(c.width*PIX, c.height*PIX, 1); sp.userData.worldH=c.height*PIX;
+    if(c.width>4){ sp.scale.set(c.width*PIX, c.height*PIX, 1); sp.userData.worldH=c.height*PIX; }
+    else { sp.scale.set(0.0001,0.0001,1); sp.userData.worldH=0; }
     sp.userData.update=function(t2,s2){ draw(t2,s2); };
     return sp;
   }
@@ -1134,7 +1143,7 @@ export function undockSample(lift = false) {
       fm.position.set(Math.cos(fa)*0.73, fy, Math.sin(fa)*0.73);
       var fs=0.01+Math.random()*0.02; fm.scale.set(fs,fs,fs); grp.add(fm);
     }
-    var label = makeLabel("On ice","store −80 °C");
+    var label = makeLabel("On ice","");   // (was sublabelled "store −80 °C" — ice is not −80 °C)
     label.position.set(0,1.45,0); grp.add(label);
     grp.userData.label=label; grp.userData.update=function(){};
     return grp;

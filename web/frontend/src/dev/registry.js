@@ -41,7 +41,7 @@ export const MODELS = [
   { id: 'pipette_stand', kind: 'equipment', span: 3.2, orient: 'pipette carousel/stand', build: () => demo.buildPipetteStand() },
   { id: 'ice_bucket',    kind: 'equipment', span: 2.4, orient: 'ice bucket', build: () => demo.buildIceBucket() },
   { id: 'waste',         kind: 'equipment', span: 1.8, orient: 'waste beaker/container', build: () => demo.buildWaste() },
-  { id: 'syringe',       kind: 'equipment', span: 2.2, orient: 'syringe with needle', build: () => demo.buildSyringe() },
+  { id: 'syringe',       kind: 'equipment', span: 2.9, orient: 'syringe with needle', build: () => demo.buildSyringe() },
 ]
 
 export const MODEL_IDS = MODELS.map((m) => m.id)

@@ -85,6 +85,9 @@ export function GalleryScene({ item, angle = 'front', bare = false }) {
     if (model) {
       const m = model.build(); m.userData.update?.(0.001)
       if (bare && m.userData.label) m.userData.label.visible = false
+      // seen from ABOVE, a billboard label sits squarely over its own model and hides it
+      // (the spreader, the syringe): the top view shows the models without their labels
+      if (angle === 'top') m.traverse((o) => { if (o.isSprite) o.visible = false })
       g.add(m)
     }
     const span = model?.span || 2.4
@@ -99,7 +102,7 @@ export function GalleryScene({ item, angle = 'front', bare = false }) {
     g.userData.refX = refX
     g.userData.span = span
     return g
-  }, [item, bare]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [item, bare, angle]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     scene.add(group)
