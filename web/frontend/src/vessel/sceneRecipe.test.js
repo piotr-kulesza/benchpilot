@@ -562,3 +562,33 @@ describe('findUnmodelledInstruments — an action that stages the instrument', (
       .map((d) => [d.index, d.names])).toEqual([[1, ['thermocycler']]])
   })
 })
+
+// #6: a mix or add that names no vessel while the sample's carried vessel is a gel or a
+// membrane acts on the sample TUBE — "mix each DNA sample with loading dye" happens in a
+// tube before loading, not by pipetting into the gel.
+describe('sampleContainerSequence — an unnamed mix/add never lands in a gel or membrane', () => {
+  it('an unnamed add/mix after a gel acts on a microtube', () => {
+    const steps = [
+      { action: 'pour_add', container: 'gel' },
+      { action: 'pour_add' },             // "Mix each DNA sample with 6X loading dye"
+      { action: 'pipette_mix' },
+      { action: 'transfer', container: 'gel' },
+    ]
+    expect(sampleContainerSequence(steps)).toEqual(['gel', 'microtube', 'microtube', 'gel'])
+  })
+  it('a membrane is the same; a NAMED add on the membrane stays on it', () => {
+    expect(sampleContainerSequence([{ action: 'electrophorese', container: 'membrane' }, { action: 'vortex_mix' }]))
+      .toEqual(['membrane', 'microtube'])
+    expect(sampleContainerSequence([{ action: 'electrophorese', container: 'membrane' }, { action: 'pour_add', container: 'membrane' }]))
+      .toEqual(['membrane', 'membrane'])
+  })
+  it('other unnamed actions still carry the gel (incubate, measure, stain)', () => {
+    expect(sampleContainerSequence([{ action: 'pour_add', container: 'gel' }, { action: 'incubate_wait' }, { action: 'stain' }]))
+      .toEqual(['gel', 'gel', 'gel'])
+  })
+  it('Agarose step 8 renders on a tube', () => {
+    const dir = fileURLToPath(new URL('../../public/protocols/', import.meta.url))
+    const st = JSON.parse(readFileSync(dir + 'agarose_gel.json', 'utf8')).steps
+    expect(sampleContainerSequence(st)[st.findIndex((s) => s.index === 8)]).toBe('microtube')
+  })
+})

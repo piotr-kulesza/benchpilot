@@ -268,6 +268,7 @@ export function resolveRemoval(container) {
 // model. Seed with the first named container (or microtube), then for each step
 // use its parsed `container` if present, else CARRY the previous one. Pure so the
 // invariant is unit-testable. `steps` is the ordered list of step objects.
+const MIX_OR_ADD = new Set(['pour_add', 'pipette_mix', 'vortex_mix'])
 export function sampleContainerSequence(steps = []) {
   const out = []
   let container = 'microtube'
@@ -276,6 +277,9 @@ export function sampleContainerSequence(steps = []) {
     // a `prepare` step happens in ITS OWN vessel, on the side — the sample never moves,
     // so its container (the mix's tube) must NOT advance the sample-follow.
     if (s?.action !== 'prepare' && named && CONTAINERS[named]) container = named
+    // #6: an add or mix that names no vessel cannot happen IN a gel or a membrane — the
+    // sample is being made up in its tube ("mix each DNA sample with loading dye")
+    else if (!named && MIX_OR_ADD.has(s?.action) && (container === 'gel' || container === 'membrane')) container = 'microtube'
     out.push(container)
   }
   return out
