@@ -32,8 +32,10 @@ def strip_empty(o, keep=("conditions",)):
     return o
 
 
-def test_ten_real_parses_round_trip_with_empty_fields_omitted():
-    assert len(COMPLETE) == 10
+def test_real_parses_round_trip_with_empty_fields_omitted():
+    # every complete real parse in fresh_parse/ (the ten bundled-protocol parses plus any
+    # later evidence, e.g. the tenth protocol's gated attempts); only .RAW is truncated
+    assert len(COMPLETE) >= 10
     for f in COMPLETE:
         raw = open(os.path.join(FRESH, f), encoding="utf-8").read()
         full = parse_protocol("x", llm=lambda s, u, r=raw: r, use_cache=False).to_dict()
@@ -61,7 +63,7 @@ def test_the_prompt_asks_for_empty_fields_to_be_omitted_but_conditions_kept():
 # Trim 2 — compact JSON (no indentation / line breaks): 87% of the tokens. Whitespace
 # carries nothing, so a compact response normalises to the same Protocol.
 
-def test_compact_json_round_trips_on_ten_real_parses():
+def test_compact_json_round_trips_on_real_parses():
     for f in COMPLETE:
         raw = open(os.path.join(FRESH, f), encoding="utf-8").read()
         full = parse_protocol("x", llm=lambda s, u, r=raw: r, use_cache=False).to_dict()
