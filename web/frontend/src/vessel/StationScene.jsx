@@ -1125,7 +1125,7 @@ function useContainers(steps) {
 function stationParams(baseStep, lang, altIdx, chain, producedInRun, container) {
   const step = effectiveStep(baseStep, altIdx) // follow the chosen either/or method
   // the instrument comes from the action + the sample's container + what the step states
-  const { equipment } = resolveRecipe(step.action, { container, conditions: stepConditions(step) })
+  const { equipment } = resolveRecipe(step.action, { container, conditions: stepConditions(step), spin: step.spin })
   // EVERY reagent (name · volume · colour), so a multi-reagent step renders all of them,
   // not just the first. Deduped by name so a conditional volume (the SAME reagent listed
   // as 350 µl / 600 µl variants) stays one bottle, not two.

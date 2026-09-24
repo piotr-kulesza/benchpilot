@@ -630,3 +630,19 @@ describe('removalFor — the text can require aspiration', () => {
     expect(removalFor('well_plate', 'Discard the wash buffer.')).toBe('aspirate')
   })
 })
+
+// #15: a low-force cell spin (a stated RCF under 1,000 × g — pelleting cells from a
+// conical tube) runs in a benchtop cell centrifuge, which is not modelled. The
+// microcentrifuge is the WRONG instrument for it, so the answer is the bench. The tube
+// is not scaled down to fit the wrong rotor.
+describe('resolveRecipe — a cell spin is not a microcentrifuge spin', () => {
+  it('a stated RCF under 1000 × g renders the bench', () => {
+    expect(resolveRecipe('centrifuge', { container: 'tube', spin: { rcf_min: 200 } }).equipment).toBe('bench')
+  })
+  it('1000 × g and above, or no stated RCF, stays the microcentrifuge', () => {
+    expect(resolveRecipe('centrifuge', { container: 'tube', spin: { rcf_min: 1000 } }).equipment).toBe('centrifuge')
+    expect(resolveRecipe('centrifuge', { container: 'spin_column', spin: { rcf_min: 8000 } }).equipment).toBe('centrifuge')
+    expect(resolveRecipe('centrifuge', { container: 'spin_column' }).equipment).toBe('centrifuge')
+    expect(resolveRecipe('centrifuge').equipment).toBe('centrifuge')
+  })
+})

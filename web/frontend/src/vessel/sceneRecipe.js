@@ -170,8 +170,15 @@ export function resolveInstrumentFor(action, container, conditions) {
 // never names an instrument for store / heat / incubate_wait / measure: pass the sample's
 // `container` and the step's `conditions` (stepConditions(step)) and the instrument is
 // chosen from those — the bench whenever they do not determine one.
+// Below this stated RCF a centrifugation is a cell spin (a benchtop swing-bucket
+// centrifuge with conical tubes), not a microcentrifuge spin — unmodelled, so the bench.
+export const CELL_SPIN_MAX_RCF = 1000
+
 export function resolveRecipe(action, ctx) {
   const base = SCENE_RECIPES[action] || SCENE_RECIPES.generic
+  if (action === 'centrifuge' && ctx?.spin?.rcf_min != null && ctx.spin.rcf_min < CELL_SPIN_MAX_RCF) {
+    return { ...base, equipment: 'bench' }
+  }
   if (!ctx || !CANDIDATES[action]) return base
   const equipment = resolveInstrumentFor(action, ctx.container, ctx.conditions)
   return equipment === base.equipment ? base : { ...base, equipment }
