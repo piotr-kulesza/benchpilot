@@ -22,6 +22,9 @@
 //  emptyMotion   — 'tip' (tilt & pour) | 'aspirate' (pipette out — NEVER tip)
 //  framing       — 'tall' | 'wide' (a tube and a T-flask can't share one camera)
 //  contentsState — optional richer state (e.g. flask 'monolayer')
+//  footprint     — {minX, maxX}: the vessel's extent along x in its local frame (the
+//                   flask's canted neck included). Two vessels placed side by side are
+//                   spaced by their footprints, never by one tube-sized constant.
 //  nestsIn       — [containers this vessel can DROP INTO as a nested insert]. This is
 //                   what distinguishes the two kinds of "transfer": if the sample's
 //                   SOURCE vessel nests into the DESTINATION, the transfer is a VESSEL
@@ -41,21 +44,21 @@
 // neck (approach:'angled' + dispense.depth), so entryPoint doesn't apply to them.
 
 export const CONTAINER_CONTRACT = {
-  microtube:   { vessel: 'tube',      orientation: 'upright', flat: false, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.9, z: 0, approach: 'top' }, entryPoint: 0.55, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
-  tube:        { vessel: 'tube',      orientation: 'upright', flat: false, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.9, z: 0, approach: 'top' }, entryPoint: 0.55, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
-  spin_column: { vessel: 'column',    orientation: 'upright', flat: false, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 1.35, z: 0, approach: 'top' }, entryPoint: 1.2, liquid: 'column', emptyMotion: 'tip', framing: 'tall', nestsIn: ['tube', 'eluate_tube', 'microtube'] },
-  eluate_tube: { vessel: 'elu',       orientation: 'upright', flat: false, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.7, z: 0, approach: 'top' }, entryPoint: 0.42, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
-  cryovial:    { vessel: 'cryovial',  orientation: 'upright', flat: false, capped: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.7, z: 0, approach: 'top' }, entryPoint: 0.45, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
-  bottle:      { vessel: 'tube',      orientation: 'upright', flat: false, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.9, z: 0, approach: 'top' }, entryPoint: 0.7, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
+  microtube:   { vessel: 'tube',      orientation: 'upright', flat: false, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.9, z: 0, approach: 'top' }, entryPoint: 0.55, liquid: 'column', emptyMotion: 'tip', framing: 'tall', footprint: { minX: -0.4, maxX: 0.4 } },
+  tube:        { vessel: 'tube',      orientation: 'upright', flat: false, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.9, z: 0, approach: 'top' }, entryPoint: 0.55, liquid: 'column', emptyMotion: 'tip', framing: 'tall', footprint: { minX: -0.4, maxX: 0.4 } },
+  spin_column: { vessel: 'column',    orientation: 'upright', flat: false, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 1.35, z: 0, approach: 'top' }, entryPoint: 1.2, liquid: 'column', emptyMotion: 'tip', framing: 'tall', nestsIn: ['tube', 'eluate_tube', 'microtube'], footprint: { minX: -0.4, maxX: 0.4 } },
+  eluate_tube: { vessel: 'elu',       orientation: 'upright', flat: false, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.7, z: 0, approach: 'top' }, entryPoint: 0.42, liquid: 'column', emptyMotion: 'tip', framing: 'tall', footprint: { minX: -0.34, maxX: 0.34 } },
+  cryovial:    { vessel: 'cryovial',  orientation: 'upright', flat: false, capped: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.7, z: 0, approach: 'top' }, entryPoint: 0.45, liquid: 'column', emptyMotion: 'tip', framing: 'tall', footprint: { minX: -0.3, maxX: 0.3 } },
+  bottle:      { vessel: 'tube',      orientation: 'upright', flat: false, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.9, z: 0, approach: 'top' }, entryPoint: 0.7, liquid: 'column', emptyMotion: 'tip', framing: 'tall', footprint: { minX: -0.4, maxX: 0.4 } },
   // flat-lying vessels — seat on the bench, aspirated (NEVER tipped), wide framing
-  well_plate:  { vessel: 'wellplate', orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: -0.98, y: 0.55, z: 0.77, approach: 'top' }, entryPoint: 0.5, liquid: 'well', emptyMotion: 'aspirate', framing: 'wide' },
-  flask:       { vessel: 'flask',     orientation: 'flat', flat: true, capped: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 1.45, y: 1.0, z: 0.41, approach: 'angled', tilt: -0.62, depth: 0.95 }, liquid: 'shallow', emptyMotion: 'aspirate', framing: 'wide', contentsState: 'monolayer' },
-  dish:        { vessel: 'dish',      orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.35, z: 0, approach: 'top' }, entryPoint: 0.3, liquid: 'shallow', emptyMotion: 'aspirate', framing: 'wide' },
-  slide:       { vessel: 'slide',     orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0.35, y: 0.35, z: 0, approach: 'top' }, entryPoint: 0.3, liquid: 'film', emptyMotion: 'aspirate', framing: 'wide', nestsIn: ['staining_tray'] },
-  membrane:    { vessel: 'membrane',  orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.35, z: 0, approach: 'top' }, entryPoint: 0.3, liquid: 'bands', emptyMotion: 'aspirate', framing: 'wide' },
-  gel:         { vessel: 'gel',       orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: -0.36, y: 0.45, z: -0.4, approach: 'top' }, entryPoint: 0.4, liquid: 'band', emptyMotion: 'aspirate', framing: 'wide' },
-  agar_plate:  { vessel: 'agarplate', orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.5, z: 0, approach: 'top' }, entryPoint: 0.45, liquid: 'film', emptyMotion: 'aspirate', framing: 'wide' },
-  generic:     { vessel: 'tube',      orientation: 'upright', flat: false, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.9, z: 0, approach: 'top' }, entryPoint: 0.55, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
+  well_plate:  { vessel: 'wellplate', orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: -0.98, y: 0.55, z: 0.77, approach: 'top' }, entryPoint: 0.5, liquid: 'well', emptyMotion: 'aspirate', framing: 'wide', footprint: { minX: -1.5, maxX: 1.5 } },
+  flask:       { vessel: 'flask',     orientation: 'flat', flat: true, capped: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 1.45, y: 1.0, z: 0.41, approach: 'angled', tilt: -0.62, depth: 0.95 }, liquid: 'shallow', emptyMotion: 'aspirate', framing: 'wide', contentsState: 'monolayer', footprint: { minX: -1.4, maxX: 1.55 } },
+  dish:        { vessel: 'dish',      orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.35, z: 0, approach: 'top' }, entryPoint: 0.3, liquid: 'shallow', emptyMotion: 'aspirate', framing: 'wide', footprint: { minX: -1.0, maxX: 1.0 } },
+  slide:       { vessel: 'slide',     orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0.35, y: 0.35, z: 0, approach: 'top' }, entryPoint: 0.3, liquid: 'film', emptyMotion: 'aspirate', framing: 'wide', nestsIn: ['staining_tray'], footprint: { minX: -1.3, maxX: 1.3 } },
+  membrane:    { vessel: 'membrane',  orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.35, z: 0, approach: 'top' }, entryPoint: 0.3, liquid: 'bands', emptyMotion: 'aspirate', framing: 'wide', footprint: { minX: -0.88, maxX: 0.88 } },
+  gel:         { vessel: 'gel',       orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: -0.36, y: 0.45, z: -0.4, approach: 'top' }, entryPoint: 0.4, liquid: 'band', emptyMotion: 'aspirate', framing: 'wide', footprint: { minX: -0.97, maxX: 0.97 } },
+  agar_plate:  { vessel: 'agarplate', orientation: 'flat', flat: true, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.5, z: 0, approach: 'top' }, entryPoint: 0.45, liquid: 'film', emptyMotion: 'aspirate', framing: 'wide', footprint: { minX: -1.0, maxX: 1.0 } },
+  generic:     { vessel: 'tube',      orientation: 'upright', flat: false, seat: { x: 0, y: 0, z: 0 }, dispense: { x: 0, y: 0.9, z: 0, approach: 'top' }, entryPoint: 0.55, liquid: 'column', emptyMotion: 'tip', framing: 'tall', footprint: { minX: -0.4, maxX: 0.4 } },
 }
 
 export function containerContract(token) {
@@ -121,4 +124,16 @@ export const INSTRUMENTS = {
   water_bath:          { accepts: ['microtube', 'tube', 'spin_column', 'eluate_tube', 'cryovial'] },
   freezer:             { accepts: ['microtube', 'tube', 'spin_column', 'eluate_tube', 'cryovial'] },
   ice_bucket:          { accepts: ['microtube', 'tube', 'spin_column', 'eluate_tube', 'cryovial'] },
+}
+
+// Side-by-side placement of a SOURCE (left) and DESTINATION (right) vessel: their facing
+// edges are `gap` apart, and never closer than the old tube-sized defaults (-0.95 / 0.85).
+export function sideBySide(srcToken, dstToken, gap = 0.4) {
+  const a = containerContract(srcToken).footprint || { minX: -0.4, maxX: 0.4 }
+  const b = containerContract(dstToken).footprint || { minX: -0.4, maxX: 0.4 }
+  return {
+    AX: Math.min(-0.95, -(gap / 2 + a.maxX)),
+    BX: Math.max(0.85, gap / 2 - b.minX),
+    srcFoot: a, dstFoot: b,
+  }
 }

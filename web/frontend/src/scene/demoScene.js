@@ -1760,7 +1760,15 @@ export {
       var TILT = opts.tilt!=null?opts.tilt:-0.62; // match the neck's cant exactly
       var depth = opts.depth!=null?opts.depth:0.95; // how far down the axis to the medium
       var ax=Math.sin(-TILT), ay=Math.cos(-TILT); // neck axis (points up-and-out of the mouth)
-      var dTop=(TRAVEL_Y-to.y)/ay;                // axis distance from mouth up to cruise height
+      // The tip comes in along the neck axis from a SHORT standoff just out of the mouth,
+      // not from cruise height: following the axis all the way up put the pipette ~1.4
+      // units out past the neck and off the top of the frame. So: cruise high and level
+      // to directly above the standoff, drop straight down to it (tilting in), then in.
+      var STANDOFF = opts.standoff!=null?opts.standoff:0.75;
+      var dTop=STANDOFF;                          // axis distance of the entry standoff
+      // a flat flask is low: cruise just clear of the source and the standoff, not at the
+      // tube-scale +2.0 (which, with the body above the tip, left the frame at the top)
+      TRAVEL_Y=Math.max(from.y+0.9, to.y+ay*dTop+0.45);
       // place the pipette so its TIP lands at mouth + axis*d, body tilted by `rot`
       function tipAxis(d, rot){
         var tx=to.x+ax*d, ty=to.y+ay*d, tz=to.z;
@@ -1772,15 +1780,22 @@ export {
         pip.rotation.z=0;
         pip.position.set(from.x, lerp(from.y+0.72, TRAVEL_Y, qa), from.z);
         pip.userData.setFluid(qa*(opts.fill||0.8)); pip.userData.setColor(opts.color||COL.lysis);
-      } else if(p<travel){                       // B · cruise HIGH & LEVEL to above the mouth, tilting in
+      } else if(p<travel){                       // B · cruise HIGH & LEVEL to above the standoff
         var qb=easeInOut((p-draw)/(travel-draw));
-        var rot=TILT*qb;
-        var tx=lerp(from.x, to.x+ax*dTop, qb), tz=lerp(from.z, to.z, qb);
-        pip.position.set(tx - Math.sin(rot)*TIP_DROP, TRAVEL_Y, tz);
+        var sx=to.x+ax*dTop, sy=to.y+ay*dTop;
+        pip.rotation.z=0;
+        pip.position.set(lerp(from.x, sx, qb), TRAVEL_Y, lerp(from.z, to.z, qb));
+        pip.userData.setFluid(opts.fill||0.8);
+      } else if(p<travel+0.08){                   // B2 · straight down to the standoff, tilting to the cant
+        var qd=easeInOut((p-travel)/0.08);
+        var rot=TILT*qd;
+        var sx2=to.x+ax*dTop, sy2=to.y+ay*dTop;
+        var tipY=lerp(TRAVEL_Y-TIP_DROP, sy2, qd);
+        pip.position.set(sx2 - Math.sin(rot)*TIP_DROP, tipY + Math.cos(rot)*TIP_DROP, to.z);
         pip.rotation.z=rot;
         pip.userData.setFluid(opts.fill||0.8);
-      } else {                                   // C · dip DOWN the neck axis into the medium, then withdraw
-        var qc=(p-travel)/(1-travel);
+      } else {                                   // C · in along the neck axis into the medium, then back out
+        var qc=(p-travel-0.08)/(1-travel-0.08);
         var s = qc<0.5 ? easeInOut(qc/0.5) : easeInOut(1-(qc-0.5)/0.5);
         tipAxis(lerp(dTop, -depth, s), TILT);
         pip.userData.setFluid((1-clamp(qc*1.5,0,1))*(opts.fill||0.8));
@@ -1982,7 +1997,11 @@ export {
     var neck=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.2,0.52,24), psMat.clone());
     neck.position.y=0.24; neckPivot.add(neck);
     // cap + its ribs live in ONE group so setCap can lift them off the neck together
-    var flaskCapGrp=new THREE.Group(); flaskCapGrp.position.y=0.55; neckPivot.add(flaskCapGrp);
+    // the cap lives in the FLASK's frame (not the canted neck's), so taking it off can set
+    // it down on the bench beside the flask instead of leaving it hanging in the air
+    var CAP_ON=new THREE.Vector3(0,0.55,0).applyEuler(new THREE.Euler(0,0,-0.62)).add(neckPivot.position);
+    var CAP_BENCH=new THREE.Vector3(L/2-0.25, 0.09, W/2+0.4);   // on the bench, in front of the neck
+    var flaskCapGrp=new THREE.Group(); flaskCapGrp.position.copy(CAP_ON); flaskCapGrp.rotation.z=-0.62; grp.add(flaskCapGrp);
     var cap=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,0.18,28), matPlastic(0x3f7fd0));
     flaskCapGrp.add(cap);
     for(var rc=0;rc<18;rc++){ var ra=rc/18*Math.PI*2; var rib=new THREE.Mesh(new THREE.BoxGeometry(0.012,0.14,0.026), matPlastic(0x3f7fd0));
@@ -2032,8 +2051,12 @@ export {
       if(_flaskUpd) _flaskUpd(dt);
       flaskCap.open = lerp(flaskCap.open, flaskCap.tOpen, 1-Math.pow(0.0009,dt));
       var o=flaskCap.open;
-      flaskCapGrp.position.set(-o*0.16, 0.55 + o*0.5, 0); // lift off + slide aside
-      flaskCapGrp.rotation.z = o*1.1;                      // tilt aside
+      // unscrew up off the neck (o 0-0.3), carry over clear (0.3-0.7), set down on the
+      // bench upright beside the flask (0.7-1). Reverses to cap it again.
+      var up=CAP_ON.y+0.35, e;
+      if(o<0.3){ e=easeInOut(o/0.3); flaskCapGrp.position.set(CAP_ON.x, lerp(CAP_ON.y, up, e), CAP_ON.z); flaskCapGrp.rotation.z=-0.62*(1-e); }
+      else if(o<0.7){ e=easeInOut((o-0.3)/0.4); flaskCapGrp.position.set(lerp(CAP_ON.x,CAP_BENCH.x,e), up, lerp(CAP_ON.z,CAP_BENCH.z,e)); flaskCapGrp.rotation.z=0; }
+      else { e=easeInOut((o-0.7)/0.3); flaskCapGrp.position.set(CAP_BENCH.x, lerp(up, CAP_BENCH.y, e), CAP_BENCH.z); flaskCapGrp.rotation.z=0; }
     };
     return grp;
   }

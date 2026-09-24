@@ -15,7 +15,7 @@ import { PerspectiveCamera } from '@react-three/drei'
 import { FogExp2, Color, Vector3, Box3, Group, Mesh, RingGeometry, SphereGeometry, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
 import { resolveRecipe, stepConditions, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects, exitLiftPoint } from './sceneRecipe.js'
-import { containerContract, transferKind } from './containerContract.js'
+import { containerContract, transferKind, sideBySide } from './containerContract.js'
 import { reagentName, reagentVolume, effectiveStep, selectAlternative, hasAlternatives } from '../lib/runtime.js'
 import * as demo from '../scene/demoScene.js'
 import { resolveScenePreset } from '../scene/scenePresets.js'
@@ -539,6 +539,7 @@ export function configureStation(st, o) {
         fromKey: prevC2.vessel, toKey: vessel,
         srcSeatY: prevC2.seat.y, dstSeatY: SEAT_Y,
         srcDisp: prevC2.dispense, dstDisp: C.dispense, dstEntry: C.entryPoint,
+        srcToken: prevContainer, dstToken: container,
         color: endColor, startLevel, endLevel, name, vol,
       })
       st._skipHandoff = true // the pipette run IS the transition; no lift/settle swap
@@ -964,7 +965,10 @@ function wrapHandoff(st, S, fromKey, toKey, color, level) {
 // travels with it. We reveal both vessels, then lock to the destination.
 function configurePipetteTransfer(st, S, o) {
   const { fromKey, toKey, srcSeatY, dstSeatY, srcDisp, dstDisp, dstEntry, color, startLevel, endLevel, name, vol } = o
-  const AX = -0.95, BX = 0.85, Z = 0.1
+  // spaced by each vessel's FOOTPRINT (a flask is 3 units long with its neck), never by
+  // tube-sized constants — a microtube beside a flask used to stand inside its neck
+  const { AX, BX, srcFoot, dstFoot } = sideBySide(o.srcToken, o.dstToken)
+  const Z = 0.1
   // aspirate over the SOURCE (tip dips in from srcSeatY, then rises) and dispense at the
   // DESTINATION's contract mouth (straight into a tube; angled down a flask's neck).
   const dstAngled = dstDisp && dstDisp.approach === 'angled'
@@ -973,8 +977,8 @@ function configurePipetteTransfer(st, S, o) {
   // frame BOTH vessels (base → top of each) so the fit keeps them centred, not the tall
   // pipette (which is excluded from the frame).
   st.frameAnchors = [
-    new Vector3(AX, srcSeatY, Z), new Vector3(AX, srcSeatY + 1.7, Z),
-    new Vector3(BX, dstSeatY, Z), new Vector3(BX, dstSeatY + 1.7, Z),
+    new Vector3(AX + srcFoot.minX, srcSeatY, Z), new Vector3(AX + srcFoot.maxX, srcSeatY + 1.7, Z),
+    new Vector3(BX + dstFoot.minX, dstSeatY, Z), new Vector3(BX + dstFoot.maxX, dstSeatY + 1.7, Z),
   ]
 
   demo.addPipetteRig(st)
