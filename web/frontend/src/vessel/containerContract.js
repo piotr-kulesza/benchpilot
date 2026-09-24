@@ -81,12 +81,17 @@ export function nestsInto(sourceToken, destToken) {
 //                pipetted A→B.
 //   'rest'     — same vessel type, or no previous container: nothing to move. A FILL here
 //                would be an `add` wearing a transfer's name, so the renderer holds + warns.
+//   'place'    — a gel or membrane on either side: no liquid crosses (a blot moves
+//                protein electrically), so NO pipette — both rest side by side (#5).
+const NEVER_PIPETTED = new Set(['gel', 'membrane'])
 export function transferKind(prevContainer, container) {
   const prev = prevContainer ? CONTAINER_CONTRACT[prevContainer] : null
   if (!prev) return 'rest'
   if (nestsInto(prevContainer, container)) return 'nest'
   const dst = CONTAINER_CONTRACT[container] || CONTAINER_CONTRACT.generic
-  return prev.vessel !== dst.vessel ? 'contents' : 'rest'
+  if (prev.vessel === dst.vessel) return 'rest'
+  if (NEVER_PIPETTED.has(prevContainer) || NEVER_PIPETTED.has(container)) return 'place'
+  return 'contents'
 }
 
 // Equipment declares where a container sits inside it and the PATH the container

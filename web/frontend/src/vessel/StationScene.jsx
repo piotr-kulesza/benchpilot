@@ -543,6 +543,32 @@ export function configureStation(st, o) {
         color: endColor, startLevel, endLevel, name, vol,
       })
       st._skipHandoff = true // the pipette run IS the transition; no lift/settle swap
+    } else if (kind === 'place' && prevC2) {
+      // A gel or membrane on either side (#5): nothing is pipetted. Both vessels rest side
+      // by side, spaced by footprint; the destination takes on the carried contents (a
+      // membrane's bands appear) — no rig, no drop, no stream.
+      const { AX, BX, srcFoot, dstFoot } = sideBySide(prevContainer, container)
+      st.frameAnchors = [
+        new Vector3(AX + srcFoot.minX, 0, 0), new Vector3(AX + srcFoot.maxX, 1.2, 0),
+        new Vector3(BX + dstFoot.minX, 0, 0), new Vector3(BX + dstFoot.maxX, 1.2, 0),
+      ]
+      st.enter = () => {
+        S.only(vessel)
+        const a = S[prevC2.vessel], b = S[vessel]
+        a.visible = true; b.visible = true
+        a.rotation.set(0, 0, 0); b.rotation.set(0, 0, 0)
+        a.userData.setColor?.(startColor); a.userData.setLevel?.(startLevel)
+        b.userData.setColor?.(endColor); b.userData.setLevel?.(0)
+        S.snapTo(a, st.x + AX, prevC2.seat.y, 0)
+        S.snapTo(b, st.x + BX, SEAT_Y, 0)
+      }
+      st.timeline = (p) => {
+        const b = S[vessel]
+        S[prevC2.vessel].visible = true
+        b.userData.setColor?.(endColor)
+        b.userData.setLevel?.(demo.lerp(0, endLevel, demo.easeInOut(demo.clamp((p - 0.2) / 0.6, 0, 1))))
+      }
+      st._skipHandoff = true
     } else {
       // A transfer that is NEITHER a nest NOR a container change fell through to a plain
       // fill. That is an ADD wearing a transfer's name — surface it loudly (this silent
@@ -714,13 +740,11 @@ export function configureStation(st, o) {
       evolve(demo.clamp((p - 0.40) / 0.42, 0, 1))      // contents change only while running
     }
   } else if (action === 'electrophorese') {
-    // (non-gel electrophorese: unchanged here — the gel-tank rig with the vessel beside it)
-    const gel = demo.buildGelRig()
-    st.group.add(gel)
-    st.updatables.push(gel)
-    st.dev = gel
-    st.enter = () => seat(-1.7, SEAT_Y, 0.9)
-    st.timeline = (p) => { evolve(p); gel.userData.setProgress?.(p) }
+    // electrophorese on anything but a gel (a membrane: the blot) is not a gel-tank run
+    // (#5). No transfer apparatus is modelled, so the vessel rests on the bench and takes
+    // on its result — never a wrong instrument.
+    st.enter = () => seat(0, SEAT_Y, 0)
+    st.timeline = (p) => { evolve(p) }
   } else if (action === 'store' && equipment === 'freezer') {
     // end-state storage: the vessel glides INTO the freezer; the door closes; frost breathes.
     const fr = demo.buildFreezer()

@@ -36,3 +36,24 @@ describe('nestsInto — the contract that selects the vessel-move path', () => {
     expect(nestsInto('microtube', 'spin_column')).toBe(false)
   })
 })
+
+// #5: a gel or a membrane is never pipetted from or into by a transfer. A blot moves
+// protein from a gel onto a membrane electrically; nothing liquid crosses between them.
+describe("transferKind — gels and membranes are 'place', never a pipette run", () => {
+  it('gel -> membrane (a blot) is place', () => {
+    expect(transferKind('gel', 'membrane')).toBe('place')
+  })
+  it('any transfer whose source or destination is a gel or membrane is place', () => {
+    expect(transferKind('membrane', 'tube')).toBe('place')
+    expect(transferKind('microtube', 'membrane')).toBe('place')
+    expect(transferKind('gel', 'tube')).toBe('place')
+    expect(transferKind('microtube', 'gel')).toBe('place')
+  })
+  it('same-vessel gel/membrane steps stay rest', () => {
+    expect(transferKind('gel', 'gel')).toBe('rest')
+    expect(transferKind('membrane', 'membrane')).toBe('rest')
+  })
+  it('other vessels are unchanged', () => {
+    expect(transferKind('microtube', 'well_plate')).toBe('contents')
+  })
+})
