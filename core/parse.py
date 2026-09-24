@@ -45,6 +45,10 @@ class MalformedOutput(ParseOutputError):
     """The response is complete but is not valid JSON — a model error; a retry may succeed."""
 
 DEFAULT_MODEL = "claude-opus-4-8"
+# The configured model's output ceiling (Models API: claude-opus-4-8 max_tokens = 128000).
+# The call streams, and only produced tokens are billed, so asking for the ceiling costs
+# nothing extra — it only stops a long protocol from being truncated at an arbitrary cap.
+MAX_OUTPUT_TOKENS = 128_000
 _CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".cache")
 
 
@@ -435,7 +439,7 @@ def _cache_put(key: str, value: str) -> None:
 # default LLM (Anthropic) — lazy, only built when no llm is injected
 # ---------------------------------------------------------------------------
 
-def default_llm(model: str = DEFAULT_MODEL, max_tokens: int = 32000) -> LLM:
+def default_llm(model: str = DEFAULT_MODEL, max_tokens: int = MAX_OUTPUT_TOKENS) -> LLM:
     """Build an Anthropic-backed llm callable. Requires ANTHROPIC_API_KEY."""
 
     def _call(system: str, user: str) -> str:

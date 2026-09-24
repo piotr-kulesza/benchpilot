@@ -71,3 +71,13 @@ def test_compact_json_round_trips_on_ten_real_parses():
 
 def test_the_prompt_asks_for_compact_json():
     assert "COMPACT JSON" in SYSTEM_PROMPT
+
+
+# Trim 3 — max_tokens raised to the configured model's ceiling (claude-opus-4-8: 128,000,
+# per the Models API). The call streams, and only produced tokens are billed.
+
+def test_the_live_call_asks_for_the_models_full_output_ceiling():
+    import inspect
+    from core import parse as P
+    assert P.MAX_OUTPUT_TOKENS == 128_000
+    assert inspect.signature(P.default_llm).parameters["max_tokens"].default == P.MAX_OUTPUT_TOKENS
