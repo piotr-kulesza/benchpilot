@@ -5,6 +5,7 @@ import {
   SCENE_RECIPES, resolveRecipe, sampleContainerSequence, resolveContainer, resolveRemoval,
   findTransferHandoffDefects, findPrepareOnSampleDefects, findTargetDefects, actsOnSample,
   exitLiftPoint, stepConditions, findInstrumentDefects, NAMED_INSTRUMENTS, CONTAINER_TOKENS,
+  findUnmodelledInstruments,
 } from './sceneRecipe.js'
 import { findVesselRuleDefects, loadVesselRules } from '../../scripts/lib/vesselRules.mjs'
 import { resolveBehavior } from './behavior.js'
@@ -547,5 +548,17 @@ describe('vessel rules (core/vessel_rules.json) — conformance with core/valida
     const block = py.match(/^CONTAINERS = \(([\s\S]*?)^\)/m)
     const ids = [...block[1].matchAll(/"([a-z0-9_]+)"/g)].map((m) => m[1])
     expect([...ids].sort()).toEqual([...CONTAINER_TOKENS].sort())
+  })
+})
+
+// A step whose OWN action stages the instrument is not "unmodelled": the thermocycle
+// station IS the thermocycler. Measured false positive: the tenth protocol's qPCR step.
+describe('findUnmodelledInstruments — an action that stages the instrument', () => {
+  it('a thermocycle step naming the thermocycler is not flagged', () => {
+    expect(findUnmodelledInstruments([{ index: 1, action: 'thermocycle', text_en: 'Run 40 cycles in the thermocycler.' }])).toEqual([])
+  })
+  it('a heat step naming the thermocycler still is (heat renders the bench for it)', () => {
+    expect(findUnmodelledInstruments([{ index: 1, action: 'heat', text_en: 'Final extension 72 °C in the thermocycler.' }])
+      .map((d) => [d.index, d.names])).toEqual([[1, ['thermocycler']]])
   })
 })

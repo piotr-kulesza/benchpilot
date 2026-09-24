@@ -213,10 +213,17 @@ export function findInstrumentDefects(steps = [], resolve = realResolve) {
 // Steps that NAME an instrument we have no model for — they render on the bench. Not a
 // defect (a missing instrument is honest) but a coverage gap worth seeing, like a
 // `generic` fallback.
+// Instruments an ACTION stages itself: a step with that action is not rendering a
+// stand-in, so naming the instrument there is not a coverage gap.
+const STAGED_BY_ACTION = { thermocycle: ['thermocycler'] }
+
 export function findUnmodelledInstruments(steps = []) {
   const out = []
   steps.forEach((s, i) => {
-    const names = s && typeof s === 'object' ? stepConditions(s).names.filter((n) => UNMODELLED.includes(n)) : []
+    const staged = (s && STAGED_BY_ACTION[s.action]) || []
+    const names = s && typeof s === 'object'
+      ? stepConditions(s).names.filter((n) => UNMODELLED.includes(n) && !staged.includes(n))
+      : []
     if (names.length) out.push({ index: s.index != null ? s.index : i, action: s.action, names })
   })
   return out
