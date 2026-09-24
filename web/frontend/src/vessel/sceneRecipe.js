@@ -363,3 +363,16 @@ export function findPrepareOnSampleDefects(steps = []) {
   }
   return out
 }
+
+// #13 — POUR or PIPETTE. A micropipette does not move 100 mL, and nobody pipettes molten
+// agarose into a casting tray. A step is a pour when its text says "pour" or a reagent's
+// stated volume is in mL / L; the (first) such reagent's bottle is the one tipped. A pour
+// that states no reagent has no bottle to tip — none is invented (reagentIndex -1).
+const BULK_VOLUME = /(?:^|[\d\s.])(m[lL]|milliliters?|millilitres?|L|liters?|litres?)\b/
+export function pourPlan(step) {
+  const reagents = (step && step.reagents) || []
+  const vol = (x) => `${x?.volume_en || ''} ${x?.volume || ''}`
+  const reagentIndex = reagents.findIndex((x) => BULK_VOLUME.test(vol(x)))
+  const saysPour = /\bpour/i.test(`${step?.text_en || ''} ${step?.text || ''}`)
+  return { pour: reagentIndex >= 0 || saysPour, reagentIndex }
+}

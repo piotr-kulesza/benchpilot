@@ -12,9 +12,9 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera } from '@react-three/drei'
-import { FogExp2, Color, Vector3, Box3, Group, Mesh, RingGeometry, SphereGeometry, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
+import { FogExp2, Color, Vector3, Box3, Group, Mesh, RingGeometry, SphereGeometry, CylinderGeometry, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
-import { resolveRecipe, stepConditions, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects, exitLiftPoint } from './sceneRecipe.js'
+import { resolveRecipe, stepConditions, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects, exitLiftPoint, pourPlan } from './sceneRecipe.js'
 import { containerContract, transferKind, sideBySide } from './containerContract.js'
 import { reagentName, reagentVolume, effectiveStep, selectAlternative, hasAlternatives } from '../lib/runtime.js'
 import * as demo from '../scene/demoScene.js'
@@ -317,7 +317,72 @@ export function configureStation(st, o) {
     return base
   }
 
-  if (action === 'pour_add') {
+  const pour = action === 'pour_add' ? pourPlan({ text_en: o.text, reagents: (o.reagents || []).map((r) => ({ volume: r.vol })) }) : null
+  if (pour && pour.pour) {
+    // #13 — a POUR: the stated mL reagent's BOTTLE is tipped into the vessel; no pipette.
+    // A pour that states no reagent ("pour the agarose into the casting tray") names no
+    // bottle, so none is invented: the vessel simply fills.
+    const C0 = C.dispense || { x: 0, z: 0 }
+    const mouth = {
+      x: C0.x || 0, z: C0.z || 0,
+      y: (C0.approach === 'angled' && C0.y != null) ? C0.y : SEAT_Y + (C0.y != null ? C0.y : 0.9),
+    }
+    const reag = pour.reagentIndex >= 0 ? o.reagents[pour.reagentIndex] : null
+    let bottle = null
+    if (reag) {
+      demo.addBottle(st, 'pour', '', reag.color, 2.0, 0.7)
+      bottle = st.reagents.pour.grp
+    }
+    const H = 1.3, TH = 1.9                                   // bottle height, pour tilt (rad)
+    const M = { x: mouth.x, y: mouth.y + 0.35, z: mouth.z }   // where the bottle mouth pours from
+    const tiltBase = { x: M.x + H * Math.sin(TH), y: M.y - H * Math.cos(TH), z: M.z }
+    const HOME = { x: 2.0, y: 0, z: 0.7 }
+    // the bottle's cap comes OFF before the pour and is set down on the bench beside the
+    // bottle (the bottle's own cap follows the bottle's tilt, so it is hidden and this
+    // identical cap — starting exactly on the neck — carries its role)
+    let cap = null
+    const CAP_ON = { x: HOME.x, y: 1.3 + 0.11, z: HOME.z }
+    const CAP_BENCH = { x: HOME.x + 0.6, y: 0.11, z: HOME.z + 0.35 }
+    if (bottle) {
+      cap = bottle.userData.cap.clone()
+      bottle.userData.cap.visible = false
+      st.group.add(cap)
+    }
+    let stream = null
+    if (bottle) {
+      stream = new Mesh(new CylinderGeometry(0.035, 0.05, 0.45, 12), new MeshStandardMaterial({ color: reag.color, roughness: 0.3, transparent: true, opacity: 0.8 }))
+      stream.position.set(M.x, M.y - 0.22, M.z); stream.visible = false
+      st.group.add(stream)
+    }
+    st.enter = () => {
+      seat(0, SEAT_Y, 0)
+      if (bottle) { bottle.position.set(HOME.x, HOME.y, HOME.z); bottle.rotation.set(0, 0, 0); cap.position.set(CAP_ON.x, CAP_ON.y, CAP_ON.z) }
+    }
+    st.timeline = (p) => {
+      const v = S[vessel]
+      const seg = (a, b) => demo.easeInOut(demo.clamp((p - a) / (b - a), 0, 1))
+      if (v.userData.setCap) v.userData.setCap(!(p > 0.2 && p < 0.95)) // a capped vessel opens for the pour
+      if (!bottle) { evolve(seg(0.2, 0.85)); return }
+      // 0-0.1 · uncap: the cap lifts off the neck, carries over, and is set on the bench
+      if (p < 0.03) cap.position.set(CAP_ON.x, demo.lerp(CAP_ON.y, CAP_ON.y + 0.3, seg(0, 0.03)), CAP_ON.z)
+      else if (p < 0.07) { const q = seg(0.03, 0.07); cap.position.set(demo.lerp(CAP_ON.x, CAP_BENCH.x, q), CAP_ON.y + 0.3, demo.lerp(CAP_ON.z, CAP_BENCH.z, q)) }
+      else cap.position.set(CAP_BENCH.x, demo.lerp(CAP_ON.y + 0.3, CAP_BENCH.y, seg(0.07, 0.1)), CAP_BENCH.z)
+      const LIFT = tiltBase.y + 0.3
+      let x = HOME.x, y = HOME.y, z = HOME.z, rot = 0
+      if (p < 0.1) { /* bottle waits while it is uncapped */ }
+      else if (p < 0.16) { y = demo.lerp(HOME.y, LIFT, seg(0.1, 0.16)) }                  // straight up
+      else if (p < 0.32) { const q = seg(0.16, 0.32); x = demo.lerp(HOME.x, tiltBase.x, q); z = demo.lerp(HOME.z, tiltBase.z, q); y = LIFT }
+      else if (p < 0.38) { x = tiltBase.x; z = tiltBase.z; y = demo.lerp(LIFT, tiltBase.y, seg(0.32, 0.38)) }
+      else if (p < 0.5) { x = tiltBase.x; y = tiltBase.y; z = tiltBase.z; rot = TH * seg(0.38, 0.5) }   // tip over
+      else if (p < 0.8) { x = tiltBase.x; y = tiltBase.y; z = tiltBase.z; rot = TH }                    // pour
+      else if (p < 0.88) { x = tiltBase.x; y = tiltBase.y; z = tiltBase.z; rot = TH * (1 - seg(0.8, 0.88)) }
+      else { const q = seg(0.88, 1); x = demo.lerp(tiltBase.x, HOME.x, q); z = demo.lerp(tiltBase.z, HOME.z, q); y = demo.lerp(tiltBase.y, HOME.y, q) }
+      bottle.position.set(x, y, z); bottle.rotation.set(0, 0, rot)
+      bottle.userData.setLevel?.(1 - 0.3 * seg(0.5, 0.8))      // the bottle empties as it pours
+      stream.visible = p >= 0.5 && p < 0.8
+      evolve(seg(0.5, 0.8))                                     // fills only while it pours
+    }
+  } else if (action === 'pour_add') {
     const reags = o.reagents || []
     // draws FROM a prepared mixture ("apply the DNase I mixture …") → the source is the
     // tube you made, not a bottle from nowhere. The parsed `draws_from` is authoritative;
