@@ -1008,18 +1008,32 @@ export function undockSample(lift = false) {
     var grp = new THREE.Group();
     // buffer tank (clear box) — solid enough to read as a vessel, with a dark frame
     var tankMat = new THREE.MeshPhysicalMaterial({ color:0xcdd6de, roughness:0.2, metalness:0, transparent:true, opacity:0.5, clearcoat:0.6, envMapIntensity:0.8 });
-    var tank = new THREE.Mesh(new THREE.BoxGeometry(2.6,0.7,1.6), tankMat);
+    // OPEN-TOPPED tank (a buffer tank has no top face — the lid sits on its rim). Box
+    // material order is +x,-x,+y,-y,+z,-z: the +y face gets an invisible material, so a
+    // gel inside is seen from above through the (clear) lid and the buffer only.
+    var noTop = new THREE.MeshBasicMaterial({ visible:false });
+    var tank = new THREE.Mesh(new THREE.BoxGeometry(2.6,0.7,1.6), [tankMat,tankMat,noTop,tankMat,tankMat,tankMat]);
     tank.position.y=0.55; tank.castShadow=true; grp.add(tank);
     var frameMat = matPlastic(0x2b3038);
     // base + top rim frames so the tank reads as a solid moulded vessel, not a haze
     var tbase = new THREE.Mesh(new THREE.BoxGeometry(2.66,0.1,1.66), frameMat); tbase.position.y=0.24; grp.add(tbase);
-    var trim = new THREE.Mesh(new THREE.BoxGeometry(2.66,0.08,1.66), frameMat); trim.position.y=0.86; grp.add(trim);
-    var lidMat = matPlastic(0x2b3038);
+    // the top RIM is a frame of four rails (a full 2.66x1.66 slab here capped the tank and
+    // hid anything inside it)
+    [[2.66,0.08,0.08, 0,0.86, 0.79],[2.66,0.08,0.08, 0,0.86,-0.79],
+     [0.08,0.08,1.66, 1.29,0.86,0],[0.08,0.08,1.66,-1.29,0.86,0]].forEach(function(r){
+      var m=new THREE.Mesh(new THREE.BoxGeometry(r[0],r[1],r[2]), frameMat); m.position.set(r[3],r[4],r[5]); grp.add(m); });
+    // clear smoked-acrylic lid (as on real mini-gel tanks): a run is watched THROUGH it —
+    // the dye front moving in the gel is the one visible sign that the gel is running.
+    var lidMat = new THREE.MeshPhysicalMaterial({ color:0x2b3038, roughness:0.25, metalness:0, transparent:true,
+      opacity:0.32, clearcoat:0.6, envMapIntensity:0.6, depthWrite:false });
+    // The LID carries the electrode terminals and their leads: to load a gel you take the
+    // lid (leads and all) straight UP off the tank — lidGrp moves as one (setLidLift).
+    var lidGrp = new THREE.Group(); grp.add(lidGrp);
     var tankLid = new THREE.Mesh(new THREE.BoxGeometry(2.7,0.09,1.7), lidMat);
-    tankLid.position.y=0.96; grp.add(tankLid);
+    tankLid.position.y=0.96; lidGrp.add(tankLid);
     // electrode TERMINALS on the lid (red +, black −) + CABLES running to the power box
-    var termR = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.12,12), matPlastic(0xc0392b)); termR.position.set(-0.5,1.06,0.6); grp.add(termR);
-    var termB = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.12,12), matPlastic(0x22272e)); termB.position.set(-0.2,1.06,0.6); grp.add(termB);
+    var termR = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.12,12), matPlastic(0xc0392b)); termR.position.set(-0.5,1.06,0.6); lidGrp.add(termR);
+    var termB = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.12,12), matPlastic(0x22272e)); termB.position.set(-0.2,1.06,0.6); lidGrp.add(termB);
     // running buffer
     var buf = new THREE.Mesh(new THREE.BoxGeometry(2.5,0.5,1.5),
       new THREE.MeshPhysicalMaterial({ color:0xdfe6c0, roughness:0.3, transparent:true, opacity:0.35, envMapIntensity:0.6 }));
@@ -1053,8 +1067,8 @@ export function undockSample(lift = false) {
       var curve=new THREE.CatmullRomCurve3([from,mid,to]);
       return new THREE.Mesh(new THREE.TubeGeometry(curve,22,0.028,8,false), matRubber(color));
     }
-    grp.add(gelCable(new THREE.Vector3(-0.5,1.1,0.6), new THREE.Vector3(1.55,0.72,0.32), 0xc0392b));
-    grp.add(gelCable(new THREE.Vector3(-0.2,1.1,0.6), new THREE.Vector3(1.66,0.72,0.02), 0x22272e));
+    lidGrp.add(gelCable(new THREE.Vector3(-0.5,1.1,0.6), new THREE.Vector3(1.55,0.72,0.32), 0xc0392b));
+    lidGrp.add(gelCable(new THREE.Vector3(-0.2,1.1,0.6), new THREE.Vector3(1.66,0.72,0.02), 0x22272e));
 
     var label=makeLabel("Electrophoresis",""); label.position.set(0,1.5,0); grp.add(label);
     grp.userData.label=label;
@@ -1063,6 +1077,14 @@ export function undockSample(lift = false) {
       for(var k=0;k<bands.length;k++){ bands[k].position.z = -0.5 + e*0.9; }  // migrate toward the front
       drawV(p>0.02 ? 100 : 0);
     };
+    // The station docks the SAMPLE's own gel in the tank; the rig's placeholder slab is
+    // then hidden (showGel(false)) so there is one gel, the sample's. dockY is the height
+    // a docked slab's base sits at: submerged under the running buffer (top ~0.75).
+    grp.userData.showGel=function(on){ gel.visible=!!on; };
+    grp.userData.dockY=0.45;
+    grp.userData.rimY=0.9;                 // the tank's top rim — a docked gel lifts clear of it
+    grp.userData.setLidLift=function(q){ lidGrp.position.y=clamp(q,0,1)*1.15; };  // straight up, leads with it
+    grp.userData.setVolts=function(on){ drawV(on?100:0); };
     grp.userData.update=function(){};
     grp.userData.setProgress(0);
     return grp;

@@ -14,7 +14,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera } from '@react-three/drei'
 import { FogExp2, Color, Vector3, Box3, Group, Mesh, RingGeometry, SphereGeometry, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
-import { resolveRecipe, stepConditions, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects } from './sceneRecipe.js'
+import { resolveRecipe, stepConditions, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects, exitLiftPoint } from './sceneRecipe.js'
 import { containerContract, transferKind } from './containerContract.js'
 import { reagentName, reagentVolume, effectiveStep, selectAlternative, hasAlternatives } from '../lib/runtime.js'
 import * as demo from '../scene/demoScene.js'
@@ -673,13 +673,52 @@ export function configureStation(st, o) {
       tc.userData.setProgress(p, n)
       evolve(p) // contents unchanged; the tube just cycles temperature
     }
+  } else if (action === 'electrophorese' && container === 'gel') {
+    // DOCK THE SAMPLE GEL IN THE TANK, run it, lift it out. The tank's lid (leads and all)
+    // comes straight up off the tank; the gel lifts straight up off the bench to clear the
+    // rim, glides over, and lowers into the running buffer; the lid goes back on and the
+    // run shows (voltage on, the loaded band migrating). At the end the lid lifts again and
+    // the gel rises STRAIGHT UP out of the tank (the exitLiftPoint pattern) — it never
+    // passes through a wall or the lid. The rig's placeholder slab is hidden: one gel.
+    const rig = demo.buildGelRig()
+    st.group.add(rig)
+    st.updatables.push(rig)
+    st.dev = rig
+    rig.userData.showGel(false)
+    const BENCH = { x: -2.9, z: 0.3 }                 // clear of the tank's footprint
+    const DOCK = { x: 0, y: rig.userData.dockY, z: 0 }
+    const CLEAR = rig.userData.rimY + 0.4             // gel base clears the rim on the way in/out
+    const put = (x, y, z) => S.at(S[vessel], st.x + x, y, z)
+    st.enter = () => { seat(BENCH.x, SEAT_Y, BENCH.z); rig.userData.setLidLift(0); rig.userData.setVolts(false) }
+    st.timeline = (p) => {
+      const seg = (a, b) => demo.easeInOut(demo.clamp((p - a) / (b - a), 0, 1))
+      if (p < 0.08) {                                  // 1 · lid (with leads) lifts straight up
+        rig.userData.setLidLift(seg(0, 0.08)); put(BENCH.x, SEAT_Y, BENCH.z)
+      } else if (p < 0.16) {                           // 2 · gel lifts straight up off the bench
+        put(BENCH.x, demo.lerp(SEAT_Y, CLEAR, seg(0.08, 0.16)), BENCH.z)
+      } else if (p < 0.26) {                           // 3 · glide over the tank, held clear
+        const q = seg(0.16, 0.26); put(demo.lerp(BENCH.x, DOCK.x, q), CLEAR, demo.lerp(BENCH.z, DOCK.z, q))
+      } else if (p < 0.34) {                           // 4 · lower into the buffer
+        put(DOCK.x, demo.lerp(CLEAR, DOCK.y, seg(0.26, 0.34)), DOCK.z)
+      } else if (p < 0.40) {                           // 5 · lid back on
+        put(DOCK.x, DOCK.y, DOCK.z); rig.userData.setLidLift(1 - seg(0.34, 0.40))
+      } else if (p < 0.82) {                           // 6 · the run: volts on, band migrates
+        put(DOCK.x, DOCK.y, DOCK.z); rig.userData.setLidLift(0); rig.userData.setVolts(true)
+      } else if (p < 0.88) {                           // 7 · volts off, lid off
+        put(DOCK.x, DOCK.y, DOCK.z); rig.userData.setVolts(false); rig.userData.setLidLift(seg(0.82, 0.88))
+      } else {                                         // 8 · exit: straight up out of the tank
+        const lift = exitLiftPoint({ x: DOCK.x, y: DOCK.y, z: DOCK.z }, CLEAR)
+        put(lift.x, demo.lerp(DOCK.y, lift.y, seg(0.88, 1)), lift.z); rig.userData.setLidLift(1)
+      }
+      evolve(demo.clamp((p - 0.40) / 0.42, 0, 1))      // contents change only while running
+    }
   } else if (action === 'electrophorese') {
-    // load the sample and run the gel: bands migrate, voltage ramps.
+    // (non-gel electrophorese: unchanged here — the gel-tank rig with the vessel beside it)
     const gel = demo.buildGelRig()
     st.group.add(gel)
     st.updatables.push(gel)
     st.dev = gel
-    st.enter = () => seat(-1.7, SEAT_Y, 0.9) // sample waits beside the tank (loaded into it)
+    st.enter = () => seat(-1.7, SEAT_Y, 0.9)
     st.timeline = (p) => { evolve(p); gel.userData.setProgress?.(p) }
   } else if (action === 'store' && equipment === 'freezer') {
     // end-state storage: the vessel glides INTO the freezer; the door closes; frost breathes.
