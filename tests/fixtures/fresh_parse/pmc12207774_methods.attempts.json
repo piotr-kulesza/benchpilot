@@ -1,0 +1,17 @@
+[
+  {
+    "attempt": 1,
+    "seconds": 181.9,
+    "chars": 46265
+  },
+  {
+    "attempt": 2,
+    "seconds": 185.8,
+    "chars": 47833
+  },
+  {
+    "attempt": 3,
+    "seconds": 182.2,
+    "chars": 47614
+  }
+]
