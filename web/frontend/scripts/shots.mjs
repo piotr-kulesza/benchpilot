@@ -49,6 +49,10 @@ const SETTLE = Number(flag('settle', '7600'))
 // frozen after `settle` ms of simulated time — see scripts/lib/determinism.mjs.
 // --no-seed restores the old wall-clock capture (non-reproducible; for debugging only).
 const SEEDED = !argv.includes('--no-seed')
+// --only a,b,c: capture just the tiles whose file name contains one of these substrings
+// (e.g. --only flask,spin_column) — prove one fix on the tiles it claims, in seconds.
+const ONLY = flag('only', '') ? flag('only', '').split(',').map((s) => s.trim()).filter(Boolean) : null
+const wanted = (file) => !ONLY || ONLY.some((o) => file.includes(o))
 
 // Stations that must ALWAYS be captured, on top of the even spacing: the ones
 // carrying findings, so a --diff can show them fixed. Without this a defect on an
@@ -102,6 +106,7 @@ const registry = await page.evaluate(async () => {
 console.log(`registry: ${registry.models.length} models, ${registry.cells.length} matrix cells, ${registry.transitions.length} transitions`)
 
 const shoot = async (file, url, { w = 1100, h = 850, settle = 700 } = {}) => {
+  if (!wanted(path.basename(file))) return false
   await page.setViewport({ width: w, height: h })
   // the tile's name (group/file) seeds it — stable across sets, distinct across tiles
   // Simulated time = settle + the ~500 ms networkidle0 quiet window: the old wall-clock
@@ -114,6 +119,7 @@ const shoot = async (file, url, { w = 1100, h = 850, settle = 700 } = {}) => {
   else await new Promise((r) => setTimeout(r, settle))
   await page.screenshot({ path: file })
   if (det) await det.dispose()
+  return true
 }
 
 const writeManifest = (group, entries) => {
@@ -127,7 +133,7 @@ if (GROUPS.includes('models')) {
   for (const m of registry.models) {
     for (const angle of ['front', 'top']) {
       const name = `${m.id}__${angle}.png`
-      await shoot(path.join(dir, name), `${BASE}/?models=1&item=${m.id}&angle=${angle}`)
+      if ((await shoot(path.join(dir, name), `${BASE}/?models=1&item=${m.id}&angle=${angle}`)) === false) continue
       // The caption IS the ground truth: registry `orient` states the correct
       // resting pose, so the render can be judged against declared intent.
       entries.push({ file: name, title: `${m.id} · ${angle}`, caption: m.orient, kind: m.kind })
@@ -146,7 +152,7 @@ if (GROUPS.includes('matrix')) {
     for (const mp of MATRIX_PS) {
       const name = `${c.action}__${c.container}__${ptag(mp)}.png`
       const qs = new URLSearchParams({ matrix: '1', action: c.action, container: c.container, p: String(mp) })
-      await shoot(path.join(dir, name), `${BASE}/?${qs}`, { settle: 900 })
+      if ((await shoot(path.join(dir, name), `${BASE}/?${qs}`, { settle: 900 })) === false) continue
       entries.push({ file: name, title: `${c.action} · ${c.container}`, caption: `timeline p=${mp}` })
     }
   }
@@ -154,7 +160,7 @@ if (GROUPS.includes('matrix')) {
     for (const mp of MATRIX_PS) {
       const name = `transfer__${from}-${to}__${ptag(mp)}.png`
       const qs = new URLSearchParams({ matrix: '1', action: 'transfer', container: to, from, to, p: String(mp) })
-      await shoot(path.join(dir, name), `${BASE}/?${qs}`, { settle: 900 })
+      if ((await shoot(path.join(dir, name), `${BASE}/?${qs}`, { settle: 900 })) === false) continue
       entries.push({ file: name, title: `transfer · ${from} → ${to}`, caption: `timeline p=${mp}` })
     }
   }
@@ -189,7 +195,7 @@ if (GROUPS.includes('runner')) {
     for (const s of [...new Set([...picks, ...pins])].sort((a, b) => a - b)) {
       const step = stations[s - 1] || {}
       const name = `${p.id}__step${String(s).padStart(2, '0')}.png`
-      await shoot(path.join(dir, name), `${BASE}/?run=1&step=${s}`, { w: 1440, h: 900, settle: SETTLE })
+      if ((await shoot(path.join(dir, name), `${BASE}/?run=1&step=${s}`, { w: 1440, h: 900, settle: SETTLE })) === false) continue
       entries.push({
         file: name,
         title: `${p.name} · step ${s}/${n}`,
