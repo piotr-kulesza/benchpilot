@@ -872,6 +872,7 @@ function configureNestMove(st, S, o) {
 
   st.enter = () => {
     S.only(tubeKey)
+    S[columnKey].userData.reattachCollection?.()   // arrives as the full assembly
     const col = S[columnKey], tube = S[tubeKey]
     col.visible = true; tube.visible = true
     col.rotation.set(0, 0, 0); tube.rotation.set(0, 0, 0)
@@ -887,6 +888,10 @@ function configureNestMove(st, S, o) {
     col.visible = true; tube.visible = true
     tube.userData.setLevel?.(0)              // the clean tube NEVER fills — no liquid moves
     S.snapTo(tube, st.x + BX, tubeSeatY, Z)
+    // the COLUMN moves, its used collection tube does not: from the first lift the
+    // collection tube stays standing on the bench where the assembly was
+    if (p > 0.001) col.userData.detachCollection?.(st.group)
+    else col.userData.reattachCollection?.()
     let x, y, sc = 1
     if (p < 0.34) {                          // 1 · lift the column straight up off the bench
       x = AX; y = demo.lerp(columnSeatY, columnSeatY + LIFT, demo.easeInOut(p / 0.34))

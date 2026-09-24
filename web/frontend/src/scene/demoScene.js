@@ -678,10 +678,20 @@ export function undockSample(lift = false) {
       new THREE.Vector2(0.21,0.12), new THREE.Vector2(0.265,0.22), new THREE.Vector2(0.30,0.36),
       new THREE.Vector2(0.32,0.60), new THREE.Vector2(0.32,0.98), new THREE.Vector2(0.335,1.0)
     ];
+    // the COLLECTION TUBE is its own group: a spin column is a two-part assembly, and
+    // "transfer the column to a clean tube" moves the column ONLY — the used collection
+    // tube stays on the bench (detachCollection / reattachCollection)
+    var collGrp = new THREE.Group(); grp.add(collGrp);
     var coll = new THREE.Mesh(new THREE.LatheGeometry(cp,48), clearMat);
-    coll.castShadow=true; grp.add(coll);
+    coll.castShadow=true; collGrp.add(coll);
     var collRim = new THREE.Mesh(new THREE.TorusGeometry(0.325,0.02,12,44), clearMat);
-    collRim.rotation.x=Math.PI/2; collRim.position.y=1.0; grp.add(collRim);
+    collRim.rotation.x=Math.PI/2; collRim.position.y=1.0; collGrp.add(collRim);
+    // leave the collection tube where it stands (world transform kept) under `parent`
+    grp.userData.detachCollection=function(parent){ if(collGrp.parent!==parent) parent.attach(collGrp); };
+    grp.userData.reattachCollection=function(){
+      if(collGrp.parent!==grp){ grp.add(collGrp); }
+      collGrp.position.set(0,0,0); collGrp.rotation.set(0,0,0); collGrp.scale.setScalar(1);
+    };
     var ip=[
       new THREE.Vector2(0.14,0.86), new THREE.Vector2(0.2,0.9), new THREE.Vector2(0.27,1.02),
       new THREE.Vector2(0.28,1.5), new THREE.Vector2(0.3,1.56)
@@ -2269,6 +2279,9 @@ export {
     // show exactly one vessel (hand-off timelines may reveal a second mid-station)
     S.only=function(name){
       for(var i=0;i<KEYS.length;i++){ S[KEYS[i]].visible=(KEYS[i]===name); }
+      // any station that shows a vessel gets it WHOLE (a nest move may have left the
+      // column's collection tube behind on its own bench)
+      if(S[name] && S[name].userData.reattachCollection) S[name].userData.reattachCollection();
       S.active=S[name]||tube;
     };
     // set a vessel's travel target; snap instantly on non-sequential jumps, glide otherwise
