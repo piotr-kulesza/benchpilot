@@ -3,7 +3,7 @@
 // a station via the demo's stationReagent / stationSpin / addStand + the resident
 // pipette rig, call its enter() (initial state), and drive its timeline(p) every
 // frame from a per-step animation clock — so the pipette travels bottle→vessel
-// and the fill only ramps in at p>0.62, exactly as the demo paces it.
+// and the fill only ramps in inside the dispense window (demo.dispenseProgress).
 //
 // Ours (the parts that generalise): resolveRecipe(action) → which station kind to
 // build; the single travelling SAMPLE + container hand-offs; the cinematic camera
@@ -327,7 +327,7 @@ export function configureStation(st, o) {
     // the ONE persistent prep vessel this step consumes (Stage 36) — carried here, drawn from.
     const prep = (fromMix && o.drawsFrom) ? demo.getPrep(o.drawsFrom) : null
     if (reags.length <= 1 && !fromMix) {
-      // UNCHANGED single-reagent path: resident pipette rig + bottle; fill ramps at p>0.62.
+      // UNCHANGED single-reagent path: resident pipette rig + bottle; fill ramps in the dispense window.
       demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: C.entryPoint })
     } else if (prep) {
       // DRAW FROM THE CARRIED MIX (Stage 36). The prep tube was made at its own station and
@@ -347,7 +347,7 @@ export function configureStation(st, o) {
         if (v.userData.setCap) v.userData.setCap(!(p > 0.1 && p < 0.95)) // uncap to receive
         demo.pipetteRun(st, new Vector3(draw.x, draw.y, draw.z), { x: disp.x, y: toY, z: disp.z }, p,
           { color: streamColor, fill: 0.8, approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: C.entryPoint })
-        const done = (p > 0.62 ? demo.easeInOut((p - 0.62) / 0.38) : 0)
+        const done = demo.dispenseProgress(p)
         v.userData.setLevel(demo.lerp(startLevel, endLevel, done))
         v.userData.setColor(endColor)
         prep.userData.setLevel(demo.lerp(PREP_FULL, 0.1, demo.easeInOut(demo.clamp(p, 0, 1)))) // drained as used
@@ -367,7 +367,7 @@ export function configureStation(st, o) {
         const lp = demo.clamp((p - k * seg) / seg, 0, 1)
         demo.pipetteRun(st, st.reagents['r' + k].pos, { x: disp.x, y: toY, z: disp.z }, lp,
           { color: reags[k].color, fill: 0.8, approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: C.entryPoint })
-        const done = (k + (lp > 0.62 ? demo.easeInOut((lp - 0.62) / 0.38) : 0)) / n
+        const done = (k + demo.dispenseProgress(lp)) / n
         v.userData.setLevel(demo.lerp(startLevel, endLevel, done))
         v.userData.setColor(reags[Math.min(k, n - 1)].color)
       }
@@ -409,7 +409,7 @@ export function configureStation(st, o) {
       const k = Math.min(n - 1, Math.floor(p / seg))
       const lp = demo.clamp((p - k * seg) / seg, 0, 1)
       demo.pipetteRun(st, st.reagents['r' + k].pos, DIP, lp, { color: reags[k].color, fill: 0.8, dipDepth: 0.62 })
-      const done = (k + (lp > 0.62 ? demo.easeInOut((lp - 0.62) / 0.38) : 0)) / n
+      const done = (k + demo.dispenseProgress(lp)) / n
       prep.userData.setLevel(done * PREP_FULL)
       prep.userData.setColor(reags[Math.min(k, n - 1)].color)
     }
@@ -990,7 +990,7 @@ function wrapHandoff(st, S, fromKey, toKey, color, level) {
 // vessels rest on the bench side by side. There is NO stream bridging them (that reads
 // as a wire) and nothing pours through open air: while the liquid is in transit it
 // lives INSIDE the tip. The source drains as the tip draws up; the destination fills
-// only once the tip is dispensing (the same p>0.62 gate as a reagent add); the colour
+// only once the tip is dispensing (the same dispense window as a reagent add); the colour
 // travels with it. We reveal both vessels, then lock to the destination.
 function configurePipetteTransfer(st, S, o) {
   const { fromKey, toKey, srcSeatY, dstSeatY, srcDisp, dstDisp, dstEntry, color, startLevel, endLevel, name, vol } = o
@@ -1033,12 +1033,17 @@ function configurePipetteTransfer(st, S, o) {
     // the resident pipette runs aspirate → cruise-high → dispense, source mouth to dest.
     // dipDepth = the DEST container's entryPoint, so the tip stops above a spin column's
     // frit instead of plunging through it.
+    // a capped vessel (cryovial, flask) opens before the tip reaches it and closes after —
+    // a tip through a closed cap is a lie (the source while it is drawn from, the
+    // destination while it is dispensed into)
+    S[fromKey].userData.setCap?.(!(p > 0.01 && p < 0.32))
+    S[toKey].userData.setCap?.(!(p > 0.4 && p < 0.97))
     demo.pipetteRun(st, from, to, p, { color, fill: 0.8, approach: dstDisp?.approach, tilt: dstDisp?.tilt, depth: dstDisp?.depth, dipDepth: dstEntry })
     // SOURCE drains while the tip aspirates (pipetteRun's draw phase ends at p≈0.26).
     a.userData.setLevel?.(demo.lerp(startLevel, 0.03, demo.easeInOut(demo.clamp(p / 0.26, 0, 1))))
-    // DEST fills only once the tip is dispensing — respect the p>0.62 gate (no early fill).
-    if (p > 0.62) {
-      const q = demo.easeInOut((p - 0.62) / 0.38)
+    // DEST fills only once the tip is dispensing — only inside the dispense window (no early fill).
+    if (p > 0.68) {
+      const q = demo.dispenseProgress(p)
       b.userData.setColor?.(color)
       b.userData.setLevel?.(demo.lerp(0.03, endLevel, q))
     }

@@ -1752,7 +1752,12 @@ export {
 }
 
 // ─── station choreography (lifted verbatim from the demo's scene scope) ───
-  var TIP_DROP=0.75;                          // tip hangs this far below the pipette origin
+  // The window in which pipetteRun's tip is IN the destination and dispensing (both the
+  // straight and the angled path hold at depth from ~0.68 to ~0.87 of the timeline). A
+  // receiving vessel fills only inside it — never before the tip arrives.
+  var DISPENSE_FROM=0.68, DISPENSE_TO=0.87;
+  function dispenseProgress(p){ return easeInOut(clamp((p-DISPENSE_FROM)/(DISPENSE_TO-DISPENSE_FROM),0,1)); }
+  var TIP_DROP=0.62;                          // tip end below the pipette origin: 0.86 × PIP_SCALE 0.72
   function pipetteRun(st, from, to, p, opts){
     opts=opts||{};
     var pip=st.pip; if(!pip) return;
@@ -1806,9 +1811,11 @@ export {
         pip.userData.setFluid(opts.fill||0.8);
       } else {                                   // C · in along the neck axis into the medium, then back out
         var qc=(p-travel-0.08)/(1-travel-0.08);
-        var s = qc<0.5 ? easeInOut(qc/0.5) : easeInOut(1-(qc-0.5)/0.5);
+        // in (0-0.35), HOLD at depth while it dispenses (0.35-0.7), back out (0.7-1):
+        // the drop leaves only when the tip is in the medium, never above the vessel
+        var s = qc<0.35 ? easeInOut(qc/0.35) : qc<0.7 ? 1 : easeInOut(1-(qc-0.7)/0.3);
         tipAxis(lerp(dTop, -depth, s), TILT);
-        pip.userData.setFluid((1-clamp(qc*1.5,0,1))*(opts.fill||0.8));
+        pip.userData.setFluid((1-clamp((qc-0.35)/0.35,0,1))*(opts.fill||0.8));
       }
       return;
     }
@@ -1831,11 +1838,14 @@ export {
       pip.userData.setFluid(opts.fill||0.8);
     } else {                                     // C · descend STRAIGHT DOWN into the mouth
       var q3=(p-travel)/(1-travel);
-      var y = q3<0.5 ? lerp(TRAVEL_Y,DIP_Y,easeInOut(q3/0.5))
-                     : lerp(DIP_Y,TRAVEL_Y,easeInOut((q3-0.5)/0.5));
+      // down (0-0.35), HOLD in the vessel while dispensing (0.35-0.7), up (0.7-1): the
+      // fluid only drains — and the drop only shows — while the tip is inside the vessel
+      var y = q3<0.35 ? lerp(TRAVEL_Y,DIP_Y,easeInOut(q3/0.35))
+            : q3<0.7  ? DIP_Y
+                      : lerp(DIP_Y,TRAVEL_Y,easeInOut((q3-0.7)/0.3));
       pos.set(to.x, y, to.z);
       pip.rotation.z=0;
-      pip.userData.setFluid((1-clamp(q3*1.5,0,1))*(opts.fill||0.8));
+      pip.userData.setFluid((1-clamp((q3-0.35)/0.35,0,1))*(opts.fill||0.8));
     }
     pip.position.copy(pos);                 // LOCAL — resident pipette stays at its station
   }
@@ -2330,7 +2340,7 @@ export {
       var toY = (disp.approach==='angled' && disp.y!=null) ? disp.y : Y;
       pipetteRun(st, st.reagents[o.key].pos, {x:disp.x,y:toY,z:disp.z}, p,
         {color:o.color, fill:0.8, approach:disp.approach, tilt:disp.tilt, depth:disp.depth, dipDepth:o.entry});
-      if(p>0.62){ var q=easeInOut((p-0.62)/0.38);
+      if(p>DISPENSE_FROM){ var q=dispenseProgress(p);
         v.userData.setLevel(lerp(o.lStart,o.lEnd,q));
         if(o.cEnd!=null) v.userData.setColor(o.cEnd);
       }
@@ -2440,4 +2450,4 @@ export {
     };
   }
 
-export { pipetteRun, addStand, addPipetteRig, pipRest, buildSample, addBottle, stationReagent, stationSpin, PIP_STAND, PIP_REST, easeInOut, lerp, clamp }
+export { dispenseProgress, pipetteRun, addStand, addPipetteRig, pipRest, buildSample, addBottle, stationReagent, stationSpin, PIP_STAND, PIP_REST, easeInOut, lerp, clamp }
