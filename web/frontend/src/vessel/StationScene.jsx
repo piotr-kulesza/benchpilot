@@ -18,6 +18,7 @@ import { resolveRecipe, stepConditions, sampleContainerSequence, resolveRemoval,
 import { containerContract, transferKind, sideBySide } from './containerContract.js'
 import { reagentName, reagentVolume, effectiveStep, selectAlternative, hasAlternatives } from '../lib/runtime.js'
 import * as demo from '../scene/demoScene.js'
+import { streams } from '../scene/rng.js'
 import { resolveScenePreset } from '../scene/scenePresets.js'
 
 // the demo's cinematic camera — the one and only view
@@ -724,12 +725,12 @@ export function configureStation(st, o) {
     st.warm.position.set(0, 0.7, 0.2)
     st.group.add(st.warm)
     const SURF = 0.66 // water-surface height (matches buildWaterBath SURFY)
-    st.bubbles = Array.from({ length: 8 }, () => {
+    st.bubbles = streams.wrap('heatBubbles', () => Array.from({ length: 8 }, () => {
       const b = new Mesh(new SphereGeometry(0.045, 10, 8), new MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, roughness: 0.1 }))
       b.userData.seed = { x: (Math.random() - 0.5) * 1.6, z: (Math.random() - 0.5) * 1.0, off: Math.random(), sp: 0.5 + Math.random() }
       st.group.add(b)
       return b
-    })
+    }))()
     st.enter = () => {
       if (FLAT) { seat(0, 0, 1.6); bath.position.set(0, 0, -1.15) } // flat vessel in front, bath behind
       else { seat(0, 0.1, 0); bath.position.set(0, 0, 0) }          // tube dips INTO the water

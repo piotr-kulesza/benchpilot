@@ -14,6 +14,7 @@
 import * as THREE from 'three'
 import { resolveScenePreset } from './scenePresets.js'
 import { exitLiftPoint } from '../vessel/sceneRecipe.js'
+import { streams } from './rng.js'
 
 // Height (world Y) a sample rises to when it leaves a docked instrument, before it
 // glides on — clears the centrifuge lid (its own lift is y≈2.15) and every other device.
@@ -1745,6 +1746,56 @@ export function undockSample(lift = false) {
     floor.rotation.x=-Math.PI/2; floor.position.x=totalLen*0.5; floor.receiveShadow=true;
     return floor;
   }
+
+// PER-BUILDER RANDOM STREAMS (rng.js): every builder draws from its own seeded stream,
+// so one builder taking more random values can no longer move the ice cubes, bubbles or
+// cells another builder places. Rebinding the declarations keeps every internal call and
+// every live export on the wrapped version.
+makeLabel = streams.wrap('makeLabel', makeLabel)
+makeBrushedNormal = streams.wrap('makeBrushedNormal', makeBrushedNormal)
+makeBrushedRough = streams.wrap('makeBrushedRough', makeBrushedRough)
+makePlasticRough = streams.wrap('makePlasticRough', makePlasticRough)
+makeKnurlNormal = streams.wrap('makeKnurlNormal', makeKnurlNormal)
+buildSharedMaps = streams.wrap('buildSharedMaps', buildSharedMaps)
+buildTube = streams.wrap('buildTube', buildTube)
+buildPipette = streams.wrap('buildPipette', buildPipette)
+buildSpinColumn = streams.wrap('buildSpinColumn', buildSpinColumn)
+buildColdBlock = streams.wrap('buildColdBlock', buildColdBlock)
+buildWaterBath = streams.wrap('buildWaterBath', buildWaterBath)
+buildPlateReader = streams.wrap('buildPlateReader', buildPlateReader)
+buildPlateShaker = streams.wrap('buildPlateShaker', buildPlateShaker)
+buildThermocycler = streams.wrap('buildThermocycler', buildThermocycler)
+buildGelRig = streams.wrap('buildGelRig', buildGelRig)
+buildIceBucket = streams.wrap('buildIceBucket', buildIceBucket)
+buildCentrifuge = streams.wrap('buildCentrifuge', buildCentrifuge)
+buildWaste = streams.wrap('buildWaste', buildWaste)
+buildSyringe = streams.wrap('buildSyringe', buildSyringe)
+buildNanoDrop = streams.wrap('buildNanoDrop', buildNanoDrop)
+buildInvertedMicroscope = streams.wrap('buildInvertedMicroscope', buildInvertedMicroscope)
+buildLightMicroscope = streams.wrap('buildLightMicroscope', buildLightMicroscope)
+buildUVTransilluminator = streams.wrap('buildUVTransilluminator', buildUVTransilluminator)
+buildDrop = streams.wrap('buildDrop', buildDrop)
+buildPipetteStand = streams.wrap('buildPipetteStand', buildPipetteStand)
+buildBottle = streams.wrap('buildBottle', buildBottle)
+buildWarnRing = streams.wrap('buildWarnRing', buildWarnRing)
+buildBackdrop = streams.wrap('buildBackdrop', buildBackdrop)
+buildEnvMap = streams.wrap('buildEnvMap', buildEnvMap)
+makeGradientTexture = streams.wrap('makeGradientTexture', makeGradientTexture)
+makeCineBackdrop = streams.wrap('makeCineBackdrop', makeCineBackdrop)
+buildFloor = streams.wrap('buildFloor', buildFloor)
+buildCryovial = streams.wrap('buildCryovial', buildCryovial)
+buildWellPlate = streams.wrap('buildWellPlate', buildWellPlate)
+buildFlask = streams.wrap('buildFlask', buildFlask)
+buildDish = streams.wrap('buildDish', buildDish)
+buildSlide = streams.wrap('buildSlide', buildSlide)
+buildMembrane = streams.wrap('buildMembrane', buildMembrane)
+buildGelSlab = streams.wrap('buildGelSlab', buildGelSlab)
+buildAgarPlate = streams.wrap('buildAgarPlate', buildAgarPlate)
+buildFreezer = streams.wrap('buildFreezer', buildFreezer)
+buildStainingTray = streams.wrap('buildStainingTray', buildStainingTray)
+buildVortexMixer = streams.wrap('buildVortexMixer', buildVortexMixer)
+buildSpreader = streams.wrap('buildSpreader', buildSpreader)
+buildSample = streams.wrap('buildSample', buildSample)
 
 export {
   buildFloor,
