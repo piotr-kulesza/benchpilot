@@ -1943,8 +1943,14 @@ export {
       if(_cryoUpd) _cryoUpd(dt);
       cryoCap.open = lerp(cryoCap.open, cryoCap.tOpen, 1-Math.pow(0.0009,dt));
       var o=cryoCap.open;
-      cryoCapGrp.position.set(-o*0.2, top+0.09 + o*0.4, 0);
-      cryoCapGrp.rotation.z = o*1.15;
+      // unscrew up off the vial (0-0.3), carry over clear (0.3-0.7), set down upright on
+      // the bench in front of the vial (0.7-1) — never left hanging in the air. The cap is
+      // 0.2 tall, so on the bench its centre sits at 0.1. Reverses to cap it again.
+      var ON_Y=top+0.09, UP=top+0.5, BX=-0.45, BY=0.1, BZ=0.4, e;
+      if(o<0.3){ e=easeInOut(o/0.3); cryoCapGrp.position.set(0, lerp(ON_Y,UP,e), 0); }
+      else if(o<0.7){ e=easeInOut((o-0.3)/0.4); cryoCapGrp.position.set(lerp(0,BX,e), UP, lerp(0,BZ,e)); }
+      else { e=easeInOut((o-0.7)/0.3); cryoCapGrp.position.set(BX, lerp(UP,BY,e), BZ); }
+      cryoCapGrp.rotation.z = 0;
     };
     return grp;
   }
