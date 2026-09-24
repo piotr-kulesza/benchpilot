@@ -40,7 +40,7 @@ except ImportError as exc:  # pragma: no cover - optional dependency
 
 from core.ingest import ingest        # noqa: E402
 from core.parse import MalformedOutput, OutputTruncated, ParseTransportError, ProtocolTooLong  # noqa: E402
-from core.validate import ParseFailedValidation, parse_validated  # noqa: E402
+from core.validate import MultiAssayDocument, ParseFailedValidation, parse_validated  # noqa: E402
 
 app = FastAPI(title="benchpilot live-parse")
 
@@ -66,6 +66,9 @@ def _validated(text: str, source: str) -> dict:
         # function limit (300 s) — it would turn a clear 422 into a platform timeout.
         # Retries live in the offline bundle pipeline (scripts/audited_parse.py).
         return parse_validated(text, source=source, attempts=1)
+    except MultiAssayDocument as exc:
+        # refused before parsing: several independent procedures, no single sample thread
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except ProtocolTooLong as exc:
         # refused BEFORE the parse call: the predicted output would not fit — nothing was
         # parsed and the user was not charged for a truncated run
