@@ -69,6 +69,8 @@ CRITICAL RULES
   NEVER leave source-language text with no `_en` companion — the default UI is
   English and would otherwise leak the original language.
 - Output ONE JSON object and nothing else. No markdown fences, no commentary.
+- COMPACT JSON: no indentation and no line breaks between tokens — whitespace costs
+  output and carries nothing. (The schema below is laid out for reading only.)
 - OMIT EMPTY FIELDS: leave out any key whose value would be null, [], {}, false or "".
   The reader fills those defaults, so writing them only wastes output. (Keep a field
   whose value is 0 or a non-empty value.) The ONE exception: ALWAYS include `conditions`

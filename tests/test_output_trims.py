@@ -56,3 +56,18 @@ def test_absent_conditions_still_means_not_stated():
 def test_the_prompt_asks_for_empty_fields_to_be_omitted_but_conditions_kept():
     assert "OMIT EMPTY FIELDS" in SYSTEM_PROMPT
     assert "ALWAYS include `conditions`" in SYSTEM_PROMPT
+
+
+# Trim 2 — compact JSON (no indentation / line breaks): 87% of the tokens. Whitespace
+# carries nothing, so a compact response normalises to the same Protocol.
+
+def test_compact_json_round_trips_on_ten_real_parses():
+    for f in COMPLETE:
+        raw = open(os.path.join(FRESH, f), encoding="utf-8").read()
+        full = parse_protocol("x", llm=lambda s, u, r=raw: r, use_cache=False).to_dict()
+        compact = json.dumps(json.loads(raw), ensure_ascii=False, separators=(",", ":"))
+        assert parse_protocol("x", llm=lambda s, u, r=compact: r, use_cache=False).to_dict() == full, f
+
+
+def test_the_prompt_asks_for_compact_json():
+    assert "COMPACT JSON" in SYSTEM_PROMPT
