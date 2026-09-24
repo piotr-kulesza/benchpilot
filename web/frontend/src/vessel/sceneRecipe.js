@@ -371,16 +371,23 @@ export function findPrepareOnSampleDefects(steps = []) {
   return out
 }
 
-// #13 — POUR or PIPETTE. A micropipette does not move 100 mL, and nobody pipettes molten
-// agarose into a casting tray. A step is a pour when its text says "pour" or a reagent's
-// stated volume is in mL / L; the (first) such reagent's bottle is the one tipped. A pour
-// that states no reagent has no bottle to tip — none is invented (reagentIndex -1).
-const BULK_VOLUME = /(?:^|[\d\s.])(m[lL]|milliliters?|millilitres?|L|liters?|litres?)\b/
+// #13 — POUR or PIPETTE. A pour is the word "pour", or a volume no pipette handles:
+// 50 mL and up (a micropipette tops out at 1 mL, a serological pipette at 50 mL). "mL"
+// alone is not a pour — ~2 mL into a T-flask is pipetted. The tipped bottle is the first
+// bulk reagent's; for a stated pour without one, the step's first reagent's. A pour that
+// states no reagent has no bottle — none is invented (reagentIndex -1).
+export const POUR_MIN_ML = 50
+function volumeMl(v) {
+  const m = String(v || '').replace(',', '.').match(/(\d+(?:\.\d+)?)\s*(m[lL]|milliliters?|millilitres?|L|liters?|litres?)\b/)
+  if (!m) return null
+  return /^m/.test(m[2]) ? Number(m[1]) : Number(m[1]) * 1000
+}
 export function pourPlan(step) {
   const reagents = (step && step.reagents) || []
-  const vol = (x) => `${x?.volume_en || ''} ${x?.volume || ''}`
-  const reagentIndex = reagents.findIndex((x) => BULK_VOLUME.test(vol(x)))
+  const ml = (x) => volumeMl(x?.volume_en) ?? volumeMl(x?.volume)
+  let reagentIndex = reagents.findIndex((x) => (ml(x) ?? 0) >= POUR_MIN_ML)
   const saysPour = /\bpour/i.test(`${step?.text_en || ''} ${step?.text || ''}`)
+  if (reagentIndex < 0 && saysPour && reagents.length) reagentIndex = 0
   return { pour: reagentIndex >= 0 || saysPour, reagentIndex }
 }
 

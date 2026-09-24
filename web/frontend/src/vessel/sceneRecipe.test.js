@@ -593,28 +593,36 @@ describe('sampleContainerSequence — an unnamed mix/add never lands in a gel or
   })
 })
 
-// #13: a micropipette does not move 100 mL or pour molten agarose. A step is a POUR when
-// its text says pour, or a reagent's volume is in mL / L; the stated mL reagent's bottle
-// is tipped. A pour with no stated reagent names no bottle — none is invented.
+// #13 (tightened): a POUR is the word "pour", or a volume no pipette handles — 50 mL
+// and up. Not "mL" alone: ~2 mL into a T-flask is a (serological) pipette. The tipped
+// bottle is the bulk reagent's, or — for a stated pour — the step's own reagent. A pour
+// that states no reagent names no bottle, and none is invented.
 describe('pourPlan — pour vs pipette', () => {
   const r = (name, volume) => ({ name, volume })
-  it('a reagent in mL is poured from its bottle', () => {
+  it('50 mL and up is poured from its bottle', () => {
     expect(pourPlan({ text_en: 'Weigh 1 g of agarose and add it to 100 mL of 1X TAE buffer', reagents: [r('Agarose', '1 g'), r('1X TAE', '100 mL')] }))
       .toEqual({ pour: true, reagentIndex: 1 })
-    expect(pourPlan({ text_en: 'Add 0.5 L medium', reagents: [r('medium', '0.5 L')] })).toEqual({ pour: true, reagentIndex: 0 })
+    expect(pourPlan({ reagents: [r('medium', '0.5 L')] })).toEqual({ pour: true, reagentIndex: 0 })
+    expect(pourPlan({ reagents: [r('medium', '50 mL')] }).pour).toBe(true)
   })
-  it('"pour" with no stated reagent is a pour with no bottle', () => {
+  it('under 50 mL is pipetted, whatever the unit', () => {
+    expect(pourPlan({ reagents: [r('BSS', 'approximately 2 mL per 10 cm2')] })).toEqual({ pour: false, reagentIndex: -1 })
+    expect(pourPlan({ reagents: [r('TBST', '15 mL')] }).pour).toBe(false)
+    expect(pourPlan({ reagents: [r('x', '25 ml')] }).pour).toBe(false)
+    expect(pourPlan({ reagents: [r('SYBR Safe', '10 µL')] }).pour).toBe(false)
+  })
+  it('"pour" is a pour: its own reagent\'s bottle, or none when none is stated', () => {
+    expect(pourPlan({ text_en: 'Pour 20 mL TBS over the membrane.', reagents: [r('TBS', '20 mL')] })).toEqual({ pour: true, reagentIndex: 0 })
     expect(pourPlan({ text_en: 'Pour the agarose into the casting tray with the comb in place.', reagents: [] }))
       .toEqual({ pour: true, reagentIndex: -1 })
   })
-  it('µL volumes and plain adds stay pipetted', () => {
-    expect(pourPlan({ text_en: 'Add 10 µL of SYBR Safe stain', reagents: [r('SYBR Safe', '10 µL')] })).toEqual({ pour: false, reagentIndex: -1 })
-    expect(pourPlan({ text_en: 'Add 350 µl RW1', reagents: [r('RW1', '350 µl')] }).pour).toBe(false)
-  })
-  it('mL written as ml / mL / milliliters all count; "ml" inside a word does not', () => {
-    expect(pourPlan({ reagents: [r('x', '25 ml')] }).pour).toBe(true)
-    expect(pourPlan({ reagents: [r('x', '2 milliliters')] }).pour).toBe(true)
-    expect(pourPlan({ text_en: 'Add the html buffer', reagents: [r('x', '5 µl')] }).pour).toBe(false)
+  it('the bundled Passaging 3 and 5 are pipetted again', () => {
+    const dir = fileURLToPath(new URL('../../public/protocols/', import.meta.url))
+    const st = JSON.parse(readFileSync(dir + 'passaging.json', 'utf8')).steps
+    for (const i of [3, 5]) {
+      const s = st.find((x) => x.index === i)
+      expect(pourPlan({ text_en: s.text_en, reagents: s.reagents.map((x) => ({ volume: x.volume_en || x.volume })) }).pour, `step ${i}`).toBe(false)
+    }
   })
 })
 
