@@ -926,10 +926,12 @@ export function configureStation(st, o) {
       spr.visible = false
       st.group.add(spr)
       const base = st.timeline
+      // dispense first (the whole pipette run, withdrawal included, in p 0-0.6), THEN
+      // spread (0.62-1): the spreader never sweeps while the tip is still in the plate
       st.timeline = (p) => {
-        base(p)
-        spr.visible = p > 0.55
-        const a = demo.clamp((p - 0.55) / 0.4, 0, 1) * Math.PI * 3 // sweeping circles
+        base(demo.clamp(p / 0.6, 0, 1))
+        spr.visible = p > 0.62
+        const a = demo.clamp((p - 0.62) / 0.36, 0, 1) * Math.PI * 3 // sweeping circles
         spr.position.set(Math.cos(a) * 0.42, 0.2, Math.sin(a) * 0.36)
         spr.rotation.y = a
       }
