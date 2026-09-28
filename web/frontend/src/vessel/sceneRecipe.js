@@ -398,3 +398,17 @@ export function removalFor(container, text) {
   if (/aspirat/i.test(String(text || ''))) return 'aspirate'
   return resolveRemoval(container)
 }
+
+// Bench-fallback staging: a step that renders on the bare bench shows ONLY what it
+// states — the countdown dial when it is timed (a step duration or a spin duration), and
+// a bench tag for a stated temperature or "room temperature". An unstated condition gets
+// no tag; a station with an instrument gets none of this (null).
+export function benchStaging(step, equipment) {
+  if (equipment !== 'bench') return null
+  const c = stepConditions(step || {})
+  let tag = null
+  if (c.tempC != null) tag = `${c.tempC < 0 ? '−' : ''}${Math.abs(c.tempC)} °C`
+  else if (c.roomTemp) tag = 'room temperature'
+  const dial = !!(step?.duration_seconds || step?.spin?.duration_seconds)
+  return { tag, dial }
+}

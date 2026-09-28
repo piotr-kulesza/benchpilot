@@ -12,9 +12,9 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera } from '@react-three/drei'
-import { FogExp2, Color, Vector3, Box3, Group, Mesh, RingGeometry, SphereGeometry, CylinderGeometry, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
+import { FogExp2, Color, Vector3, Box3, Group, Mesh, RingGeometry, SphereGeometry, CylinderGeometry, PlaneGeometry, CanvasTexture, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
-import { resolveRecipe, stepConditions, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects, exitLiftPoint, pourPlan, removalFor } from './sceneRecipe.js'
+import { resolveRecipe, stepConditions, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects, exitLiftPoint, pourPlan, removalFor, benchStaging } from './sceneRecipe.js'
 import { containerContract, transferKind, sideBySide } from './containerContract.js'
 import { reagentName, reagentVolume, effectiveStep, selectAlternative, hasAlternatives } from '../lib/runtime.js'
 import * as demo from '../scene/demoScene.js'
@@ -55,17 +55,17 @@ function collectStationMats(st) {
     }
   })
   fold(st.group)
-  ;[st.decal].forEach((mesh) => {
+  ;[st.decal, st.benchTag].forEach((mesh) => {
     if (mesh?.material) { const m = mesh.material; if (!seen.has(m)) { seen.add(m); st.mats.push({ m, o: m.opacity == null ? 1 : m.opacity, t: !!m.transparent }) } }
   })
 }
 function applyStationVis(st) {
   const f = st.vis
   if (f <= 0.006) { // fully out — hide and skip material work
-    if (st._vstate !== 0) { st.group.visible = false; if (st.decal) st.decal.visible = false; st._vstate = 0 }
+    if (st._vstate !== 0) { st.group.visible = false; if (st.decal) st.decal.visible = false; if (st.benchTag) st.benchTag.visible = false; st._vstate = 0 }
     return
   }
-  if (st._vstate === 0) { st.group.visible = true; if (st.decal) st.decal.visible = true }
+  if (st._vstate === 0) { st.group.visible = true; if (st.decal) st.decal.visible = true; if (st.benchTag) st.benchTag.visible = true }
   if (f >= 0.994) { // fully in — restore the base look once
     if (st._vstate !== 2) { for (const e of st.mats) { e.m.transparent = e.t; e.m.opacity = e.o }; st._vstate = 2 }
   } else { // mid-fade — scale every opacity by f
@@ -108,6 +108,30 @@ function frameAngledPipette(st, disp, offsetX = 0, offsetZ = 0) {
   // the stand the pipette came from stays in frame too (its base at PIP_STAND, radius ~0.55)
   const stand = new Vector3(demo.PIP_STAND.x - 0.6, 0, demo.PIP_STAND.z)
   st.frameAnchors = [...(st.frameAnchors || []), top, stand]
+}
+
+// Actions whose station, with no modelled instrument, rests the sample on the bench.
+const BENCH_REST_ACTIONS = new Set(['incubate_wait', 'heat', 'store', 'measure', 'centrifuge', 'generic'])
+
+// A flat tag printed on the bench beside the station number (same treatment as the
+// decal): the condition the step states — "37 °C", "room temperature".
+function makeBenchTag(text) {
+  // sized to its text (measured), so a long condition is never clipped
+  const FS = 60, PADX = 34, H = 104
+  const c = document.createElement('canvas')
+  let g = c.getContext('2d'); g.font = `500 ${FS}px 'IBM Plex Sans', sans-serif`
+  const W = Math.ceil(g.measureText(text).width + PADX * 2)
+  c.width = W; c.height = H
+  g = c.getContext('2d'); g.font = `500 ${FS}px 'IBM Plex Sans', sans-serif`
+  g.fillStyle = 'rgba(58,68,82,0.9)'
+  g.beginPath(); g.roundRect(0, 0, W, H, 22); g.fill()
+  g.fillStyle = '#eef2f5'; g.textBaseline = 'middle'; g.fillText(text, PADX, H / 2 + 2)
+  const t = new CanvasTexture(c)
+  const worldH = 0.42
+  const m = new Mesh(new PlaneGeometry(worldH * W / H, worldH), new MeshBasicMaterial({ map: t, transparent: true, depthWrite: false }))
+  m.rotation.x = -Math.PI / 2
+  m.userData.width = worldH * W / H
+  return m
 }
 
 function computeStationFrame(st) {
@@ -1341,12 +1365,28 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
         scene.add(decal)
         st.decal = decal
       }
+      // BENCH-FALLBACK STAGING: a step that rests on the bare bench (no modelled instrument)
+      // shows only what it states — a bench tag for a stated temperature / room temperature,
+      // and (below) the countdown dial at rest when it is timed.
+      const staging = BENCH_REST_ACTIONS.has(o.action)
+        ? benchStaging(effectiveStep(baseStep, altIdx), o.equipment) : null
+      if (staging && staging.tag && !chromeless) {
+        const tag = makeBenchTag(staging.tag)
+        tag.position.set(st.x + 0.9 + tag.userData.width / 2, 0.021, 2.4)   // just right of the number
+        scene.add(tag)
+        st.benchTag = tag
+      }
+      st.restDial = !!(staging && staging.dial)
       collectStationMats(st) // snapshot opacities so the unit fades as one
       // the countdown DIAL — a flat ring around the subject's base, radius MEASURED from
       // the frame footprint. Built for every station but shown only when a live timer is
       // engaged (driven in the frame loop). Added AFTER collectStationMats so the vis-fade
       // never clobbers the opacity the timer driver sets (paused-dim / done-fade).
-      const dial = makeBenchDial(st.frame.footprint.r + DIAL_MARGIN)
+      // the sample vessel is not a station prop, so size the ring to take in ITS footprint
+      // too (a 1.9-wide agar plate hid a tube-sized ring completely)
+      const vf = containerContract(container).footprint || { minX: -0.4, maxX: 0.4 }
+      const vesselR = Math.max(Math.abs(vf.minX), Math.abs(vf.maxX))
+      const dial = makeBenchDial(Math.max(st.frame.footprint.r, vesselR) + DIAL_MARGIN)
       dial.position.set(st.frame.footprint.cx, DIAL_Y, st.frame.footprint.cz)
       st.group.add(dial)
       st.dial = dial
@@ -1386,6 +1426,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
         scene.remove(st.group)
         disposeGroup(st.group)
         if (st.decal) { scene.remove(st.decal); disposeGroup(st.decal) }
+        if (st.benchTag) { scene.remove(st.benchTag); disposeGroup(st.benchTag) }
       }
       demo.initPreps() // dispose the carried mixtures (scene-parented, outside the groups)
       prepMetaRef.current = {}
@@ -1517,7 +1558,12 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
         if (!dial) continue
         const isActive = st === act
         const engaged = isActive && t.hasTimer && (t.running || t.done || t.progress > 0.001)
-        if (!engaged) { if (dial.visible) dial.visible = false; st._dialFade = 1; continue }
+        if (!engaged) {
+          // a timed bench-fallback step shows its dial at rest (empty track) — the one cue
+          // on a bare bench that the step is a timed wait
+          if (isActive && st.restDial) { dial.visible = true; dial.userData.setFraction(0); dial.userData.fillMat.opacity = 1; dial.userData.trackMat.opacity = 0.9; st._dialFade = 1; continue }
+          if (dial.visible) dial.visible = false; st._dialFade = 1; continue
+        }
         dial.visible = true
         dial.userData.setFraction(t.progress)
         if (t.done) { // hold full, then fade the whole dial away
