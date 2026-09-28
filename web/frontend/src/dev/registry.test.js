@@ -22,3 +22,13 @@ describe('matrix cells exercise the real instrument decision', () => {
     expect(Object.keys(MATRIX_TEXT).filter((k) => !keys.has(k))).toEqual([])
   })
 })
+
+// A transfer cell with no source vessel can only show a vessel at rest — it cannot show
+// its action, so it must not be in the matrix. Transfers are exercised as TRANSITIONS.
+describe('matrix has no single-container transfer cells', () => {
+  it('every transfer is a from -> to transition', async () => {
+    const { MATRIX_TRANSITIONS } = await import('./registry.js')
+    expect(MATRIX_CELLS.filter((c) => c.action === 'transfer')).toEqual([])
+    expect(MATRIX_TRANSITIONS.length).toBeGreaterThan(0)
+  })
+})

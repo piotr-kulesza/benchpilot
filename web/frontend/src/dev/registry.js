@@ -59,7 +59,8 @@ export const MATRIX_ACTIONS = [
   { action: 'incubate_wait',  containers: ['microtube', 'well_plate', 'membrane', 'slide', 'flask'] },
   { action: 'heat',           containers: ['microtube', 'slide'] },
   { action: 'cool_ice',       containers: ['microtube'] },
-  { action: 'transfer',       containers: ['spin_column', 'eluate_tube', 'cryovial'] },
+  // (no single-container transfer cells: a transfer needs a SOURCE vessel to show its
+  //  action — those are MATRIX_TRANSITIONS below; a lone vessel at rest proves nothing)
   { action: 'discard',        containers: ['microtube', 'well_plate', 'membrane'] },
   { action: 'elute',          containers: ['eluate_tube'] },
   { action: 'measure',        containers: ['microtube', 'well_plate', 'flask', 'slide', 'gel'] },
