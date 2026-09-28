@@ -134,6 +134,22 @@ function makeBenchTag(text) {
   return m
 }
 
+const LABEL_TOP_NDC = 0.8
+const _lp = new Vector3()
+function clampLabel(st, cam) {
+  cam.updateMatrixWorld(); st.group.updateMatrixWorld()
+  const lab = st.label
+  const floorY = st.frame.top + st.labelHalfH + 0.05
+  let y = st.labelBaseY
+  for (let i = 0; i < 60; i++) {
+    _lp.set(lab.position.x, y + st.labelHalfH, lab.position.z)
+    st.group.localToWorld(_lp); _lp.project(cam)
+    if (_lp.y <= LABEL_TOP_NDC || y <= floorY) break
+    y -= 0.05
+  }
+  lab.position.y = Math.max(y, Math.min(floorY, st.labelBaseY))
+}
+
 function computeStationFrame(st) {
   st.group.updateMatrixWorld(true)
   _frameBox.makeEmpty()
@@ -1385,6 +1401,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
         const halfH = (label.userData.worldH || 0.5) / 2
         label.position.set(st.frame.center.x, st.frame.top + LABEL_GAP + halfH, st.frame.center.z)
         st.group.add(label)
+        st.label = label; st.labelBaseY = label.position.y; st.labelHalfH = halfH
       }
       scene.add(st.group)
       // the bench station number in front
@@ -1527,6 +1544,10 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       }
       cam.position.set(px, py, pz)
       cam.lookAt(lx, ly, lz)
+      // keep the active station's title label INSIDE the frame, below the top HUD band:
+      // if its top edge would project above LABEL_TOP_NDC, lower it (never below the
+      // subject's top) — a pushed-in or widened frame used to clip it at the top edge
+      if (actCam && actCam.label) clampLabel(actCam, cam)
     }
 
     // 3 · the key + rim lights follow the framed station. The key grazes lower and more
