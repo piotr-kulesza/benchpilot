@@ -5,7 +5,7 @@ import {
   SCENE_RECIPES, resolveRecipe, sampleContainerSequence, resolveContainer, resolveRemoval,
   findTransferHandoffDefects, findPrepareOnSampleDefects, findTargetDefects, actsOnSample,
   exitLiftPoint, stepConditions, findInstrumentDefects, NAMED_INSTRUMENTS, CONTAINER_TOKENS,
-  findUnmodelledInstruments, pourPlan, removalFor, benchStaging,
+  findUnmodelledInstruments, pourPlan, removalFor, benchStaging, addSource,
 } from './sceneRecipe.js'
 import { findVesselRuleDefects, loadVesselRules } from '../../scripts/lib/vesselRules.mjs'
 import { resolveBehavior } from './behavior.js'
@@ -679,5 +679,30 @@ describe('benchStaging — only what the step states', () => {
   })
   it('an instrument station gets no bench staging', () => {
     expect(benchStaging(st('Incubate 15 min at room temperature.', { duration_seconds: 900 }), 'plate_shaker')).toBe(null)
+  })
+})
+
+// Where an add draws from. A reagent that IS the sample (samples, blood, lysate, serum,
+// plasma) lives in a tube, never a reagent bottle. Collecting samples fills the vessel from
+// outside the bench: no source is drawn at all. Everything else: its reagent bottle.
+describe('addSource — the sample is never a bottle', () => {
+  it('a reagent that is the sample is drawn from a sample tube', () => {
+    expect(addSource({ text_en: 'Load the denatured protein samples and a ladder into the wells', reagents: [{ name: 'denatured protein samples' }, { name: 'ladder' }] })).toBe('sample_tube')
+    expect(addSource({ reagents: [{ name_en: 'cell lysate' }] })).toBe('sample_tube')
+  })
+  it('collecting samples draws from nothing on the bench', () => {
+    expect(addSource({ text_en: 'Collect blood samples in tubes with anti-coagulant.', reagents: [{ name: 'anti-coagulant' }] })).toBe('none')
+  })
+  it('an ordinary reagent keeps its bottle', () => {
+    expect(addSource({ text_en: 'Add 350 µl RW1 buffer.', reagents: [{ name: 'RW1 buffer' }] })).toBe('bottle')
+    expect(addSource({ text_en: 'Add sample buffer', reagents: [{ name: 'Laemmli sample buffer' }] })).toBe('bottle')
+  })
+})
+
+// A rinse is a continuous stream from the reagent's (wash) bottle, not micropipette drops.
+describe('pourPlan — a rinse streams from its bottle', () => {
+  it('rinse is a pour from the stated reagent', () => {
+    expect(pourPlan({ text_en: 'Gently rinse the slide with distilled water for a few seconds.', reagents: [{ volume: null }] }))
+      .toEqual({ pour: true, reagentIndex: 0 })
   })
 })

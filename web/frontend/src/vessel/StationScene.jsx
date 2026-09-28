@@ -14,7 +14,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera } from '@react-three/drei'
 import { FogExp2, Color, Vector3, Box3, Group, Mesh, RingGeometry, SphereGeometry, CylinderGeometry, PlaneGeometry, CanvasTexture, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
-import { resolveRecipe, stepConditions, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects, exitLiftPoint, pourPlan, removalFor, benchStaging } from './sceneRecipe.js'
+import { resolveRecipe, stepConditions, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects, exitLiftPoint, pourPlan, removalFor, benchStaging, addSource } from './sceneRecipe.js'
 import { containerContract, transferKind, sideBySide } from './containerContract.js'
 import { reagentName, reagentVolume, effectiveStep, selectAlternative, hasAlternatives } from '../lib/runtime.js'
 import * as demo from '../scene/demoScene.js'
@@ -357,8 +357,29 @@ export function configureStation(st, o) {
     return base
   }
 
+  // where an add draws from: the sample's own TUBE when the reagent is the sample, nothing
+  // when the step collects samples from outside the bench, else the reagent's bottle
+  const source = (action === 'pour_add' || action === 'pipette_mix')
+    ? addSource({ text_en: o.text, reagents: (o.reagents || []).map((r) => ({ name: r.name })) }) : 'bottle'
   const pour = action === 'pour_add' ? pourPlan({ text_en: o.text, reagents: (o.reagents || []).map((r) => ({ volume: r.vol })) }) : null
-  if (pour && pour.pour) {
+  if (action === 'pour_add' && source === 'none') {
+    // COLLECTING samples: the sample arrives from outside the bench (a blood draw) — no
+    // bottle and no pipette are invented; the vessel simply receives it
+    st.enter = () => seat(0, SEAT_Y, 0)
+    st.timeline = (p) => { evolve(demo.easeInOut(demo.clamp((p - 0.2) / 0.6, 0, 1))) }
+  } else if (source === 'sample_tube') {
+    // the reagent IS the sample (e.g. "load the denatured protein samples into the wells"):
+    // the pipette draws from the samples' own TUBE — a bottle of samples would be invented
+    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: C.entryPoint })
+    const src = st.reagents.r
+    src.grp.visible = false
+    const tube = demo.buildTube({ height: 1.7, radius: 0.32, color: endColor, label: '' })
+    tube.position.copy(src.grp.position); tube.userData.noFrame = true
+    tube.userData.setLevel?.(0.6)
+    st.group.add(tube); if (tube.userData.update) st.updatables.push(tube)
+    const baseTl = st.timeline
+    st.timeline = (p) => { baseTl(p); tube.userData.setLevel?.(demo.lerp(0.6, 0.4, demo.clamp(p / 0.3, 0, 1))) }
+  } else if (pour && pour.pour) {
     // #13 — a POUR: the stated mL reagent's BOTTLE is tipped into the vessel; no pipette.
     // A pour that states no reagent ("pour the agarose into the casting tray") names no
     // bottle, so none is invented: the vessel simply fills.

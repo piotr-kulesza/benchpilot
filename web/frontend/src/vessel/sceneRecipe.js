@@ -386,7 +386,8 @@ export function pourPlan(step) {
   const reagents = (step && step.reagents) || []
   const ml = (x) => volumeMl(x?.volume_en) ?? volumeMl(x?.volume)
   let reagentIndex = reagents.findIndex((x) => (ml(x) ?? 0) >= POUR_MIN_ML)
-  const saysPour = /\bpour/i.test(`${step?.text_en || ''} ${step?.text || ''}`)
+  // a rinse is a continuous stream from the reagent's (wash) bottle, like a pour
+  const saysPour = /\b(pour|rins)/i.test(`${step?.text_en || ''} ${step?.text || ''}`)
   if (reagentIndex < 0 && saysPour && reagents.length) reagentIndex = 0
   return { pour: reagentIndex >= 0 || saysPour, reagentIndex }
 }
@@ -411,4 +412,17 @@ export function benchStaging(step, equipment) {
   else if (c.roomTemp) tag = 'room temperature'
   const dial = !!(step?.duration_seconds || step?.spin?.duration_seconds)
   return { tag, dial }
+}
+
+// Where an add draws from. A reagent that IS the sample (samples, blood, lysate, serum,
+// plasma — not "sample buffer") lives in a tube: 'sample_tube'. Collecting samples fills
+// the vessel from outside the bench: 'none' (no source drawn, no bottle invented).
+// Otherwise the reagent's own bottle: 'bottle'.
+const SAMPLE_REAGENT = /\b(samples?|blood|lysates?|serum|plasma)\b(?!\s+buffer)/i
+export function addSource(step) {
+  const text = `${step?.text_en || ''} ${step?.text || ''}`
+  if (/\bcollect\b[^.]*\bsamples?\b/i.test(text)) return 'none'
+  const names = (step?.reagents || []).map((r) => `${r?.name_en || ''} ${r?.name || ''}`)
+  if (names.some((n) => SAMPLE_REAGENT.test(n))) return 'sample_tube'
+  return 'bottle'
 }
