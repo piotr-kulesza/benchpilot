@@ -2273,13 +2273,16 @@ export {
     for(var hg=0;hg<2;hg++){ var hinge=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.26,12), matBrushed(0x868f9b));
       hinge.position.set(0.06,-0.6+hg*1.2,0.07); doorPivot.add(hinge); }
     // frost fog puff (additive) at the mouth
-    var frostMat=new THREE.MeshBasicMaterial({ color:0xdfeaf4, transparent:true, opacity:0.0, depthWrite:false, blending:THREE.AdditiveBlending, fog:false });
-    var frost=new THREE.Mesh(new THREE.SphereGeometry(0.7,16,12), frostMat); frost.position.set(0,0.7,1.0); frost.scale.set(1.3,0.8,0.6); grp.add(frost);
+    // a THIN, translucent cold mist that spills from the bottom door seam and lies low
+    // on the bench — it used to be an additive sphere in front of the door, larger than
+    // the opening, that rendered as an opaque white disc hiding the freezer
+    var frostMat=new THREE.MeshBasicMaterial({ color:0xdfeaf4, transparent:true, opacity:0.0, depthWrite:false, fog:false });
+    var frost=new THREE.Mesh(new THREE.SphereGeometry(0.5,20,12), frostMat); frost.position.set(0,0.14,1.05); frost.scale.set(1.8,0.22,0.5); grp.add(frost);
     var label=makeLabel("−80 °C",""); label.position.set(0,2.3,0); grp.add(label);
     var st={ door:0, tDoor:0 }; // CLOSED at rest (the store animation opens it)
     grp.userData.label=label;
     grp.userData.setDoor=function(open){ st.tDoor=open?1:0; };
-    grp.userData.setFrost=function(a){ frostMat.opacity=clamp(a,0,0.5); };
+    grp.userData.setFrost=function(a){ frostMat.opacity=clamp(a,0,0.5)*0.4; };  // at most a faint mist
     grp.userData.update=function(dt){ st.door=lerp(st.door,st.tDoor,1-Math.pow(0.02,dt)); doorPivot.rotation.y=easeInOut(st.door)*1.2; };
     return grp;
   }
