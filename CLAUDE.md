@@ -118,6 +118,20 @@ with zero backend.
   uses, so the harness cannot diverge from production. Cells enumerated by
   `MATRIX_CELLS` / `MATRIX_TRANSITIONS`.
 
+### Render sets are not tracked
+
+`web/frontend/dev-shots/` is **intentionally gitignored**. Captures are deterministic
+(per-tile seed, per-builder random streams, fixed-step clock), so the baseline is
+regenerated from a commit rather than stored in git (~80 MB per set):
+
+```bash
+cd web/frontend && npm run dev
+node scripts/shots.mjs --set baseline
+```
+
+A baseline/current diff is only meaningful when **both sets were rendered on the same
+machine with the same browser build** — GPU, driver and Chrome version all change pixels.
+
 ### Judging renders
 
 Never judge by eye, and never judge from build output. Render, then look:
