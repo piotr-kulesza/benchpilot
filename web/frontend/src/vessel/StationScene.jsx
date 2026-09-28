@@ -824,8 +824,14 @@ export function configureStation(st, o) {
       tc.userData.setLid(true); tc.userData.setProgress(0, n)
     }
     st.timeline = (p) => {
-      tc.userData.setLid(!(p > 0.12 && p < 0.9)) // lid CLOSED over the loaded tube while cycling
+      // lid CLOSED over the loaded tube while it cycles; it opens by p=0.78, and the
+      // finished tube then lifts STRAIGHT UP out of its well (exitLiftPoint) — sunk in the
+      // block it could not be seen, so the settled frame read as a closed black box
+      tc.userData.setLid(!(p > 0.12 && p < 0.78))
       tc.userData.setProgress(p, n)
+      const up = demo.easeInOut(demo.clamp((p - 0.82) / 0.12, 0, 1))
+      const lift = exitLiftPoint({ x: 0, y: 0.08, z: 0 }, 1.0)
+      S.at(S[vessel], st.x + lift.x, demo.lerp(0.08, lift.y, up), lift.z)
       evolve(p) // contents unchanged; the tube just cycles temperature
     }
   } else if (action === 'electrophorese' && container === 'gel') {
