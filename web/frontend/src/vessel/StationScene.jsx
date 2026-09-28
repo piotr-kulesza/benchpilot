@@ -905,14 +905,14 @@ export function configureStation(st, o) {
     st.cold = new PointLight(0x8fbaf0, 0, 4)
     st.cold.position.set(0, 1, -0.6)
     st.group.add(st.cold)
-    // The cavity opening faces +z (spans y≈0.30–1.80). The vial must enter THROUGH
-    // the opening — never through a wall. CRITICAL: it stays LOW (base y≈0.4, so its
-    // cap tops out ~1.6, well under the cavity/box top) the entire time it is at or
+    // The cavity opening faces +z (spans y≈0.30–2.40). The vial must enter THROUGH
+    // the opening — never through a wall. CRITICAL: it stays LOW (base y≈0.32, so even
+    // the 1.7 sample tube tops out ~2.02, under the cavity top) the entire time it is at or
     // inside the freezer, and only hops UP while still out in front of the box (never
     // over it). Door opens first; closes only once the vial is fully inside.
     const bench = { x: -1.4, y: SEAT_Y, z: 0.9 }
-    const front = { x: 0.1, y: 0.4, z: 0.4 }    // staged low, in front of the mouth
-    const inside = { x: 0.1, y: 0.4, z: -1.0 }  // seated on the cavity floor (same low y)
+    const front = { x: 0.1, y: 0.32, z: 0.4 }   // staged low, in front of the mouth
+    const inside = { x: 0.1, y: 0.32, z: -1.0 } // seated on the cavity floor (y 0.30): a 1.7 tube tops out at 2.02, under the 2.40 cavity top
     const move = (v, a, b, q) => S.at(v, st.x + demo.lerp(a.x, b.x, q), demo.lerp(a.y, b.y, q), demo.lerp(a.z, b.z, q))
     st.enter = () => { seat(bench.x, bench.y, bench.z); fr.userData.setDoor(true); fr.userData.setFrost(0); st.cold.intensity = 0 }
     st.timeline = (p) => {
