@@ -103,8 +103,11 @@ multi-assay text can still pass.)
 
 ## Where the evidence is
 
-- Source: `examples/pmc12207774_methods.txt` (check the article's licence before
-  publishing the repository).
+- Source: `examples/pmc12207774_methods.txt` — CC BY-NC 4.0; attribution in
+  `examples/pmc12207774_methods.ATTRIBUTION.md`.
+- **If benchpilot is ever commercialised, `examples/pmc12207774_methods.txt` and its raw
+  parses (`tests/fixtures/fresh_parse/pmc12207774_methods.*`) must be removed** — the
+  licence is non-commercial.
 - Truncated first parse: `tests/fixtures/fresh_parse/pmc12207774_methods.RAW.txt`.
 - The three gated attempts and their timings:
   `tests/fixtures/fresh_parse/pmc12207774_methods.attempt{1,2,3}.txt`, `….attempts.json`.
