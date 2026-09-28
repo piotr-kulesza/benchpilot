@@ -4,7 +4,9 @@ This file lives beside `pmc12207774_methods.txt` and is **not** part of it: the 
 is fed to the parser as protocol content, so no attribution text goes inside it.
 
 - **Source:** the "Material and methods" section of
-  *1,25-Dihydroxy vitamin D3 inhibits LPS-mediated inflammatory responses in endometriosis*
+  *1,25-Dihydroxy vitamin D<sub>3</sub> inhibits LPS-mediated inflammatory responses in endometriosis*
+  (title verbatim from the publisher's record for the DOI — Informa UK Limited, via
+  doi.org content negotiation; the PubMed record drops the subscript)
 - **Authors:** Qiyu Zhong, Zhuang Jin, Jianyu Ma, Zhouzhou Liao, Huiling Lai, Shuqin Chen
 - **Journal:** Annals of Medicine 57(1):2523563 (2025)
 - **PMCID:** PMC12207774 · **PMID:** 40579858 · **DOI:** 10.1080/07853890.2025.2523563
