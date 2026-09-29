@@ -1290,26 +1290,32 @@ export function undockSample(lift = false) {
 
   /* ---------- open ice bucket (cold storage — keep on ice / −80 °C) ---------- */
   function buildIceBucket(){
+    // REAL SIZE from dims('ice_bucket_4l'): an open insulated tub, the tube stands on its
+    // FLOOR (socket 'bed') and crushed ice is packed round it to ice_depth. (The old tube
+    // hovered among the cubes with nothing under it.)
     var grp = new THREE.Group();
-    // stainless-steel open tub (neutral realistic metal, clear-ish liner)
+    var D=dims('ice_bucket_4l'), T=dims('microtube_1_5');
+    var R=D.radius, H=D.height, WALL=D.wall, RB=R*0.84, FL=WALL;
     var steel = matBrushed(0xc4cbd4); steel.roughness=0.4;
     var steelDk = matBrushed(0x929ba6);
-    var wall = new THREE.Mesh(new THREE.CylinderGeometry(0.74,0.62,0.6,44,1,true), steel);
-    wall.position.y=0.3; wall.castShadow=true; wall.receiveShadow=true; grp.add(wall);
-    var rim = new THREE.Mesh(new THREE.TorusGeometry(0.74,0.03,14,48), steelDk);
-    rim.rotation.x=Math.PI/2; rim.position.y=0.6; grp.add(rim);
-    var innerMat = new THREE.MeshStandardMaterial({ color:0x6f7d89, metalness:0.3, roughness:0.55, envMapIntensity:0.7, side:THREE.DoubleSide }); // muted cool-grey interior (not a saturated blue pool)
-    var inner = new THREE.Mesh(new THREE.CylinderGeometry(0.7,0.58,0.6,44,1,true), innerMat);
-    inner.position.y=0.3; grp.add(inner);
-    var floor = new THREE.Mesh(new THREE.CircleGeometry(0.58,44), innerMat);
-    floor.rotation.x=-Math.PI/2; floor.position.y=0.02; grp.add(floor);
-    // a bed of translucent ice cubes (leaves the centre clear for the tube)
+    var wall = new THREE.Mesh(new THREE.CylinderGeometry(R,RB,H,44,1,true), steel);
+    wall.position.y=H/2; wall.castShadow=true; wall.receiveShadow=true; grp.add(wall);
+    var rim = new THREE.Mesh(new THREE.TorusGeometry(R-WALL*0.2,WALL*0.2,14,48), steelDk);
+    rim.rotation.x=Math.PI/2; rim.position.y=H-WALL*0.2; grp.add(rim);
+    var innerMat = new THREE.MeshStandardMaterial({ color:0x6f7d89, metalness:0.3, roughness:0.55, envMapIntensity:0.7, side:THREE.DoubleSide }); // muted cool-grey interior
+    var inner = new THREE.Mesh(new THREE.CylinderGeometry(R-WALL,RB-WALL,H-FL,44,1,true), innerMat);
+    inner.position.y=FL+(H-FL)/2; fx(inner,'decal'); grp.add(inner);
+    var base = new THREE.Mesh(new THREE.CylinderGeometry(RB,RB,FL,44), innerMat);
+    base.position.y=FL/2; grp.add(base);                                 // the insulated floor
+    addSocket(grp,'bed',{ position:new THREE.Vector3(0,FL,0) });
+    // crushed ICE packed to ice_depth, leaving the centre clear for the tube
     var iceMat=new THREE.MeshPhysicalMaterial({ color:0xd4e2ea, roughness:0.14,
       transparent:true, opacity:0.55, clearcoat:0.8, envMapIntensity:1.0, flatShading:true, depthWrite:false });
+    var iceTop=FL+D.ice_depth, clearR=T.radius*1.8;
     for(var ic=0;ic<12;ic++){
-      var a=Math.random()*Math.PI*2, rr=0.16+Math.random()*0.42;
-      var cube=new THREE.Mesh(new THREE.IcosahedronGeometry(0.12+Math.random()*0.07,0), iceMat);
-      cube.position.set(Math.cos(a)*rr, 0.4+Math.random()*0.14, Math.sin(a)*rr);
+      var a=Math.random()*Math.PI*2, cs=R*(0.16+Math.random()*0.1), rr=clearR+cs+Math.random()*(RB-WALL-clearR-2*cs);
+      var cube=new THREE.Mesh(new THREE.IcosahedronGeometry(cs,0), iceMat);
+      cube.position.set(Math.cos(a)*rr, iceTop-cs*(0.3+Math.random()*0.6), Math.sin(a)*rr);
       cube.rotation.set(Math.random(),Math.random(),Math.random());
       cube.castShadow=true; fx(cube,'granular'); grp.add(cube);
     }
@@ -1318,13 +1324,15 @@ export function undockSample(lift = false) {
     var frostGeo=new THREE.SphereGeometry(1,6,5);
     for(var fr=0;fr<22;fr++){
       var fm=new THREE.Mesh(frostGeo,frostMat);
-      var fa=Math.random()*Math.PI*2, fy=0.08+Math.random()*0.48;
-      fm.position.set(Math.cos(fa)*0.73, fy, Math.sin(fa)*0.73);
-      var fs=0.01+Math.random()*0.02; fm.scale.set(fs,fs,fs); fx(fm,'effect'); grp.add(fm);
+      var fa=Math.random()*Math.PI*2, fy=H*(0.13+Math.random()*0.8);
+      var rAt=lerp(RB,R,fy/H);
+      fm.position.set(Math.cos(fa)*rAt, fy, Math.sin(fa)*rAt);
+      var fs=R*(0.014+Math.random()*0.027); fm.scale.set(fs,fs,fs); fx(fm,'effect'); grp.add(fm);
     }
     var label = makeLabel("On ice","");   // (was sublabelled "store −80 °C" — ice is not −80 °C)
-    label.position.set(0,1.45,0); grp.add(label);
+    label.position.set(0,H+LABEL_GAP,0); grp.add(label);
     grp.userData.label=label; grp.userData.update=function(){};
+    grp.userData.sampleSocket='bed';
     return tagSpec(grp,'ice_bucket_4l');
   }
 
