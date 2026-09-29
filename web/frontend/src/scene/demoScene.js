@@ -1748,8 +1748,11 @@ export function undockSample(lift = false) {
     grp.userData.update=function(dt){ st.g=lerp(st.g,st.t,1-Math.pow(0.03,dt));
       surfMat.emissiveIntensity=0.15+st.g*0.95; uvLight.intensity=st.g*1.2; };
     grp.userData.update(0.001);
-    grp.userData.stageY=surfY+0.05;
-    return tagSpec(grp,'uv_transilluminator');
+    // the table's envelope is the TRANSILLUMINATOR box (the camera mast is drawn with it)
+    var root=fitArt(grp,'uv_transilluminator',{ measure:[base,surf], size:{ height:dims('uv_transilluminator').box_height } });
+    addSocket(root,'surface',{ position:root.userData.fit.toWorld(0,surfY+0.025,0) });
+    root.userData.sampleSocket='surface';
+    return tagSpec(root,'uv_transilluminator');
   }
 
   /* ---------- eluate droplet ---------- */
