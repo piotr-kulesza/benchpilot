@@ -12,7 +12,7 @@ import { makeRunId, orphanRunKeys } from './lib/runState.js'
 const DevView = lazy(() => import('./dev/DevView.jsx'))
 const IS_DEV_ROUTE = (() => {
   const s = new URLSearchParams(window.location.search)
-  return s.has('models') || s.has('matrix')
+  return s.has('models') || s.has('matrix') || s.has('scale')
 })()
 
 // Live-parse backend (uploads / paste). Empty = no backend → the bundled examples

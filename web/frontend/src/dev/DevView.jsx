@@ -14,7 +14,7 @@ function q(name, dflt) {
 
 export default function DevView() {
   const matrix = q('matrix')
-  const mode = matrix ? 'matrix' : 'gallery'
+  const mode = q('scale') ? 'scale' : matrix ? 'matrix' : 'gallery'
   const item = q('item', MODEL_IDS[0])
   const angle = q('angle', 'front')
   const action = q('action', 'pour_add')
@@ -28,7 +28,9 @@ export default function DevView() {
   const bare = q('bare') != null
   const model = getModel(item)
 
-  const caption = mode === 'matrix'
+  const caption = mode === 'scale'
+    ? 'every model at REAL size on one ground line · orthographic · ruler: 500 mm post, 10 mm bands, 100 mm ground bands'
+    : mode === 'matrix'
     ? `${action} · ${from ? `${from}→${to || container}` : container} · p=${p.toFixed(2)}${text ? ` · "${text.slice(0, 70)}${text.length > 70 ? '…' : ''}"` : ''}`
     : `${item} · ${model?.kind || '?'} · ${model?.orient || ''}`
 
@@ -42,7 +44,7 @@ export default function DevView() {
           position: 'fixed', left: 12, top: 10, zIndex: 5, font: "600 13px ui-monospace,Menlo,monospace",
           color: '#e8ecf2', background: 'rgba(18,22,28,0.72)', padding: '6px 12px', borderRadius: 8, letterSpacing: '0.02em',
         }}>
-          <span style={{ color: '#5fb3a6' }}>{mode === 'matrix' ? 'MATRIX' : 'MODEL'}</span>&nbsp; {caption}
+          <span style={{ color: '#5fb3a6' }}>{mode === 'scale' ? 'SCALE SHEET' : mode === 'matrix' ? 'MATRIX' : 'MODEL'}</span>&nbsp; {caption}
           {mode === 'gallery' && <span style={{ color: '#8a93a0' }}>&nbsp; · angle={angle}</span>}
         </div>
       )}

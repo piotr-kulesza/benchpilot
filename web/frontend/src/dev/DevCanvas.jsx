@@ -5,6 +5,7 @@ import { Canvas } from '@react-three/fiber'
 import * as THREE from 'three'
 import { GalleryScene } from './DevScene.jsx'
 import { MatrixScene } from './MatrixScene.jsx'
+import { ScaleScene } from './ScaleScene.jsx'
 
 export default function DevCanvas({ mode, item, angle, action, container, from, to, text, p, bare }) {
   return (
@@ -18,7 +19,7 @@ export default function DevCanvas({ mode, item, angle, action, container, from, 
         gl.shadowMap.type = THREE.PCFSoftShadowMap
       }}
     >
-      {mode === 'matrix'
+      {mode === 'scale' ? <ScaleScene /> : mode === 'matrix'
         ? <MatrixScene action={action} container={container} from={from} to={to} text={text} p={p} />
         : <GalleryScene item={item} angle={angle} bare={bare} />}
     </Canvas>

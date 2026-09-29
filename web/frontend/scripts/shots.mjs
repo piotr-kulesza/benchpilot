@@ -36,7 +36,7 @@ const flag = (name, dflt) => {
   return i >= 0 && argv[i + 1] ? argv[i + 1] : dflt
 }
 const SET = flag('set', 'current')
-const GROUPS = flag('groups', 'models,matrix,runner').split(',').map((s) => s.trim())
+const GROUPS = flag('groups', 'scale,models,matrix,runner').split(',').map((s) => s.trim())
 const PROTOCOLS = flag('protocols', 'all')
 const STEPS_PER = Number(flag('steps', '4'))
 // Matrix timeline points to capture, comma separated. A single frame cannot show
@@ -124,6 +124,17 @@ const shoot = async (file, url, { w = 1100, h = 850, settle = 700 } = {}) => {
 
 const writeManifest = (group, entries) => {
   fs.writeFileSync(path.join(outDir(group), 'manifest.json'), JSON.stringify({ set: SET, group, entries }, null, 2))
+}
+
+// ── scale: the SCALE SHEET — every model at real size on one ground line, one fixed
+// orthographic camera, a ruler. The one image where all scale errors show at a glance.
+if (GROUPS.includes('scale')) {
+  const dir = freshDir('scale')
+  const name = 'scale_sheet.png'
+  if ((await shoot(path.join(dir, name), `${BASE}/?scale=1`, { w: 3000, h: 1500, settle: 900 })) !== false) {
+    writeManifest('scale', [{ file: name, title: 'scale sheet', caption: 'every model, real size, one ground line, orthographic' }])
+    console.log('  scale sheet')
+  }
 }
 
 // ── models: every model, two angles, captioned with its stated correct pose ────

@@ -9,6 +9,8 @@ import { FogExp2, Group } from 'three'
 import * as demo from '../scene/demoScene.js'
 import { resolveScenePreset } from '../scene/scenePresets.js'
 import { getModel } from './registry.js'
+import { solidBox } from '../scene/solids.js'
+import { clearance } from '../scene/dims.js'
 
 // ?bench=light|dark picks the bench preset for the model gallery (so thumbnails can be
 // pre-rendered for both). Default dark.
@@ -18,7 +20,7 @@ const LIGHT_SCALE = 3.3 // matches StationScene: modern three divides diffuse by
 let _maps = false
 function ensureMaps() { if (!_maps) { demo.buildSharedMaps(); _maps = true } }
 
-function disposeGroup(group) {
+export function disposeGroup(group) {
   group.traverse((o) => {
     if (o.geometry) o.geometry.dispose()
     const mats = Array.isArray(o.material) ? o.material : o.material ? [o.material] : []
@@ -26,7 +28,7 @@ function disposeGroup(group) {
   })
 }
 
-function Lights() {
+export function Lights() {
   const L = demo.LOOK.cinematic
   return (
     <>
@@ -46,7 +48,7 @@ function Lights() {
 }
 
 // one-time renderer/scene/env setup, shared by both dev modes
-function useDevEnv() {
+export function useDevEnv() {
   const { gl, scene } = useThree()
   useEffect(() => {
     const preset = resolveScenePreset() // backdrop + fog must match the bench preset
@@ -90,11 +92,13 @@ export function GalleryScene({ item, angle = 'front', bare = false }) {
       if (angle === 'top') m.traverse((o) => { if (o.isSprite) o.visible = false })
       g.add(m)
     }
-    const span = model?.span || 2.4
+    // the model's MEASURED footprint (models are real size now; a typed span went stale)
+    const mb = g.children[0] ? solidBox(g.children[0], g.children[0]) : null
+    const span = mb && !mb.isEmpty() ? Math.max(mb.max.x - mb.min.x, mb.max.z - mb.min.z, mb.max.y - mb.min.y) : 2.4
     let refX = -(span / 2)
     if (!bare) {
-      // reference microtube, always to the LEFT for scale
-      refX = -(span / 2 + 1.7)
+      // reference 1.5 mL microtube (real size), always to the LEFT for scale
+      refX = -(span / 2 + clearance('bench_gap') * 2)
       const ref = demo.buildTube({ color: demo.COL.pellet, label: 'ref' })
       ref.position.set(refX, 0, 0)
       g.add(ref)
