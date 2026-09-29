@@ -972,30 +972,47 @@ export function undockSample(lift = false) {
      box with a motorized drawer that a 96-well plate slides into, and an A450
      readout. setDrawer(out) / setOD(v). */
   function buildPlateReader(){
+    // REAL SIZE from dims('microplate_96' / 'plate_reader'): a painted body with a real
+    // TUNNEL the plate carrier drives into (the old reader painted a dark slot on a SOLID
+    // box, so the plate drove through its front wall). The carrier is sized to the SBS
+    // footprint; the plate RIDES it (socket 'carrier'), so plate and drawer never drift.
     var grp=new THREE.Group();
-    var body=new THREE.Mesh(new THREE.BoxGeometry(3.0,1.5,2.0), matPainted(0xd9dde2,0.5));
-    body.position.y=0.75; body.castShadow=true; body.receiveShadow=true; grp.add(body);
-    var slot=new THREE.Mesh(new THREE.BoxGeometry(2.5,0.34,0.14), new THREE.MeshStandardMaterial({ color:0x181d23, roughness:0.8, side:THREE.DoubleSide }));
-    slot.position.set(0,0.55,1.0); grp.add(slot);
-    var tray=new THREE.Mesh(new THREE.BoxGeometry(2.55,0.06,1.7), matPlastic(0x8a94a0));
-    var trayLip=new THREE.Mesh(new THREE.BoxGeometry(2.55,0.12,0.08), matPlastic(0x6b7480));
-    grp.add(tray); grp.add(trayLip);
+    var D=dims('plate_reader'), P=dims('microplate_96');
+    var W=D.width, H=D.height, DEP=D.depth, gap=clearance('bench_gap');
+    var shell=matPainted(0xd9dde2,0.5);
+    var CW=P.width+gap, CD=P.depth+gap, CT=P.height*0.25;          // carrier: footprint + play
+    var TW=CW+gap, TH=P.height+CT+gap, TBOT=H*0.3, TDEP=CD+gap;    // tunnel it drives into
+    function part(w,h,d,x,y,z){ var m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), shell); m.position.set(x,y,z); m.castShadow=true; m.receiveShadow=true; grp.add(m); return m; }
+    part(W,TBOT,DEP, 0,TBOT/2,0);                                   // below the tunnel
+    part(W,H-TBOT-TH,DEP, 0,(H+TBOT+TH)/2,0);                       // above it
+    var sideW=(W-TW)/2;
+    part(sideW,TH,DEP, -(W-sideW)/2,TBOT+TH/2,0);                   // its two sides
+    part(sideW,TH,DEP, (W-sideW)/2,TBOT+TH/2,0);
+    part(TW,TH,DEP-TDEP, 0,TBOT+TH/2,-DEP/2+(DEP-TDEP)/2);          // and its back wall
+    var inner=new THREE.Mesh(openTopBox(TW,TH,TDEP), new THREE.MeshStandardMaterial({ color:0x181d23, roughness:0.8, side:THREE.DoubleSide }));
+    inner.position.set(0,TBOT+TH/2,DEP/2-TDEP/2); fx(inner,'decal'); grp.add(inner);   // dark tunnel lining
+    // the CARRIER: a tray + front lip on the drawer; it travels out along +z
+    var drawer=new THREE.Group(); grp.add(drawer);
+    var tray=new THREE.Mesh(new THREE.BoxGeometry(CW,CT,CD), matPlastic(0x8a94a0)); tray.position.y=TBOT+CT/2; drawer.add(tray);
+    var lip=new THREE.Mesh(new THREE.BoxGeometry(TW*0.98,TH*0.9,CT), matPlastic(0x6b7480)); lip.position.set(0,TBOT+TH*0.45,CD/2+CT/2); drawer.add(lip);
+    addSocket(grp,'carrier',{ parent:drawer, position:new THREE.Vector3(0,TBOT+CT,0) });
+    var IN_Z=DEP/2-TDEP/2, OUT_Z=DEP/2+CD/2+gap;                    // carrier centre closed / open
     var dc=document.createElement("canvas"); dc.width=200; dc.height=110; var dg=dc.getContext("2d");
     var dTex=new THREE.CanvasTexture(dc); dTex.anisotropy=MAX_ANISO;
     function drawOD(v){ dg.fillStyle="#0d1218"; dg.fillRect(0,0,200,110);
       dg.fillStyle="#7a8290"; dg.font="600 18px 'IBM Plex Sans'"; dg.textAlign="left"; dg.fillText("A450",14,30);
       dg.fillStyle="#8fcabf"; dg.font="700 42px 'IBM Plex Mono'"; dg.fillText(v.toFixed(2),14,84); dTex.needsUpdate=true; }
     drawOD(0);
-    var disp=new THREE.Mesh(new THREE.PlaneGeometry(0.8,0.44), new THREE.MeshBasicMaterial({map:dTex,transparent:true}));
-    disp.position.set(0.95,1.06,1.01); fx(disp,'decal'); grp.add(disp);
-    var label=makeLabel("Plate reader",""); label.position.set(0,1.95,0); grp.add(label);
-    var pst={ draw:1, tDraw:1 };
+    var disp=new THREE.Mesh(new THREE.PlaneGeometry(W*0.27,H*0.2), new THREE.MeshBasicMaterial({map:dTex,transparent:true}));
+    disp.position.set(W*0.3,TBOT+TH+(H-TBOT-TH)/2,DEP/2+H*0.005); fx(disp,'decal'); grp.add(disp);
+    var label=makeLabel("Plate reader",""); label.position.set(0,H+LABEL_GAP,0); grp.add(label);
+    var pst={ draw:0, tDraw:0 };   // built CLOSED (its real envelope); the station opens it
     grp.userData.label=label;
     grp.userData.setDrawer=function(out){ pst.tDraw=out?1:0; };
     grp.userData.setOD=function(v){ drawOD(clamp(v,0,4)); };
-    grp.userData.update=function(dt){ pst.draw=lerp(pst.draw,pst.tDraw,1-Math.pow(0.02,dt));
-      tray.position.set(0,0.5,0.4+pst.draw*1.4); trayLip.position.set(0,0.53,1.24+pst.draw*1.4); };
-    grp.userData.update(0.001);
+    grp.userData.update=function(dt){ pst.draw=lerp(pst.draw,pst.tDraw,1-Math.pow(0.02,dt)); drawer.position.z=lerp(IN_Z,OUT_Z,pst.draw); };
+    grp.userData.update(1e6);
+    grp.userData.sampleSocket='carrier';
     return tagSpec(grp,'plate_reader');
   }
 
