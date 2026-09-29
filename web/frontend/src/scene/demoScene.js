@@ -174,14 +174,23 @@ export function undockSample(lift = false) {
      (a non-uniformly scaled parent would squash them) and sit just above the model.
      Returns the root; root.userData carries the art's userData (hooks, state) and `fit`. */
   var LABEL_GAP = 0.25;   // world units a builder's name plate floats above its top
-  function fitArt(art, id){
+  function fitArt(art, id, opts){
+    opts=opts||{};
     var d=dims(id);
-    var b=solidBox(art, art), size=b.getSize(new THREE.Vector3()), c=b.getCenter(new THREE.Vector3());
-    var sx=d.width/size.x, sy=d.height/size.y, sz=d.depth/size.z;
-    if(d.shape==='round'){ var sr=(d.width+d.depth)/(size.x+size.z); sx=sz=sr; }
+    // opts.measure: the art nodes whose extent IS the table's envelope (a transilluminator's
+    // box, not the camera mast drawn with it); default the whole art
+    var b=new THREE.Box3();
+    if(opts.measure){ opts.measure.forEach(function(n){ b.union(solidBox(n, art)); }); } else b=solidBox(art, art);
+    var size=b.getSize(new THREE.Vector3()), c=b.getCenter(new THREE.Vector3());
+    // opts.pivot:'origin' keeps the drawing's own x/z origin (a tool held by its tip)
+    if(opts.pivot==='origin'){ c.x=0; c.z=0; }
+    var tw=(opts.size&&opts.size.width)||d.width, th=(opts.size&&opts.size.height)||d.height, td=(opts.size&&opts.size.depth)||d.depth;
+    var sx=tw/size.x, sy=th/size.y, sz=td/size.z;
+    if(d.shape==='round'){ var sr=(tw+td)/(size.x+size.z); sx=sz=sr; }
     var root=new THREE.Group();
     var labels=art.children.filter(function(o){ return o.isSprite; });
-    labels.forEach(function(l){ art.remove(l); root.add(l); l.position.set(0, d.height+LABEL_GAP+(l.userData.worldH||0)/2, 0); });
+    var topY=(solidBox(art, art).max.y-b.min.y)*sy;
+    labels.forEach(function(l){ art.remove(l); root.add(l); l.position.set(0, topY+LABEL_GAP+(l.userData.worldH||0)/2, 0); });
     root.add(art);
     art.scale.set(sx,sy,sz);
     art.position.set(-c.x*sx, -b.min.y*sy, -c.z*sz);
@@ -190,6 +199,7 @@ export function undockSample(lift = false) {
       // a point in DRAWING units → the root's world-unit frame
       toWorld:function(x,y,z){ return new THREE.Vector3(x*sx+art.position.x, y*sy+art.position.y, z*sz+art.position.z); } };
     root.userData.fit=fit;
+    if(opts.pivot==='origin') root.userData.pivotAt='tip';   // a tool: origin = its working tip
     return root;
   }
   // a box with NO top face (a tank, basin or liner you can see and lower things into) —

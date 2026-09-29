@@ -142,6 +142,7 @@
       "depth": { "mm": 470, "src": "biorad-t100" },
       "height": { "mm": 230, "src": "biorad-t100" },
       "well_pitch": { "mm": 9.0, "src": "ansi-slas-4-2004" },
+      "bore_depth": { "mm": 16, "est": "a 21 mm PCR tube stands ~5 mm proud of the block for the heated lid to press" },
       "accepts": ["pcr_tube_0_2"]
     },
     "nanodrop": {
@@ -167,7 +168,7 @@
       "inner_width": { "mm": 281, "src": "grant-jbn5" },
       "inner_depth": { "mm": 131, "src": "grant-jbn5" },
       "inner_height": { "mm": 105, "src": "grant-jbn5" },
-      "rack_height": { "mm": 80, "est": "submerged tube rack standing on the bath floor, sized so the water covers ~60 % of a 1.5 mL tube" },
+      "rack_height": { "mm": 45, "est": "submerged tube rack standing on the bath floor; water is filled to 60 % of a 1.5 mL tube standing on it" },
       "accepts": ["microtube_1_5", "cryovial_2ml", "spin_column_mini"]
     },
     "dry_block_heater": {
@@ -240,10 +241,10 @@
       "name": "UV transilluminator", "category": "instrument", "shape": "box", "model": "UVP Benchtop 2UV (21 × 26 cm filter) + gel-doc camera mast",
       "width": { "mm": 356, "src": "uvp-2uv" },
       "depth": { "mm": 279, "src": "uvp-2uv" },
-      "height": { "mm": 122, "src": "uvp-2uv" },
+      "height": { "mm": 330, "est": "overall with the gel-doc camera mast drawn on it (the 2UV box alone is 122 mm)" },
+      "box_height": { "mm": 122, "src": "uvp-2uv" },
       "filter_width": { "mm": 260, "src": "uvp-2uv" },
       "filter_depth": { "mm": 210, "src": "uvp-2uv" },
-      "mast_height": { "mm": 330, "est": "gel-doc camera mast drawn with the box; not part of the 2UV spec" },
       "accepts": ["gel_tray_7x10"]
     },
     "gel_tank_mini": {
@@ -264,7 +265,8 @@
       "name": "slide staining tray", "category": "instrument", "shape": "box", "model": "generic slide staining tray with two rails",
       "width": { "mm": 250, "est": "holds slides lengthwise across two rails" },
       "depth": { "mm": 130, "est": "holds a 76 mm slide across two rails with drip margin" },
-      "height": { "mm": 25, "est": "shallow drip tray" },
+      "height": { "mm": 45, "est": "drip tray + the rails the slide rests on" },
+      "tray_height": { "mm": 25, "est": "shallow drip tray" },
       "rail_height": { "mm": 20, "est": "rails raise the slide above the drained stain" },
       "accepts": ["slide_iso8037"]
     },
@@ -295,10 +297,11 @@
       "diameter": { "mm": 140, "est": "weighted round base" }
     },
     "syringe_1ml": {
-      "name": "1 mL syringe with 21 G needle", "category": "tool", "shape": "round", "model": "BD 1 mL + 21 G × 1½ in needle",
+      "name": "1 mL syringe with 21 G needle", "category": "tool", "shape": "box", "model": "BD 1 mL + 21 G × 1½ in needle",
       "height": { "mm": 140, "est": "needle 38 mm + hub + 57 mm barrel + plunger" },
-      "diameter": { "mm": 4.78, "src": "bd-syringe-diameters" },
-      "flange_width": { "mm": 20, "est": "finger flange span" },
+      "width": { "mm": 20, "est": "finger-flange span" },
+      "depth": { "mm": 10, "est": "thumb-press diameter" },
+      "barrel_inner_diameter": { "mm": 4.78, "src": "bd-syringe-diameters" },
       "needle_length": { "mm": 38.1, "est": "1½ in needle" },
       "needle_diameter": { "mm": 0.82, "est": "21 G per the ISO 9626 table (not retrieved)" }
     },
