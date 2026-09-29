@@ -2588,14 +2588,21 @@ export {
     var grp=new THREE.Group();
     var tray=new THREE.Mesh(new THREE.BoxGeometry(2.4,0.24,1.3), matPlastic(0x394049));
     tray.position.y=0.12; tray.castShadow=true; tray.receiveShadow=true; grp.add(tray);
-    var well=new THREE.Mesh(new THREE.BoxGeometry(2.2,0.16,1.1), new THREE.MeshStandardMaterial({ color:0x20262d, roughness:0.8, side:THREE.DoubleSide }));
-    well.position.y=0.16; grp.add(well);
-    // two support rails the slide bridges
-    for(var s=0;s<2;s++){ var rail=new THREE.Mesh(new THREE.BoxGeometry(2.2,0.05,0.08), matPlastic(0x596270));
-      rail.position.set(0,0.22,-0.4+s*0.8); grp.add(rail); }
+    var well=new THREE.Mesh(new THREE.BoxGeometry(2.2,0.001,1.1), new THREE.MeshStandardMaterial({ color:0x20262d, roughness:0.8, side:THREE.DoubleSide }));
+    well.position.y=0.2405; fx(well,'decal'); grp.add(well);        // the dark drip well, printed on the tray top
     var label=makeLabel("Staining tray",""); label.position.set(0,0.9,0); grp.add(label);
     grp.userData.label=label; grp.userData.update=function(){};
-    return tagSpec(grp,'staining_tray');
+    var D=dims('staining_tray'), SL=dims('slide_iso8037');
+    var root=fitArt(grp,'staining_tray',{ size:{ height:D.tray_height } });
+    // two RAILS the slide BRIDGES, lengthwise: spaced inside the slide's REAL length so it
+    // rests on both (they stood 80 mm apart under a 76 mm slide that lay along them)
+    var RH=D.rail_height, RW=RH*0.4, SPAN=SL.width*0.6;
+    for(var s=0;s<2;s++){ var rail=new THREE.Mesh(new THREE.BoxGeometry(D.width*0.9,RH,RW), matPlastic(0x596270));
+      rail.position.set(0,D.tray_height+RH/2,(s?1:-1)*SPAN/2); root.add(rail); }
+    // the slide lies ACROSS the rails: its length along z (socket turned 90° about y)
+    addSocket(root,'rails',{ position:new THREE.Vector3(0,D.tray_height+RH,0), quaternion:new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),Math.PI/2) });
+    root.userData.sampleSocket='rails';
+    return tagSpec(root,'staining_tray');
   }
 
   /* vortex mixer — a squat box with a rubber cup on top; the tube presses in and
