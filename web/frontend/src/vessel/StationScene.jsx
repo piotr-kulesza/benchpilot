@@ -1513,6 +1513,12 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     const time = state.clock.elapsedTime
     const stations = stationsRef.current
     if (!stations) return
+    // THE FRAME CLOCK: a timed step's progress is read HERE, every frame, from the
+    // countdown's live() (performance.now — pinned to a fixed step by the capture harness,
+    // so seeded renders stay deterministic). It used to arrive only when the Runner
+    // re-rendered on the 10 Hz countdown tick, so ~83% of frames repeated the last pose.
+    // Everything below (the timeline, driveTimed, the dial) reads this one value.
+    { const tmr = timerRef.current; if (tmr.live) tmr.progress = tmr.live() }
 
     // 1 · ease railX toward the active station's X
     const g = glideRef.current
