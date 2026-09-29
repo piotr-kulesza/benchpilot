@@ -2613,15 +2613,22 @@ export {
     body.position.y=0.31; body.castShadow=true; body.receiveShadow=true; grp.add(body);
     var neck=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.34,0.16,20), matAnodized(0x2a2e34));
     neck.position.y=0.68; grp.add(neck);
-    var cup=new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.19,0.22,20,1,true), matRubber(0x1b1e23));
-    cup.position.y=0.82; grp.add(cup);
-    var cupFloor=new THREE.Mesh(new THREE.CircleGeometry(0.19,20), matRubber(0x1b1e23));
-    cupFloor.rotation.x=-Math.PI/2; cupFloor.position.y=0.71; grp.add(cupFloor);
     var dial=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.06,16), matPlastic(0x8a94a0));
     dial.rotation.x=Math.PI/2; dial.position.set(0.42,0.36,0.53); grp.add(dial);
     var label=makeLabel("Vortex",""); label.position.set(0,1.3,0); grp.add(label);
     grp.userData.label=label; grp.userData.update=function(){};
-    return tagSpec(grp,'vortex_mixer');
+    // body + neck take the table's envelope below the cup head; the CUP is functional,
+    // sized from dims('vortex_mixer').cup_diameter, and a tube presses onto its floor
+    var D=dims('vortex_mixer'), CUP_H=D.height*0.22, CR=D.cup_diameter/2;
+    var root=fitArt(grp,'vortex_mixer',{ size:{ height:D.height-CUP_H } });
+    var y0=D.height-CUP_H, rub=matRubber(0x1b1e23);
+    var cup=new THREE.Mesh(new THREE.CylinderGeometry(CR,CR*0.8,CUP_H,24,1,true), rub);
+    cup.position.y=y0+CUP_H/2; root.add(cup);
+    var cupFloor=new THREE.Mesh(new THREE.CylinderGeometry(CR*0.8,CR*0.8,CUP_H*0.12,24), rub);
+    cupFloor.position.y=y0+CUP_H*0.06; root.add(cupFloor);
+    addSocket(root,'cup',{ position:new THREE.Vector3(0,y0+CUP_H*0.12,0) });
+    root.userData.sampleSocket='cup';
+    return tagSpec(root,'vortex_mixer');
   }
 
   /* bent-glass cell spreader ("hockey stick") for plating on agar — a long glass
