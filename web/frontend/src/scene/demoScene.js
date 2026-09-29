@@ -1799,7 +1799,8 @@ export function undockSample(lift = false) {
 
   /* ---------- reagent bottle (dressing) ---------- */
   function buildBottle(col, labelText, h, capColor){
-    var grp=new THREE.Group(); h=h||1.3;
+    // h: DRAWING height (a proportion of the art) — the bottle's real size is dims('bottle_250')
+    var grp=new THREE.Group(); h=1.3;
     var glass=glassMaterial(); glass.opacity=0.24;
     var bp=[
       new THREE.Vector2(0.001,0), new THREE.Vector2(0.34,0.02), new THREE.Vector2(0.36,0.08),
@@ -1818,7 +1819,7 @@ export function undockSample(lift = false) {
     cap.position.y=h+0.11; grp.add(cap);
     // coloured neck ring under the cap — reads as a reagent-coded seal
     var capRing=new THREE.Mesh(new THREE.TorusGeometry(0.155,0.022,12,32), matPlastic(capColor==null?0x2b7f74:capColor));
-    capRing.rotation.x=Math.PI/2; capRing.position.y=h; grp.add(capRing);
+    capRing.rotation.x=Math.PI/2; capRing.position.y=h-0.04; grp.add(capRing);   // just UNDER the cap (it sat inside the cap's skirt)
     var lc=document.createElement("canvas"); lc.width=256; lc.height=128; var lg=lc.getContext("2d");
     lg.fillStyle="#eef1f4"; lg.fillRect(0,0,256,128);
     lg.fillStyle="#252c34"; lg.font="700 30px 'IBM Plex Sans'"; lg.textAlign="center";
@@ -1839,11 +1840,21 @@ export function undockSample(lift = false) {
       bState.level=lerp(bState.level,bState.tLevel,1-Math.pow(0.02,dt));
       bState.open =lerp(bState.open, bState.tOpen, 1-Math.pow(0.0009,dt));
       liq.scale.y=Math.max(0.001,bState.level);                    // surface drops
-      var o=bState.open;
-      cap.position.set(-o*0.52, bState.capBaseY + o*0.42, o*0.14); // lift + slide aside
-      cap.rotation.z = o*1.2;                                       // tilt aside
+      // unscrew UP off the neck (0-0.3), carry clear (0.3-0.7), SET DOWN upright on the bench
+      // in front of the bottle (0.7-1) — it used to hang tilted in the air beside the neck
+      var o=bState.open, UP=bState.capBaseY+0.42, BZ=0.36+0.17+0.3, e;
+      if(o<0.3){ e=easeInOut(o/0.3); cap.position.set(0, lerp(bState.capBaseY,UP,e), 0); }
+      else if(o<0.7){ e=easeInOut((o-0.3)/0.4); cap.position.set(0, UP, lerp(0,BZ,e)); }
+      else { e=easeInOut((o-0.7)/0.3); cap.position.set(0, lerp(UP,0.11,e), BZ); }
+      cap.rotation.z = 0;
     };
-    return tagSpec(grp,'bottle_250');
+    var root=fitArt(grp,'bottle_250'), F=root.userData.fit;
+    root.userData.mouth=F.toWorld(0,h,0);          // top of the neck
+    root.userData.draw=F.toWorld(0,h*0.3,0);       // where a tip draws from: in the liquid
+    root.userData.capWorldScale=new THREE.Vector3(F.sx,F.sy,F.sz);
+    root.userData.capOnY=F.toWorld(0,h+0.11,0).y;  // the cap's centre when screwed on
+    root.userData.capHalfH=0.11*F.sy;
+    return tagSpec(root,'bottle_250');
   }
 
   /* ---------- muted warning ring (⛔ caution) ---------- */
