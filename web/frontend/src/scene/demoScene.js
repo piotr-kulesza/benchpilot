@@ -15,6 +15,7 @@ import * as THREE from 'three'
 import { resolveScenePreset } from './scenePresets.js'
 import { exitLiftPoint } from '../vessel/sceneRecipe.js'
 import { streams } from './rng.js'
+import { solidBox } from './solids.js'
 
 // Height (world Y) a sample rises to when it leaves a docked instrument, before it
 // glides on — clears the centrifuge lid (its own lift is y≈2.15) and every other device.
@@ -157,7 +158,9 @@ export function undockSample(lift = false) {
   // overlay on a surface), 'granular' (crushed ice a vessel is pushed into).
   function fx(o, kind){ o.userData.fx=kind; return o; }
   // tag a builder's root with its dimensions.json id (what real object it depicts)
-  function tagSpec(grp, id){ grp.userData.spec=id; return grp; }
+  // + its CANONICAL size (solids' extent as built: lids shut, caps on, before any motion)
+  // — the relative-scale check compares this against the real size.
+  function tagSpec(grp, id){ grp.userData.spec=id; grp.userData.canonicalSize=solidBox(grp, grp).getSize(new THREE.Vector3()); return grp; }
 
   function radialTex(stops){
     var c=document.createElement("canvas"); c.width=128; c.height=128;

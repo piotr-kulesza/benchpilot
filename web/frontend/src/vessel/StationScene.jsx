@@ -459,6 +459,8 @@ export function configureStation(st, o) {
       else if (p < 0.88) { x = tiltBase.x; y = tiltBase.y; z = tiltBase.z; rot = TH * (1 - seg(0.8, 0.88)) }
       else { const q = seg(0.88, 1); x = demo.lerp(tiltBase.x, HOME.x, q); z = demo.lerp(tiltBase.z, HOME.z, q); y = demo.lerp(tiltBase.y, HOME.y, q) }
       bottle.position.set(x, y, z); bottle.rotation.set(0, 0, rot)
+      bottle.userData.held = p > 0.1 && p < 0.999 // in hand while lifted/poured (geometry audit: not resting)
+      cap.userData.held = p > 0.0 && p < 0.1
       bottle.userData.setLevel?.(1 - 0.3 * seg(0.5, 0.8))      // the bottle empties as it pours
       stream.visible = p >= 0.5 && p < 0.8
       evolve(seg(0.5, 0.8))                                     // fills only while it pours
@@ -1210,12 +1212,59 @@ function configurePipetteTransfer(st, S, o) {
   }
 }
 
+// The sample's carried contents at EVERY step (pure fold; step N start == step N-1 end),
+// honouring the chosen alternative so a jump still resolves right. Exported so the
+// geometry audit builds the line exactly as the runner does.
+export function lineStateChain(steps, lang, altByStep = {}) {
+  let color = INIT_COLOR
+  let level = INIT_LEVEL
+  return steps.map((s) => {
+    const eff = hasAlternatives(s) ? selectAlternative(s, altByStep[s.index] || 0) : s
+    const prim = (eff.reagents || []).find((r) => r.volume) || (eff.reagents || [])[0]
+    const c = new Color(reagentColor(prim ? reagentName(prim, lang) : null)).getHex()
+    const f = resolveRecipe(eff.action).anim.fill
+    // A SIDE PREPARATION happens in its OWN vessel (built from its reagents in
+    // configureStation) — the travelling sample is untouched. Carry its state forward
+    // unchanged; `start`/`end` describe the IDLE sample, not the mix.
+    if (eff.action === 'prepare') {
+      const held = { color, level }
+      return { start: held, end: held } // don't advance the sample's colour/level
+    }
+    const start = { color, level }
+    const end = stepEnd(eff.action, start, c, f)
+    color = end.color
+    level = end.level
+    return { start, end }
+  })
+}
+
+// The configureStation options for step i — the ONE mapping from a parsed step to a
+// station, shared by the runner's line build and the geometry audit (so they cannot drift).
+export function stationConfig(steps, i, { containers, stateChain, lang = 'en', altByStep = {}, producedInRun }) {
+  const baseStep = steps[i]
+  const altIdx = altByStep[baseStep.index] || 0
+  const container = containers[i] || 'microtube'
+  const prevContainer = i > 0 ? (containers[i - 1] || 'microtube') : null
+  const o = stationParams(baseStep, lang, altIdx, stateChain[i], producedInRun, container)
+  return {
+    o, altIdx, container,
+    opts: {
+      action: o.action, equipment: o.equipment, container, prevContainer, color: o.colorHex, name: o.title, vol: o.vol, seconds: o.seconds,
+      startColor: o.start.color, startLevel: o.start.level, endColor: o.end.color, endLevel: o.end.level, cycles: o.cycles, reagents: o.reagents,
+      drawsFrom: o.drawsFrom, produces: o.produces, text: o.text,
+    },
+  }
+}
+export function producedInRunOf(steps) {
+  return new Set(steps.filter((s) => s.action === 'prepare' && s.produces).map((s) => s.produces))
+}
+
 function useContainers(steps) {
   return useMemo(() => sampleContainerSequence(steps), [steps])
 }
 
 // Per-step build + display params for one station in the line.
-function stationParams(baseStep, lang, altIdx, chain, producedInRun, container) {
+export function stationParams(baseStep, lang, altIdx, chain, producedInRun, container) {
   const step = effectiveStep(baseStep, altIdx) // follow the chosen either/or method
   // the instrument comes from the action + the sample's container + what the step states
   const { equipment } = resolveRecipe(step.action, { container, conditions: stepConditions(step), spin: step.spin })
@@ -1262,28 +1311,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
 
   // The sample's carried contents at EVERY step (pure fold; step N start == step
   // N-1 end), honouring the chosen alternative so a jump still resolves right.
-  const stateChain = useMemo(() => {
-    let color = INIT_COLOR
-    let level = INIT_LEVEL
-    return steps.map((s) => {
-      const eff = hasAlternatives(s) ? selectAlternative(s, altByStep[s.index] || 0) : s
-      const prim = (eff.reagents || []).find((r) => r.volume) || (eff.reagents || [])[0]
-      const c = new Color(reagentColor(prim ? reagentName(prim, lang) : null)).getHex()
-      const f = resolveRecipe(eff.action).anim.fill
-      // A SIDE PREPARATION happens in its OWN vessel (built from its reagents in
-      // configureStation) — the travelling sample is untouched. Carry its state forward
-      // unchanged; `start`/`end` describe the IDLE sample, not the mix.
-      if (eff.action === 'prepare') {
-        const held = { color, level }
-        return { start: held, end: held } // don't advance the sample's colour/level
-      }
-      const start = { color, level }
-      const end = stepEnd(eff.action, start, c, f)
-      color = end.color
-      level = end.level
-      return { start, end }
-    })
-  }, [steps, lang, altByStep])
+  const stateChain = useMemo(() => lineStateChain(steps, lang, altByStep), [steps, lang, altByStep])
 
   // Camera-rail + line state — refs so the frame loop reads them without a re-render.
   const stationsRef = useRef(null)
@@ -1389,21 +1417,12 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     // you watched being made; a `draws_from` pointing at a DO-AHEAD buffer (lifted into
     // the intake checklist, never a station) is just a reagent from a bottle — so it must
     // NOT render as an on-bench mix tube.
-    const producedInRun = new Set(
-      steps.filter((s) => s.action === 'prepare' && s.produces).map((s) => s.produces),
-    )
+    const producedInRun = producedInRunOf(steps)
     const stations = []
     steps.forEach((baseStep, i) => {
-      const altIdx = altByStep[baseStep.index] || 0
-      const container = containers[i] || 'microtube'
-      const prevContainer = i > 0 ? (containers[i - 1] || 'microtube') : null
-      const o = stationParams(baseStep, lang, altIdx, stateChain[i], producedInRun, container)
+      const { o, altIdx, container, opts } = stationConfig(steps, i, { containers, stateChain, lang, altByStep, producedInRun })
       const st = { group: new Group(), updatables: [], reagents: {}, pip: null, enter: null, timeline: null, x: i * SPACING, cen: null, dev: null, vis: 0, _vstate: -1 }
-      configureStation(st, {
-        action: o.action, equipment: o.equipment, container, prevContainer, color: o.colorHex, name: o.title, vol: o.vol, seconds: o.seconds,
-        startColor: o.start.color, startLevel: o.start.level, endColor: o.end.color, endLevel: o.end.level, cycles: o.cycles, reagents: o.reagents,
-        drawsFrom: o.drawsFrom, produces: o.produces, text: o.text,
-      })
+      configureStation(st, opts)
       // MEASURE the framing from the equipment now — group is still at the origin and
       // carries only the instrument (not the label/decal added below), so this is the
       // station's true content extent in local coords.
