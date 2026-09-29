@@ -7,7 +7,7 @@ import { configureStation, stationConfig, lineStateChain, producedInRunOf } from
 import { sampleContainerSequence } from '../vessel/sceneRecipe.js'
 import { inventory, contactDefects, containmentDefects, interpenetrationDefects, relativeScaleDefects } from './geometryAudit.js'
 
-export const POSES = [0, 0.5, 1]
+export const POSES = Array.from({ length: 41 }, (_, k) => k / 40)
 const MOTION_DP = 0.02    // a pose's neighbour for the "is it being carried?" test
 const MOTION_EPS = 1e-3   // world units / radians of change that count as motion
 
@@ -70,6 +70,8 @@ export function auditProtocol(protocol, { poses = POSES } = {}) {
       pr.position.set(st.drawPos.x, st.drawPos.y, st.drawPos.z)
     }
     const record = { index: steps[i].index ?? i, action: opts.action, equipment: opts.equipment, container: opts.container, defects: [] }
+    // a vessel a socket refused is a containment ERROR (it was kept out, not drawn in)
+    for (const e of st.socketErrors || []) record.defects.push({ check: 'containment', kind: 'rejected', object: e.vessel, host: e.host, socket: e.socket, p: 0 })
     for (const p of poses) {
       drive(st, S, p)
       const objs = inventory(st, travellers(st, S))
@@ -98,6 +100,19 @@ export function auditProtocol(protocol, { poses = POSES } = {}) {
 export const CHECKS = ['contact', 'containment', 'interpenetration', 'relativeScale']
 export function distinctKey(stationIndex, d) {
   return [stationIndex, d.check, d.kind || '', d.object || d.a || '', d.host || d.into || d.on || d.b || ''].join('|')
+}
+// accepted exceptions (geometry-exceptions.json): a matching defect leaves the red count;
+// an exception that matches nothing is STALE and counts as a failure
+export function applyExceptions(rows, exceptions, protocolsAudited) {
+  const used = new Set()
+  const kept = []
+  const accepted = []
+  for (const r of rows) {
+    const k = exceptions.findIndex((e) => e.protocol === r.protocol && e.step === r.step && e.check === r.check && e.kind === r.kind && e.object === r.object && e.host === r.host)
+    if (k >= 0) { used.add(k); accepted.push({ ...r, exception: exceptions[k] }) } else kept.push(r)
+  }
+  const stale = exceptions.filter((e, k) => !used.has(k) && protocolsAudited.includes(e.protocol))
+  return { rows: kept, accepted, stale }
 }
 export function summarize(protocolResults) {
   const counts = Object.fromEntries(CHECKS.map((c) => [c, 0]))

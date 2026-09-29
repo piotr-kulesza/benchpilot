@@ -15,9 +15,17 @@ export function isSolidMesh(o) {
 }
 
 // every solid mesh under root (visible, un-tagged)
+// A vessel riding a socket is reparented INTO its host (a rotor slot, a reader carrier):
+// it is a GUEST, not part of the host — the walk stops at any descendant that carries its
+// own placement (a builder's art shares its root's userData, so it is not a guest).
 export function solidMeshes(root) {
   const out = []
-  root.traverse((o) => { if (isSolidMesh(o) && effectivelyVisible(o, root)) out.push(o) })
+  const walk = (o) => {
+    if (o !== root && o.userData && o.userData.placement && o.userData !== root.userData) return
+    if (isSolidMesh(o) && effectivelyVisible(o, root)) out.push(o)
+    for (const c of o.children) walk(c)
+  }
+  walk(root)
   return out
 }
 

@@ -10,7 +10,8 @@ import fs from 'fs'
 import path from 'path'
 import { installHeadless } from '../src/scene/headless.js'
 installHeadless()
-const { auditProtocol, summarize, CHECKS } = await import('../src/scene/stationAudit.js')
+const { auditProtocol, summarize, applyExceptions, CHECKS } = await import('../src/scene/stationAudit.js')
+const EXC = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'src', 'scene', 'geometry-exceptions.json'), 'utf8'))
 const { pivotDefect } = await import('../src/scene/geometryAudit.js')
 const { MODELS } = await import('../src/dev/registry.js')
 const demo = await import('../src/scene/demoScene.js')
@@ -26,13 +27,15 @@ for (const meta of index) {
   const protocol = JSON.parse(fs.readFileSync(path.join(DIR, meta.file), 'utf8'))
   results.push({ id: meta.id, stations: auditProtocol(protocol) })
 }
-const { counts, rows } = summarize(results)
+const all = summarize(results)
+const { rows, accepted, stale } = applyExceptions(all.rows, EXC.exceptions, results.map((r) => r.id))
+const counts = Object.fromEntries(CHECKS.map((c) => [c, rows.filter((r) => r.check === c).length]))
 demo.buildSharedMaps()
 const pivots = MODELS.map((m) => ({ id: m.id, issues: pivotDefect(m.build()) })).filter((r) => r.issues)
 const steps = results.reduce((n, r) => n + r.stations.length, 0)
 
 if (JSON_OUT) {
-  console.log(JSON.stringify({ steps, counts, pivots, rows }, null, 2))
+  console.log(JSON.stringify({ steps, counts, pivots, rows, accepted, stale }, null, 2))
 } else {
   console.log(`\nbenchpilot geometry audit — ${results.length} protocols, ${steps} stations\n`)
   const fmt = (d) => {
@@ -49,6 +52,11 @@ if (JSON_OUT) {
   }
   console.log(`\npivot convention (origin = centre of base): ${pivots.length} of ${MODELS.length} models violate`)
   for (const p of pivots) console.log(`    ${p.id}: ${p.issues.join('; ')}`)
+  if (accepted.length || stale.length) {
+    console.log(`\naccepted exceptions (src/scene/geometry-exceptions.json) — NOT counted`)
+    for (const a of accepted) console.log(`    ${a.protocol} step ${a.step} p=${a.p}: ${a.object} ${a.kind} by ${a.host} (since ${a.exception.added}; clears when ${a.exception.clears_when})`)
+    for (const e of stale) console.log(`    ✗ STALE: ${e.protocol} step ${e.step} ${e.check}/${e.kind} no longer occurs — delete it (counted as a failure)`)
+  }
   console.log(`\nred counts: ${CHECKS.map((c) => `${c} ${counts[c]}`).join(' · ')} · pivot ${pivots.length}\n`)
 }
-process.exitCode = rows.length || pivots.length ? 1 : 0
+process.exitCode = rows.length || pivots.length || stale.length ? 1 : 0

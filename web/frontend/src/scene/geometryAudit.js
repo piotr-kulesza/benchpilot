@@ -15,7 +15,7 @@
 //                      real-world counterparts (dimensions.json) within SCALE_TOLERANCE.
 //
 // Plus pivotAudit: a freshly built model's origin is the centre of its base.
-import { Raycaster, Vector3, Matrix4, Box3, DoubleSide, BufferAttribute } from 'three'
+import { Raycaster, Vector3, Matrix4, Box3, DoubleSide, BufferAttribute, BufferGeometry } from 'three'
 import { MeshBVH } from 'three-mesh-bvh'
 import { solidMeshes, solidBox } from './solids.js'
 import { dims, clearance } from './dims.js'
@@ -24,6 +24,7 @@ export const EPS = clearance('contact_epsilon') // ½ mm in world units
 export const SCALE_TOLERANCE = 1.3               // a pair may be off its real ratio by ≤ 30 %
 
 const categoryOf = (o) => (o.spec ? dims(o.spec).category : 'unknown')
+function hasSpec(n) { let f = false; n.traverse((c) => { if (c.userData && c.userData.spec) f = true }); return f }
 
 // ── object inventory ────────────────────────────────────────────────────────────────
 // The objects of a station at one pose: every station prop (children of st.group that
@@ -33,6 +34,8 @@ export function inventory(st, extra = []) {
   const add = (node, role) => {
     if (!node || node.isLight || node.isSprite) return
     if (!solidMeshes(node).length) return
+    // a spec-less assembly of real objects (a gel rig = tank + power supply): its parts
+    if (!node.userData?.spec && node.children.some((c) => hasSpec(c))) { for (const c of node.children) add(c, role); return }
     const spec = node.userData?.spec || null
     objs.push({ node, spec, role, name: spec || node.name || node.type, category: spec ? dims(spec).category : 'unknown' })
   }
@@ -46,8 +49,9 @@ const _ray = new Raycaster()
 const _v = new Vector3()
 const DOWN = new Vector3(0, -1, 0)
 
-function lowestFootprint(node) {
-  // centroid (x,z) of the solid vertices within EPS of the lowest point, and that lowest y
+// the object's RESTING FACE: its lowest y and up to ~24 (x,z) sample points of the solid
+// vertices within EPS of it (a slide bridging two rails touches at its ends, not its centre)
+function restingFace(node) {
   node.updateWorldMatrix(true, true)
   let minY = Infinity
   const pts = []
@@ -57,13 +61,16 @@ function lowestFootprint(node) {
     for (let i = 0; i < pos.count; i++) {
       _v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld)
       if (_v.y < minY - EPS) { minY = _v.y; pts.length = 0 }
-      if (_v.y <= minY + EPS) pts.push(_v.x, _v.z)
+      if (_v.y <= minY + EPS) pts.push([_v.x, _v.z])
     }
   }
+  const step = Math.max(1, Math.floor(pts.length / 24))
+  const sample = pts.filter((_, k) => k % step === 0)
+  // plus the centroid
   let x = 0, z = 0
-  for (let i = 0; i < pts.length; i += 2) { x += pts[i]; z += pts[i + 1] }
-  const n = pts.length / 2 || 1
-  return { x: x / n, z: z / n, y: minY }
+  for (const p of pts) { x += p[0]; z += p[1] }
+  if (pts.length) sample.push([x / pts.length, z / pts.length])
+  return { y: minY, pts: sample }
 }
 
 function castDown(x, z, fromY, meshes) {
@@ -78,25 +85,40 @@ function castDown(x, z, fromY, meshes) {
 // objects: inventory(); resting(o) → true when o is at rest (not carried) at this pose
 export function contactDefects(objects, resting = () => true) {
   const out = []
+  const lowOf = new Map(objects.map((q) => [q, solidBox(q.node).min.y]))
+  const owner = (mesh) => objects.find((q) => { let f = false; q.node.traverse((n) => { if (n === mesh) f = true }); return f })
   for (const o of objects) {
     // tools and anything the choreography says is IN HAND are not resting on anything
     if (o.category === 'tool' || o.node.userData.held || !resting(o)) continue
-    const low = lowestFootprint(o.node)
-    if (!isFinite(low.y)) continue
+    // SEATED IN A SOCKET: the socket is the support — the vessel's base centre (its origin)
+    // must be ON the socket point (a vertical ray cannot judge a 45° rotor slot)
+    const pl = o.node.userData.placement
+    if (pl && pl.host && pl.host !== 'bench' && pl.host.userData?.sockets?.[pl.socket]) {
+      const a = pl.host.userData.sockets[pl.socket]
+      a.updateWorldMatrix(true, false); o.node.updateWorldMatrix(true, false)
+      const d = new Vector3().setFromMatrixPosition(a.matrixWorld).distanceTo(new Vector3().setFromMatrixPosition(o.node.matrixWorld))
+      if (d > EPS) out.push({ check: 'contact', kind: 'off-socket', object: o.name, on: pl.socket, gap: +d.toFixed(4) })
+      continue
+    }
+    const face = restingFace(o.node)
+    if (!isFinite(face.y)) continue
     const top = solidBox(o.node).max.y
     const others = objects.filter((q) => q !== o).flatMap((q) => solidMeshes(q.node).filter((m) => !m.isInstancedMesh))
-    const hits = castDown(low.x, low.z, top + 0.01, others)
-    // a surface passing through o only counts if its owner reaches LOWER than o — the thing
-    // o sits in or on. (A tube resting in a block is not "the block sunk into the tube".)
-    const lowOf = new Map(objects.map((q) => [q, solidBox(q.node).min.y]))
-    const ownerLow = (mesh) => { const q = objects.find((q) => { let f = false; q.node.traverse((n) => { if (n === mesh) f = true }); return f }); return q ? lowOf.get(q) : Infinity }
-    const through = hits.filter((h) => h.point.y > low.y + EPS && h.point.y < top - EPS && ownerLow(h.object) < low.y - EPS)
-    const below = hits.filter((h) => h.point.y <= low.y + EPS)
-    const support = below.length ? below[0].point.y : 0 // nothing under it → the bench
-    const gap = low.y - support
-    if (low.y < -EPS) out.push({ check: 'contact', kind: 'below-bench', object: o.name, gap: +low.y.toFixed(4) })
-    else if (through.length) out.push({ check: 'contact', kind: 'sunk', object: o.name, into: ownerName(through[0].object, objects), depth: +(through[0].point.y - low.y).toFixed(4) })
-    else if (gap > EPS) out.push({ check: 'contact', kind: 'floating', object: o.name, on: below.length ? ownerName(below[0].object, objects) : 'bench', gap: +gap.toFixed(4) })
+    let bestGap = Infinity, on = 'bench', sunk = null
+    for (const [x, z] of face.pts) {
+      const hits = castDown(x, z, top + 0.01, others)
+      // a surface passing through o only counts if its owner reaches LOWER than o — the thing
+      // o sits in or on. (A tube resting in a block is not "the block sunk into the tube".)
+      const through = hits.find((h) => h.point.y > face.y + EPS && h.point.y < top - EPS && (lowOf.get(owner(h.object)) ?? Infinity) < face.y - EPS)
+      if (through && !sunk) sunk = { into: owner(through.object)?.name || '?', depth: through.point.y - face.y }
+      const below = hits.find((h) => h.point.y <= face.y + EPS)
+      const support = below ? below.point.y : 0 // nothing under it → the bench
+      const gap = face.y - support
+      if (gap < bestGap) { bestGap = gap; on = below ? (owner(below.object)?.name || '?') : 'bench' }
+    }
+    if (face.y < -EPS) out.push({ check: 'contact', kind: 'below-bench', object: o.name, gap: +face.y.toFixed(4) })
+    else if (sunk) out.push({ check: 'contact', kind: 'sunk', object: o.name, into: sunk.into, depth: +sunk.depth.toFixed(4) })
+    else if (bestGap > EPS) out.push({ check: 'contact', kind: 'floating', object: o.name, on, gap: +bestGap.toFixed(4) })
   }
   return out
 }
@@ -110,15 +132,33 @@ function ownerName(mesh, objects) {
 const bvhCache = new WeakMap()
 function bvhOf(geometry) {
   let b = bvhCache.get(geometry)
-  if (!b) { b = new MeshBVH(geometry, { indirect: true }); bvhCache.set(geometry, b) }
+  if (!b) { b = new MeshBVH(clean(geometry), { indirect: true }); bvhCache.set(geometry, b) }
   return b
 }
-// three-mesh-bvh's triangle test wants an indexed "other" geometry (Extrude/Shape are not)
-const indexedCache = new WeakMap()
-function indexed(g) {
-  if (g.index) return g
-  let c = indexedCache.get(g)
-  if (!c) { c = g.clone(); const n = g.attributes.position.count; const idx = new (n > 65535 ? Uint32Array : Uint16Array)(n); for (let i = 0; i < n; i++) idx[i] = i; c.setIndex(new BufferAttribute(idx, 1)); indexedCache.set(g, c) }
+// The triangle test is run on a CLEAN copy of each geometry: indexed (three-mesh-bvh wants
+// an indexed "other" geometry; Extrude/Shape are not) and with ZERO-AREA triangles removed.
+// A lathe's profile points on the axis make degenerate triangles, and three-mesh-bvh reports
+// those as intersecting whatever is near (asymmetrically: A∩B true, B∩A false) — a false
+// positive, not geometry.
+const cleanCache = new WeakMap()
+const _a = new Vector3(), _b = new Vector3(), _c = new Vector3(), _ab = new Vector3(), _ac = new Vector3()
+function clean(g) {
+  let c = cleanCache.get(g)
+  if (c) return c
+  const pos = g.attributes.position
+  const n = g.index ? g.index.count : pos.count
+  const at = (k) => (g.index ? g.index.getX(k) : k)
+  const keep = []
+  for (let k = 0; k + 2 < n; k += 3) {
+    const i0 = at(k), i1 = at(k + 1), i2 = at(k + 2)
+    _a.fromBufferAttribute(pos, i0); _b.fromBufferAttribute(pos, i1); _c.fromBufferAttribute(pos, i2)
+    const area2 = _ab.subVectors(_b, _a).cross(_ac.subVectors(_c, _a)).lengthSq()
+    if (area2 > 1e-18) keep.push(i0, i1, i2)
+  }
+  c = new BufferGeometry()
+  c.setAttribute('position', pos)
+  c.setIndex(new BufferAttribute(new (pos.count > 65535 ? Uint32Array : Uint16Array)(keep), 1))
+  cleanCache.set(g, c)
   return c
 }
 const _mA = new Matrix4(), _mB = new Matrix4(), _shr = new Matrix4(), _t = new Matrix4()
@@ -143,7 +183,7 @@ export function objectsIntersect(A, B) {
       _bB.copy(mb.geometry.boundingBox).applyMatrix4(mb.matrixWorld)
       if (!_bA.intersectsBox(_bB)) continue
       _mB.copy(mb.matrixWorld).invert().multiply(_mA) // A-geometry → B-geometry space
-      if (bvhOf(mb.geometry).intersectsGeometry(indexed(ma.geometry), _mB)) return { a: ma, b: mb }
+      if (bvhOf(mb.geometry).intersectsGeometry(clean(ma.geometry), _mB)) return { a: ma, b: mb }
     }
   }
   return null
@@ -164,7 +204,9 @@ export function containmentDefects(objects) {
     for (const h of objects.filter(isHost)) {
       if (!envelopeContains(h, v)) continue
       const pl = v.node.userData.placement
-      if (!pl || pl.host !== h.node) out.push({ check: 'containment', kind: 'no-socket', object: v.name, host: h.name })
+      // a vessel IN HAND passing into an instrument (through a freezer's opening, down onto a
+      // tank platform) is not seated yet; one AT REST inside it must be in a socket
+      if ((!pl || pl.host !== h.node) && !v.node.userData.held) out.push({ check: 'containment', kind: 'no-socket', object: v.name, host: h.name })
       else if (!dims(h.spec).accepts.includes(v.spec)) out.push({ check: 'containment', kind: 'rejected', object: v.name, host: h.name, socket: pl.socket })
       if (objectsIntersect(v, h)) out.push({ check: 'containment', kind: 'through-wall', object: v.name, host: h.name })
     }
@@ -223,6 +265,12 @@ export function pivotDefect(node) {
   const c = b.getCenter(new Vector3()), sz = b.getSize(new Vector3())
   const tol = (ext) => Math.max(EPS, 0.02 * ext)
   const issues = []
+  // a TOOL held by its working tip (a pipette) is built with the tip at the origin — its
+  // hook makes it asymmetric, so its footprint is not centred on it; the base still is y=0
+  if (node.userData.pivotAt === 'tip') {
+    if (Math.abs(b.min.y) > tol(sz.y)) issues.push(`tip at y=${b.min.y.toFixed(3)}`)
+    return issues.length ? issues : null
+  }
   if (Math.abs(b.min.y) > tol(sz.y)) issues.push(`base at y=${b.min.y.toFixed(3)} (height ${sz.y.toFixed(3)})`)
   if (Math.abs(c.x) > tol(sz.x)) issues.push(`footprint centre x=${c.x.toFixed(3)} (width ${sz.x.toFixed(3)})`)
   if (Math.abs(c.z) > tol(sz.z)) issues.push(`footprint centre z=${c.z.toFixed(3)} (depth ${sz.z.toFixed(3)})`)

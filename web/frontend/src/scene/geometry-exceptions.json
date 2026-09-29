@@ -1,0 +1,17 @@
+{
+  "_doc": "Geometry-audit defects accepted EXPLICITLY, each with a date, what it does on screen, and the condition that clears it. geometry.audit.test.js and scripts/geometry-audit.mjs move a matching defect out of the red count; an exception that no longer matches any defect is itself a failure (so it is deleted, never left to rot).",
+  "exceptions": [
+    {
+      "protocol": "pcr",
+      "step": 5,
+      "check": "containment",
+      "kind": "rejected",
+      "object": "microtube_1_5",
+      "host": "thermocycler_96",
+      "added": "2026-09-29",
+      "reason": "The parsed PCR names no container for its reaction (step 1 'prepare' defaults to microtube, carried forward), so a 1.5 mL tube reaches the thermocycler. A 96-well block takes 0.2 mL PCR tubes only: the socket refuses it.",
+      "effect": "The tube waits on the bench beside the cycler while the lid closes and the CYCLE counter runs on an empty block — never drawn inside a well it does not fit.",
+      "clears_when": "The container vocabulary gains a 0.2 mL PCR tube (pcr_tube_0_2 is already in dimensions.json) and pcr.json is re-parsed so the reaction is assembled in one."
+    }
+  ]
+}
