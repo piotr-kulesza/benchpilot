@@ -67,6 +67,23 @@ These govern every change to the 3D. They are correctness rules, not taste:
   `src` (a listed standard / catalogue spec), `est` (estimated — says on what basis) or
   `derived`. **Never type a size into a builder; never invent a number without `est`.**
 - Layout gaps (`bench_gap`, `socket_fit`, `lift`, `contact_epsilon`) are also in the file.
+- **Pivot:** every builder returns its model with the origin at the centre of its base
+  (tools held by a tip — the pipette — have the tip as origin, `userData.pivotAt='tip'`).
+  `fitArt(art, id)` in `demoScene.js` scales a builder's drawing to the table envelope and
+  recentres it; functional geometry (bores, slots, stages, shelves) is authored in world
+  units from the table on the returned root.
+- **Sockets, not coordinates** (`src/scene/sockets.js`): instruments declare named mount
+  points (`addSocket`) accepting table ids; a vessel is `placeInto` a socket — a class the
+  socket does not accept is a `SocketError` / `st.socketErrors`, never a render. Station
+  bench items are placed by `benchPlace` / `benchSlot` (real footprints + `bench_gap`).
+- **Geometry audit** (`src/scene/geometryAudit.js`, `stationAudit.js`): contact,
+  containment, interpenetration, relative scale over every station × 41 poses, plus the
+  pivot check — in `npm test` (`geometry.*.test.js`) and `npx vite-node
+  scripts/geometry-audit.mjs`. Accepted defects: `src/scene/geometry-exceptions.json`
+  (dated, with a clearing condition; a stale one fails). Mark non-solids `fx(mesh, kind)`
+  and in-hand objects `userData.held`.
+- **Scale sheet:** `?scale=1` (shots group `scale`) — every model at real size on one
+  ground line, orthographic, with a ruler. Look at it after any builder change.
 
 ## The player — `web/frontend/` (Vite + React 18)
 
