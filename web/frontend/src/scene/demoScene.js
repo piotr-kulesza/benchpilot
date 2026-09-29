@@ -752,7 +752,9 @@ export function undockSample(lift = false) {
       if(st.fill<0.01){ fluid.visible=false; }
       else{ fluid.visible=true; var h=st.fill*0.66; fluid.scale.y=h/0.6; fluid.position.y=-0.8+h/2; }
     };
-    return tagSpec(grp,'pipette_p200');
+    // a pipette is positioned by its TIP: its origin is the tip end (the lowest point),
+    // not its footprint centre (the finger hook makes it asymmetric) — see PIVOT_AT_TIP
+    return tagSpec(fitArt(grp,'pipette_p200',{ pivot:'origin' }),'pipette_p200');
   }
 
   /* ---------- RNeasy spin column ---------- */
