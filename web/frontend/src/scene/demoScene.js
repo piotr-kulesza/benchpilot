@@ -19,9 +19,8 @@ import { solidBox } from './solids.js'
 import { dims, clearance } from './dims.js'
 import { addSocket, placeInto, placeOnBench, clearPlacement, getSocket, socketPose, canPlace } from './sockets.js'
 
-// Height (world Y) a sample rises to when it leaves a docked instrument, before it
-// glides on — clears the centrifuge lid (its own lift is y≈2.15) and every other device.
-const EXIT_CLEAR_Y = 2.15
+// A sample leaving a docked instrument rises straight up to its OWN exit height (set when
+// it docks: the host's top + the vessel's height + the lift clearance) before it glides on.
 
 let renderer = null
 export function setRenderer(r) { renderer = r }
@@ -89,7 +88,7 @@ export function undockSample(lift = false) {
     if (wasDocked) {
       v.userData.docked = false; v.rotation.set(0, 0, 0); v.scale.setScalar(1)
       if (lift) {
-        const lp = exitLiftPoint(v.position, EXIT_CLEAR_Y)
+        const lp = exitLiftPoint(v.position, v.userData.exitY != null ? v.userData.exitY : v.position.y)
         v.userData.exitLift = (v.userData.exitLift || new THREE.Vector3()).set(lp.x, lp.y, lp.z)
       } else {
         v.userData.exitLift = null
@@ -839,7 +838,7 @@ export function undockSample(lift = false) {
     return tagSpec(root,'spin_column_mini');
   }
 
-  /* ---------- anodized cold block ---------- */
+  /* ---------- dry heat block (ThermoStat-class) ---------- */
   function buildColdBlock(){
     // REAL SIZE from dims('dry_block_heater'): a dark anthracite housing with a brushed
     // aluminium block on top and ONE row of tube bores. The bores are REAL openings — the
@@ -1288,7 +1287,7 @@ export function undockSample(lift = false) {
     return root;
   }
 
-  /* ---------- open ice bucket (cold storage — keep on ice / −80 °C) ---------- */
+  /* ---------- open ice bucket (keep on ice) ---------- */
   function buildIceBucket(){
     // REAL SIZE from dims('ice_bucket_4l'): an open insulated tub, the tube stands on its
     // FLOOR (socket 'bed') and crushed ice is packed round it to ice_depth. (The old tube
@@ -2066,121 +2065,130 @@ export {
   // receiving vessel fills only inside it — never before the tip arrives.
   var DISPENSE_FROM=0.68, DISPENSE_TO=0.87;
   function dispenseProgress(p){ return easeInOut(clamp((p-DISPENSE_FROM)/(DISPENSE_TO-DISPENSE_FROM),0,1)); }
-  var TIP_DROP=0.62;                          // tip end below the pipette origin: 0.86 × PIP_SCALE 0.72
+  // Where the tip cruises: clear of the tallest thing on this station's bench (the pipette
+  // and its stand excluded), plus the lift clearance. Measured, never a typed altitude.
+  function cruiseY(st, from, to){
+    var top=Math.max(from.y, to.y);
+    st.group.children.forEach(function(c){ if(c===st.pip||c===st.stand||c.isLight||c.isSprite||c.userData.fx) return;
+      var b=solidBox(c, st.group); if(!b.isEmpty()) top=Math.max(top,b.max.y); });
+    var S=getSample(); if(S) S.vessels.forEach(function(v){ if(v.visible && v.parent===scene){ var b=solidBox(v); if(!b.isEmpty()) top=Math.max(top,b.max.y); } });
+    return top+clearance('lift');
+  }
+  // THE PIPETTE RUN (world units, origin = the tip). From its stand: lift off the cradle,
+  // out of its open front, up to the cruise height; over the SOURCE and down into its
+  // liquid (`from` = the tip's draw point) to aspirate; back up; cruise level to over the
+  // destination; down to `dipDepth` (straight) or in along a canted neck (angled);
+  // dispense; withdraw. The source's cap must be off from 0.03 (the tip goes in at 0.16).
   function pipetteRun(st, from, to, p, opts){
     opts=opts||{};
     var pip=st.pip; if(!pip) return;
-    // GEOMETRY-SAFE motion (bug fix): NEVER cross laterally at rim height (that
-    // pushed the tip through the vessel wall). Instead: draw at the bottle, travel
-    // LEVEL and HIGH — well clear of any vessel top — to directly above the mouth,
-    // then descend into the mouth, dispense, and withdraw.
-    var draw=0.26, travel=0.50;                 // phase boundaries
-    var TRAVEL_Y=Math.max(from.y,to.y)+2.0;     // cruise altitude, above every vessel
-
-    if(opts.approach==='angled'){
-      // A T-FLASK's canted neck (Stage-12 #3): `to` IS the neck MOUTH; the tip must
-      // enter THROUGH it, tilted to the neck cant, and descend ALONG the neck axis to
-      // the medium at the base corner — NOT straight down onto the flat top face.
-      var TILT = opts.tilt!=null?opts.tilt:-0.62; // match the neck's cant exactly
-      var depth = opts.depth!=null?opts.depth:0.95; // how far down the axis to the medium
-      var ax=Math.sin(-TILT), ay=Math.cos(-TILT); // neck axis (points up-and-out of the mouth)
-      // The tip comes in along the neck axis from a SHORT standoff just out of the mouth,
-      // not from cruise height: following the axis all the way up put the pipette ~1.4
-      // units out past the neck and off the top of the frame. So: cruise high and level
-      // to directly above the standoff, drop straight down to it (tilting in), then in.
-      var STANDOFF = opts.standoff!=null?opts.standoff:0.75;
-      var dTop=STANDOFF;                          // axis distance of the entry standoff
-      // a flat flask is low: cruise just clear of the source and the standoff, not at the
-      // tube-scale +2.0 (which, with the body above the tip, left the frame at the top)
-      TRAVEL_Y=Math.max(from.y+0.9, to.y+ay*dTop+0.45);
-      // place the pipette so its TIP lands at mouth + axis*d, body tilted by `rot`
-      function tipAxis(d, rot){
-        var tx=to.x+ax*d, ty=to.y+ay*d, tz=to.z;
-        pip.position.set(tx - Math.sin(rot)*TIP_DROP, ty + Math.cos(rot)*TIP_DROP, tz);
-        pip.rotation.z=rot;
-      }
-      if(p<draw){                               // A · at the bottle: rise & aspirate
-        var qa=easeInOut(p/draw);
-        pip.rotation.z=0;
-        pip.position.set(from.x, lerp(from.y+0.72, TRAVEL_Y, qa), from.z);
-        pip.userData.setFluid(qa*(opts.fill||0.8)); pip.userData.setColor(opts.color||COL.lysis);
-      } else if(p<travel){                       // B · cruise HIGH & LEVEL to above the standoff
-        var qb=easeInOut((p-draw)/(travel-draw));
-        var sx=to.x+ax*dTop, sy=to.y+ay*dTop;
-        pip.rotation.z=0;
-        pip.position.set(lerp(from.x, sx, qb), TRAVEL_Y, lerp(from.z, to.z, qb));
-        pip.userData.setFluid(opts.fill||0.8);
-      } else if(p<travel+0.08){                   // B2 · straight down to the standoff, tilting to the cant
-        var qd=easeInOut((p-travel)/0.08);
-        var rot=TILT*qd;
-        var sx2=to.x+ax*dTop, sy2=to.y+ay*dTop;
-        var tipY=lerp(TRAVEL_Y-TIP_DROP, sy2, qd);
-        pip.position.set(sx2 - Math.sin(rot)*TIP_DROP, tipY + Math.cos(rot)*TIP_DROP, to.z);
-        pip.rotation.z=rot;
-        pip.userData.setFluid(opts.fill||0.8);
-      } else {                                   // C · in along the neck axis into the medium, then back out
-        var qc=(p-travel-0.08)/(1-travel-0.08);
-        // in (0-0.35), HOLD at depth while it dispenses (0.35-0.7), back out (0.7-1):
-        // the drop leaves only when the tip is in the medium, never above the vessel
-        var s = qc<0.35 ? easeInOut(qc/0.35) : qc<0.7 ? 1 : easeInOut(1-(qc-0.7)/0.3);
-        tipAxis(lerp(dTop, -depth, s), TILT);
-        pip.userData.setFluid((1-clamp((qc-0.35)/0.35,0,1))*(opts.fill||0.8));
-      }
+    var rest=st.pipRestPos||pip.position, out=(st.stand&&st.stand.userData.hookOut)||0;
+    var lift=clearance('lift');
+    var CRUISE=cruiseY(st, from, to);
+    var draw=0.26, travel=0.50;
+    var angled=opts.approach==='angled';
+    var TILT=0, ax=0, ay=1, dTop=0;
+    if(angled){
+      TILT=opts.tilt!=null?opts.tilt:-0.62;            // the neck's cant (from the vessel)
+      ax=Math.sin(-TILT); ay=Math.cos(-TILT);          // neck axis: up-and-out of the mouth
+      dTop=opts.standoff!=null?opts.standoff:(opts.depth||0);
+    }
+    // the tip on the destination: where it dispenses
+    function tipAt(x,y,z,rot){ pip.position.set(x,y,z); pip.rotation.set(0,0,rot||0); }
+    var fill=opts.fill||0.8;
+    if(p<draw){                                    // A · stand → source → aspirate
+      var q=p/draw;
+      pip.userData.setColor(opts.color||COL.lysis);
+      if(q<0.12){ var a=easeInOut(q/0.12); tipAt(rest.x, rest.y+a*lift, rest.z); pip.userData.setFluid(0); }                  // lift off the cradle
+      else if(q<0.22){ var b=easeInOut((q-0.12)/0.1); tipAt(rest.x, rest.y+lift, rest.z+b*out); pip.userData.setFluid(0); }  // out of its open front
+      else if(q<0.34){ var c=easeInOut((q-0.22)/0.12); tipAt(rest.x, lerp(rest.y+lift,CRUISE,c), rest.z+out); pip.userData.setFluid(0); } // up to cruise
+      else if(q<0.46){ var e=easeInOut((q-0.34)/0.12); tipAt(lerp(rest.x,from.x,e), CRUISE, rest.z+out); pip.userData.setFluid(0); } // along the FRONT lane, clear of the stand
+      else if(q<0.52){ var e2=easeInOut((q-0.46)/0.06); tipAt(from.x, CRUISE, lerp(rest.z+out,from.z,e2)); pip.userData.setFluid(0); } // in over the source
+      else { var f=(q-0.52)/0.48, s=f<0.4?easeInOut(f/0.4):f<0.6?1:easeInOut(1-(f-0.6)/0.4);
+        tipAt(from.x, lerp(CRUISE, from.y, s), from.z);                               // down in, draw, up
+        pip.userData.setFluid(clamp((f-0.3)/0.3,0,1)*fill); }
       return;
     }
-
-    // STRAIGHT approach (tube / well / dish): descend vertically into the mouth.
-    // how far the tip descends is PER-CONTAINER (opts.dipDepth = the container's
-    // entryPoint): a spin column stops above its frit, a microtube goes near its base.
-    // Never a shared 0.62 tube constant that plunges the tip through the column bed.
-    var DIP_Y=to.y+(opts.dipDepth!=null?opts.dipDepth:0.62);  // tip lowered into the mouth
-    var pos=new THREE.Vector3();
-    if(p<draw){                                 // A · at the bottle: rise & aspirate
-      var q=easeInOut(p/draw);
-      pos.set(from.x, lerp(from.y+0.72, TRAVEL_Y, q), from.z);
-      pip.rotation.z=0;
-      pip.userData.setFluid(q*(opts.fill||0.8)); pip.userData.setColor(opts.color||COL.lysis);
-    } else if(p<travel){                         // B · cruise HIGH & LEVEL over the mouth
-      var q2=easeInOut((p-draw)/(travel-draw));
-      pos.set(lerp(from.x,to.x,q2), TRAVEL_Y, lerp(from.z,to.z,q2));
-      pip.rotation.z=0;
-      pip.userData.setFluid(opts.fill||0.8);
-    } else {                                     // C · descend STRAIGHT DOWN into the mouth
-      var q3=(p-travel)/(1-travel);
-      // down (0-0.35), HOLD in the vessel while dispensing (0.35-0.7), up (0.7-1): the
-      // fluid only drains — and the drop only shows — while the tip is inside the vessel
-      var y = q3<0.35 ? lerp(TRAVEL_Y,DIP_Y,easeInOut(q3/0.35))
-            : q3<0.7  ? DIP_Y
-                      : lerp(DIP_Y,TRAVEL_Y,easeInOut((q3-0.7)/0.3));
-      pos.set(to.x, y, to.z);
-      pip.rotation.z=0;
-      pip.userData.setFluid((1-clamp((q3-0.35)/0.35,0,1))*(opts.fill||0.8));
+    if(p<travel){                                  // B · cruise level (front lane) to over the destination
+      var qb=(p-draw)/(travel-draw), zl=rest.z+out;
+      var tx=angled?to.x+ax*dTop:to.x, tz=to.z;
+      if(qb<0.2) tipAt(from.x, CRUISE, lerp(from.z,zl,easeInOut(qb/0.2)));
+      else if(qb<0.8) tipAt(lerp(from.x,tx,easeInOut((qb-0.2)/0.6)), CRUISE, zl);
+      else tipAt(tx, CRUISE, lerp(zl,tz,easeInOut((qb-0.8)/0.2)));
+      pip.userData.setFluid(fill);
+      return;
     }
-    pip.position.copy(pos);                 // LOCAL — resident pipette stays at its station
+    var q3=(p-travel)/(1-travel);
+    // down (0-0.35), HOLD while dispensing (0.35-0.7), back up (0.7-1): the drop leaves
+    // only while the tip is inside the vessel
+    var sd=q3<0.35?easeInOut(q3/0.35):q3<0.7?1:easeInOut(1-(q3-0.7)/0.3);
+    pip.userData.setFluid((1-clamp((q3-0.35)/0.35,0,1))*fill);
+    if(angled){
+      // straight down to the standoff just out of the mouth while tilting to the cant,
+      // then in ALONG the neck axis to the medium
+      var sy=to.y+ay*dTop, sx=to.x+ax*dTop, depth=opts.depth||0;
+      if(sd<0.4){ var k=sd/0.4; tipAt(sx, lerp(CRUISE,sy,k), to.z, TILT*k); }
+      else { var d=lerp(dTop,-depth,(sd-0.4)/0.6); tipAt(to.x+ax*d, to.y+ay*d, to.z, TILT); }
+    } else {
+      var DIP_Y=to.y+(opts.dipDepth!=null?opts.dipDepth:0);
+      tipAt(to.x, lerp(CRUISE,DIP_Y,sd), to.z);
+    }
   }
 
-  // shared local layout anchors (per-station, in the station's local space)
-  var PIP_STAND = {x:-2.1, y:0, z:1.25};
-  var PIP_REST  = new THREE.Vector3(-2.1, 1.2, 1.25);
+  // ── BENCH LAYOUT: nothing on a station's bench is placed by typed coordinates. The
+  // SUBJECT (the sample, or the instrument it goes in) stands at the origin; every other
+  // item goes to its LEFT or RIGHT, one bench_gap clear of everything already there,
+  // centred on the same row (z = 0). st.subjectFoot = the sample's half-extents.
+  function benchExtents(st, skip){
+    var f=st.subjectFoot||{hw:0}, e={minX:-f.hw, maxX:f.hw};
+    st.group.children.forEach(function(c){
+      if(c===skip||c===st.pip||c.isLight||c.isSprite||c.userData.offBench) return;
+      var b=solidBox(c, st.group); if(b.isEmpty()) return;
+      e.minX=Math.min(e.minX,b.min.x); e.maxX=Math.max(e.maxX,b.max.x);
+    });
+    (st.benchReserved||[]).forEach(function(r){ e.minX=Math.min(e.minX,r.minX); e.maxX=Math.max(e.maxX,r.maxX); });
+    return e;
+  }
+  // put obj on the bench beside everything (side −1 left, +1 right); returns obj
+  function benchPlace(st, obj, side){
+    if(obj.parent!==st.group) st.group.add(obj);
+    obj.position.set(0,0,0); obj.updateMatrixWorld(true);
+    var b=solidBox(obj, obj), e=benchExtents(st, obj), gap=clearance('bench_gap');
+    var x=side<0 ? e.minX-gap-b.max.x : e.maxX+gap-b.min.x;
+    obj.position.set(x, 0, -(b.min.z+b.max.z)/2);
+    placeOnBench(obj);
+    return obj;
+  }
+  // reserve a bench slot for something that is not a station prop (the travelling sample
+  // parked beside the subject); returns the slot's centre x
+  function benchSlot(st, halfW, side){
+    var e=benchExtents(st), gap=clearance('bench_gap');
+    var x=side<0 ? e.minX-gap-halfW : e.maxX+gap+halfW;
+    (st.benchReserved||(st.benchReserved=[])).push({ minX:x-halfW, maxX:x+halfW });
+    return x;
+  }
 
-  // a bare stand (dressing) — for stations that don't pipette
+  // a stand (dressing), left of the subject — for stations that don't pipette
   function addStand(st){
-    var stand = buildPipetteStand(); stand.position.set(PIP_STAND.x,PIP_STAND.y,PIP_STAND.z);
+    var stand = buildPipetteStand();
     stand.userData.noFrame = true;   // pipetting DRESSING — excluded from the camera fit
-    st.group.add(stand);
+    benchPlace(st, stand, -1);
+    st.stand = stand;
+    return stand;
   }
-  // resident equipment: a stand AND its OWN pipette, both fixed to this station
-  var PIP_SCALE = 0.72;   // IMPROVEMENT: a shorter pipette so its body never reaches
-                          // up behind the top HUD bar during the pour travel arc.
+  // resident equipment: a stand AND its OWN pipette hanging in it, at real size
   function addPipetteRig(st){
-    addStand(st);
-    var pip = buildPipette(); pip.scale.setScalar(PIP_SCALE); pip.position.set(PIP_REST.x, PIP_REST.y, PIP_REST.z);
+    var stand=addStand(st);
+    var pip = buildPipette();
     pip.userData.noFrame = true;    // the pipette travels high on its arc — never frame it
+    pip.userData.offBench = true;   // it hangs in its stand, not on the bench
+    st.pipRestPos = stand.position.clone().add(stand.userData.cradle);
+    pip.position.copy(st.pipRestPos);
     st.group.add(pip); st.pip = pip; st.updatables.push(pip);
   }
-  // dock this station's resident pipette back in its stand (LOCAL space)
+  // hang this station's resident pipette back in its stand
   function pipRest(st){ if(!st.pip) return;
-    st.pip.position.set(PIP_REST.x, PIP_REST.y, PIP_REST.z);
+    st.pip.position.copy(st.pipRestPos); st.pip.rotation.set(0,0,0);
     st.pip.userData.setFluid(0); }
 
   // ─── Stage-8 container vessels (the sample-follow model shows exactly one) ───
@@ -2582,8 +2590,6 @@ export {
     grp.userData.sampleSocket='shelf';
     return tagSpec(grp,'ult_freezer_portable');
   }
-
-  /* staining tray — a slotted tray the slide rests in while dye floods over it */
   function buildStainingTray(){
     var grp=new THREE.Group();
     var tray=new THREE.Mesh(new THREE.BoxGeometry(2.4,0.24,1.3), matPlastic(0x394049));
@@ -2604,9 +2610,6 @@ export {
     root.userData.sampleSocket='rails';
     return tagSpec(root,'staining_tray');
   }
-
-  /* vortex mixer — a squat box with a rubber cup on top; the tube presses in and
-     shakes. Gives the vortex_mix action a real device instead of a bare bench. */
   function buildVortexMixer(){
     var grp=new THREE.Group();
     var body=new THREE.Mesh(new THREE.BoxGeometry(1.25,0.62,1.05), matPainted(0x3b424b,0.5));
@@ -2679,16 +2682,19 @@ export {
     return S;
   }
 
-  function addBottle(st, key, labelText, color, x, z){
-    var b = buildBottle(color, labelText, 1.3, color);
-    b.position.set(x, 0, z); b.userData.noFrame = true;   // reagent SOURCE (dressing) — not framed
-    st.group.add(b);
+  // a reagent bottle on the bench to the RIGHT of everything; its tip draw point is in
+  // its liquid (from the bottle's own geometry)
+  function addBottle(st, key, labelText, color, side){
+    var b = buildBottle(color, labelText, 0, color);
+    b.userData.noFrame = true;   // reagent SOURCE (dressing) — not framed
+    benchPlace(st, b, side||st.sourceSide||+1);
     if(b.userData.update) st.updatables.push(b);   // animate its cap + level each frame
-    st.reagents[key] = { grp:b, pos:new THREE.Vector3(x, 0.24, z) };
+    st.reagents[key] = { grp:b, pos:b.position.clone().add(b.userData.draw) };
+    return b;
   }
   function stationReagent(st, Y, o){
     addPipetteRig(st);
-    addBottle(st, o.key, o.blabel, o.color, 2.0, 0.7);
+    addBottle(st, o.key, o.blabel, o.color, st.sourceSide);
     // CONTRACT: the container tells the pipette WHERE to dispense (a tube: dead
     // centre; a well: one off-centre well; a flask: at the canted neck). Default =
     // centre (the microtube), so nothing regresses when a container omits it.
@@ -2699,7 +2705,7 @@ export {
       if(o.vlabel) v.userData.setLabel(o.vlabel, o.vsub||"");
       if(o.cStart!=null) v.userData.setColor(o.cStart);
       v.userData.setLevel(o.lStart);
-      SAMPLE.at(v, st.x, Y, 0);
+      SAMPLE.at(v, st.x, Y, 0); v.quaternion.identity(); v.userData.held=false; placeOnBench(v);
       pipRest(st);
     };
     st.timeline=function(p){
@@ -2718,40 +2724,65 @@ export {
       // NOT the seat plane — otherwise the tip dips onto the flat top face.
       var toY = (disp.approach==='angled' && disp.y!=null) ? disp.y : Y;
       pipetteRun(st, st.reagents[o.key].pos, {x:disp.x,y:toY,z:disp.z}, p,
-        {color:o.color, fill:0.8, approach:disp.approach, tilt:disp.tilt, depth:disp.depth, dipDepth:o.entry});
+        {color:o.color, fill:0.8, approach:disp.approach, tilt:disp.tilt, depth:disp.depth, standoff:disp.standoff, dipDepth:o.entry});
       if(p>DISPENSE_FROM){ var q=dispenseProgress(p);
         v.userData.setLevel(lerp(o.lStart,o.lEnd,q));
         if(o.cEnd!=null) v.userData.setColor(o.cEnd);
       }
     };
   }
+  // A vessel IN HAND is not resting on anything (the geometry audit's contact check)
+  function held(v, on){ v.userData.held=!!on; }
   function stationSpin(st, Y, o){
-    var cen=buildCentrifuge(); cen.position.set(1.4,0,-0.5); cen.scale.setScalar(0.85);
-    st.group.add(cen); st.updatables.push(cen); st.cen=cen;
-    // IMPROVEMENT over the demo (which spun an EMPTY rotor while the tube sat on the
-    // bench): the sample is docked into an ACTUAL rotor slot — correct radius + outward
-    // tilt — and PARENTED to the holder, so it RIDES the rotor as it spins. The lid
-    // closes before the spin and opens once it stops.
-    var holder = cen.userData.holders[2];   // a slot facing the camera at rest
-    var SEAT_SCALE=0.6, SEAT_Y=-0.16;        // a small tube fits the slot and clears the closed lid
-    var preSlot={ x:1.4, y:1.42, z:0.03 };   // just above the slot (station-local)
-    var lift={ x:1.4, y:2.15, z:0.03 };      // raised clear of the rotor
+    // the CENTRIFUGE is the subject, on the bench at the origin. The sample is placed INTO
+    // a rotor slot (socket) — tilted to the rotor's real fixed angle, riding the rotor as it
+    // spins — never scaled down to fit a slot it does not fit (the old SEAT_SCALE 0.6).
+    var cen=buildCentrifuge();
+    st.group.add(cen); placeOnBench(cen); st.updatables.push(cen); st.cen=cen;
+    var SOCK=cen.userData.sampleSocket, v0=SAMPLE[o.vessel];
+    var fits=canPlace(v0, cen, SOCK);
+    if(!fits) (st.socketErrors||(st.socketErrors=[])).push({ vessel:v0.userData.spec, host:'microcentrifuge', socket:SOCK });
+    var VH=dims(v0.userData.spec).height, LIFT=clearance('lift');
+    var CEN_TOP=dims('microcentrifuge').height;
+    // the sample waits on the bench beside the centrifuge (a rejected one stays there)
+    var BENCH=new THREE.Vector3(benchSlot(st, dims(v0.userData.spec).width/2, +1),0,0);
     var docked=false;
+    // the slot's CURRENT pose (the rotor stops wherever it stops) and the approach points
+    function slotPose(){ cen.updateMatrixWorld(true); return socketPose(getSocket(cen,SOCK), st.group); }
+    function pathFor(pose){
+      var axis=new THREE.Vector3(0,1,0).applyQuaternion(pose.quaternion);
+      var pre=pose.position.clone().addScaledVector(axis, VH+LIFT);                 // above the slot, along its axis
+      var above=new THREE.Vector3(pre.x, Math.max(pre.y, CEN_TOP)+VH+LIFT, pre.z);  // over it, upright, clear of the body
+      return { pre:pre, above:above, seat:pose.position, q:pose.quaternion };
+    }
+    var P=pathFor(slotPose());
+    function put(v, pnt, q){ SAMPLE.at(v, st.x+pnt.x, pnt.y, pnt.z); if(q) v.quaternion.copy(q); else v.quaternion.identity(); }
     function dock(){
-      if(docked) return;
+      if(docked||!fits) return;
       var v=SAMPLE[o.vessel];
-      holder.add(v);                         // reparent INTO the slot — now rides the rotor
-      v.position.set(0, SEAT_Y, 0);          // seated in the slot bottom
-      v.rotation.set(0,0,0);                 // aligns with the holder's outward tilt
-      v.scale.setScalar(SEAT_SCALE);
-      v.userData.docked=true; docked=true;   // frame loop stops gliding it while docked
+      placeInto(v, cen, SOCK, { ride:true });   // reparented INTO the slot — rides the rotor
+      v.userData.docked=true; docked=true; held(v,false);
+      v.userData.exitY=CEN_TOP+VH+LIFT;
     }
     function undock(){
       if(!docked) return;
       var v=SAMPLE[o.vessel];
-      scene.attach(v);                       // back to the scene, preserving world transform
-      v.rotation.set(0,0,0); v.scale.setScalar(1);
+      scene.attach(v); v.scale.setScalar(1); clearPlacement(v);
       v.userData.docked=false; docked=false;
+      P=pathFor(slotPose());                      // leave the slot where the rotor stopped
+    }
+    function restState(v){ undock(); v.scale.setScalar(1); cen.userData.setSpin(0); cen.userData.setLid(true);
+      held(v,false); put(v, BENCH); placeOnBench(v); }
+    // the path bench → seat, 0→1: straight up off the bench; across, clear of the body; tilt
+    // to the slot's angle over it; down the slot axis into the slot. Reversed to leave.
+    function inPath(v, q){
+      var T=P.above.y;
+      if(q<=0){ put(v, BENCH); held(v,false); placeOnBench(v); return; }
+      clearPlacement(v); held(v,true);
+      if(q<0.2){ var a=easeInOut(q/0.2); put(v, new THREE.Vector3(BENCH.x, lerp(0,T,a), BENCH.z)); }
+      else if(q<0.5){ var b=easeInOut((q-0.2)/0.3); put(v, new THREE.Vector3(lerp(BENCH.x,P.above.x,b), T, lerp(BENCH.z,P.above.z,b))); }
+      else if(q<0.7){ var c=easeInOut((q-0.5)/0.2); put(v, P.above.clone().lerp(P.pre,c), new THREE.Quaternion().slerp(P.q,c)); }
+      else { var d=easeInOut((q-0.7)/0.3); put(v, P.pre.clone().lerp(P.seat,d), P.q); }
     }
     st.enter=function(){
       SAMPLE.only(o.vessel);
@@ -2759,74 +2790,53 @@ export {
       if(o.vlabel) v.userData.setLabel(o.vlabel, o.vsub||"");
       if(o.color!=null) v.userData.setColor(o.color);
       v.userData.setLevel(o.lStart==null?0.5:o.lStart);
-      undock(); v.scale.setScalar(1); v.rotation.set(0,0,0); v.visible=true;
-      SAMPLE.at(v, st.x+lift.x, lift.y, lift.z);        // arrives above the open rotor
-      cen.userData.setLabel(o.cenLabel||"Centrifuge", o.cenSub||""); cen.userData.setSpin(0); cen.userData.setLid(true);
+      v.visible=true; restState(v);
+      cen.userData.setLabel(o.cenLabel||"Centrifuge", o.cenSub||"");
     };
     if(o.seconds) st.hud={label:o.hudLabel||"Centrifuge", seconds:o.seconds};
-    // COUNTDOWN-OWNED SPIN (Stage 19). When the runner has a live timer the rotor is a
-    // function of the COUNTDOWN, not the fixed choreography p: it spins for exactly as long
-    // as the digits run — 15 s on the clock == 15 s of spin, ten minutes == ten minutes.
-    // Entry (dock + lid close) and exit (spin-down + lid open + lift out) use ABSOLUTE time
-    // so a long spin doesn't glide in for minutes. t = { hasTimer, running, done, progress }.
+    // COUNTDOWN-OWNED SPIN (Stage 19): the rotor spins for exactly as long as the digits
+    // run; entry (into the slot + lid close) and exit (spin-down, lid open, out along the
+    // slot axis) use ABSOLUTE time. t = { hasTimer, running, done, progress }.
     var phase="rest", runT=0, endT=0;
     st.driveTimed=function(t,dt){
       var v=SAMPLE[o.vessel]; v.visible=true;
       var engaged = t.running || t.done || t.progress>0.0001;
-      if(!engaged){                               // pre-spin REST — also where Reset returns
-        if(phase!=="rest"){ phase="rest"; runT=0; endT=0; }
-        undock(); cen.userData.setSpin(0); cen.userData.setLid(true);
-        v.scale.setScalar(1); v.rotation.set(0,0,0);
-        SAMPLE.at(v, st.x+lift.x, lift.y, lift.z);
-        v.userData.setLevel(o.lStart==null?0.5:o.lStart);
-        return;
-      }
-      if(t.done || t.progress>=1){                // 00:00 — rotor spins DOWN, lid opens, sample lifts out
+      if(!engaged){ if(phase!=="rest"){ phase="rest"; runT=0; endT=0; } restState(v); v.userData.setLevel(o.lStart==null?0.5:o.lStart); return; }
+      if(!fits){ cen.userData.setLid(!t.running); cen.userData.setSpin(t.running?24:0); return; }
+      if(t.done || t.progress>=1){
         if(phase!=="end"){ phase="end"; endT=0; }
         endT+=dt;
-        cen.userData.setSpin(0);                  // update() lerps the wheel to a stop
-        if(endT<0.9){ dock(); cen.userData.setLid(false); }      // still closed while it slows
-        else if(endT<1.5){ cen.userData.setLid(true); }          // lid swings open
-        else { undock(); var q=easeInOut(clamp((endT-1.5)/0.6,0,1));
-               SAMPLE.at(v, st.x+lift.x, lerp(preSlot.y,lift.y,q), preSlot.z); }
+        cen.userData.setSpin(0);
+        if(endT<0.9){ dock(); cen.userData.setLid(false); }
+        else if(endT<1.5){ cen.userData.setLid(true); }
+        else { undock(); inPath(v, 1-clamp((endT-1.5)/0.6,0,1)); }
         return;
       }
-      // RUNNING or PAUSED: lid closed, sample docked, rotor spins for the WHOLE countdown.
       if(phase!=="run"){ phase="run"; runT=0; }
       runT+=dt;
-      var ent=clamp(runT/0.55,0,1);               // quick entry glide, absolute-timed
-      if(ent<1 && !docked){
-        var qe=easeInOut(ent);
-        SAMPLE.at(v, st.x+preSlot.x, lerp(lift.y,preSlot.y,qe), preSlot.z);
-        cen.userData.setLid(true); cen.userData.setSpin(0);
-      } else {
-        dock();
-        cen.userData.setLid(false);
-        cen.userData.setSpin(t.running?24:0);     // spin while running; decelerate & hold when paused
-      }
+      var ent=clamp(runT/0.55,0,1);
+      if(ent<1 && !docked){ inPath(v, ent); cen.userData.setLid(true); cen.userData.setSpin(0); }
+      else { dock(); cen.userData.setLid(false); cen.userData.setSpin(t.running?24:0); }
       if(o.lEnd!=null) v.userData.setLevel(lerp(o.lStart==null?0.5:o.lStart,o.lEnd,easeInOut(clamp(t.progress,0,1))));
     };
     st.timeline=function(p){
       var v=SAMPLE[o.vessel]; v.visible=true;
-      if(p<0.18){                            // 1 · glide in, lower toward the slot (lid open)
-        undock();
-        var q=easeInOut(clamp(p/0.16,0,1));
-        SAMPLE.at(v, st.x+preSlot.x, lerp(lift.y,preSlot.y,q), preSlot.z);
-        cen.userData.setSpin(0); cen.userData.setLid(true);
-      } else if(p<0.26){                     // 2 · seat into the slot; lid closes over it
+      if(!fits){                                // a rejected vessel never enters; the rotor runs empty
+        restState(v); cen.userData.setLid(!(p>0.26 && p<0.8)); cen.userData.setSpin(p>0.26 && p<0.8 ? 24 : 0);
+      } else if(p<0.26){                        // 1 · over the open rotor, tilt, down the slot axis
+        undock(); inPath(v, clamp(p/0.26,0,1)); cen.userData.setSpin(0); cen.userData.setLid(true);
+      } else if(p<0.30){                        // 2 · seated in the slot; lid closes over it
         dock(); cen.userData.setSpin(0); cen.userData.setLid(false);
-      } else if(p<0.80){                     // 3 · lid closed + SPINNING — sample rides the rotor
+      } else if(p<0.80){                        // 3 · lid closed + SPINNING — the sample rides the rotor
         dock(); cen.userData.setSpin(24); cen.userData.setLid(false);
-      } else if(p<0.90){                     // 4 · rotor stops; lid opens
-        cen.userData.setSpin(0); cen.userData.setLid(true);
-      } else {                               // 5 · lift the sample out of the slot
-        undock();
-        var q3=easeInOut((p-0.90)/0.10);
-        SAMPLE.at(v, st.x+lift.x, lerp(preSlot.y,lift.y,q3), preSlot.z);
+      } else if(p<0.90){                        // 4 · rotor stops; lid opens
+        dock(); cen.userData.setSpin(0); cen.userData.setLid(true);
+      } else {                                  // 5 · out along the slot axis, back over the rotor
+        undock(); inPath(v, 1-easeInOut((p-0.90)/0.10));
         cen.userData.setSpin(0); cen.userData.setLid(true);
       }
       if(o.lEnd!=null) v.userData.setLevel(lerp(o.lStart==null?0.5:o.lStart, o.lEnd, easeInOut(clamp(p,0,1))));
     };
   }
 
-export { dispenseProgress, pipetteRun, addStand, addPipetteRig, pipRest, buildSample, addBottle, stationReagent, stationSpin, PIP_STAND, PIP_REST, easeInOut, lerp, clamp }
+export { dispenseProgress, pipetteRun, addStand, addPipetteRig, pipRest, buildSample, addBottle, stationReagent, stationSpin, benchPlace, benchSlot, benchExtents, held, easeInOut, lerp, clamp }

@@ -68,7 +68,7 @@ export function placeInto(vessel, host, name, { ride = false, frame = null } = {
     throw new SocketError(`${vessel.userData.spec || 'vessel'} does not fit socket "${name}" of ${host.userData.spec} (accepts ${acc.join(', ') || 'nothing'})`,
       { vessel: vessel.userData.spec, host: host.userData.spec, socket: name, accepts: acc })
   }
-  vessel.userData.placement = { host, socket: name }
+  vessel.userData.placement = { host: a.userData.socket.host, socket: name }  // the socket's OWN host (a rig's tank)
   if (ride) {
     a.add(vessel)
     vessel.position.set(0, 0, 0)
