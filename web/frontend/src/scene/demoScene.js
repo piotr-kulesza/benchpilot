@@ -2507,7 +2507,7 @@ export {
     var root=fitArt(grp,'gel_tray_7x10');
     var gm=root.userData.fit.toWorld(-0.36,0.24,-0.4);   // the loading well, at the gel surface
     root.userData.mouth={ x:gm.x, y:gm.y, z:gm.z, approach:'top' };
-    root.userData.entry=root.userData.fit.toWorld(0,0.2,0).y;
+    root.userData.entry=gm.y;   // at the well MOUTH: the slab is solid, its wells are printed on it
     return tagSpec(root,'gel_tray_7x10');
   }
 
