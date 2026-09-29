@@ -1668,7 +1668,7 @@ export function undockSample(lift = false) {
     // the open STAGE with a central aperture — the flask sits here
     var stageY=1.35;
     var stage=new THREE.Mesh(new THREE.BoxGeometry(1.9,0.08,1.3), matPlastic(0x3a4049)); stage.position.set(0,stageY,0); grp.add(stage);
-    var aperture=new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.26,0.09,24), dark); aperture.position.set(0,stageY,0.1); grp.add(aperture);
+    var aperture=new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.26,0.08,24), dark); aperture.position.set(0,stageY,0.1); grp.add(aperture);  // FLUSH with the stage (it stood 5 mm proud, under the flask)
     // illumination column arching OVER the stage, lamp housing pointing down
     var back=new THREE.Mesh(new THREE.BoxGeometry(0.34,1.9,0.34), shell); back.position.set(0,1.95,-0.62); grp.add(back);
     var arm=new THREE.Mesh(new THREE.BoxGeometry(0.34,0.3,0.95), shell); arm.position.set(0,2.78,-0.2); grp.add(arm);
@@ -1683,8 +1683,10 @@ export function undockSample(lift = false) {
     grp.userData.setProgress=function(v){ st.tLit=0.4+0.5*clamp(v,0,1); };
     grp.userData.update=function(dt){ st.lit=lerp(st.lit,st.tLit,1-Math.pow(0.02,dt)); lampLight.intensity=st.lit*0.9; };
     grp.userData.update(0.001);
-    grp.userData.stageY=stageY+0.04;
-    return tagSpec(grp,'microscope_inverted');
+    var root=fitArt(grp,'microscope_inverted');
+    addSocket(root,'stage',{ position:root.userData.fit.toWorld(0,stageY+0.04,0) });
+    root.userData.sampleSocket='stage';
+    return tagSpec(root,'microscope_inverted');
   }
 
   /* ---------- upright light microscope (Stage-12 #4) — a SLIDE on the stage, viewed
