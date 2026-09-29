@@ -2536,41 +2536,50 @@ export {
 
   /* −80 °C freezer box — the vessel is placed inside; door opens, frost breathes out */
   function buildFreezer(){
+    // REAL SIZE from dims('ult_freezer_portable'): a HOLLOW insulated shell around a real
+    // cavity (inner dimensions from the spec) behind a hinged door. The old freezer was a
+    // SOLID box with the cavity drawn inside it — a stored vial sat inside solid shell.
     var grp=new THREE.Group();
+    var D=dims('ult_freezer_portable');
+    var W=D.width, H=D.height, DEP=D.depth, IW=D.inner_width, IH=D.inner_height, ID=D.inner_depth;
     var shell=matPainted(0xd7dbe0,0.5);
-    // TALL enough for the sample tube that is actually stored in it: the travelling
-    // sample tube is 1.7 tall, and the old 1.5 cavity (box top 2.0) let its rim pass
-    // through the top of the closed freezer. Cavity now spans y 0.30-2.40.
-    var H=2.6;
-    var box=new THREE.Mesh(new THREE.BoxGeometry(2.2,H,1.6), shell);
-    box.position.y=H/2; box.castShadow=true; box.receiveShadow=true; grp.add(box);
+    // the external depth includes the door and its handle: the body is what is left
+    var DT=DEP*0.035, HR=H*0.023, BODY_D=DEP-DT-HR*4, BZ=-DEP/2+BODY_D/2, FRONT=BZ+BODY_D/2;
+    var CB=(H-IH)/2, CT=CB+IH, SW=(W-IW)/2, CZ=FRONT-ID/2;  // cavity bottom/top, side wall, cavity centre z
+    function part(w,h,d,x,y,z){ var m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), shell); m.position.set(x,y,z); m.castShadow=true; m.receiveShadow=true; grp.add(m); return m; }
+    part(W,CB,BODY_D, 0,CB/2,BZ);                   // floor block
+    part(W,H-CT,BODY_D, 0,(H+CT)/2,BZ);             // lid block
+    part(SW,IH,BODY_D, -(W-SW)/2,CB+IH/2,BZ);       // side walls
+    part(SW,IH,BODY_D, (W-SW)/2,CB+IH/2,BZ);
+    part(IW,IH,BODY_D-ID, 0,CB+IH/2,-DEP/2+(BODY_D-ID)/2); // back wall
     var cavityMat=new THREE.MeshStandardMaterial({ color:0xaeb8c4, roughness:0.5, metalness:0.1, side:THREE.DoubleSide });
-    var cavity=new THREE.Mesh(new THREE.BoxGeometry(1.7,2.1,0.7), cavityMat);
-    cavity.position.set(0,1.35,0.5); grp.add(cavity);
+    var liner=new THREE.Mesh(openTopBox(IW,ID,IH), cavityMat);   // five faces, OPEN to the front
+    liner.rotation.x=Math.PI/2; liner.position.set(0,CB+IH/2,CZ); fx(liner,'decal'); grp.add(liner);
+    addSocket(grp,'shelf',{ position:new THREE.Vector3(0,CB,CZ) });
     // hinged door (front)
-    var doorPivot=new THREE.Group(); doorPivot.position.set(-1.05,H/2,0.85); grp.add(doorPivot);
-    var door=new THREE.Mesh(new THREE.BoxGeometry(2.1,H-0.1,0.12), matPainted(0xe6e9ed,0.5));
-    door.position.set(1.05,0,0); doorPivot.add(door);
+    var doorPivot=new THREE.Group(); doorPivot.position.set(-W/2,H/2,FRONT+DT/2); grp.add(doorPivot);
+    var door=new THREE.Mesh(new THREE.BoxGeometry(W*0.96,H*0.96,DT), matPainted(0xe6e9ed,0.5));
+    door.position.set(W/2,0,0); doorPivot.add(door);
     // prominent vertical PULL HANDLE on the door's free edge, on standoff brackets
-    var handleBar=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,1.9,16), matBrushed(0x868f9b));
-    handleBar.position.set(1.86,0,0.22); doorPivot.add(handleBar);
-    for(var hb=0;hb<2;hb++){ var brk=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.09,0.16), matBrushed(0x868f9b));
-      brk.position.set(1.86,-0.7+hb*1.4,0.13); doorPivot.add(brk); }
+    var HL=H*0.73, HX=W*0.85;
+    var handleBar=new THREE.Mesh(new THREE.CylinderGeometry(HR,HR,HL,16), matBrushed(0x868f9b));
+    handleBar.position.set(HX,0,DT/2+HR*3); doorPivot.add(handleBar);
+    for(var hb=0;hb<2;hb++){ var brk=new THREE.Mesh(new THREE.BoxGeometry(HR*1.7,HR*1.5,HR*3), matBrushed(0x868f9b));
+      brk.position.set(HX,(hb?1:-1)*HL*0.37,DT/2+HR*1.5); doorPivot.add(brk); }
     // hinge barrels on the hinge side so the door reads as a door
-    for(var hg=0;hg<2;hg++){ var hinge=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.26,12), matBrushed(0x868f9b));
-      hinge.position.set(0.06,-0.9+hg*1.8,0.07); doorPivot.add(hinge); }
-    // frost fog puff (additive) at the mouth
+    for(var hg=0;hg<2;hg++){ var hinge=new THREE.Mesh(new THREE.CylinderGeometry(HR,HR,H*0.1,12), matBrushed(0x868f9b));
+      hinge.position.set(HR,(hg?1:-1)*H*0.35,DT/2+HR); doorPivot.add(hinge); }
     // a THIN, translucent cold mist that spills from the bottom door seam and lies low
-    // on the bench — it used to be an additive sphere in front of the door, larger than
-    // the opening, that rendered as an opaque white disc hiding the freezer
     var frostMat=new THREE.MeshBasicMaterial({ color:0xdfeaf4, transparent:true, opacity:0.0, depthWrite:false, fog:false });
-    var frost=new THREE.Mesh(new THREE.SphereGeometry(0.5,20,12), frostMat); frost.position.set(0,0.14,1.05); frost.scale.set(1.8,0.22,0.5); fx(frost,'effect'); grp.add(frost);
-    var label=makeLabel("−80 °C",""); label.position.set(0,2.9,0); grp.add(label);
+    var frost=new THREE.Mesh(new THREE.SphereGeometry(0.5,20,12), frostMat); frost.position.set(0,H*0.05,FRONT+DT*3); frost.scale.set(W*0.4,H*0.04,DEP*0.15); fx(frost,'effect'); grp.add(frost);
+    var label=makeLabel("−80 °C",""); label.position.set(0,H+LABEL_GAP,0); grp.add(label);
     var st={ door:0, tDoor:0 }; // CLOSED at rest (the store animation opens it)
     grp.userData.label=label;
     grp.userData.setDoor=function(open){ st.tDoor=open?1:0; };
     grp.userData.setFrost=function(a){ frostMat.opacity=clamp(a,0,0.5)*0.4; };  // at most a faint mist
-    grp.userData.update=function(dt){ st.door=lerp(st.door,st.tDoor,1-Math.pow(0.02,dt)); doorPivot.rotation.y=easeInOut(st.door)*1.2; };
+    grp.userData.update=function(dt){ st.door=lerp(st.door,st.tDoor,1-Math.pow(0.02,dt)); doorPivot.rotation.y=-easeInOut(st.door)*1.2; };   // swings OUT (+z) — a +angle swung it back through the body
+    grp.userData.cavity={ bottom:CB, top:CT, front:FRONT, back:FRONT-ID, halfW:IW/2 };
+    grp.userData.sampleSocket='shelf';
     return tagSpec(grp,'ult_freezer_portable');
   }
 
