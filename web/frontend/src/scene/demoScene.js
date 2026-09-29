@@ -900,54 +900,71 @@ export function undockSample(lift = false) {
      block (buildColdBlock) — liquid-filled + steam vs. a dry anthracite well
      block — so the two heat/incubate stations never read as the same device. */
   function buildWaterBath(){
+    // REAL SIZE from dims('water_bath_5l'): housing + an open stainless basin of the real
+    // internal size, a SUBMERGED RACK the tube stands on (so ~60 % of it is under water —
+    // "the bottom 1/2 to 2/3 of the tube"), water to that level. The old bath filled its
+    // basin with a solid liner block and hung the tube in the water with nothing under it.
     var grp=new THREE.Group();
+    var D=dims('water_bath_5l'), T=dims('microtube_1_5');
+    var W=D.width, H=D.height, DEP=D.depth, IW=D.inner_width, ID=D.inner_depth, IH=D.inner_height;
     var steel=matBrushed(0xb9c0c8); steel.roughness=0.4;
-    // OPEN BASIN (not a solid box — a solid box's top is a lid that hides the water).
-    // Floor + four walls, with a LOW FRONT wall so the cyan pool is plainly visible
-    // over the front edge at the scene's shallow downward camera angle.
-    var WALL=0.9, FRONT=0.5, SURFY=0.66;               // wall heights + water-surface height
-    var floor=new THREE.Mesh(new THREE.BoxGeometry(2.4,0.08,1.8), steel); floor.position.y=0.04; floor.receiveShadow=true; grp.add(floor);
-    var back=new THREE.Mesh(new THREE.BoxGeometry(2.4,WALL,0.1), steel); back.position.set(0,WALL/2,-0.85); back.castShadow=true; grp.add(back);
-    var frontW=new THREE.Mesh(new THREE.BoxGeometry(2.4,FRONT,0.1), steel); frontW.position.set(0,FRONT/2,0.85); grp.add(frontW);
-    for(var sw=0;sw<2;sw++){ var side=new THREE.Mesh(new THREE.BoxGeometry(0.1,WALL,1.8), steel);
-      side.position.set(-1.15+sw*2.3, WALL/2, 0); side.castShadow=true; grp.add(side); }
-    // muted stainless inner liner (NOT a teal glow)
+    var FLOOR_Y=H-IH, RACK_Y=FLOOR_Y+D.rack_height, SURFY=RACK_Y+0.6*T.height;
+    var wx=(W-IW)/2, wz=(DEP-ID)/2;
+    // housing below the basin floor
+    var housing=new THREE.Mesh(new THREE.BoxGeometry(W,FLOOR_Y,DEP), steel); housing.position.y=FLOOR_Y/2; housing.castShadow=true; housing.receiveShadow=true; grp.add(housing);
+    // OPEN BASIN walls; the FRONT wall stops just above the water so the pool reads over it
+    var FRONT_TOP=SURFY+H*0.02;
+    var back=new THREE.Mesh(new THREE.BoxGeometry(W,IH,wz), steel); back.position.set(0,FLOOR_Y+IH/2,-(DEP-wz)/2); back.castShadow=true; grp.add(back);
+    var frontW=new THREE.Mesh(new THREE.BoxGeometry(W,FRONT_TOP-FLOOR_Y,wz), steel); frontW.position.set(0,(FLOOR_Y+FRONT_TOP)/2,(DEP-wz)/2); grp.add(frontW);
+    for(var sw=0;sw<2;sw++){ var side=new THREE.Mesh(new THREE.BoxGeometry(wx,IH,ID), steel);
+      side.position.set((sw?1:-1)*(W-wx)/2, FLOOR_Y+IH/2, 0); side.castShadow=true; grp.add(side); }
+    // muted stainless inner LINER (open-topped — nothing lowered in passes through a lid)
     var innerMat=new THREE.MeshStandardMaterial({ color:0x6b7580, roughness:0.5, metalness:0.25, side:THREE.DoubleSide });
-    var inner=new THREE.Mesh(new THREE.BoxGeometry(2.24,SURFY,1.64), innerMat); inner.position.y=SURFY/2+0.04; grp.add(inner);
-    // WATER — RESTRAINED: a muted blue-grey, mostly transparent, NO emissive glow, NO
-    // toneMapped bypass. Reads as real water in a stainless bath beside the centrifuge.
+    var liner=new THREE.Mesh(openTopBox(IW,IH,ID), innerMat); liner.position.y=FLOOR_Y+IH/2; fx(liner,'decal'); grp.add(liner);
+    // the submerged tube RACK: a perforated steel platform on four legs
+    var RW=IW*0.5, RD=ID*0.7, RT=D.rack_height*0.08;
+    var rackMat=matBrushed(0x9aa4b0);
+    var plat=new THREE.Mesh(new THREE.BoxGeometry(RW,RT,RD), rackMat); plat.position.y=RACK_Y-RT/2; grp.add(plat);
+    for(var lg=0;lg<4;lg++){ var leg=new THREE.Mesh(new THREE.BoxGeometry(RT,D.rack_height-RT,RT), rackMat);
+      leg.position.set((lg&1?1:-1)*(RW/2-RT), FLOOR_Y+(D.rack_height-RT)/2, (lg&2?1:-1)*(RD/2-RT)); grp.add(leg); }
+    addSocket(grp,'rack',{ position:new THREE.Vector3(0,RACK_Y,0) });
+    // WATER — RESTRAINED: a muted blue-grey, mostly transparent, NO emissive glow
     var waterMat=new THREE.MeshPhysicalMaterial({ color:0x93b2c2, roughness:0.16, metalness:0,
       transparent:true, opacity:0.36, clearcoat:0.5, clearcoatRoughness:0.3, envMapIntensity:0.9 });
-    var water=new THREE.Mesh(new THREE.BoxGeometry(2.24,SURFY-0.02,1.64), waterMat); water.position.y=(SURFY-0.02)/2+0.05; fx(water,'fluid'); grp.add(water);
+    var water=new THREE.Mesh(new THREE.BoxGeometry(IW*0.998,SURFY-FLOOR_Y,ID*0.998), waterMat); water.position.y=(SURFY+FLOOR_Y)/2; fx(water,'fluid'); grp.add(water);
     // faint surface sheen — a reflective meniscus, not a glowing cap
     var surfMat=new THREE.MeshPhysicalMaterial({ color:0xb6ccd6, roughness:0.09, metalness:0.15, transparent:true, opacity:0.3, envMapIntensity:1.1 });
-    var surf=new THREE.Mesh(new THREE.BoxGeometry(2.22,0.02,1.62), surfMat); surf.position.y=SURFY; fx(surf,'fluid'); grp.add(surf);
-    // temperature DIAL on the front face (a real water bath's defining control)
-    var dialRim=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,0.05,24), matBrushed(0xcfd5db));
-    dialRim.rotation.x=Math.PI/2; dialRim.position.set(0.72,0.28,0.92); grp.add(dialRim);
-    var dialFace=new THREE.Mesh(new THREE.CircleGeometry(0.16,24), new THREE.MeshStandardMaterial({ color:0xeef1f4, roughness:0.55, metalness:0 }));
-    dialFace.position.set(0.72,0.28,0.951); grp.add(dialFace);
-    var needle=new THREE.Mesh(new THREE.BoxGeometry(0.018,0.13,0.008), matPlastic(0x33383e));
-    needle.position.set(0.72,0.28,0.965); needle.rotation.z=0.7; grp.add(needle);
+    var surf=new THREE.Mesh(new THREE.BoxGeometry(IW*0.99,IH*0.01,ID*0.99), surfMat); surf.position.y=SURFY; fx(surf,'fluid'); grp.add(surf);
+    // temperature DIAL on the housing front (a real water bath's defining control)
+    var DR=W*0.06, dialY=FLOOR_Y*0.5, dialX=W*0.3, fz=DEP/2;
+    var dialRim=new THREE.Mesh(new THREE.CylinderGeometry(DR,DR,DR*0.25,24), matBrushed(0xcfd5db));
+    dialRim.rotation.x=Math.PI/2; dialRim.position.set(dialX,dialY,fz+DR*0.125); grp.add(dialRim);
+    var dialFace=new THREE.Mesh(new THREE.CircleGeometry(DR*0.8,24), new THREE.MeshStandardMaterial({ color:0xeef1f4, roughness:0.55, metalness:0 }));
+    dialFace.position.set(dialX,dialY,fz+DR*0.26); fx(dialFace,'decal'); grp.add(dialFace);
+    var needle=new THREE.Mesh(new THREE.BoxGeometry(DR*0.09,DR*0.65,DR*0.04), matPlastic(0x33383e));
+    needle.position.set(dialX,dialY,fz+DR*0.29); needle.rotation.z=0.7; fx(needle,'decal'); grp.add(needle);
     // steam wisps rise ONLY when warm (at rest: none) — very subtle, no colour cast
     var steamMat=new THREE.MeshBasicMaterial({ color:0xeef2f4, transparent:true, opacity:0.0, depthWrite:false, blending:THREE.AdditiveBlending, fog:false });
-    var wisps=[]; for(var w=0;w<6;w++){ var s=new THREE.Mesh(new THREE.SphereGeometry(0.16,10,8), steamMat.clone());
-      s.userData.seed={ x:(Math.random()-0.5)*1.7, z:(Math.random()-0.5)*1.1, off:Math.random(), sp:0.3+Math.random()*0.35 };
+    var WS=ID*0.12;
+    var wisps=[]; for(var w=0;w<6;w++){ var s=new THREE.Mesh(new THREE.SphereGeometry(WS,10,8), steamMat.clone());
+      s.userData.seed={ x:(Math.random()-0.5)*IW*0.8, z:(Math.random()-0.5)*ID*0.7, off:Math.random(), sp:0.3+Math.random()*0.35 };
       fx(s,'effect'); grp.add(s); wisps.push(s); }
-    var label=makeLabel("Water bath","37 °C"); label.position.set(0,1.6,0); grp.add(label);
+    var label=makeLabel("Water bath","37 °C"); label.position.set(0,H+LABEL_GAP,0); grp.add(label);
     var wst={ t:0, warmth:0, tWarmth:0 };
     grp.userData.label=label;
+    grp.userData.surfaceY=SURFY; grp.userData.inner={ w:IW, d:ID };
     grp.userData.setWarmth=function(v){ wst.tWarmth=clamp(v,0,1); };
     grp.userData.update=function(dt){
       wst.t+=dt; wst.warmth=lerp(wst.warmth,wst.tWarmth,1-Math.pow(0.05,dt));
-      surf.position.y=SURFY+Math.sin(wst.t*1.6)*0.005;         // gentle meniscus bob
+      surf.position.y=SURFY+Math.sin(wst.t*1.6)*IH*0.005;         // gentle meniscus bob
       for(var i=0;i<wisps.length;i++){ var sd=wisps[i].userData.seed;
         var yy=((wst.t*sd.sp+sd.off)%1);
-        wisps[i].position.set(sd.x, SURFY+0.05+yy*0.9, sd.z);
+        wisps[i].position.set(sd.x, SURFY+WS*0.3+yy*IH, sd.z);
         wisps[i].scale.setScalar(0.35+yy*0.9);
         wisps[i].material.opacity=wst.warmth*0.22*(1-yy)*(yy<0.1?yy*10:1);
       }
     };
+    grp.userData.sampleSocket='rack';
     return tagSpec(grp,'water_bath_5l');
   }
 
