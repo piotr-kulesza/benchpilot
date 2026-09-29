@@ -1087,8 +1087,13 @@ export function undockSample(lift = false) {
     var ist={ door:0, tDoor:0 };
     grp.userData.label=label;
     grp.userData.setDoor=function(open){ ist.tDoor=open?1:0; };
-    grp.userData.update=function(dt){ ist.door=lerp(ist.door,ist.tDoor,1-Math.pow(0.02,dt)); doorPivot.rotation.y=easeInOut(ist.door)*1.3; };
-    return tagSpec(grp,'co2_incubator_benchtop');
+    grp.userData.update=function(dt){ ist.door=lerp(ist.door,ist.tDoor,1-Math.pow(0.02,dt)); doorPivot.rotation.y=-easeInOut(ist.door)*1.3; };   // swings OUT (+z) — a +angle swung it back through the cabinet
+    var root=fitArt(grp,'co2_incubator_benchtop'), F=root.userData.fit;
+    // the flask lies on the LOWER wire shelf (drawing: y 0.62, 0.03 thick, centred z −0.15)
+    addSocket(root,'shelf0',{ position:F.toWorld(0,0.62+0.015,-0.15) });
+    addSocket(root,'shelf1',{ position:F.toWorld(0,1.57+0.015,-0.15) });
+    root.userData.sampleSocket='shelf0';
+    return tagSpec(root,'co2_incubator_benchtop');
   }
 
   /* ---------- thermocycler (PCR): heated block + motorized heated lid + cycle
