@@ -834,6 +834,8 @@ export function undockSample(lift = false) {
     // the tip stops just below the cup rim, ABOVE the silica bed (membrane at drawing y 0.9)
     root.userData.mouth={ x:0, y:root.userData.fit.toWorld(0,1.56,0).y, z:0, approach:'top' };
     root.userData.entry=root.userData.fit.toWorld(0,1.2,0).y;
+    // the underside of the column's FLANGE (drawing: torus at 1.5, tube 0.028) — what rests on a tube rim
+    root.userData.flangeY=root.userData.fit.toWorld(0,1.5-0.028,0).y;
     return tagSpec(root,'spin_column_mini');
   }
 
