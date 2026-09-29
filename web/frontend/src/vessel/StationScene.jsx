@@ -19,6 +19,8 @@ import { containerContract, transferKind, sideBySide } from './containerContract
 import { reagentName, reagentVolume, effectiveStep, selectAlternative, hasAlternatives } from '../lib/runtime.js'
 import * as demo from '../scene/demoScene.js'
 import { streams } from '../scene/rng.js'
+import { dims, clearance } from '../scene/dims.js'
+import { placeInto, placeOnBench, clearPlacement, getSocket, socketPose, canPlace, SocketError } from '../scene/sockets.js'
 import { resolveScenePreset } from '../scene/scenePresets.js'
 
 // the demo's cinematic camera — the one and only view
@@ -322,7 +324,7 @@ function Floor({ totalLen, preset }) {
 function addReagentSource(st, key, r, k, fromMix) {
   const sx = 2.0 + k * 0.95, sz = 0.7
   if (fromMix) {
-    const src = demo.buildTube({ height: 1.5, radius: 0.3 })
+    const src = demo.buildTube({})
     src.position.set(sx, 0, sz); src.userData.noFrame = true
     src.userData.setColor(r.color); src.userData.setLevel(0.55); src.userData.setLabel(r.name, r.vol || '')
     st.group.add(src); if (src.userData.update) st.updatables.push(src)
@@ -347,7 +349,12 @@ export function configureStation(st, o) {
   // BENCH rest comes from the CONTRACT — the vessel's base sits on the bench (y=0 for
   // both upright and flat; their origins are at the base). Stations that place the
   // vessel ON equipment (bath/ice/rotor/…) still pass their own height to seat().
-  const SEAT_Y = C.seat.y
+  const SEAT_Y = 0 // every vessel's origin is its base centre: on the bench it is at y=0
+  // where a pipette delivers into THIS vessel and how deep its tip goes — facts of the built
+  // vessel (its builder derives them from dimensions.json), never typed per container
+  const VU = S[vessel].userData
+  const MOUTH = VU.mouth || { x: 0, y: 0, z: 0, approach: 'top' }
+  const ENTRY = VU.entry
 
   // seat the travelling sample WITHOUT resetting its contents: it enters at the
   // carried-in (start) state, so it continues from where the last step left it.
@@ -389,10 +396,10 @@ export function configureStation(st, o) {
   } else if (source === 'sample_tube') {
     // the reagent IS the sample (e.g. "load the denatured protein samples into the wells"):
     // the pipette draws from the samples' own TUBE — a bottle of samples would be invented
-    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: C.entryPoint })
+    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: MOUTH, entry: ENTRY })
     const src = st.reagents.r
     src.grp.visible = false
-    const tube = demo.buildTube({ height: 1.7, radius: 0.32, color: endColor, label: '' })
+    const tube = demo.buildTube({ color: endColor, label: '' })
     tube.position.copy(src.grp.position); tube.userData.noFrame = true
     tube.userData.setLevel?.(0.6)
     st.group.add(tube); if (tube.userData.update) st.updatables.push(tube)
@@ -402,7 +409,7 @@ export function configureStation(st, o) {
     // #13 — a POUR: the stated mL reagent's BOTTLE is tipped into the vessel; no pipette.
     // A pour that states no reagent ("pour the agarose into the casting tray") names no
     // bottle, so none is invented: the vessel simply fills.
-    const C0 = C.dispense || { x: 0, z: 0 }
+    const C0 = MOUTH || { x: 0, z: 0 }
     const mouth = {
       x: C0.x || 0, z: C0.z || 0,
       y: (C0.approach === 'angled' && C0.y != null) ? C0.y : SEAT_Y + (C0.y != null ? C0.y : 0.9),
@@ -476,13 +483,13 @@ export function configureStation(st, o) {
     const prep = (fromMix && o.drawsFrom) ? demo.getPrep(o.drawsFrom) : null
     if (reags.length <= 1 && !fromMix) {
       // UNCHANGED single-reagent path: resident pipette rig + bottle; fill ramps in the dispense window.
-      demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: C.entryPoint })
-      frameAngledPipette(st, C.dispense, 0)
+      demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: MOUTH, entry: ENTRY })
+      frameAngledPipette(st, MOUTH, 0)
     } else if (prep) {
       // DRAW FROM THE CARRIED MIX (Stage 36). The prep tube was made at its own station and
       // is glided HERE (placePreps + the frame loop) — one object, moved, not a copy. The
       // pipette draws OUT of it into the sample, and its level DROPS as it is used.
-      const disp = C.dispense || { x: 0, z: 0 }
+      const disp = MOUTH || { x: 0, z: 0 }
       const toY = (disp.approach === 'angled' && disp.y != null) ? disp.y : SEAT_Y
       const draw = { x: 2.0, y: 0.9, z: 0.7 }          // where the tube parks + the pipette dips
       const streamColor = prep.userData.mixColor != null ? prep.userData.mixColor : reags[0].color
@@ -495,7 +502,7 @@ export function configureStation(st, o) {
         const v = S[vessel]
         if (v.userData.setCap) v.userData.setCap(!(p > 0.1 && p < 0.95)) // uncap to receive
         demo.pipetteRun(st, new Vector3(draw.x, draw.y, draw.z), { x: disp.x, y: toY, z: disp.z }, p,
-          { color: streamColor, fill: 0.8, approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: C.entryPoint })
+          { color: streamColor, fill: 0.8, approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: ENTRY })
         const done = demo.dispenseProgress(p)
         v.userData.setLevel(demo.lerp(startLevel, endLevel, done))
         v.userData.setColor(endColor)
@@ -503,7 +510,7 @@ export function configureStation(st, o) {
       }
     } else {
       // N reagents → N pipette passes INTO the sample (one per reagent, from its own source).
-      const disp = C.dispense || { x: 0, z: 0 }
+      const disp = MOUTH || { x: 0, z: 0 }
       const toY = (disp.approach === 'angled' && disp.y != null) ? disp.y : SEAT_Y
       demo.addPipetteRig(st)
       reags.forEach((r, k) => addReagentSource(st, 'r' + k, r, k, fromMix))
@@ -515,7 +522,7 @@ export function configureStation(st, o) {
         const k = Math.min(n - 1, Math.floor(p / seg))
         const lp = demo.clamp((p - k * seg) / seg, 0, 1)
         demo.pipetteRun(st, st.reagents['r' + k].pos, { x: disp.x, y: toY, z: disp.z }, lp,
-          { color: reags[k].color, fill: 0.8, approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: C.entryPoint })
+          { color: reags[k].color, fill: 0.8, approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: ENTRY })
         const done = (k + demo.dispenseProgress(lp)) / n
         v.userData.setLevel(demo.lerp(startLevel, endLevel, done))
         v.userData.setColor(reags[Math.min(k, n - 1)].color)
@@ -529,7 +536,7 @@ export function configureStation(st, o) {
     const reags = (o.reagents && o.reagents.length) ? o.reagents : [{ name, vol, color: endColor }]
     const prepId = o.produces || ('prep_' + Math.round(st.x))
     const PREP_FULL = 0.62
-    const prep = demo.makePrep(prepId, { height: 1.7, radius: 0.34 })
+    const prep = demo.makePrep(prepId, {})
     const home = { x: st.x + 0.4, y: 0, z: 0.2 }
     prep.position.set(home.x, home.y, home.z); prep.userData.tPos.copy(prep.position)
     prep.userData.mixColor = reags[reags.length - 1].color // the mixture's settled colour
@@ -635,9 +642,9 @@ export function configureStation(st, o) {
       // genuine pipetting station); the level drains as it draws up.
       // aspirate AT the container's dispense point (a well / the flask surface),
       // descending to just above THAT surface — not a fixed tube height.
-      const dx = C.dispense.x, dz = C.dispense.z
+      const dx = MOUTH.x, dz = MOUTH.z
       const hiY = FLAT ? 1.9 : SEAT_Y + 1.35
-      const loY = FLAT ? C.dispense.y + 0.12 : SEAT_Y + 0.85
+      const loY = FLAT ? MOUTH.y + 0.12 : SEAT_Y + 0.85
       demo.addPipetteRig(st)
       st.enter = () => { seat(0, SEAT_Y, 0); if (st.pip) { st.pip.position.set(dx, hiY, dz); st.pip.userData.setFluid(0) } }
       st.timeline = (p) => {
@@ -676,7 +683,7 @@ export function configureStation(st, o) {
       // liquid does not move (it is in the column's bed); no pipette, no level change.
       configureNestMove(st, S, {
         columnKey: prevC2.vessel, tubeKey: vessel,
-        columnSeatY: prevC2.seat.y, tubeSeatY: SEAT_Y,
+        columnSeatY: 0, tubeSeatY: SEAT_Y,
         color: startColor, level: startLevel, // the column KEEPS its carried contents
       })
       st._skipHandoff = true // the nest IS the transition; no lift/settle swap or fill
@@ -687,8 +694,8 @@ export function configureStation(st, o) {
       // reads as a wire, and nothing at a bench moves liquid through open air).
       configurePipetteTransfer(st, S, {
         fromKey: prevC2.vessel, toKey: vessel,
-        srcSeatY: prevC2.seat.y, dstSeatY: SEAT_Y,
-        srcDisp: prevC2.dispense, dstDisp: C.dispense, dstEntry: C.entryPoint,
+        srcSeatY: 0, dstSeatY: SEAT_Y,
+        srcDisp: S[prevC2.vessel].userData.mouth, dstDisp: MOUTH, dstEntry: ENTRY,
         srcToken: prevContainer, dstToken: container,
         color: endColor, startLevel, endLevel, name, vol,
       })
@@ -709,7 +716,7 @@ export function configureStation(st, o) {
         a.rotation.set(0, 0, 0); b.rotation.set(0, 0, 0)
         a.userData.setColor?.(startColor); a.userData.setLevel?.(startLevel)
         b.userData.setColor?.(endColor); b.userData.setLevel?.(0)
-        S.snapTo(a, st.x + AX, prevC2.seat.y, 0)
+        S.snapTo(a, st.x + AX, 0, 0)
         S.snapTo(b, st.x + BX, SEAT_Y, 0)
       }
       st.timeline = (p) => {
@@ -941,8 +948,8 @@ export function configureStation(st, o) {
     }
   } else if (action === 'seed') {
     // dispense the sample into the culture vessel; on agar, a spreader then sweeps it out.
-    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: C.entryPoint })
-    frameAngledPipette(st, C.dispense, 0)
+    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: MOUTH, entry: ENTRY })
+    frameAngledPipette(st, MOUTH, 0)
     if (container === 'agar_plate') {
       const spr = demo.buildSpreader()
       spr.scale.setScalar(0.9)
@@ -1469,8 +1476,8 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       // never clobbers the opacity the timer driver sets (paused-dim / done-fade).
       // the sample vessel is not a station prop, so size the ring to take in ITS footprint
       // too (a 1.9-wide agar plate hid a tube-sized ring completely)
-      const vf = containerContract(container).footprint || { minX: -0.4, maxX: 0.4 }
-      const vesselR = Math.max(Math.abs(vf.minX), Math.abs(vf.maxX))
+      const vd = dims(containerContract(container).spec)
+      const vesselR = Math.max(vd.width, vd.depth) / 2
       const dial = makeBenchDial(Math.max(st.frame.footprint.r, vesselR) + DIAL_MARGIN)
       dial.position.set(st.frame.footprint.cx, DIAL_Y, st.frame.footprint.cz)
       st.group.add(dial)

@@ -15,7 +15,7 @@
 //                      real-world counterparts (dimensions.json) within SCALE_TOLERANCE.
 //
 // Plus pivotAudit: a freshly built model's origin is the centre of its base.
-import { Raycaster, Vector3, Matrix4, Box3, DoubleSide } from 'three'
+import { Raycaster, Vector3, Matrix4, Box3, DoubleSide, BufferAttribute } from 'three'
 import { MeshBVH } from 'three-mesh-bvh'
 import { solidMeshes, solidBox } from './solids.js'
 import { dims, clearance } from './dims.js'
@@ -113,6 +113,14 @@ function bvhOf(geometry) {
   if (!b) { b = new MeshBVH(geometry, { indirect: true }); bvhCache.set(geometry, b) }
   return b
 }
+// three-mesh-bvh's triangle test wants an indexed "other" geometry (Extrude/Shape are not)
+const indexedCache = new WeakMap()
+function indexed(g) {
+  if (g.index) return g
+  let c = indexedCache.get(g)
+  if (!c) { c = g.clone(); const n = g.attributes.position.count; const idx = new (n > 65535 ? Uint32Array : Uint16Array)(n); for (let i = 0; i < n; i++) idx[i] = i; c.setIndex(new BufferAttribute(idx, 1)); indexedCache.set(g, c) }
+  return c
+}
 const _mA = new Matrix4(), _mB = new Matrix4(), _shr = new Matrix4(), _t = new Matrix4()
 const _bA = new Box3(), _bB = new Box3()
 
@@ -135,7 +143,7 @@ export function objectsIntersect(A, B) {
       _bB.copy(mb.geometry.boundingBox).applyMatrix4(mb.matrixWorld)
       if (!_bA.intersectsBox(_bB)) continue
       _mB.copy(mb.matrixWorld).invert().multiply(_mA) // A-geometry → B-geometry space
-      if (bvhOf(mb.geometry).intersectsGeometry(ma.geometry, _mB)) return { a: ma, b: mb }
+      if (bvhOf(mb.geometry).intersectsGeometry(indexed(ma.geometry), _mB)) return { a: ma, b: mb }
     }
   }
   return null

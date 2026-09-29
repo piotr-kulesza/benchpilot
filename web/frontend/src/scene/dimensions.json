@@ -94,7 +94,7 @@
       "name": "T-75 culture flask (lying flat)", "category": "vessel", "shape": "box", "model": "canted-neck T-75 flask",
       "width": { "mm": 225, "est": "overall length incl. canted neck and cap; no manufacturer drawing retrieved" },
       "depth": { "mm": 90, "est": "body width of a 75 cm² flask" },
-      "height": { "mm": 40, "est": "body height lying flat" },
+      "height": { "mm": 58, "est": "overall height lying flat incl. the canted neck and cap (body ≈ 40 mm)" },
       "wall": { "mm": 1.5, "est": "moulded polystyrene" },
       "volume": { "ml": 250, "est": "T-75 total capacity in catalogue names (250 mL)" }
     },

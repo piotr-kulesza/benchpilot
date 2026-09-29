@@ -9,9 +9,9 @@ import * as demo from '../scene/demoScene.js'
 // as a caption so the auditor can compare intent vs. render.
 export const MODELS = [
   // ── containers ──────────────────────────────────────────────────────────
-  { id: 'microtube',    kind: 'container', span: 2.4, orient: 'stands upright', build: () => demo.buildTube({ height: 1.7, radius: 0.32, color: demo.COL.pellet, label: 'microtube' }) },
+  { id: 'microtube',    kind: 'container', span: 2.4, orient: 'stands upright', build: () => demo.buildTube({ color: demo.COL.pellet, label: 'microtube' }) },
   { id: 'spin_column',  kind: 'container', span: 2.4, orient: 'stands upright (column in a collection tube)', build: () => demo.buildSpinColumn() },
-  { id: 'eluate_tube',  kind: 'container', span: 1.8, orient: 'stands upright', build: () => demo.buildTube({ height: 1.15, radius: 0.26, color: demo.COL.rna, label: 'eluate' }) },
+  { id: 'eluate_tube',  kind: 'container', span: 1.8, orient: 'stands upright', build: () => demo.buildTube({ color: demo.COL.rna, label: 'eluate' }) },
   { id: 'cryovial',     kind: 'container', span: 1.6, orient: 'stands upright, skirted base', build: () => demo.buildCryovial() },
   { id: 'well_plate',   kind: 'container', span: 2.6, orient: 'lies flat, 8×12 wells', build: () => demo.buildWellPlate() },
   { id: 'flask',        kind: 'container', span: 2.6, orient: 'T-flask LIES FLAT on its side, canted neck at a top corner', build: () => demo.buildFlask() },

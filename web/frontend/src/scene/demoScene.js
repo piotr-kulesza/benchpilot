@@ -16,6 +16,8 @@ import { resolveScenePreset } from './scenePresets.js'
 import { exitLiftPoint } from '../vessel/sceneRecipe.js'
 import { streams } from './rng.js'
 import { solidBox } from './solids.js'
+import { dims, clearance } from './dims.js'
+import { addSocket, placeInto, placeOnBench, clearPlacement, getSocket, socketPose, canPlace } from './sockets.js'
 
 // Height (world Y) a sample rises to when it leaves a docked instrument, before it
 // glides on — clears the centrifuge lid (its own lift is y≈2.15) and every other device.
@@ -160,6 +162,56 @@ export function undockSample(lift = false) {
   // tag a builder's root with its dimensions.json id (what real object it depicts)
   // + its CANONICAL size (solids' extent as built: lids shut, caps on, before any motion)
   // — the relative-scale check compares this against the real size.
+  /* ---- REAL SIZE: fit a builder's hand-drawn ART to its dimensions.json envelope ----
+     Every builder draws its model in its own drawing units (the art below is unchanged:
+     proportions, profiles, materials). fitArt measures that drawing's solid extent (as
+     built: lids shut, caps on) and scales it so the model's world envelope IS the table's
+     width × height × depth, then recentres it so the ORIGIN IS THE CENTRE OF ITS BASE.
+     The drawing's numbers therefore set only shape; the only size is dims(id). A 'round'
+     item keeps its x and z scale equal (a centrifuge stays round). Functional geometry
+     that must fit a real vessel — bores, slots, stages — is authored in WORLD units from
+     the table on the returned root, never in drawing units. Sprite labels move to the root
+     (a non-uniformly scaled parent would squash them) and sit just above the model.
+     Returns the root; root.userData carries the art's userData (hooks, state) and `fit`. */
+  var LABEL_GAP = 0.25;   // world units a builder's name plate floats above its top
+  function fitArt(art, id){
+    var d=dims(id);
+    var b=solidBox(art, art), size=b.getSize(new THREE.Vector3()), c=b.getCenter(new THREE.Vector3());
+    var sx=d.width/size.x, sy=d.height/size.y, sz=d.depth/size.z;
+    if(d.shape==='round'){ var sr=(d.width+d.depth)/(size.x+size.z); sx=sz=sr; }
+    var root=new THREE.Group();
+    var labels=art.children.filter(function(o){ return o.isSprite; });
+    labels.forEach(function(l){ art.remove(l); root.add(l); l.position.set(0, d.height+LABEL_GAP+(l.userData.worldH||0)/2, 0); });
+    root.add(art);
+    art.scale.set(sx,sy,sz);
+    art.position.set(-c.x*sx, -b.min.y*sy, -c.z*sz);
+    root.userData=art.userData;   // SHARED: the art's hooks keep reading their own userData
+    var fit={ sx:sx, sy:sy, sz:sz, art:art,
+      // a point in DRAWING units → the root's world-unit frame
+      toWorld:function(x,y,z){ return new THREE.Vector3(x*sx+art.position.x, y*sy+art.position.y, z*sz+art.position.z); } };
+    root.userData.fit=fit;
+    return root;
+  }
+  // a box with NO top face (a tank, basin or liner you can see and lower things into) —
+  // the old way hid the +y face with an invisible material, but its triangles were still
+  // there for anything lowered in to pass through.
+  function openTopBox(w,h,d){
+    var g=new THREE.BoxGeometry(w,h,d);
+    var top=g.groups[2], idx=g.index.array, keep=[];
+    for(var i=0;i<idx.length;i++){ if(i<top.start || i>=top.start+top.count) keep.push(idx[i]); }
+    g.setIndex(keep); g.clearGroups(); g.addGroup(0,keep.length,0);
+    return g;
+  }
+  // a flat slab w × d, thickness h, with round holes (x,z,r) cut through it — a block top,
+  // a rack, a plate deck: the holes are REAL openings, not dark discs on a solid.
+  function slabWithHoles(w,h,d,holes,seg){
+    var sh=new THREE.Shape();
+    sh.moveTo(-w/2,-d/2); sh.lineTo(w/2,-d/2); sh.lineTo(w/2,d/2); sh.lineTo(-w/2,d/2); sh.lineTo(-w/2,-d/2);
+    for(var i=0;i<holes.length;i++){ var hp=new THREE.Path(); hp.absarc(holes[i][0],-holes[i][1],holes[i][2],0,Math.PI*2,true); sh.holes.push(hp); }
+    var g=new THREE.ExtrudeGeometry(sh,{ depth:h, bevelEnabled:false, curveSegments:seg||20 });
+    g.rotateX(-Math.PI/2);   // extrude along +y; shape y = −world z
+    return g;
+  }
   function tagSpec(grp, id){ grp.userData.spec=id; grp.userData.canonicalSize=solidBox(grp, grp).getSize(new THREE.Vector3()); return grp; }
 
   function radialTex(stops){
@@ -463,8 +515,12 @@ export function undockSample(lift = false) {
   /* ---------- conical microcentrifuge tube ---------- */
   function buildTube(opts){
     opts = opts || {};
-    var H = opts.height || 1.7;
-    var R = opts.radius || 0.34;
+    // REAL SIZE: height + body diameter from dimensions.json (opts.spec, default the
+    // 1.5 mL microtube). The profile's straight body is R*0.955, so R is chosen to make
+    // that body's outer diameter the table's; every other number below is a proportion.
+    var D = dims(opts.spec || 'microtube_1_5');
+    var H = D.height;
+    var R = D.radius/0.955;
     var grp = new THREE.Group();
     var visual = new THREE.Group(); grp.add(visual);
 
@@ -485,7 +541,7 @@ export function undockSample(lift = false) {
     ];
     var wall = new THREE.Mesh(new THREE.LatheGeometry(prof, 64), glassMat);
     wall.castShadow=true; visual.add(wall);
-    var rim = new THREE.Mesh(new THREE.TorusGeometry(R*1.02,0.024,12,48), glassMat);
+    var rim = new THREE.Mesh(new THREE.TorusGeometry(R*1.02,R*0.075,12,48), glassMat);
     rim.rotation.x=Math.PI/2; rim.position.y=H; visual.add(rim);
 
     // frosted writing patch moulded into the front wall
@@ -508,7 +564,7 @@ export function undockSample(lift = false) {
     // liquid conforms to the tube's INNER wall (a slightly inset copy of `prof`),
     // rebuilt as a flat-topped lathe whenever the fill level changes.
     var innerFn   = innerRadiusFn(prof, 0.90);
-    var liqBottom = 0.03;
+    var liqBottom = H*0.018;
     var liqFillMax= H*0.90;                 // fill line at full level
     var liqMat = new THREE.MeshPhysicalMaterial({
       color: opts.color||COL.lysis, metalness:0, roughness:0.32, vertexColors:true,
@@ -525,7 +581,7 @@ export function undockSample(lift = false) {
         transparent:true, opacity:0.42, envMapIntensity:1.0, depthWrite:false });
       var dGeo=new THREE.SphereGeometry(1,10,8);
       for(var dc=0;dc<22;dc++){
-        var da=Math.random()*Math.PI*2, dy=H*(0.2+Math.random()*0.65), ds=0.012+Math.random()*0.02;
+        var da=Math.random()*Math.PI*2, dy=H*(0.2+Math.random()*0.65), ds=R*(0.037+Math.random()*0.0625);
         var dm=new THREE.Mesh(dGeo,dMat);
         dm.position.set(Math.cos(da)*R*0.99, dy, Math.sin(da)*R*0.99);
         dm.scale.set(ds,ds*1.5,ds); fx(dm,'effect'); condens.add(dm);
@@ -536,7 +592,7 @@ export function undockSample(lift = false) {
     var label=null;
     if(opts.label!==false){
       label=makeLabel(opts.label||"", opts.sub||"");
-      label.position.set(0, H+0.7, 0);
+      label.position.set(0, H+LABEL_GAP, 0);
       grp.add(label);
     }
 
@@ -565,7 +621,10 @@ export function undockSample(lift = false) {
       }
     };
     grp.userData.visual=visual;
-    return tagSpec(grp, opts.spec||'microtube_1_5');
+    // where a pipette delivers: the MOUTH (top centre) and how deep the tip goes in
+    grp.userData.mouth={ x:0, y:H, z:0, approach:'top' };
+    grp.userData.entry=H*0.32;
+    return tagSpec(grp, D.id);
   }
 
   /* ---------- air-displacement micropipette ---------- */
@@ -759,7 +818,11 @@ export function undockSample(lift = false) {
         liqMat.color.copy(st.color); liqMat.emissive.copy(st.color);
       }
     };
-    return tagSpec(grp,'spin_column_mini');
+    var root=fitArt(grp,'spin_column_mini');
+    // the tip stops just below the cup rim, ABOVE the silica bed (membrane at drawing y 0.9)
+    root.userData.mouth={ x:0, y:root.userData.fit.toWorld(0,1.56,0).y, z:0, approach:'top' };
+    root.userData.entry=root.userData.fit.toWorld(0,1.2,0).y;
+    return tagSpec(root,'spin_column_mini');
   }
 
   /* ---------- anodized cold block ---------- */
@@ -2013,55 +2076,63 @@ export {
       else { e=easeInOut((o-0.7)/0.3); cryoCapGrp.position.set(BX, lerp(UP,BY,e), BZ); }
       cryoCapGrp.rotation.z = 0;
     };
-    return tagSpec(grp,'cryovial_2ml');
+    var root=fitArt(grp,'cryovial_2ml');
+    root.userData.mouth={ x:0, y:root.userData.fit.toWorld(0,top,0).y, z:0, approach:'top' };
+    root.userData.entry=root.userData.fit.toWorld(0,0.45,0).y;
+    return tagSpec(root,'cryovial_2ml');
   }
 
   /* 96-well microplate — 8×12 grid of RECESSED bores, skirt, A1 corner notch; the
      sample lives in ONE front well (aspirated). */
   function buildWellPlate(){
     var grp=new THREE.Group();
-    var BX=2.9, BZ=1.95, BH=0.34;
+    // REAL SIZE — ANSI/SLAS: footprint 127.76 × 85.48, height 14.35, wells on a 9 mm pitch
+    // with A1 at 14.38 / 11.24 mm from the left / back edges (dims('microplate_96')).
+    var P=dims('microplate_96');
+    var BX=P.width, BZ=P.depth, BH=P.height, WALL=P.wall;
     // The wells are BORES cut into the plate. A solid box would cap them, so the plate is
     // two parts: an opaque lower body up to the well floors, and a WELL DECK on top — the
     // plate outline extruded with 96 round holes, so every bore has real walls going down
     // to a dark floor. (The old wells were dark cups standing proud of a solid top: pegs.)
-    var WELL_D=0.11, FLOOR_Y=BH-WELL_D, WELL_R=0.082;
+    var WELL_D=P.well_depth, FLOOR_Y=BH-WELL_D, WELL_R=P.well_diameter/2;
     var bodyMat=new THREE.MeshStandardMaterial({ color:0xe3e8ee, roughness:0.5, metalness:0, envMapIntensity:0.5 });
     var wallMat=new THREE.MeshStandardMaterial({ color:0xc4ccd6, roughness:0.6, metalness:0, envMapIntensity:0.4 });
+    // the flange (skirt) IS the SBS footprint; the moulded body above it steps in by a wall
+    var TX=BX-2*WALL, TZ=BZ-2*WALL, SKIRT_H=BH*0.17;
     // the lower body shares the deck's SIDE material so the plate's flank reads as one face
-    var body=new THREE.Mesh(new THREE.BoxGeometry(BX,FLOOR_Y,BZ), wallMat);
+    var body=new THREE.Mesh(new THREE.BoxGeometry(TX,FLOOR_Y,TZ), wallMat);
     body.position.y=FLOOR_Y/2; body.castShadow=true; body.receiveShadow=true; grp.add(body);
-    var skirt=new THREE.Mesh(new THREE.BoxGeometry(BX+0.1,0.06,BZ+0.1), matPlastic(0xc4ccd6));
-    skirt.position.y=0.03; grp.add(skirt);
-    // A1 corner NOTCH — a clipped corner cue (a small dark chamfer at one corner)
-    var notch=new THREE.Mesh(new THREE.BoxGeometry(0.22,BH+0.02,0.22), matPlastic(0x9aa4b0));
-    notch.position.set(-BX/2+0.02,0.17,-BZ/2+0.02); notch.rotation.y=Math.PI/4; grp.add(notch);
-    // the 8×12 grid, A1 back-left; a dark floor disc at the bottom of every bore
-    var deck=new THREE.Shape();
-    deck.moveTo(-BX/2,-BZ/2); deck.lineTo(BX/2,-BZ/2); deck.lineTo(BX/2,BZ/2); deck.lineTo(-BX/2,BZ/2); deck.lineTo(-BX/2,-BZ/2);
+    var skirt=new THREE.Mesh(new THREE.BoxGeometry(BX,SKIRT_H,BZ), matPlastic(0xc4ccd6));
+    skirt.position.y=SKIRT_H/2; grp.add(skirt);
+    // A1 corner NOTCH — a small dark chamfer cue INSIDE the A1 corner (never proud of it)
+    var NS=P.well_pitch*0.9;
+    var notch=new THREE.Mesh(new THREE.BoxGeometry(NS,BH,NS), matPlastic(0x9aa4b0));
+    notch.position.set(-TX/2+NS*0.72,BH/2,-TZ/2+NS*0.72); notch.rotation.y=Math.PI/4; grp.add(notch);
+    // the 8×12 grid, A1 back-left, from the SBS well-position standard
     var floorMat=new THREE.MeshStandardMaterial({ color:0x2a323c, metalness:0.1, roughness:0.75 });
     var floors=new THREE.InstancedMesh(new THREE.CircleGeometry(WELL_R,14), floorMat, 96); var mf=new THREE.Matrix4(); var idx=0;
-    var awx=0, awz=0; var stepX=(BX-0.5)/11, stepZ=(BZ-0.42)/7;
+    var awx=0, awz=0, holes=[];
     for(var c=0;c<12;c++) for(var r=0;r<8;r++){
-      var x=-(BX-0.5)/2+c*stepX, z=-(BZ-0.42)/2+r*stepZ;
-      var hole=new THREE.Path(); hole.absarc(x,-z,WELL_R,0,Math.PI*2,true); deck.holes.push(hole); // shape y = −world z
-      mf.makeRotationX(-Math.PI/2); mf.setPosition(x,FLOOR_Y+0.003,z); floors.setMatrixAt(idx,mf);
+      var x=-BX/2+P.a1_offset_x+c*P.well_pitch, z=-BZ/2+P.a1_offset_y+r*P.well_pitch;
+      holes.push([x,z,WELL_R]);
+      mf.makeRotationX(-Math.PI/2); mf.setPosition(x,FLOOR_Y+WELL_D*0.01,z); floors.setMatrixAt(idx,mf);
       idx++;
       if(c===1 && r===7){ awx=x; awz=z; }   // the active (front-left) well
     }
     floors.instanceMatrix.needsUpdate=true; grp.add(floors);
-    var deckGeo=new THREE.ExtrudeGeometry(deck,{ depth:WELL_D, bevelEnabled:false, curveSegments:14 });
-    deckGeo.rotateX(-Math.PI/2);                 // extrude along +y; lies flat
+    var deckGeo=slabWithHoles(TX,WELL_D,TZ,holes,14);
     var deckMesh=new THREE.Mesh(deckGeo,[bodyMat,wallMat]); // caps = plate top, sides = bore walls
     deckMesh.position.y=FLOOR_Y; deckMesh.castShadow=true; deckMesh.receiveShadow=true; grp.add(deckMesh);
     // sample liquid in the active well — it fills the bore from its floor up
-    var liq=new THREE.Mesh(new THREE.CylinderGeometry(WELL_R-0.008,WELL_R-0.008,1,16), liquidMat());
-    liq.position.set(awx,FLOOR_Y+0.01,awz); fx(liq,'fluid'); grp.add(liq);
-    var label=makeLabel("","96-well"); label.position.set(awx,0.9,awz); grp.add(label);
+    var liq=new THREE.Mesh(new THREE.CylinderGeometry(WELL_R*0.9,WELL_R*0.9,1,16), liquidMat());
+    liq.position.set(awx,FLOOR_Y,awz); fx(liq,'fluid'); grp.add(liq);
+    var label=makeLabel("","96-well"); label.position.set(awx,BH+LABEL_GAP,awz); grp.add(label);
     attachSampleLiquid(grp, liq, function(liq,lv,color){
-      var h=Math.max(0.006, lv*(WELL_D-0.012)); liq.scale.set(1,h,1); liq.position.y=FLOOR_Y+0.004+h/2;
+      var h=Math.max(WELL_D*0.05, lv*WELL_D*0.9); liq.scale.set(1,h,1); liq.position.y=FLOOR_Y+WELL_D*0.02+h/2;
       liq.material.color.copy(color); liq.material.emissive.copy(color);
     }, label, 0); // empty wells at rest
+    grp.userData.mouth={ x:awx, y:BH, z:awz, approach:'top' };
+    grp.userData.entry=FLOOR_Y+WELL_D*0.4;
     return tagSpec(grp,'microplate_96');
   }
 
@@ -2154,7 +2225,14 @@ export {
       else if(o<0.7){ e=easeInOut((o-0.3)/0.4); flaskCapGrp.position.set(lerp(CAP_ON.x,CAP_BENCH.x,e), up, lerp(CAP_ON.z,CAP_BENCH.z,e)); flaskCapGrp.rotation.z=0; }
       else { e=easeInOut((o-0.7)/0.3); flaskCapGrp.position.set(CAP_BENCH.x, lerp(up, CAP_BENCH.y, e), CAP_BENCH.z); flaskCapGrp.rotation.z=0; }
     };
-    return tagSpec(grp,'flask_t75');
+    var root=fitArt(grp,'flask_t75'), F=root.userData.fit;
+    // the canted NECK MOUTH (drawing: 0.55 up the neck axis from its pivot), its cant as it
+    // reads after the fit (a non-uniform scale changes the angle), and how far down the
+    // neck axis a tip travels to reach the medium (drawing 0.95 along the axis)
+    var NECK=0.62, ax=Math.sin(NECK)*F.sx, ay=Math.cos(NECK)*F.sy, alen=Math.hypot(ax,ay);
+    var m=F.toWorld(neckPivot.position.x+Math.sin(NECK)*0.55, neckPivot.position.y+Math.cos(NECK)*0.55, neckPivot.position.z);
+    root.userData.mouth={ x:m.x, y:m.y, z:m.z, approach:'angled', tilt:-Math.atan2(ax,ay), depth:0.95*alen, standoff:0.75*alen };
+    return tagSpec(root,'flask_t75');
   }
 
   /* petri dish — shallow round liquid layer, aspirated */
@@ -2173,7 +2251,10 @@ export {
       var h=Math.max(0.008, lv*0.09); liq.scale.set(1,h,1); liq.position.y=0.012+h/2;
       liq.material.color.copy(color); liq.material.emissive.copy(color);
     }, label, 0); // empty dish at rest
-    return tagSpec(grp,'petri_90');
+    var root=fitArt(grp,'petri_90');
+    root.userData.mouth={ x:0, y:dims('petri_90').height, z:0, approach:'top' };
+    root.userData.entry=root.userData.fit.toWorld(0,0.03,0).y;
+    return tagSpec(root,'petri_90');
   }
 
   /* glass microscope slide — sample is a smear/film; stain floods colour over it */
@@ -2195,7 +2276,11 @@ export {
       f.material.color.copy(color); f.material.emissive.copy(color);
       f.material.opacity=Math.min(0.68, lv*0.9);             // thin muted smear
     }, label, 0); // clean slide at rest
-    return tagSpec(grp,'slide_iso8037');
+    var root=fitArt(grp,'slide_iso8037');
+    var sm=root.userData.fit.toWorld(0.35,0.07,0);
+    root.userData.mouth={ x:sm.x, y:sm.y, z:sm.z, approach:'top' };
+    root.userData.entry=sm.y;
+    return tagSpec(root,'slide_iso8037');
   }
 
   /* nitrocellulose membrane — a thin sheet carrying transferred bands (aspirated) */
@@ -2211,7 +2296,10 @@ export {
     attachSampleLiquid(grp, bands, function(bs,lv,color){
       for(var k=0;k<bs.length;k++){ bs[k].material.color.copy(color); bs[k].material.opacity=Math.min(0.95, lv*1.3); }
     }, label, 0); // clean membrane at rest (bands appear on transfer)
-    return tagSpec(grp,'membrane_mini');
+    var root=fitArt(grp,'membrane_mini');
+    root.userData.mouth={ x:0, y:dims('membrane_mini').height, z:0, approach:'top' };
+    root.userData.entry=dims('membrane_mini').height;
+    return tagSpec(root,'membrane_mini');
   }
 
   /* agarose gel slab in a casting tray — sample = a loaded lane + a migrating band */
@@ -2238,7 +2326,11 @@ export {
       b.material.color.copy(color); b.material.opacity=Math.min(0.9,lv*1.3);
       b.position.z=-0.4+lv*0.7;   // the band migrates down the gel with fill/progress
     }, label, 0); // no band at rest (wells only)
-    return tagSpec(grp,'gel_tray_7x10');
+    var root=fitArt(grp,'gel_tray_7x10');
+    var gm=root.userData.fit.toWorld(-0.36,0.24,-0.4);   // the loading well, at the gel surface
+    root.userData.mouth={ x:gm.x, y:gm.y, z:gm.z, approach:'top' };
+    root.userData.entry=root.userData.fit.toWorld(0,0.2,0).y;
+    return tagSpec(root,'gel_tray_7x10');
   }
 
   /* petri dish with an agar bed — for seed: liquid dropped on, spreader sweeps */
@@ -2258,7 +2350,10 @@ export {
       l.material.color.copy(color); l.material.emissive.copy(color);
       l.material.opacity=Math.min(0.75, lv*1.1); l.scale.setScalar(0.3+lv*1.0);
     }, label, 0); // freshly-poured plate: uniform agar, no lawn
-    return tagSpec(grp,'petri_90');
+    var root=fitArt(grp,'petri_90');
+    root.userData.mouth={ x:0, y:dims('petri_90').height, z:0, approach:'top' };
+    root.userData.entry=root.userData.fit.toWorld(0,0.16,0).y;
+    return tagSpec(root,'petri_90');
   }
 
   /* −80 °C freezer box — the vessel is placed inside; door opens, frost breathes out */
@@ -2355,9 +2450,9 @@ export {
   }
 
   function buildSample(){
-    var tube   = buildTube({height:1.7, radius:0.32, color:COL.pellet, label:"Neutrophil pellet", sub:"", cold:true, capColor:0x3f7fd0});
+    var tube   = buildTube({color:COL.pellet, label:"Neutrophil pellet", sub:"", cold:true, capColor:0x3f7fd0});
     var column = buildSpinColumn();
-    var elu    = buildTube({height:1.15, radius:0.26, color:COL.rna, label:"Eluate", sub:"RNA", capColor:0x49b26a});
+    var elu    = buildTube({color:COL.rna, label:"Eluate", sub:"RNA", capColor:0x49b26a});
     // Stage-8: the sample can also be ANY of these container types — one persistent
     // travelling sample carried through the actual glassware of any protocol.
     var S={ tube:tube, column:column, elu:elu,

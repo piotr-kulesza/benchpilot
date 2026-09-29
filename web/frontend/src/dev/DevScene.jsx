@@ -95,7 +95,7 @@ export function GalleryScene({ item, angle = 'front', bare = false }) {
     if (!bare) {
       // reference microtube, always to the LEFT for scale
       refX = -(span / 2 + 1.7)
-      const ref = demo.buildTube({ height: 1.7, radius: 0.32, color: demo.COL.pellet, label: 'ref' })
+      const ref = demo.buildTube({ color: demo.COL.pellet, label: 'ref' })
       ref.position.set(refX, 0, 0)
       g.add(ref)
     }
