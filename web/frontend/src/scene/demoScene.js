@@ -2647,7 +2647,7 @@ export {
     handle.position.set(-0.06,0.78,0); handle.rotation.z=0.12; grp.add(handle);
     var label=makeLabel("Spreader",""); label.position.set(0,1.7,0); grp.add(label);
     grp.userData.label=label; grp.userData.update=function(){};
-    return tagSpec(grp,'cell_spreader');
+    return tagSpec(fitArt(grp,'cell_spreader'),'cell_spreader');
   }
 
   function buildSample(){
