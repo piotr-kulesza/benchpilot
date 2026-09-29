@@ -1567,7 +1567,8 @@ export function undockSample(lift = false) {
     grp.userData.update=function(){};
     var label = makeLabel("20–21 G needle","homogenize");
     label.position.set(0,2.55,0); grp.add(label); grp.userData.label=label;
-    return tagSpec(grp,'syringe_1ml');
+    // held by the needle TIP (its origin), which is also its base: the drawing's own x/z
+    return tagSpec(fitArt(grp,'syringe_1ml',{ pivot:'origin' }),'syringe_1ml');
   }
 
   /* ---------- NanoDrop ---------- */
