@@ -841,47 +841,56 @@ export function undockSample(lift = false) {
 
   /* ---------- anodized cold block ---------- */
   function buildColdBlock(){
-    // A compact dry heat/incubation block. WIDE but SHALLOW front-to-back (a single row
-    // of wells) for two reasons: the sample tube actually SEATS in a well (the wells are
-    // sized to it, r≈0.36 vs the old 0.19 microtube bores it stood in front of), and a
-    // flat countdown dial around its base isn't swallowed by a deep body.
+    // REAL SIZE from dims('dry_block_heater'): a dark anthracite housing with a brushed
+    // aluminium block on top and ONE row of tube bores. The bores are REAL openings — the
+    // block is a slab with holes, each with its wall and floor — sized to the tube they
+    // accept (+ socket play). (The old block drew dark cylinders INSIDE a solid box and
+    // capped them with a solid top plate: a seated tube passed through both.)
     var grp = new THREE.Group();
+    var D=dims('dry_block_heater'), T=dims('microtube_1_5');
+    var W=D.width, H=D.height, DEP=D.depth, BORE=D.bore_depth;
     var alu   = matAnodized(0x30343b);                        // dark anthracite body
     var aluTop= matBrushed(0xb8bec6); aluTop.roughness=0.42;  // brushed-silver thermoblock top
-    var W=2.0, D=0.9, boreR=0.36;                             // block footprint + well radius (fits the tube)
-    var chamfer = new THREE.Mesh(new THREE.BoxGeometry(W+0.12,0.12,D+0.12), matAnodized(0x24272d));
-    chamfer.position.y=0.06; chamfer.castShadow=true; chamfer.receiveShadow=true; grp.add(chamfer);
-    var base = new THREE.Mesh(new THREE.BoxGeometry(W,0.32,D), alu);
-    base.position.y=0.28; base.castShadow=true; base.receiveShadow=true; grp.add(base);
-    var topPlate = new THREE.Mesh(new THREE.BoxGeometry(W+0.04,0.06,D+0.04), aluTop);
-    topPlate.position.y=0.45; grp.add(topPlate);
-    // machined bevel frame around the top edge — catches the key light
-    var bevelMat=matAnodized(0xc0cad4); bevelMat.roughness=0.34; var bevY=0.485; var hz=D/2-0.03;
-    var bvA=new THREE.Mesh(new THREE.BoxGeometry(W+0.04,0.028,0.05), bevelMat); bvA.position.set(0,bevY,hz); grp.add(bvA);
-    var bvB=new THREE.Mesh(new THREE.BoxGeometry(W+0.04,0.028,0.05), bevelMat); bvB.position.set(0,bevY,-hz); grp.add(bvB);
-    var bvC=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.028,D), bevelMat); bvC.position.set(W/2-0.02,bevY,0); grp.add(bvC);
-    var bvD=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.028,D), bevelMat); bvD.position.set(-(W/2-0.02),bevY,0); grp.add(bvD);
-    var fluteMat = matAnodized(0x2a2e35);
+    var boreR = T.radius + clearance('socket_fit');           // the tube's body + play (its rim stands above the block)
+    var PLINTH=H*0.09, BLOCK_W=W*0.82, BLOCK_D=DEP*0.5;
+    var chamfer = new THREE.Mesh(new THREE.BoxGeometry(W,PLINTH,DEP), matAnodized(0x24272d));
+    chamfer.position.y=PLINTH/2; chamfer.castShadow=true; chamfer.receiveShadow=true; grp.add(chamfer);
+    var bodyH=H-PLINTH-BORE;
+    var base = new THREE.Mesh(new THREE.BoxGeometry(W*0.96,bodyH,DEP*0.96), alu);
+    base.position.y=PLINTH+bodyH/2; base.castShadow=true; base.receiveShadow=true; grp.add(base);
+    // ONE row of tube-sized wells across the block (the centre one takes the sample)
+    var N=3, PITCH=boreR*2+W*0.06, xs=[];
+    for(var i=0;i<N;i++) xs.push((i-(N-1)/2)*PITCH);
+    var floorY=H-BORE;
+    var topPlate = new THREE.Mesh(slabWithHoles(BLOCK_W,BORE,BLOCK_D,xs.map(function(x){ return [x,0,boreR]; }),28), aluTop);
+    topPlate.position.y=floorY; topPlate.castShadow=true; grp.add(topPlate);
+    // machined bevel frame around the block's top edge — catches the key light
+    var bevelMat=matAnodized(0xc0cad4); bevelMat.roughness=0.34; var bv=H*0.02, bevY=H-bv/2;
+    [[BLOCK_W,bv,bv, 0,BLOCK_D/2-bv/2],[BLOCK_W,bv,bv, 0,-(BLOCK_D/2-bv/2)],
+     [bv,bv,BLOCK_D, BLOCK_W/2-bv/2,0],[bv,bv,BLOCK_D, -(BLOCK_W/2-bv/2),0]].forEach(function(r){
+      var m=new THREE.Mesh(new THREE.BoxGeometry(r[0],r[1],r[2]), bevelMat); m.position.set(r[3],bevY,r[4]); grp.add(m); });
+    // cooling flutes down the housing front
+    var fluteMat = matAnodized(0x2a2e35), fr=W*0.01;
     for(var f=0;f<9;f++){
-      var fl=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.3,10), fluteMat);
-      fl.position.set(-1.0+f*0.25,0.28,D/2); grp.add(fl);
+      var fl=new THREE.Mesh(new THREE.CylinderGeometry(fr,fr,bodyH*0.8,10), fluteMat);
+      fl.position.set((f-4)*W*0.1, PLINTH+bodyH/2, DEP*0.48+fr*0.2); grp.add(fl);
     }
-    // ONE row of tube-sized wells (the centre one holds the sample); the tube drops IN.
     var wellRim = matAnodized(0x8b95a1);
     var boreMat = new THREE.MeshStandardMaterial({ color:0x1d232b, metalness:0.4, roughness:0.7, side:THREE.DoubleSide });
-    for(var i=0;i<3;i++){
-      var x=-0.62+i*0.62, z=0;
-      var bore = new THREE.Mesh(new THREE.CylinderGeometry(boreR,boreR,0.34,28,1,true), boreMat);
-      bore.position.set(x,0.34,z); grp.add(bore);
+    var lipT=boreR*0.08;
+    xs.forEach(function(x,i){
+      var bore = new THREE.Mesh(new THREE.CylinderGeometry(boreR,boreR,BORE,28,1,true), boreMat);
+      bore.position.set(x,floorY+BORE/2,0); fx(bore,'decal'); grp.add(bore);     // the bore's dark lining (the slab's hole is its wall)
       var boreBot = new THREE.Mesh(new THREE.CircleGeometry(boreR,28), boreMat);
-      boreBot.rotation.x=-Math.PI/2; boreBot.position.set(x,0.18,z); grp.add(boreBot);
-      var lip = new THREE.Mesh(new THREE.TorusGeometry(boreR,0.016,10,28), wellRim);
-      lip.rotation.x=Math.PI/2; lip.position.set(x,0.48,z); grp.add(lip);
-    }
+      boreBot.rotation.x=-Math.PI/2; boreBot.position.set(x,floorY+BORE*0.002,0); fx(boreBot,'decal'); grp.add(boreBot);
+      var lip = new THREE.Mesh(new THREE.TorusGeometry(boreR+lipT,lipT,10,28), wellRim);   // sits OUTSIDE the bore
+      lip.rotation.x=Math.PI/2; lip.position.set(x,H,0); grp.add(lip);
+      addSocket(grp, 'well'+i, { position:new THREE.Vector3(x,floorY,0) });
+    });
     var label = makeLabel("Incubate","RT");
-    label.position.set(0,1.5,0.5); grp.add(label);
+    label.position.set(0,H+LABEL_GAP,0); grp.add(label);
     grp.userData.label=label; grp.userData.update=function(){};
-    grp.userData.wellY = 0.2; // base height a seated tube rests at (in the well)
+    grp.userData.sampleSocket='well1';
     return tagSpec(grp,'dry_block_heater');
   }
 
