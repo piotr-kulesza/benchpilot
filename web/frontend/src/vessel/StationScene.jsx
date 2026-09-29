@@ -1670,6 +1670,14 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       const r = state.gl.info.render
       const p = window.__benchperf || (window.__benchperf = {}) // reuse the object — no per-frame alloc
       p.calls = r.calls; p.triangles = r.triangles; p.stations = stations.length; p.ticked = ticked
+      // resource counts — sampled by scripts/frame-probe.mjs at the start and end of each
+      // step animation: a count that RISES while a step animates means something is
+      // created per frame and not disposed (a leak, not just slowness)
+      const mem = state.gl.info.memory
+      p.geometries = mem.geometries; p.textures = mem.textures
+      p.programs = state.gl.info.programs ? state.gl.info.programs.length : null
+      p.active = activeRef.current
+      p.p = pRef.current // the active step's animation value, so a probe can see frames where motion did not advance
     }
   })
 
