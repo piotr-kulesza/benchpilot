@@ -1184,8 +1184,9 @@ export function undockSample(lift = false) {
     // OPEN-TOPPED tank (a buffer tank has no top face — the lid sits on its rim). Box
     // material order is +x,-x,+y,-y,+z,-z: the +y face gets an invisible material, so a
     // gel inside is seen from above through the (clear) lid and the buffer only.
-    var noTop = new THREE.MeshBasicMaterial({ visible:false });
-    var tank = new THREE.Mesh(new THREE.BoxGeometry(2.6,0.7,1.6), [tankMat,tankMat,noTop,tankMat,tankMat,tankMat]);
+    // (now a box with NO top face at all — an invisible face's triangles were still there
+    // for a gel lowered in to pass through)
+    var tank = new THREE.Mesh(openTopBox(2.6,0.7,1.6), tankMat);
     tank.position.y=0.55; tank.castShadow=true; grp.add(tank);
     var frameMat = matPlastic(0x2b3038);
     // base + top rim frames so the tank reads as a solid moulded vessel, not a haze
@@ -1223,9 +1224,27 @@ export function undockSample(lift = false) {
     for(var l=0;l<5;l++){ var bx=-0.8+l*0.4;
       var band=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.02,0.05), bandMat.clone());
       band.position.set(bx,0.07-0.01+0.002,-0.5); fx(band,'decal'); gel.add(band); bands.push(band); }
-    // power supply box with a voltage readout
+    var label=makeLabel("Electrophoresis",""); label.position.set(0,1.5,0); grp.add(label);
+    grp.userData.label=label;
+    grp.userData.showGel=function(on){ gel.visible=!!on; };
+    grp.userData.setLidLift=function(q){ lidGrp.position.y=clamp(q,0,1)*1.15; };  // straight up, leads with it
+    grp.userData.update=function(){};
+    var tankRoot=fitArt(grp,'gel_tank_mini'), TF=tankRoot.userData.fit;
+    tagSpec(tankRoot,'gel_tank_mini');
+    // the GEL PLATFORM between the electrode wells (functional, real size): a raised bed
+    // on the tank floor the casting tray is set on — sized to the tray, platform_height up.
+    // The run buffer covers it. (The old dock left the gel hanging mid-buffer.)
+    var GT=dims('gel_tray_7x10'), GD=dims('gel_tank_mini'), gap=clearance('bench_gap');
+    var floorY=TF.toWorld(0,0.29,0).y, platY=floorY+GD.platform_height;
+    var bed=new THREE.Mesh(new THREE.BoxGeometry(GT.width+gap*0.5,GD.platform_height,GT.depth+gap*0.5), frameMat);
+    bed.position.y=(floorY+platY)/2; tankRoot.add(bed);
+    addSocket(tankRoot,'platform',{ position:new THREE.Vector3(0,platY,0) });
+    tankRoot.userData.sampleSocket='platform';
+    tankRoot.userData.rimY=TF.toWorld(0,0.9,0).y;          // a docked gel lifts clear of the rim
+    // the POWER SUPPLY is its own instrument (dims('power_supply')), on the bench beside the tank
+    var pg=new THREE.Group();
     var box = new THREE.Mesh(new THREE.BoxGeometry(0.9,0.7,0.6), matPainted(0xd8dee6,0.44));
-    box.position.set(1.9,0.35,0.1); box.castShadow=true; grp.add(box);
+    box.position.set(0,0.35,0); box.castShadow=true; pg.add(box);
     var vc=document.createElement("canvas"); vc.width=128; vc.height=80; var vg=vc.getContext("2d");
     var vTex=new THREE.CanvasTexture(vc); vTex.anisotropy=MAX_ANISO;
     function drawV(v){ vg.fillStyle="#0d1218"; vg.fillRect(0,0,128,80);
@@ -1233,34 +1252,40 @@ export function undockSample(lift = false) {
       vg.fillStyle="#727a85"; vg.font="600 16px 'IBM Plex Sans'"; vg.fillText("V", 120,52); vTex.needsUpdate=true; }
     drawV(0);
     var vDisp=new THREE.Mesh(new THREE.PlaneGeometry(0.5,0.3), new THREE.MeshBasicMaterial({map:vTex,transparent:true}));
-    vDisp.position.set(1.9,0.5,0.41); fx(vDisp,'decal'); grp.add(vDisp);
-    // cables running from the lid terminals to the power-supply box (arched, connected)
-    function gelCable(from,to,color){
-      var mid=new THREE.Vector3((from.x+to.x)/2,Math.max(from.y,to.y)+0.32,(from.z+to.z)/2);
-      var curve=new THREE.CatmullRomCurve3([from,mid,to]);
-      return new THREE.Mesh(new THREE.TubeGeometry(curve,22,0.028,8,false), matRubber(color));
+    vDisp.position.set(0,0.5,0.31); fx(vDisp,'decal'); pg.add(vDisp);
+    var psu=tagSpec(fitArt(pg,'power_supply'),'power_supply');
+    var PS=dims('power_supply');
+    var root=new THREE.Group(); root.add(tankRoot); root.add(psu);
+    psu.position.set(GD.width/2+gap+PS.width/2, 0, 0);
+    // the ASSEMBLY's origin is the centre of its base: centre the tank + supply pair
+    var shiftX=-(psu.position.x+PS.width/2-GD.width/2)/2;
+    tankRoot.position.x+=shiftX; psu.position.x+=shiftX;
+    // cables from the lid terminals to the supply's front sockets, IN THE LID'S FRAME so the
+    // leads come up with it. Flexible leads plugged into both ends: not rigid solids.
+    root.updateMatrixWorld(true);
+    function gelCable(fromArt, toWorld, color){
+      var to=lidGrp.worldToLocal(toWorld.clone());
+      var mid=new THREE.Vector3((fromArt.x+to.x)/2,Math.max(fromArt.y,to.y)+0.32,(fromArt.z+to.z)/2);
+      var curve=new THREE.CatmullRomCurve3([fromArt,mid,to]);
+      return fx(new THREE.Mesh(new THREE.TubeGeometry(curve,22,0.028,8,false), matRubber(color)),'cable');
     }
-    lidGrp.add(gelCable(new THREE.Vector3(-0.5,1.1,0.6), new THREE.Vector3(1.55,0.72,0.32), 0xc0392b));
-    lidGrp.add(gelCable(new THREE.Vector3(-0.2,1.1,0.6), new THREE.Vector3(1.66,0.72,0.02), 0x22272e));
-
-    var label=makeLabel("Electrophoresis",""); label.position.set(0,1.5,0); grp.add(label);
-    grp.userData.label=label;
-    grp.userData.setProgress=function(p){
+    var jack=function(dx){ return new THREE.Vector3(psu.position.x-PS.width*0.3+dx, PS.height*0.3, PS.depth/2); };
+    lidGrp.add(gelCable(new THREE.Vector3(-0.5,1.1,0.6), jack(0), 0xc0392b));
+    lidGrp.add(gelCable(new THREE.Vector3(-0.2,1.1,0.6), jack(PS.width*0.12), 0x22272e));
+    // the rig's hooks, on the composite (the TANK is the host of its socket)
+    root.userData.label=tankRoot.userData.label;
+    root.userData.sockets=tankRoot.userData.sockets; root.userData.sampleSocket='platform';
+    root.userData.tank=tankRoot; root.userData.psu=psu; root.userData.rimY=tankRoot.userData.rimY;
+    root.userData.showGel=tankRoot.userData.showGel; root.userData.setLidLift=tankRoot.userData.setLidLift;
+    root.userData.setProgress=function(p){
       var e=easeInOut(clamp(p,0,1));
       for(var k=0;k<bands.length;k++){ bands[k].position.z = -0.5 + e*0.9; }  // migrate toward the front
       drawV(p>0.02 ? 100 : 0);
     };
-    // The station docks the SAMPLE's own gel in the tank; the rig's placeholder slab is
-    // then hidden (showGel(false)) so there is one gel, the sample's. dockY is the height
-    // a docked slab's base sits at: submerged under the running buffer (top ~0.75).
-    grp.userData.showGel=function(on){ gel.visible=!!on; };
-    grp.userData.dockY=0.45;
-    grp.userData.rimY=0.9;                 // the tank's top rim — a docked gel lifts clear of it
-    grp.userData.setLidLift=function(q){ lidGrp.position.y=clamp(q,0,1)*1.15; };  // straight up, leads with it
-    grp.userData.setVolts=function(on){ drawV(on?100:0); };
-    grp.userData.update=function(){};
-    grp.userData.setProgress(0);
-    return tagSpec(grp,'gel_tank_mini');
+    root.userData.setVolts=function(on){ drawV(on?100:0); };
+    root.userData.update=function(){};
+    root.userData.setProgress(0);
+    return root;
   }
 
   /* ---------- open ice bucket (cold storage — keep on ice / −80 °C) ---------- */
