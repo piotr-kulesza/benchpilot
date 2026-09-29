@@ -1625,7 +1625,7 @@ export function undockSample(lift = false) {
       st.prog=lerp(st.prog,st.tProg,1-Math.pow(0.01,dt));
       drawTrace(sg,st.prog); scTex.needsUpdate=true;
     };
-    return tagSpec(grp,'nanodrop');
+    return tagSpec(fitArt(grp,'nanodrop'),'nanodrop');
   }
   function drawTrace(g,prog){
     var W=720,H=480,S=2;
