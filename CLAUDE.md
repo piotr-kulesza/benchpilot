@@ -58,6 +58,16 @@ These govern every change to the 3D. They are correctness rules, not taste:
   signature; verify with a baseline → current diff.
 - Verify renders by **headless screenshot**, not by eye. See "Judging renders".
 
+## Scene units and dimensions (non-negotiable)
+
+- **1 world unit = 100 mm.** Declared once, in `web/frontend/src/scene/dimensions.json`
+  (`world_unit_mm`) and read through `src/scene/dims.js` (`dims(id)` → world units).
+- Every vessel's and instrument's real size (height, diameter/footprint, wall, working
+  volume, socket-relevant sub-dimensions) lives in `dimensions.json`, each value tagged
+  `src` (a listed standard / catalogue spec), `est` (estimated — says on what basis) or
+  `derived`. **Never type a size into a builder; never invent a number without `est`.**
+- Layout gaps (`bench_gap`, `socket_fit`, `lift`, `contact_epsilon`) are also in the file.
+
 ## The player — `web/frontend/` (Vite + React 18)
 
 Consumes the **schema only**; it does not depend on how `parsed.json` was

@@ -1,0 +1,313 @@
+{
+  "_readme": [
+    "Real-world dimensions of every vessel and instrument the scene draws. THE ONLY source of object size in the scene.",
+    "World unit: 1 world unit = world_unit_mm millimetres. Builders read these via src/scene/dims.js, never a typed size.",
+    "Every value is an object with its unit key (mm | ml | deg | count) and EXACTLY ONE provenance key:",
+    "  src     — a key into `sources` (a standard or a manufacturer/catalogue spec that was actually looked up)",
+    "  est     — ESTIMATED: no spec was found; the string says what the number is based on. Treat as provisional.",
+    "  derived — computed from other sourced values in this entry (the expression is given).",
+    "`model` names the concrete product the entry describes, so an estimate can be replaced by looking that product up.",
+    "Footprint axes: width = scene X (left-right as the camera sees it), depth = scene Z (front-back), height = Y."
+  ],
+  "world_unit_mm": 100,
+  "clearances": {
+    "_note": "Layout rules, not object sizes: gaps the scene keeps between things. Estimated from bench practice.",
+    "bench_gap": { "mm": 30, "est": "hand-width gap between neighbouring items on a bench" },
+    "socket_fit": { "mm": 0.3, "est": "radial play between a vessel and the bore/slot that holds it" },
+    "lift": { "mm": 25, "est": "height a carried vessel clears the tallest thing it passes over" },
+    "contact_epsilon": { "mm": 0.5, "est": "tolerance of the contact check (half a millimetre)" }
+  },
+  "sources": {
+    "eppendorf-safelock-15": { "title": "Eppendorf Safe-Lock Tubes 1.5 mL, technical drawing (Ø 10.8 outer, Ø 9.85 inner, length ca. 41 mm closed / ca. 59 mm lid open)", "url": "https://www.eppendorf.com/product-media/doc/en/140027_Technical-Data/Eppendorf_Consumables_Technical-data_Safe-Lock-Tube-15-mL_Safe-Lock-15-mL-technical-drawing.pdf" },
+    "corning-430659": { "title": "Corning 430659 2 mL external-thread cryogenic vial, 12.7 mm Ø × 48.8 mm", "url": "https://ecatalog.corning.com/life-sciences/b2c/US/en/General-Labware/Cryogenic-Storage-and-Accessories/Cryogenic-Vials/Corning%C2%AE-External-Thread-Cryogenic-Vials/p/430659" },
+    "ansi-slas-1-2004": { "title": "ANSI/SLAS 1-2004 (R2012) Microplates — Footprint Dimensions (127.76 × 85.48 mm)", "url": "https://www.slas.org/SLAS/assets/File/public/standards/ANSI_SLAS_1-2004_FootprintDimensions.pdf" },
+    "ansi-slas-2-2004": { "title": "ANSI/SLAS 2-2004 (R2012) Microplates — Height Dimensions (14.35 mm)", "url": "https://www.slas.org/education/ansi-slas-microplate-standards/" },
+    "ansi-slas-4-2004": { "title": "ANSI/SLAS 4-2004 (R2012) Microplates — Well Positions (96-well: 9 mm pitch, A1 at 14.38 / 11.24 mm)", "url": "https://www.slas.org/education/ansi-slas-microplate-standards/" },
+    "iso-8037-1": { "title": "ISO 8037-1 Microscope slides — 76 × 26 mm, thickness ≈ 1 mm", "url": "https://www.iso.org/standard/15048.html" },
+    "nunc-90mm-dish": { "title": "Nunc Petri dish 90 mm × 15 mm (Sigma-Aldrich Z717223)", "url": "https://www.sigmaaldrich.com/US/en/product/sigma/z717223" },
+    "duran-gl45-250": { "title": "DURAN Original GL 45 laboratory bottle 250 mL, ISO 4796-1: Ø 70 mm, height 143 mm with cap", "url": "https://www.dwk.com/na/duran-original-gl-45-laboratory-bottle-clear-with-screw-cap-and-pouring-ring-pp-blue-250-ml-218013651" },
+    "iso-3819-600": { "title": "ISO 3819 low-form beaker 600 mL: Ø 90 mm, height 125 mm", "url": "https://www.iso.org/standard/9363.html" },
+    "minispin-plus": { "title": "Eppendorf MiniSpin plus with rotor F-45-12-11 (12 × 1.5/2.0 mL, 45° fixed angle): W 225 × D 240 × H 120 mm", "url": "https://americanlaboratorytrading.com/lab-equipment-products/eppendorf-mini-spin-plus-with-f45-12-11-rotor-10393/" },
+    "biorad-t100": { "title": "Bio-Rad T100 Thermal Cycler, bulletin 6060: W 26 × D 47 × H 23 cm, 96 × 0.2 mL block", "url": "https://www.bio-rad.com/sites/default/files/2021-08/Bulletin_6060.pdf" },
+    "nanodrop-one": { "title": "Thermo NanoDrop One: 10 in W × 8 in D × 12.7 in H", "url": "https://www.thermofisher.com/order/catalog/product/ND-ONE-W" },
+    "vortex-genie-2": { "title": "Scientific Industries Vortex-Genie 2: 16.5 × 12 × 16.5 cm (W × D × H)", "url": "https://www.scientificindustries.com/products/vortex-genie-2" },
+    "grant-jbn5": { "title": "Grant JB Nova JBN5 5 L water bath: external 335 × 215 × 200 mm, internal 281 × 131 × 105 mm", "url": "https://www.grantinstruments.com/products/jb-nova-unstirred-water-baths" },
+    "thermostat-c": { "title": "Eppendorf ThermoStat C dry block: 20.6 × 30.4 × 13.6 cm (W × D × H)", "url": "https://www.eppendorf.com/us-en/Products/Temperature-Control-and-Mixing/Instruments/Eppendorf-ThermoStat-C-p-PF-55869" },
+    "belart-ice-4l": { "title": "Bel-Art Magic Touch ice bucket 4 L: 8-1/2 in rim diameter × 6-3/5 in height", "url": "https://www.amazon.com/Bel-Art-Scienceware-Polymer-Magic-Bucket/dp/B00UVOBPLS" },
+    "biotek-800ts": { "title": "Agilent BioTek 800 TS absorbance reader: 394 × 406 × 222 mm (W × D × H)", "url": "https://www.agilent.com/en/product/microplate-instrumentation/microplate-readers/absorbance-microplate-readers/biotek-800-ts-absorbance-reader-1623177" },
+    "thermo-88880023": { "title": "Thermo Scientific Compact Digital Microplate Shaker 88880023: 13 in W × 9-3/4 in D × 5 in H; platform 10.5 × 7.3 in (listings disagree — see entry)", "url": "https://www.marshallscientific.com/Thermo-Scientific-Compact-Digital-Microplate-Shake-p/ts-cdms.htm" },
+    "galaxy-14s": { "title": "Eppendorf/New Brunswick Galaxy 14 S CO2 incubator operating manual: W 31.3 × D 28.5 × H 45.4 cm", "url": "https://www.eppendorf.com/product-media/doc/en/149532_Operating-Manual/New-Brunswick_CO2-Incubators_Operating-manual_Galaxy-14S.pdf" },
+    "stirling-ult25": { "title": "Stirling Ultracold ULT25NEU portable −86 °C freezer: external 693 × 350 × 460 mm, internal 332 × 221 × 340 mm", "url": "https://www.stirlingultracold.com/wp-content/uploads/2024/05/ULT25NEU_Product_Brochure_Stirling_Ultracold.pdf" },
+    "nikon-ts2": { "title": "Nikon ECLIPSE Ts2 inverted microscope: approx. 236 W × 548 D × 471 H mm", "url": "https://www.microscope.healthcare.nikon.com/products/inverted-microscopes/eclipse-ts2/specifications" },
+    "olympus-cx23": { "title": "Olympus CX23 (binocular): 198 × 398 × 386 mm (W × D × H)", "url": "https://evidentscientific.com/en/products/upright/cx23" },
+    "uvp-2uv": { "title": "UVP Benchtop 2UV transilluminator, 21 × 26 cm filter: 14 W × 11 D × 4.8 H in with cover", "url": "https://www.fishersci.com/shop/products/uvp-benchtop-uv-transilluminators-2uv-2/uv95045901" },
+    "biorad-minisub": { "title": "Bio-Rad Mini-Sub Cell GT, 7 × 10 cm tray: tank 120 × 260 × 65 mm (W × L × H)", "url": "https://www.bio-rad.com/en-us/sku/1704466-mini-sub-cell-gt-horizontal-electrophoresis-system-7-x-10-cm-tray?ID=1704466" },
+    "biorad-powerpac-basic": { "title": "Bio-Rad PowerPac Basic power supply manual: 25 × 21 × 8 cm (L × W × H)", "url": "https://www.bio-rad.com/webroot/web/pdf/lsr/literature/4006213.pdf" },
+    "eppendorf-research-plus": { "title": "Eppendorf Research plus performance data sheet: single-channel length > 238 mm", "url": "https://www.eppendorf.com/product-media/doc/en/672922/Liquid-Handling_Technical-data_Research-plus_Eppendorf-Research-plus-Performance-Data-Sheet.pdf" },
+    "bd-syringe-diameters": { "title": "Syringe inner diameters (BD plastic 1 mL: 4.78 mm)", "url": "https://lab.vanderbilt.edu/wp-content/uploads/sites/59/public_files/Syringe%20Diameters.pdf" },
+    "l-spreader": { "title": "L-shaped cell spreader: 146 mm long, 38 mm spreading bend", "url": "https://www.fishersci.com/shop/products/fisherbrand-l-shaped-cell-spreaders-2/p-4249846" }
+  },
+  "items": {
+    "microtube_1_5": {
+      "name": "1.5 mL microcentrifuge tube", "category": "vessel", "shape": "round", "model": "Eppendorf Safe-Lock 1.5 mL (drawn capless)",
+      "height": { "mm": 41, "src": "eppendorf-safelock-15" },
+      "diameter": { "mm": 10.8, "src": "eppendorf-safelock-15" },
+      "inner_diameter": { "mm": 9.85, "src": "eppendorf-safelock-15" },
+      "wall": { "mm": 0.475, "derived": "(diameter − inner_diameter) / 2" },
+      "volume": { "ml": 1.5, "src": "eppendorf-safelock-15" }
+    },
+    "pcr_tube_0_2": {
+      "name": "0.2 mL PCR tube", "category": "vessel", "shape": "round", "model": "generic thin-wall 0.2 mL PCR tube",
+      "height": { "mm": 21, "est": "typical 0.2 mL tube body; no drawing retrieved" },
+      "diameter": { "mm": 6.0, "est": "must pass a 96-well block bore on a 9 mm pitch" },
+      "wall": { "mm": 0.25, "est": "thin-wall PCR tubes" },
+      "volume": { "ml": 0.2, "est": "nominal capacity in the product name" }
+    },
+    "spin_column_mini": {
+      "name": "silica spin column in 2 mL collection tube", "category": "vessel", "shape": "round", "model": "QIAGEN RNeasy Mini spin column + 2 mL collection tube",
+      "height": { "mm": 53, "est": "column seated in a 2 mL collection tube; QIAGEN publishes no drawing" },
+      "diameter": { "mm": 11.2, "est": "column flange sits on a 2 mL tube rim ≈ Safe-Lock outer Ø" },
+      "wall": { "mm": 0.6, "est": "moulded PP" },
+      "volume": { "ml": 0.7, "est": "RNeasy Mini column reservoir (the handbook loads up to 700 µl)" }
+    },
+    "cryovial_2ml": {
+      "name": "2 mL cryovial", "category": "vessel", "shape": "round", "model": "Corning 430659 external-thread cryovial",
+      "height": { "mm": 48.8, "src": "corning-430659" },
+      "diameter": { "mm": 12.7, "src": "corning-430659" },
+      "wall": { "mm": 0.8, "est": "PP cryovial wall" },
+      "volume": { "ml": 2.0, "src": "corning-430659" }
+    },
+    "microplate_96": {
+      "name": "96-well microplate", "category": "vessel", "shape": "box", "model": "SBS/ANSI 96-well plate",
+      "width": { "mm": 127.76, "src": "ansi-slas-1-2004" },
+      "depth": { "mm": 85.48, "src": "ansi-slas-1-2004" },
+      "height": { "mm": 14.35, "src": "ansi-slas-2-2004" },
+      "well_pitch": { "mm": 9.0, "src": "ansi-slas-4-2004" },
+      "a1_offset_x": { "mm": 14.38, "src": "ansi-slas-4-2004" },
+      "a1_offset_y": { "mm": 11.24, "src": "ansi-slas-4-2004" },
+      "well_diameter": { "mm": 6.86, "est": "typical flat-bottom 96-well top Ø" },
+      "well_depth": { "mm": 10.67, "est": "typical flat-bottom 96-well depth" },
+      "wall": { "mm": 1.0, "est": "polystyrene web between wells at the top" },
+      "volume": { "ml": 0.36, "est": "typical flat-bottom well capacity" }
+    },
+    "flask_t75": {
+      "name": "T-75 culture flask (lying flat)", "category": "vessel", "shape": "box", "model": "canted-neck T-75 flask",
+      "width": { "mm": 225, "est": "overall length incl. canted neck and cap; no manufacturer drawing retrieved" },
+      "depth": { "mm": 90, "est": "body width of a 75 cm² flask" },
+      "height": { "mm": 40, "est": "body height lying flat" },
+      "wall": { "mm": 1.5, "est": "moulded polystyrene" },
+      "volume": { "ml": 250, "est": "T-75 total capacity in catalogue names (250 mL)" }
+    },
+    "petri_90": {
+      "name": "90 mm Petri dish", "category": "vessel", "shape": "round", "model": "Nunc 90 × 15 mm dish",
+      "diameter": { "mm": 90, "src": "nunc-90mm-dish" },
+      "height": { "mm": 15, "src": "nunc-90mm-dish" },
+      "wall": { "mm": 0.8, "est": "polystyrene dish wall" },
+      "volume": { "ml": 20, "est": "typical agar pour for a 90 mm plate" }
+    },
+    "slide_iso8037": {
+      "name": "microscope slide", "category": "vessel", "shape": "box", "model": "ISO 8037-1 glass slide",
+      "width": { "mm": 76, "src": "iso-8037-1" },
+      "depth": { "mm": 26, "src": "iso-8037-1" },
+      "height": { "mm": 1.0, "src": "iso-8037-1" }
+    },
+    "membrane_mini": {
+      "name": "blotting membrane (mini gel)", "category": "vessel", "shape": "box", "model": "nitrocellulose sheet cut for a mini gel",
+      "width": { "mm": 85, "est": "mini-gel blotting membranes are sold at ~7 × 8.5 cm" },
+      "depth": { "mm": 70, "est": "mini-gel blotting membranes are sold at ~7 × 8.5 cm" },
+      "height": { "mm": 0.15, "est": "nitrocellulose sheet thickness" }
+    },
+    "gel_tray_7x10": {
+      "name": "agarose gel in 7 × 10 cm casting tray", "category": "vessel", "shape": "box", "model": "Bio-Rad Mini-Sub 7 × 10 cm UV-transparent tray",
+      "gel_width": { "mm": 70, "src": "biorad-minisub" },
+      "gel_length": { "mm": 100, "src": "biorad-minisub" },
+      "width": { "mm": 110, "est": "tray outer length along the run axis (gel length + gasket ends)" },
+      "depth": { "mm": 78, "est": "tray outer width (gel width + side walls)" },
+      "height": { "mm": 12, "est": "tray floor + side wall" },
+      "gel_thickness": { "mm": 6, "est": "30 mL pour in a 7 × 10 cm tray ≈ 4–6 mm" }
+    },
+    "microcentrifuge": {
+      "name": "microcentrifuge", "category": "instrument", "shape": "round", "model": "Eppendorf MiniSpin plus + F-45-12-11",
+      "width": { "mm": 225, "src": "minispin-plus" },
+      "depth": { "mm": 240, "src": "minispin-plus" },
+      "height": { "mm": 120, "src": "minispin-plus" },
+      "rotor_angle": { "deg": 45, "src": "minispin-plus" },
+      "rotor_places": { "count": 12, "src": "minispin-plus" },
+      "rotor_radius": { "mm": 48, "est": "slot-centre radius that fits 12 × 1.5 mL tubes in a ~ 150 mm bowl" },
+      "accepts": ["microtube_1_5", "spin_column_mini"]
+    },
+    "thermocycler_96": {
+      "name": "thermal cycler", "category": "instrument", "shape": "box", "model": "Bio-Rad T100",
+      "width": { "mm": 260, "src": "biorad-t100" },
+      "depth": { "mm": 470, "src": "biorad-t100" },
+      "height": { "mm": 230, "src": "biorad-t100" },
+      "well_pitch": { "mm": 9.0, "src": "ansi-slas-4-2004" },
+      "accepts": ["pcr_tube_0_2"]
+    },
+    "nanodrop": {
+      "name": "micro-volume spectrophotometer", "category": "instrument", "shape": "box", "model": "Thermo NanoDrop One",
+      "width": { "mm": 254, "src": "nanodrop-one" },
+      "depth": { "mm": 203, "src": "nanodrop-one" },
+      "height": { "mm": 323, "src": "nanodrop-one" },
+      "accepts": []
+    },
+    "vortex_mixer": {
+      "name": "vortex mixer", "category": "instrument", "shape": "box", "model": "Vortex-Genie 2",
+      "width": { "mm": 165, "src": "vortex-genie-2" },
+      "depth": { "mm": 120, "src": "vortex-genie-2" },
+      "height": { "mm": 165, "src": "vortex-genie-2" },
+      "cup_diameter": { "mm": 45, "est": "pop-off cup head; no drawing retrieved" },
+      "accepts": ["microtube_1_5", "cryovial_2ml", "spin_column_mini"]
+    },
+    "water_bath_5l": {
+      "name": "water bath", "category": "instrument", "shape": "box", "model": "Grant JB Nova JBN5",
+      "width": { "mm": 335, "src": "grant-jbn5" },
+      "depth": { "mm": 215, "src": "grant-jbn5" },
+      "height": { "mm": 200, "src": "grant-jbn5" },
+      "inner_width": { "mm": 281, "src": "grant-jbn5" },
+      "inner_depth": { "mm": 131, "src": "grant-jbn5" },
+      "inner_height": { "mm": 105, "src": "grant-jbn5" },
+      "rack_height": { "mm": 80, "est": "submerged tube rack standing on the bath floor, sized so the water covers ~60 % of a 1.5 mL tube" },
+      "accepts": ["microtube_1_5", "cryovial_2ml", "spin_column_mini"]
+    },
+    "dry_block_heater": {
+      "name": "dry heat block", "category": "instrument", "shape": "box", "model": "Eppendorf ThermoStat C with a 1.5 mL block",
+      "width": { "mm": 206, "src": "thermostat-c" },
+      "depth": { "mm": 304, "src": "thermostat-c" },
+      "height": { "mm": 136, "src": "thermostat-c" },
+      "bore_depth": { "mm": 30, "est": "1.5 mL blocks hold the tube's conical part and body below the rim" },
+      "accepts": ["microtube_1_5", "spin_column_mini"]
+    },
+    "ice_bucket_4l": {
+      "name": "ice bucket", "category": "instrument", "shape": "round", "model": "Bel-Art Magic Touch 4 L",
+      "diameter": { "mm": 216, "src": "belart-ice-4l" },
+      "height": { "mm": 168, "src": "belart-ice-4l" },
+      "wall": { "mm": 15, "est": "insulated foam wall" },
+      "ice_depth": { "mm": 60, "est": "ice filled to ~ 3/4 of a 1.5 mL tube standing on the floor" },
+      "accepts": ["microtube_1_5", "cryovial_2ml", "spin_column_mini"]
+    },
+    "plate_reader": {
+      "name": "absorbance microplate reader", "category": "instrument", "shape": "box", "model": "BioTek 800 TS",
+      "width": { "mm": 394, "src": "biotek-800ts" },
+      "depth": { "mm": 406, "src": "biotek-800ts" },
+      "height": { "mm": 222, "src": "biotek-800ts" },
+      "accepts": ["microplate_96"]
+    },
+    "plate_shaker": {
+      "name": "microplate shaker", "category": "instrument", "shape": "box", "model": "Thermo Compact Digital Microplate Shaker 88880023",
+      "width": { "mm": 330, "src": "thermo-88880023" },
+      "depth": { "mm": 248, "src": "thermo-88880023" },
+      "height": { "mm": 127, "src": "thermo-88880023" },
+      "platform_width": { "mm": 267, "src": "thermo-88880023" },
+      "platform_depth": { "mm": 185, "src": "thermo-88880023" },
+      "accepts": ["microplate_96", "membrane_mini"]
+    },
+    "co2_incubator_benchtop": {
+      "name": "benchtop CO₂ incubator", "category": "instrument", "shape": "box", "model": "Eppendorf Galaxy 14 S",
+      "width": { "mm": 313, "src": "galaxy-14s" },
+      "depth": { "mm": 285, "src": "galaxy-14s" },
+      "height": { "mm": 454, "src": "galaxy-14s" },
+      "wall": { "mm": 40, "est": "insulated jacket" },
+      "accepts": ["flask_t75", "petri_90"]
+    },
+    "ult_freezer_portable": {
+      "name": "−80 °C freezer", "category": "instrument", "shape": "box", "model": "Stirling ULT25NEU (drawn front-opening; the real unit is top-loading)",
+      "width": { "mm": 693, "src": "stirling-ult25" },
+      "depth": { "mm": 350, "src": "stirling-ult25" },
+      "height": { "mm": 460, "src": "stirling-ult25" },
+      "inner_width": { "mm": 332, "src": "stirling-ult25" },
+      "inner_depth": { "mm": 221, "src": "stirling-ult25" },
+      "inner_height": { "mm": 340, "src": "stirling-ult25" },
+      "accepts": ["microtube_1_5", "cryovial_2ml", "spin_column_mini"]
+    },
+    "microscope_inverted": {
+      "name": "inverted microscope", "category": "instrument", "shape": "box", "model": "Nikon ECLIPSE Ts2",
+      "width": { "mm": 236, "src": "nikon-ts2" },
+      "depth": { "mm": 548, "src": "nikon-ts2" },
+      "height": { "mm": 471, "src": "nikon-ts2" },
+      "stage_height": { "mm": 200, "est": "Ts2 stage top above the bench" },
+      "accepts": ["flask_t75", "petri_90"]
+    },
+    "microscope_upright": {
+      "name": "upright microscope", "category": "instrument", "shape": "box", "model": "Olympus CX23 binocular",
+      "width": { "mm": 198, "src": "olympus-cx23" },
+      "depth": { "mm": 398, "src": "olympus-cx23" },
+      "height": { "mm": 386, "src": "olympus-cx23" },
+      "stage_height": { "mm": 130, "est": "CX23 stage top above the bench" },
+      "accepts": ["slide_iso8037"]
+    },
+    "uv_transilluminator": {
+      "name": "UV transilluminator", "category": "instrument", "shape": "box", "model": "UVP Benchtop 2UV (21 × 26 cm filter) + gel-doc camera mast",
+      "width": { "mm": 356, "src": "uvp-2uv" },
+      "depth": { "mm": 279, "src": "uvp-2uv" },
+      "height": { "mm": 122, "src": "uvp-2uv" },
+      "filter_width": { "mm": 260, "src": "uvp-2uv" },
+      "filter_depth": { "mm": 210, "src": "uvp-2uv" },
+      "mast_height": { "mm": 330, "est": "gel-doc camera mast drawn with the box; not part of the 2UV spec" },
+      "accepts": ["gel_tray_7x10"]
+    },
+    "gel_tank_mini": {
+      "name": "horizontal gel tank", "category": "instrument", "shape": "box", "model": "Bio-Rad Mini-Sub Cell GT",
+      "width": { "mm": 260, "src": "biorad-minisub" },
+      "depth": { "mm": 120, "src": "biorad-minisub" },
+      "height": { "mm": 65, "src": "biorad-minisub" },
+      "platform_height": { "mm": 15, "est": "gel platform raised off the tank floor between the electrode wells" },
+      "accepts": ["gel_tray_7x10"]
+    },
+    "power_supply": {
+      "name": "electrophoresis power supply", "category": "instrument", "shape": "box", "model": "Bio-Rad PowerPac Basic",
+      "width": { "mm": 210, "src": "biorad-powerpac-basic" },
+      "depth": { "mm": 250, "src": "biorad-powerpac-basic" },
+      "height": { "mm": 80, "src": "biorad-powerpac-basic" }
+    },
+    "staining_tray": {
+      "name": "slide staining tray", "category": "instrument", "shape": "box", "model": "generic slide staining tray with two rails",
+      "width": { "mm": 250, "est": "holds slides lengthwise across two rails" },
+      "depth": { "mm": 130, "est": "holds a 76 mm slide across two rails with drip margin" },
+      "height": { "mm": 25, "est": "shallow drip tray" },
+      "rail_height": { "mm": 20, "est": "rails raise the slide above the drained stain" },
+      "accepts": ["slide_iso8037"]
+    },
+    "beaker_600": {
+      "name": "waste beaker", "category": "dressing", "shape": "round", "model": "ISO 3819 low-form 600 mL",
+      "diameter": { "mm": 90, "src": "iso-3819-600" },
+      "height": { "mm": 125, "src": "iso-3819-600" },
+      "wall": { "mm": 1.6, "est": "borosilicate beaker wall" },
+      "volume": { "ml": 600, "src": "iso-3819-600" }
+    },
+    "bottle_250": {
+      "name": "reagent bottle", "category": "dressing", "shape": "round", "model": "DURAN GL 45 250 mL",
+      "diameter": { "mm": 70, "src": "duran-gl45-250" },
+      "height": { "mm": 143, "src": "duran-gl45-250" },
+      "neck_diameter": { "mm": 45, "est": "GL 45 thread ⇒ ~45 mm neck outer Ø" },
+      "wall": { "mm": 2.5, "est": "borosilicate bottle wall" },
+      "volume": { "ml": 250, "src": "duran-gl45-250" }
+    },
+    "pipette_p200": {
+      "name": "20–200 µL pipette with tip", "category": "tool", "shape": "round", "model": "Eppendorf Research plus 20–200 µL + 200 µL tip",
+      "height": { "mm": 290, "est": "body ≥ 238 mm (src eppendorf-research-plus) + ~ 52 mm 200 µL tip" },
+      "diameter": { "mm": 33, "est": "grip body diameter" },
+      "tip_length": { "mm": 52, "est": "standard 200 µL tip" }
+    },
+    "pipette_stand": {
+      "name": "single pipette stand", "category": "dressing", "shape": "round", "model": "generic single-pipette holder",
+      "height": { "mm": 300, "est": "holds a 290 mm pipette upright with the tip off the base" },
+      "diameter": { "mm": 140, "est": "weighted round base" }
+    },
+    "syringe_1ml": {
+      "name": "1 mL syringe with 21 G needle", "category": "tool", "shape": "round", "model": "BD 1 mL + 21 G × 1½ in needle",
+      "height": { "mm": 140, "est": "needle 38 mm + hub + 57 mm barrel + plunger" },
+      "diameter": { "mm": 4.78, "src": "bd-syringe-diameters" },
+      "flange_width": { "mm": 20, "est": "finger flange span" },
+      "needle_length": { "mm": 38.1, "est": "1½ in needle" },
+      "needle_diameter": { "mm": 0.82, "est": "21 G per the ISO 9626 table (not retrieved)" }
+    },
+    "cell_spreader": {
+      "name": "L-shaped cell spreader", "category": "tool", "shape": "box", "model": "Fisherbrand L-shaped spreader",
+      "height": { "mm": 146, "src": "l-spreader" },
+      "width": { "mm": 38, "src": "l-spreader" },
+      "depth": { "mm": 4, "est": "rod thickness = the spreader lying in plane" },
+      "rod_diameter": { "mm": 4, "est": "moulded rod" }
+    }
+  }
+}
