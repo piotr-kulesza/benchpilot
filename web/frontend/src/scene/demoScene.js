@@ -1359,8 +1359,12 @@ export function undockSample(lift = false) {
     for(var vv=0;vv<20;vv++){ var va=vv/20*Math.PI*2;
       var vent=new THREE.Mesh(new THREE.BoxGeometry(0.045,0.24,0.03), cfVent);
       vent.position.set(Math.cos(va)*1.40,0.4,Math.sin(va)*1.40); vent.rotation.y=-va; grp.add(vent); }
-    var body = new THREE.Mesh(new THREE.CylinderGeometry(1.25,1.3,0.5,56), shell);
+    // the body is a RING around the bowl (open walls + a top annulus): the old solid
+    // cylinder put the rotor, and every tube in it, inside solid shell
+    var body = new THREE.Mesh(new THREE.CylinderGeometry(1.25,1.3,0.5,56,1,true), shell);
     body.position.y=0.9; grp.add(body);
+    var bodyTop = new THREE.Mesh(new THREE.RingGeometry(1.15,1.25,56), shell);
+    bodyTop.rotation.x=-Math.PI/2; bodyTop.position.y=1.15; grp.add(bodyTop);
     var lipRing = new THREE.Mesh(new THREE.TorusGeometry(1.24,0.05,16,60), shellDk);
     lipRing.rotation.x=Math.PI/2; lipRing.position.y=1.14; grp.add(lipRing);
     var ringT = new THREE.Mesh(new THREE.TorusGeometry(1.2,0.072,16,60), trim);
@@ -1376,8 +1380,7 @@ export function undockSample(lift = false) {
     var rotor = new THREE.Group(); rotor.position.y=1.08;
     var rotorMat = matBrushed(0x9ba6b2);
     var hub = new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.4,0.34,32), rotorMat); rotor.add(hub);
-    var disc = new THREE.Mesh(new THREE.CylinderGeometry(0.95,0.85,0.12,44), rotorMat);
-    disc.position.y=-0.02; rotor.add(disc);
+    // (the rotor DISC is built after the fit, with real holes where the slots pass through it)
     var nut = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.14,0.12,6), matBrushed(0x828d99));
     nut.position.y=0.2; rotor.add(nut);
     var slotMat = new THREE.MeshStandardMaterial({ color:0x252d37, metalness:0.5, roughness:0.5, envMapIntensity:0.6 });
@@ -1453,7 +1456,33 @@ export function undockSample(lift = false) {
       lidPivot.rotation.x = -easeInOut(st.lid)*1.15;
       drawRPM(Math.min(st.spin,26)/26*13400);
     };
-    return tagSpec(grp,'microcentrifuge');
+    var root=fitArt(grp,'microcentrifuge'), F=root.userData.fit;
+    // The ROTOR at real size and a UNIFORM scale u (a tube riding a slot must not be
+    // squashed by the body's height fit): its slots sit at the table's rotor radius and
+    // fixed angle (dims: F-45-12-11, 45°) — the old rotor tilted them 23°. Each slot is a
+    // socket at its round bottom; a vessel rides it (reparented) while it spins.
+    var CD=dims('microcentrifuge'), u=F.sx;
+    rotor.scale.set(u/F.sx, u/F.sy, u/F.sz);
+    var rr=CD.rotor_radius/u, ang=CD.rotor_angle*Math.PI/180;
+    // raise the rotor so its tilted slots' bottoms clear the bowl floor (the base top, drawing
+    // y 0.75): slot bottom = 0.40 (drawing, rotor units) down the slot axis
+    var floorW=F.toWorld(0,0.75,0).y, drop=0.40*u*Math.cos(ang), margin=clearance('socket_fit')*3;
+    rotor.position.y=(floorW+drop+margin-F.art.position.y)/F.sy;
+    holders.forEach(function(h,k){ var a=k/holders.length*Math.PI*2;
+      h.position.set(Math.cos(a)*rr,0,Math.sin(a)*rr);
+      h.quaternion.setFromAxisAngle(new THREE.Vector3(-Math.sin(a),0,Math.cos(a)), -ang);
+      addSocket(root,'slot'+k,{ parent:h, position:new THREE.Vector3(0,-0.40,0) }); });
+    // the rotor DISC (rotor units) with a hole where each tilted slot crosses it: the slot
+    // (top radius 0.11) passes a slab 0.12 thick at the rotor angle — the old disc was solid
+    var DT=0.12, holeR=0.11/Math.cos(ang)+(DT/2)*Math.tan(ang)+0.01;
+    var dholes=holders.map(function(h,k){ var a=k/holders.length*Math.PI*2, rc=rr-0.02*Math.tan(ang); return [Math.cos(a)*rc, Math.sin(a)*rc, holeR]; });
+    var dsh=new THREE.Shape(); dsh.absarc(0,0,0.95,0,Math.PI*2,false);
+    dholes.forEach(function(hh){ var hp=new THREE.Path(); hp.absarc(hh[0],-hh[1],hh[2],0,Math.PI*2,true); dsh.holes.push(hp); });
+    var dg=new THREE.ExtrudeGeometry(dsh,{ depth:DT, bevelEnabled:false, curveSegments:28 }); dg.rotateX(-Math.PI/2);
+    var disc=new THREE.Mesh(dg, rotorMat); disc.position.y=-0.02-DT/2; rotor.add(disc);
+    root.userData.sampleSocket='slot2';      // the slot facing the camera at rest
+    root.userData.rimY=F.toWorld(0,1.16,0).y; // the bowl rim (lid seat)
+    return tagSpec(root,'microcentrifuge');
   }
 
   /* ---------- waste beaker ---------- */
