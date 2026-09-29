@@ -3,7 +3,9 @@
 // checks (geometryAudit.js) on what is there. Needs installHeadless() before import.
 import { Scene, Group, Matrix4 } from 'three'
 import * as demo from './demoScene.js'
-import { configureStation, stationConfig, lineStateChain, producedInRunOf } from '../vessel/StationScene.jsx'
+import { configureStation, stationConfig, lineStateChain, producedInRunOf, computeStationFrame, addStationLabel } from '../vessel/StationScene.jsx'
+import { cameraPose } from '../vessel/stationCamera.js'
+import { visibilityDefects, makeCamera } from './visibilityAudit.js'
 import { sampleContainerSequence } from '../vessel/sceneRecipe.js'
 import { inventory, contactDefects, containmentDefects, interpenetrationDefects, relativeScaleDefects } from './geometryAudit.js'
 
@@ -127,6 +129,58 @@ export function summarize(protocolResults) {
         counts[d.check]++
         rows.push({ protocol: id, step: s.index, action: s.action, equipment: s.equipment, container: s.container, ...d })
       }
+    }
+  }
+  return { counts, rows }
+}
+
+// ── LEGIBILITY: the subject through the station's own camera ───────────────────────────
+export const VIS_POSES = [0, 0.25, 0.5, 0.75, 1]
+export const VIS_CHECKS = ['area', 'occlusion', 'safeArea']
+export function auditVisibility(protocol, { poses = VIS_POSES } = {}) {
+  const { scene, S } = setup()
+  const steps = protocol.steps || []
+  const containers = sampleContainerSequence(steps)
+  const stateChain = lineStateChain(steps, 'en')
+  const producedInRun = producedInRunOf(steps)
+  const stations = []
+  for (let i = 0; i < steps.length; i++) {
+    demo.undockSample()
+    for (const pr of demo.getPreps()) pr.visible = false
+    const st = { group: new Group(), updatables: [], reagents: {}, pip: null, enter: null, timeline: null, x: 0, cen: null, dev: null, vis: 1, _vstate: -1 }
+    const { opts, o } = stationConfig(steps, i, { containers, stateChain, lang: 'en', producedInRun })
+    configureStation(st, opts)
+    st.frame = computeStationFrame(st)          // measured exactly when the runner measures it
+    if (!st.prepId) addStationLabel(st, o.title, o.sub)
+    scene.add(st.group)
+    demo.setSnap(true)
+    st.enter?.()
+    if (st.prep) st.prep.visible = true
+    if (st.drawsFromId && demo.getPrep(st.drawsFromId)) { const pr = demo.getPrep(st.drawsFromId); pr.visible = true; pr.position.set(st.drawPos.x, st.drawPos.y, st.drawPos.z) }
+    const record = { index: steps[i].index ?? i, action: opts.action, equipment: opts.equipment, container: opts.container, defects: [] }
+    for (const p of poses) {
+      drive(st, S, p)
+      const push = st.pushCam ? st.pushCam(p) : 0
+      const cam = makeCamera(cameraPose(st.frame, { push, pushTarget: st.pushTarget }))
+      const subject = st.subject ? st.subject() : null
+      const roots = [st.group, ...S.vessels.filter((v) => v !== subject), ...demo.getPreps().filter((v) => v !== subject)]
+      for (const d of visibilityDefects(cam, subject, roots)) record.defects.push({ ...d, p, object: subject?.userData?.spec || '?' })
+    }
+    scene.remove(st.group)
+    demo.undockSample()
+    stations.push(record)
+  }
+  return stations
+}
+export function summarizeVisibility(protocolResults) {
+  const counts = Object.fromEntries(VIS_CHECKS.map((c) => [c, 0]))
+  const rows = []
+  for (const { id, stations } of protocolResults) for (const s of stations) {
+    const seen = new Set()
+    for (const d of s.defects) {
+      if (seen.has(d.check)) continue      // one per (station, check): the station is illegible
+      seen.add(d.check); counts[d.check]++
+      rows.push({ protocol: id, step: s.index, action: s.action, equipment: s.equipment, container: s.container, ...d })
     }
   }
   return { counts, rows }

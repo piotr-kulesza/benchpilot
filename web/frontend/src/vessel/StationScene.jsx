@@ -20,6 +20,7 @@ import { reagentName, reagentVolume, effectiveStep, selectAlternative, hasAltern
 import * as demo from '../scene/demoScene.js'
 import { streams } from '../scene/rng.js'
 import { dims, clearance } from '../scene/dims.js'
+import { cameraPose } from './stationCamera.js'
 import { placeInto, placeOnBench, clearPlacement, getSocket, socketPose, canPlace, SocketError } from '../scene/sockets.js'
 import { resolveScenePreset } from '../scene/scenePresets.js'
 
@@ -137,6 +138,17 @@ function makeBenchTag(text) {
   return m
 }
 
+// the station's title plate, above the frame's content (shared with the visibility audit)
+export function addStationLabel(st, title, sub) {
+  const label = demo.makeLabel(title, sub)
+  const LABEL_GAP = 0.95
+  const halfH = (label.userData.worldH || 0.5) / 2
+  label.position.set(st.frame.center.x, st.frame.top + LABEL_GAP + halfH, st.frame.center.z)
+  st.group.add(label)
+  st.label = label; st.labelBaseY = label.position.y; st.labelHalfH = halfH
+  return label
+}
+
 const LABEL_TOP_NDC = 0.8
 const _lp = new Vector3()
 function clampLabel(st, cam) {
@@ -153,7 +165,7 @@ function clampLabel(st, cam) {
   lab.position.y = Math.max(y, Math.min(floorY, st.labelBaseY))
 }
 
-function computeStationFrame(st) {
+export function computeStationFrame(st) {
   st.group.updateMatrixWorld(true)
   _frameBox.makeEmpty()
   // fit the PROPS only — the sample vessel(s) + the instrument, never the dressing.
@@ -571,6 +583,7 @@ export function configureStation(st, o) {
     prep.userData.setColor(reags[0].color); prep.userData.setLevel(0)
     prep.userData.setLabel(name || 'mixture', vol || '')
     st.prep = prep; st.prepId = prepId; st.prepHome = home; st.prepFull = PREP_FULL
+    st.subject = () => prep // the step acts on the PREP tube, not the idle sample
     const idleX = demo.benchSlot(st, VD.width / 2, -1)       // the idle sample, left of the prep
     demo.addPipetteRig(st)
     reags.forEach((r, k) => demo.addBottle(st, 'r' + k, r.name, r.color))
@@ -1039,6 +1052,9 @@ export function configureStation(st, o) {
   // Bug #2: if the sample's CONTAINER changed from the previous station, ANIMATE the
   // hand-off (old vessel lifts out → new vessel settles in). Skip actions that already
   // choreograph the vessel (transfer, centrifuge, freezer store).
+  // THE SUBJECT: the vessel or object this step acts on (the visibility checks and the
+  // camera frame it). Branches that act on something else set it above.
+  if (!st.subject) st.subject = () => S[vessel]
   const prevVessel = prevContainer ? containerContract(prevContainer).vessel : null
   const custom = (action === 'store' && equipment === 'freezer') || equipment === 'centrifuge'
   if (prevVessel && prevVessel !== vessel && !custom && !st._skipHandoff) {
@@ -1060,6 +1076,7 @@ function configureNestMove(st, S, o) {
   st.benchReserved = [{ minX: AX - CD.width / 2, maxX: AX + CD.width / 2 }, { minX: BX - TD.width / 2, maxX: BX + TD.width / 2 }]
   const CARRY = Math.max(CD.height, TD.height) + TD.height + LIFT   // column bottom clears the tube top
   const NEST_Y = tube0.userData.mouth.y - col0.userData.flangeY      // flange seated on the tube rim
+  st.subject = () => S[columnKey]                                      // the COLUMN is what moves
   st.frameAnchors = [
     new Vector3(AX, 0, Z), new Vector3(AX, CD.height, Z),
     new Vector3(BX, 0, Z), new Vector3(BX, TD.height, Z),
@@ -1102,6 +1119,8 @@ function wrapHandoff(st, S, fromKey, toKey, color, level) {
   const baseTimeline = st.timeline
   const TR = 0.26
   const LIFT = Math.max(dims(S[fromKey].userData.spec).height, dims(S[toKey].userData.spec).height) + clearance('lift')
+  // while the old vessel is lifted out, IT is what the step shows; then the new one
+  st.subject = () => (S[toKey].visible ? S[toKey] : S[fromKey])
   // the OLD vessel stands on the BENCH beside everything (its own slot) — never on the new
   // vessel's seat, which may be a socket that does not take it (a tube on a microscope stage)
   const oldX = demo.benchSlot(st, dims(S[fromKey].userData.spec).width / 2, -1)
@@ -1169,6 +1188,7 @@ function configurePipetteTransfer(st, S, o) {
   ]
   demo.addPipetteRig(st)
   if (dstAngled) frameAngledPipette(st, dstDisp, BX, Z)
+  st.subject = () => S[toKey]   // the vessel the sample is moved INTO
 
   st.enter = () => {
     S.only(toKey)
@@ -1425,14 +1445,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       // chromeless (the Home hero): just the lit glass, no title plate, no bench number.
       // A `prepare` station's subject is the CARRIED prep tube, which owns its own label and
       // travels with it — a station title here would duplicate it (and be left behind), so skip.
-      if (!chromeless && !st.prepId) {
-        const label = demo.makeLabel(o.title, o.sub)
-        const LABEL_GAP = 0.95
-        const halfH = (label.userData.worldH || 0.5) / 2
-        label.position.set(st.frame.center.x, st.frame.top + LABEL_GAP + halfH, st.frame.center.z)
-        st.group.add(label)
-        st.label = label; st.labelBaseY = label.position.y; st.labelHalfH = halfH
-      }
+      if (!chromeless && !st.prepId) addStationLabel(st, o.title, o.sub)
       scene.add(st.group)
       // the bench station number in front
       if (!chromeless) {
@@ -1589,23 +1602,14 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     // fit on the active station's MEASURED content frame (never an assumed origin).
     const actCam = stations[activeRef.current]
     const f = actCam && actCam.frame ? actCam.frame : DEFAULT_FRAME
-    const fit = demo.clamp(f.radius / R_REF, 1, 1.7) // back off only for oversized rigs
     const cam = perspRef.current
     if (cam) {
-      const cx = railX + f.center.x + Math.sin(time * 0.15) * 0.12
-      // demo angle/height, scaled to fit, aimed at the content centre (x/y/z)
-      let px = cx, py = f.center.y + (RAIL_Y - LOOK_Y) * fit, pz = f.center.z + RAIL_Z * fit
-      let lx = cx, ly = f.center.y, lz = f.center.z
-      // per-station camera PUSH (e.g. push in through the incubator glass onto the
-      // flask so the monolayer detachment reads). Blends in with the step's progress.
+      // the pose is a pure function of the measured frame (stationCamera.js) — the SAME one
+      // the headless visibility audit computes
       const push = actCam && actCam.pushCam ? actCam.pushCam(pRef.current) : 0
-      if (push > 0 && actCam.pushTarget) {
-        const t = actCam.pushTarget
-        px = demo.lerp(px, railX + t.pos[0], push); py = demo.lerp(py, t.pos[1], push); pz = demo.lerp(pz, t.pos[2], push)
-        lx = demo.lerp(lx, railX + t.look[0], push); ly = demo.lerp(ly, t.look[1], push); lz = demo.lerp(lz, t.look[2], push)
-      }
-      cam.position.set(px, py, pz)
-      cam.lookAt(lx, ly, lz)
+      const pose = cameraPose(f, { railX, time, push, pushTarget: actCam && actCam.pushTarget })
+      cam.position.set(pose.pos[0], pose.pos[1], pose.pos[2])
+      cam.lookAt(pose.look[0], pose.look[1], pose.look[2])
       // keep the active station's title label INSIDE the frame, below the top HUD band:
       // if its top edge would project above LABEL_TOP_NDC, lower it (never below the
       // subject's top) — a pushed-in or widened frame used to clip it at the top edge
