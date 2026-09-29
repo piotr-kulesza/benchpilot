@@ -1506,7 +1506,9 @@ export function undockSample(lift = false) {
     var label = makeLabel("Flow-through","discard");
     label.position.set(0,1.7,0); grp.add(label);
     grp.userData.label=label; grp.userData.update=function(){};
-    return tagSpec(grp,'beaker_600');
+    var root=fitArt(grp,'beaker_600');
+    root.userData.mouth=new THREE.Vector3(0,dims('beaker_600').height,0);
+    return tagSpec(root,'beaker_600');
   }
 
   /* ---------- Syringe (manual homogenization: pass through a needle) ---------- */
