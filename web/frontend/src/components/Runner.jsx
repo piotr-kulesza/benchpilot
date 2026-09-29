@@ -87,6 +87,9 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
   sceneTimer.current.running = !!timer?.running
   sceneTimer.current.hasTimer = !!timer
   sceneTimer.current.done = !!timer?.done
+  // the scene reads progress PER FRAME through this (StationScene's frame clock); the
+  // `progress` above stays as the value for this render (and for a scene without live)
+  sceneTimer.current.live = timed ? () => elapsedFraction(countdown.live(), timed) : null
   const eff = effectiveStep(step, altIndex)
   const temp = extractTemperature(eff, lang)
 

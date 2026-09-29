@@ -78,3 +78,38 @@ describe('createCountdown — runs to zero and never stalls', () => {
     c.destroy()
   })
 })
+
+// The 3D reads the countdown EVERY FRAME through live(), from an injectable monotonic
+// clock (performance.now in the app; the capture harness pins performance.now to a
+// fixed step), instead of waiting for the 10 Hz React tick. The text readout is untouched.
+describe('createCountdown — live() for the frame clock', () => {
+  it('advances between ticks, on the injected clock', () => {
+    let t = 1000
+    const c = createCountdown(10, () => {}, () => t)
+    c.start()
+    expect(c.live()).toBe(10)
+    t += 16.7                                   // one frame, no tick yet
+    expect(c.live()).toBeCloseTo(10 - 0.0167, 6)
+    t += 5000
+    expect(c.live()).toBeCloseTo(10 - 5.0167, 6)
+    c.destroy()
+  })
+  it('holds while paused, resumes from there, clamps at zero, resets to the duration', () => {
+    let t = 0
+    const c = createCountdown(4, () => {}, () => t)
+    c.start(); t = 1500; c.pause()
+    const held = c.live()
+    t = 99999
+    expect(c.live()).toBeCloseTo(held, 9)       // paused: frozen
+    c.start(); t += 1000
+    expect(c.live()).toBeCloseTo(held - 1, 6)
+    t += 1e6
+    expect(c.live()).toBe(0)
+    c.reset()
+    expect(c.live()).toBe(4)
+    c.destroy()
+  })
+  it('an unstarted clock reports its full duration', () => {
+    expect(createCountdown(7, () => {}, () => 123).live()).toBe(7)
+  })
+})

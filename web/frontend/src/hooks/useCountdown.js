@@ -13,13 +13,21 @@ const TICK_MS = 100
 // A pure, framework-agnostic wall-clock countdown — no React, so it is unit-testable
 // with vi.useFakeTimers(). It owns exactly one interval and derives `remaining` from an
 // absolute end-time, so it can't drift and the interval is cleared in exactly one place.
-export function createCountdown(seconds, onChange) {
+// `now` is the FRAME clock the 3D reads through live() — performance.now in the app, and
+// the fixed-step clock the capture harness installs (scripts/lib/determinism.mjs pins
+// performance.now), so seeded renders stay deterministic. The text readout keeps its own
+// Date-based 10 Hz tick, unchanged.
+const perfNow = () => (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now())
+
+export function createCountdown(seconds, onChange, now = perfNow) {
   let duration = seconds || 0
   let remaining = duration
   let running = false
   let done = false
   let endAt = null      // absolute wall-clock end (ms) while running
   let interval = null
+  // the frame clock's own anchor: `liveFrom` seconds remained at frame-clock time `liveAt`
+  let liveFrom = duration, liveAt = null, pausedLive = null
 
   const emit = () => onChange({ remaining, running, done })
   const clear = () => { if (interval != null) { clearInterval(interval); interval = null } }
@@ -35,9 +43,17 @@ export function createCountdown(seconds, onChange) {
 
   return {
     get state() { return { remaining, running, done } },
+    // Remaining seconds for THIS frame, from the injected frame clock — read by the 3D every
+    // frame, so a timed animation advances every frame instead of on the 10 Hz tick.
+    live() {
+      if (done) return 0
+      if (!running) return pausedLive != null ? pausedLive : remaining
+      return Math.max(0, liveFrom - (now() - liveAt) / 1000)
+    },
     start() {
       const from = remaining > 0 ? remaining : duration
       if (from <= 0) return
+      liveFrom = pausedLive != null ? pausedLive : from; liveAt = now(); pausedLive = null
       remaining = from; running = true; done = false
       endAt = Date.now() + from * 1000
       clear(); interval = setInterval(tick, TICK_MS)
@@ -45,10 +61,10 @@ export function createCountdown(seconds, onChange) {
     },
     // Pause freezes at the current value (resume continues from here); Reset returns to
     // the full duration. Both clear the single interval — the ONLY teardown points.
-    pause() { clear(); endAt = null; running = false; emit() },
-    reset() { clear(); endAt = null; remaining = duration; running = false; done = false; emit() },
+    pause() { if (running) pausedLive = this.live(); clear(); endAt = null; running = false; emit() },
+    reset() { clear(); endAt = null; pausedLive = null; remaining = duration; running = false; done = false; emit() },
     // A genuine step change swaps the duration and returns to a fresh ready state.
-    setDuration(s) { clear(); endAt = null; duration = s || 0; remaining = duration; running = false; done = false; emit() },
+    setDuration(s) { clear(); endAt = null; pausedLive = null; duration = s || 0; remaining = duration; running = false; done = false; emit() },
     destroy() { clear() },
   }
 }
@@ -78,5 +94,7 @@ export function useCountdown(seconds) {
   // The false→true completion edge, surfaced as a boolean the caller can watch. The DONE
   // SOUND is played by the shared soundboard (one cue source for the whole app), not here,
   // so the clock stays WebAudio-free and node-testable.
-  return { remaining: state.remaining, running: state.running, done: state.done, start, pause, reset }
+  // live(): per-frame remaining for the 3D (see createCountdown) — stable identity
+  const live = useCallback(() => clockRef.current.live(), [])
+  return { remaining: state.remaining, running: state.running, done: state.done, start, pause, reset, live }
 }
