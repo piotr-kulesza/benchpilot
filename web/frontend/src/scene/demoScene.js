@@ -1774,14 +1774,27 @@ export function undockSample(lift = false) {
     padTop.position.y=0.14; grp.add(padTop);
     var post=new THREE.Mesh(new THREE.CylinderGeometry(0.085,0.11,3.0,24), postMat);
     post.position.set(-0.42,1.6,0); post.castShadow=true; grp.add(post);
-    function cradle(y,rr){
-      var arm=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.09,0.13), armMat);
-      arm.position.set(-0.2,y,0); grp.add(arm);
-      var ring=new THREE.Mesh(new THREE.TorusGeometry(rr,0.035,14,32), armMat);
-      ring.position.set(0.0,y,0); ring.rotation.x=Math.PI/2; grp.add(ring);
-    }
-    cradle(2.55,0.19); cradle(1.75,0.17);
-    return tagSpec(grp,'pipette_stand');
+    var ARMS=[2.55,1.75];
+    var root=fitArt(grp,'pipette_stand'), F=root.userData.fit;
+    // the CRADLES are functional: U-shaped, open to the front so the pipette slides in and
+    // out, sized to the REAL pipette (dims('pipette_p200')) + the socket play — the old
+    // closed rings were drawn narrower than the pipette body that hung through them
+    var P=dims('pipette_p200'), t=P.radius*0.2, r=P.radius+clearance('socket_fit')+t;
+    ARMS.forEach(function(y){
+      var hook=new THREE.Mesh(new THREE.TorusGeometry(r,t,14,32,Math.PI), armMat);
+      var w=F.toWorld(0,y,0); hook.position.set(0,w.y,0);
+      hook.rotation.set(Math.PI/2,0,Math.PI);            // the open half faces +z (the front)
+      root.add(hook);
+      // the ARM from the post to the cradle's back — it stops AT the cradle, never inside it
+      var postX=F.toWorld(-0.42,0,0).x, armL=(-r)-postX;
+      var arm=new THREE.Mesh(new THREE.BoxGeometry(armL,t*2.6,t*3.6), armMat);
+      arm.position.set(postX+armL/2,w.y,0); root.add(arm);
+    });
+    // the pipette HANGS in the upper cradle by its finger hook (~62 % up from its tip):
+    // its tip rests here, in the stand's frame; it leaves forward, out of the open cradle
+    root.userData.cradle=new THREE.Vector3(0, F.toWorld(0,ARMS[0],0).y-0.62*P.height, 0);
+    root.userData.hookOut=r+P.radius+clearance('bench_gap');
+    return tagSpec(root,'pipette_stand');
   }
 
   /* ---------- reagent bottle (dressing) ---------- */
