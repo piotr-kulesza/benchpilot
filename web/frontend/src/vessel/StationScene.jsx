@@ -200,6 +200,7 @@ function makeBenchDial(radius) {
   track.rotation.x = -Math.PI / 2
   fill.rotation.x = -Math.PI / 2
   track.renderOrder = 1; fill.renderOrder = 2
+  track.userData.fx = 'decal'; fill.userData.fx = 'decal' // a printed ring on the bench, not a solid
   g.add(track, fill)
   g.visible = false
   let cur = -1
@@ -431,6 +432,7 @@ export function configureStation(st, o) {
     if (bottle) {
       stream = new Mesh(new CylinderGeometry(0.035, 0.05, 0.45, 12), new MeshStandardMaterial({ color: reag.color, roughness: 0.3, transparent: true, opacity: 0.8 }))
       stream.position.set(M.x, M.y - 0.22, M.z); stream.visible = false
+      stream.userData.fx = 'effect' // a pour stream is not a solid (geometry audit)
       st.group.add(stream)
     }
     st.enter = () => {
@@ -791,6 +793,7 @@ export function configureStation(st, o) {
     st.bubbles = streams.wrap('heatBubbles', () => Array.from({ length: 8 }, () => {
       const b = new Mesh(new SphereGeometry(0.045, 10, 8), new MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, roughness: 0.1 }))
       b.userData.seed = { x: (Math.random() - 0.5) * 1.6, z: (Math.random() - 0.5) * 1.0, off: Math.random(), sp: 0.5 + Math.random() }
+      b.userData.fx = 'effect' // rising bubbles are not solids (geometry audit)
       st.group.add(b)
       return b
     }))()

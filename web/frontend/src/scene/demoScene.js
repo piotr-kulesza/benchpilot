@@ -151,6 +151,13 @@ export function undockSample(lift = false) {
   function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
   function easeInOut(t){ t=clamp(t,0,1); return t<0.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2; }
   var MAX_ANISO = 8;
+  // METADATA ONLY (no geometry): tag a mesh that is NOT a rigid solid so the geometry
+  // audit (src/scene/geometryAudit.js) leaves it out of contact / overlap checks —
+  // 'fluid' (a liquid volume), 'effect' (steam, droplets, cells), 'decal' (a print or
+  // overlay on a surface), 'granular' (crushed ice a vessel is pushed into).
+  function fx(o, kind){ o.userData.fx=kind; return o; }
+  // tag a builder's root with its dimensions.json id (what real object it depicts)
+  function tagSpec(grp, id){ grp.userData.spec=id; return grp; }
 
   function radialTex(stops){
     var c=document.createElement("canvas"); c.width=128; c.height=128;
@@ -482,13 +489,13 @@ export function undockSample(lift = false) {
     var patchMat = new THREE.MeshStandardMaterial({ color:0xe9edf1, roughness:0.92, metalness:0,
       transparent:true, opacity:0.82, envMapIntensity:0.15, side:THREE.DoubleSide });
     var patch = new THREE.Mesh(new THREE.CylinderGeometry(R*0.965,R*0.9,H*0.30,20,1,true, Math.PI*0.5-0.62, 1.24), patchMat);
-    patch.position.y=H*0.6; visual.add(patch);
+    patch.position.y=H*0.6; fx(patch,'decal'); visual.add(patch);
 
     if(opts.grads!==false){
       var gMat = new THREE.MeshStandardMaterial({ map:tubeGraphicTex(opts.label||""), transparent:true,
         roughness:0.7, metalness:0, envMapIntensity:0.25, depthWrite:false, side:THREE.DoubleSide });
       var grad = new THREE.Mesh(new THREE.CylinderGeometry(R*0.99,R*0.9,H*0.7,48,1,true), gMat);
-      grad.position.y=H*0.5; visual.add(grad);
+      grad.position.y=H*0.5; fx(grad,'decal'); visual.add(grad);
       grp.userData.gradMat = gMat;
     }
 
@@ -506,7 +513,7 @@ export function undockSample(lift = false) {
       clearcoat:0.35, clearcoatRoughness:0.4, envMapIntensity:0.7
     });
     var liq = new THREE.Mesh(new THREE.BufferGeometry(), liqMat);
-    liq.visible=false; visual.add(liq);
+    liq.visible=false; fx(liq,'fluid'); visual.add(liq);
 
     var condens=null;
     if(opts.cold){
@@ -518,7 +525,7 @@ export function undockSample(lift = false) {
         var da=Math.random()*Math.PI*2, dy=H*(0.2+Math.random()*0.65), ds=0.012+Math.random()*0.02;
         var dm=new THREE.Mesh(dGeo,dMat);
         dm.position.set(Math.cos(da)*R*0.99, dy, Math.sin(da)*R*0.99);
-        dm.scale.set(ds,ds*1.5,ds); condens.add(dm);
+        dm.scale.set(ds,ds*1.5,ds); fx(dm,'effect'); condens.add(dm);
       }
       visual.add(condens);
     }
@@ -555,7 +562,7 @@ export function undockSample(lift = false) {
       }
     };
     grp.userData.visual=visual;
-    return grp;
+    return tagSpec(grp, opts.spec||'microtube_1_5');
   }
 
   /* ---------- air-displacement micropipette ---------- */
@@ -586,7 +593,7 @@ export function undockSample(lift = false) {
     vg.fillText("3",64,58); vg.fillText("5",64,118); vg.fillText("0",64,178);
     var vTex=new THREE.CanvasTexture(vc); vTex.anisotropy=MAX_ANISO;
     var win=new THREE.Mesh(new THREE.PlaneGeometry(0.1,0.16), new THREE.MeshBasicMaterial({map:vTex,transparent:true}));
-    win.position.set(0,1.05,0.162); win.rotation.x=-0.05; grp.add(win);
+    win.position.set(0,1.05,0.162); win.rotation.x=-0.05; fx(win,'decal'); grp.add(win);
 
     var shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.34,22), steelMat);
     shaft.position.y=2.22; grp.add(shaft);
@@ -618,9 +625,9 @@ export function undockSample(lift = false) {
     var fluidMat = new THREE.MeshPhysicalMaterial({ color:COL.lysis, roughness:0.32,
       transparent:false, emissive:COL.lysis, emissiveIntensity:0.06, envMapIntensity:0.6 });
     var fluid = new THREE.Mesh(new THREE.CylinderGeometry(0.058,0.016,0.6,24), fluidMat);
-    fluid.position.y=-0.18; fluid.scale.y=0.0001; fluid.visible=false; grp.add(fluid);
+    fluid.position.y=-0.18; fluid.scale.y=0.0001; fluid.visible=false; fx(fluid,'fluid'); grp.add(fluid);
     var drop = new THREE.Mesh(new THREE.SphereGeometry(0.03,16,12), fluidMat);
-    drop.scale.set(1,1.3,1); drop.position.y=-0.9; drop.visible=false; grp.add(drop);
+    drop.scale.set(1,1.3,1); drop.position.y=-0.9; drop.visible=false; fx(drop,'fluid'); grp.add(drop);
 
     // knurled volume-adjustment thumbwheel (its digits show in the window above)
     var dialMat = matBrushed(0x8a94a0);
@@ -641,7 +648,7 @@ export function undockSample(lift = false) {
     var brandTex=new THREE.CanvasTexture(brandC); brandTex.anisotropy=MAX_ANISO;
     var brand=new THREE.Mesh(new THREE.PlaneGeometry(0.18,0.081),
       new THREE.MeshStandardMaterial({ map:brandTex, transparent:true, roughness:0.55, metalness:0, envMapIntensity:0.4 }));
-    brand.position.set(0,0.77,0.156); brand.rotation.x=-0.02; grp.add(brand);
+    brand.position.set(0,0.77,0.156); brand.rotation.x=-0.02; fx(brand,'decal'); grp.add(brand);
 
     // fine graduation printed on the translucent tip
     var tgC=document.createElement("canvas"); tgC.width=64; tgC.height=160; var tgG=tgC.getContext("2d");
@@ -651,7 +658,7 @@ export function undockSample(lift = false) {
     var tgTex=new THREE.CanvasTexture(tgC); tgTex.anisotropy=MAX_ANISO;
     var tgRing=new THREE.Mesh(new THREE.CylinderGeometry(0.056,0.041,0.34,20,1,true),
       new THREE.MeshBasicMaterial({ map:tgTex, transparent:true, depthWrite:false, side:THREE.DoubleSide }));
-    tgRing.position.y=-0.34; grp.add(tgRing);
+    tgRing.position.y=-0.34; fx(tgRing,'decal'); grp.add(tgRing);
 
     var rig = new THREE.Group(); rig.position.y=0.86;
     var kids = grp.children.slice();
@@ -673,7 +680,7 @@ export function undockSample(lift = false) {
       if(st.fill<0.01){ fluid.visible=false; }
       else{ fluid.visible=true; var h=st.fill*0.66; fluid.scale.y=h/0.6; fluid.position.y=-0.8+h/2; }
     };
-    return grp;
+    return tagSpec(grp,'pipette_p200');
   }
 
   /* ---------- RNeasy spin column ---------- */
@@ -723,7 +730,7 @@ export function undockSample(lift = false) {
     var colInnerFn = innerRadiusFn(ip, 0.90);
     var colBottom  = 0.90, colFillMax = 1.44;
     var liq = new THREE.Mesh(new THREE.BufferGeometry(), liqMat);
-    liq.visible=false; grp.add(liq);
+    liq.visible=false; fx(liq,'fluid'); grp.add(liq);
 
     var label = makeLabel("RNeasy column","");
     label.position.set(0,2.4,0); grp.add(label);
@@ -749,7 +756,7 @@ export function undockSample(lift = false) {
         liqMat.color.copy(st.color); liqMat.emissive.copy(st.color);
       }
     };
-    return grp;
+    return tagSpec(grp,'spin_column_mini');
   }
 
   /* ---------- anodized cold block ---------- */
@@ -795,7 +802,7 @@ export function undockSample(lift = false) {
     label.position.set(0,1.5,0.5); grp.add(label);
     grp.userData.label=label; grp.userData.update=function(){};
     grp.userData.wellY = 0.2; // base height a seated tube rests at (in the well)
-    return grp;
+    return tagSpec(grp,'dry_block_heater');
   }
 
   /* ---------- water bath (heat, e.g. 42 °C): a stainless tub FILLED with warm
@@ -822,10 +829,10 @@ export function undockSample(lift = false) {
     // toneMapped bypass. Reads as real water in a stainless bath beside the centrifuge.
     var waterMat=new THREE.MeshPhysicalMaterial({ color:0x93b2c2, roughness:0.16, metalness:0,
       transparent:true, opacity:0.36, clearcoat:0.5, clearcoatRoughness:0.3, envMapIntensity:0.9 });
-    var water=new THREE.Mesh(new THREE.BoxGeometry(2.24,SURFY-0.02,1.64), waterMat); water.position.y=(SURFY-0.02)/2+0.05; grp.add(water);
+    var water=new THREE.Mesh(new THREE.BoxGeometry(2.24,SURFY-0.02,1.64), waterMat); water.position.y=(SURFY-0.02)/2+0.05; fx(water,'fluid'); grp.add(water);
     // faint surface sheen — a reflective meniscus, not a glowing cap
     var surfMat=new THREE.MeshPhysicalMaterial({ color:0xb6ccd6, roughness:0.09, metalness:0.15, transparent:true, opacity:0.3, envMapIntensity:1.1 });
-    var surf=new THREE.Mesh(new THREE.BoxGeometry(2.22,0.02,1.62), surfMat); surf.position.y=SURFY; grp.add(surf);
+    var surf=new THREE.Mesh(new THREE.BoxGeometry(2.22,0.02,1.62), surfMat); surf.position.y=SURFY; fx(surf,'fluid'); grp.add(surf);
     // temperature DIAL on the front face (a real water bath's defining control)
     var dialRim=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,0.05,24), matBrushed(0xcfd5db));
     dialRim.rotation.x=Math.PI/2; dialRim.position.set(0.72,0.28,0.92); grp.add(dialRim);
@@ -837,7 +844,7 @@ export function undockSample(lift = false) {
     var steamMat=new THREE.MeshBasicMaterial({ color:0xeef2f4, transparent:true, opacity:0.0, depthWrite:false, blending:THREE.AdditiveBlending, fog:false });
     var wisps=[]; for(var w=0;w<6;w++){ var s=new THREE.Mesh(new THREE.SphereGeometry(0.16,10,8), steamMat.clone());
       s.userData.seed={ x:(Math.random()-0.5)*1.7, z:(Math.random()-0.5)*1.1, off:Math.random(), sp:0.3+Math.random()*0.35 };
-      grp.add(s); wisps.push(s); }
+      fx(s,'effect'); grp.add(s); wisps.push(s); }
     var label=makeLabel("Water bath","37 °C"); label.position.set(0,1.6,0); grp.add(label);
     var wst={ t:0, warmth:0, tWarmth:0 };
     grp.userData.label=label;
@@ -852,7 +859,7 @@ export function undockSample(lift = false) {
         wisps[i].material.opacity=wst.warmth*0.22*(1-yy)*(yy<0.1?yy*10:1);
       }
     };
-    return grp;
+    return tagSpec(grp,'water_bath_5l');
   }
 
   /* ---------- microplate ABSORBANCE reader (ELISA) — NOT the NanoDrop. A benchtop
@@ -874,7 +881,7 @@ export function undockSample(lift = false) {
       dg.fillStyle="#8fcabf"; dg.font="700 42px 'IBM Plex Mono'"; dg.fillText(v.toFixed(2),14,84); dTex.needsUpdate=true; }
     drawOD(0);
     var disp=new THREE.Mesh(new THREE.PlaneGeometry(0.8,0.44), new THREE.MeshBasicMaterial({map:dTex,transparent:true}));
-    disp.position.set(0.95,1.06,1.01); grp.add(disp);
+    disp.position.set(0.95,1.06,1.01); fx(disp,'decal'); grp.add(disp);
     var label=makeLabel("Plate reader",""); label.position.set(0,1.95,0); grp.add(label);
     var pst={ draw:1, tDraw:1 };
     grp.userData.label=label;
@@ -883,7 +890,7 @@ export function undockSample(lift = false) {
     grp.userData.update=function(dt){ pst.draw=lerp(pst.draw,pst.tDraw,1-Math.pow(0.02,dt));
       tray.position.set(0,0.5,0.4+pst.draw*1.4); trayLip.position.set(0,0.53,1.24+pst.draw*1.4); };
     grp.userData.update(0.001);
-    return grp;
+    return tagSpec(grp,'plate_reader');
   }
 
   /* ---------- orbital plate SHAKER / incubator — a platform that gently orbits; a
@@ -902,7 +909,7 @@ export function undockSample(lift = false) {
     grp.userData.label=label;
     grp.userData.setOrbit=function(a){ platform.position.set(Math.cos(a)*0.06,0,Math.sin(a)*0.06); };
     grp.userData.update=function(){};
-    return grp;
+    return tagSpec(grp,'plate_shaker');
   }
 
   /* ---------- CO₂ incubator (warm, 37 °C) for flasks/dishes — a cabinet with a
@@ -940,13 +947,13 @@ export function undockSample(lift = false) {
     dg.fillStyle="#0d1218"; dg.fillRect(0,0,200,90); dg.fillStyle="#8fcabf"; dg.font="700 30px 'IBM Plex Mono'"; dg.textAlign="left"; dg.fillText("37°C",12,40); dg.fillStyle="#6fb8f0"; dg.font="700 22px 'IBM Plex Mono'"; dg.fillText("5% CO₂",12,72); dTex.needsUpdate=true;
     // the readout is mounted ON the door's top rail (front face at +0.05), so it is in
     // front of the cabinet when closed and swings WITH the door — never left hanging in air
-    var disp=new THREE.Mesh(new THREE.PlaneGeometry(0.7,0.32), new THREE.MeshBasicMaterial({map:dTex,transparent:true})); disp.position.set(1.6,0.95,0.056); doorPivot.add(disp);
+    var disp=new THREE.Mesh(new THREE.PlaneGeometry(0.7,0.32), new THREE.MeshBasicMaterial({map:dTex,transparent:true})); disp.position.set(1.6,0.95,0.056); fx(disp,'decal'); doorPivot.add(disp);
     var label=makeLabel("CO₂ incubator",""); label.position.set(0,2.75,0); grp.add(label);
     var ist={ door:0, tDoor:0 };
     grp.userData.label=label;
     grp.userData.setDoor=function(open){ ist.tDoor=open?1:0; };
     grp.userData.update=function(dt){ ist.door=lerp(ist.door,ist.tDoor,1-Math.pow(0.02,dt)); doorPivot.rotation.y=easeInOut(ist.door)*1.3; };
-    return grp;
+    return tagSpec(grp,'co2_incubator_benchtop');
   }
 
   /* ---------- thermocycler (PCR): heated block + motorized heated lid + cycle
@@ -995,7 +1002,7 @@ export function undockSample(lift = false) {
     }
     drawDisp(0,30,25,false);
     var disp=new THREE.Mesh(new THREE.PlaneGeometry(0.7,0.35), new THREE.MeshBasicMaterial({map:dTex,transparent:true}));
-    disp.position.set(0,0.5,0.96); disp.rotation.x=-0.35; grp.add(disp);
+    disp.position.set(0,0.5,0.96); disp.rotation.x=-0.35; fx(disp,'decal'); grp.add(disp);
     var dispFrame=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.44,0.05), matPainted(0x22262c,0.5));
     dispFrame.position.set(0,0.5,0.94); dispFrame.rotation.x=-0.35; grp.add(dispFrame);
 
@@ -1018,7 +1025,7 @@ export function undockSample(lift = false) {
       lidPivot.rotation.x = -easeInOut(st.lid)*1.15; // 1=open(raised), 0=closed(flat over the block)
     };
     grp.userData.setProgress(0,30);
-    return grp;
+    return tagSpec(grp,'thermocycler_96');
   }
 
   /* ---------- gel electrophoresis rig: buffer tank + gel with wells + power box.
@@ -1057,7 +1064,7 @@ export function undockSample(lift = false) {
     // running buffer
     var buf = new THREE.Mesh(new THREE.BoxGeometry(2.5,0.5,1.5),
       new THREE.MeshPhysicalMaterial({ color:0xdfe6c0, roughness:0.3, transparent:true, opacity:0.35, envMapIntensity:0.6 }));
-    buf.position.y=0.5; grp.add(buf);
+    buf.position.y=0.5; fx(buf,'fluid'); grp.add(buf);
     // the gel slab (translucent amber) with a row of wells at the top
     var gelMat = new THREE.MeshPhysicalMaterial({ color:0xd8c98a, roughness:0.5, transparent:true, opacity:0.5, envMapIntensity:0.5 });
     var gel = new THREE.Mesh(new THREE.BoxGeometry(2.0,0.14,1.2), gelMat);
@@ -1069,7 +1076,7 @@ export function undockSample(lift = false) {
     // was a group-space height: it put the bands ~1.4 up, floating ABOVE the tank lid.
     for(var l=0;l<5;l++){ var bx=-0.8+l*0.4;
       var band=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.02,0.05), bandMat.clone());
-      band.position.set(bx,0.07-0.01+0.002,-0.5); gel.add(band); bands.push(band); }
+      band.position.set(bx,0.07-0.01+0.002,-0.5); fx(band,'decal'); gel.add(band); bands.push(band); }
     // power supply box with a voltage readout
     var box = new THREE.Mesh(new THREE.BoxGeometry(0.9,0.7,0.6), matPainted(0xd8dee6,0.44));
     box.position.set(1.9,0.35,0.1); box.castShadow=true; grp.add(box);
@@ -1080,7 +1087,7 @@ export function undockSample(lift = false) {
       vg.fillStyle="#727a85"; vg.font="600 16px 'IBM Plex Sans'"; vg.fillText("V", 120,52); vTex.needsUpdate=true; }
     drawV(0);
     var vDisp=new THREE.Mesh(new THREE.PlaneGeometry(0.5,0.3), new THREE.MeshBasicMaterial({map:vTex,transparent:true}));
-    vDisp.position.set(1.9,0.5,0.41); grp.add(vDisp);
+    vDisp.position.set(1.9,0.5,0.41); fx(vDisp,'decal'); grp.add(vDisp);
     // cables running from the lid terminals to the power-supply box (arched, connected)
     function gelCable(from,to,color){
       var mid=new THREE.Vector3((from.x+to.x)/2,Math.max(from.y,to.y)+0.32,(from.z+to.z)/2);
@@ -1107,7 +1114,7 @@ export function undockSample(lift = false) {
     grp.userData.setVolts=function(on){ drawV(on?100:0); };
     grp.userData.update=function(){};
     grp.userData.setProgress(0);
-    return grp;
+    return tagSpec(grp,'gel_tank_mini');
   }
 
   /* ---------- open ice bucket (cold storage — keep on ice / −80 °C) ---------- */
@@ -1133,7 +1140,7 @@ export function undockSample(lift = false) {
       var cube=new THREE.Mesh(new THREE.IcosahedronGeometry(0.12+Math.random()*0.07,0), iceMat);
       cube.position.set(Math.cos(a)*rr, 0.4+Math.random()*0.14, Math.sin(a)*rr);
       cube.rotation.set(Math.random(),Math.random(),Math.random());
-      cube.castShadow=true; grp.add(cube);
+      cube.castShadow=true; fx(cube,'granular'); grp.add(cube);
     }
     // faint frost rime on the outer wall
     var frostMat=new THREE.MeshStandardMaterial({ color:0xe1e9ef, roughness:0.9, envMapIntensity:0.4 });
@@ -1142,12 +1149,12 @@ export function undockSample(lift = false) {
       var fm=new THREE.Mesh(frostGeo,frostMat);
       var fa=Math.random()*Math.PI*2, fy=0.08+Math.random()*0.48;
       fm.position.set(Math.cos(fa)*0.73, fy, Math.sin(fa)*0.73);
-      var fs=0.01+Math.random()*0.02; fm.scale.set(fs,fs,fs); grp.add(fm);
+      var fs=0.01+Math.random()*0.02; fm.scale.set(fs,fs,fs); fx(fm,'effect'); grp.add(fm);
     }
     var label = makeLabel("On ice","");   // (was sublabelled "store −80 °C" — ice is not −80 °C)
     label.position.set(0,1.45,0); grp.add(label);
     grp.userData.label=label; grp.userData.update=function(){};
-    return grp;
+    return tagSpec(grp,'ice_bucket_4l');
   }
 
   /* ---------- benchtop centrifuge ---------- */
@@ -1216,7 +1223,7 @@ export function undockSample(lift = false) {
     var numTex=new THREE.CanvasTexture(numC); numTex.anisotropy=MAX_ANISO;
     var numPlate=new THREE.Mesh(new THREE.CircleGeometry(0.82,44),
       new THREE.MeshBasicMaterial({ map:numTex, transparent:true, depthWrite:false }));
-    numPlate.rotation.x=-Math.PI/2; numPlate.position.y=0.05; rotor.add(numPlate);
+    numPlate.rotation.x=-Math.PI/2; numPlate.position.y=0.05; fx(numPlate,'decal'); rotor.add(numPlate);
     grp.add(rotor);
 
     var rc=document.createElement("canvas"); rc.width=256; rc.height=128; var rg=rc.getContext("2d");
@@ -1232,7 +1239,7 @@ export function undockSample(lift = false) {
     }
     drawRPM(0);
     var readout=new THREE.Mesh(new THREE.PlaneGeometry(0.62,0.31), new THREE.MeshBasicMaterial({map:rTex,transparent:true}));
-    readout.position.set(0,0.62,1.31); readout.rotation.x=-0.32; grp.add(readout);
+    readout.position.set(0,0.62,1.31); readout.rotation.x=-0.32; fx(readout,'decal'); grp.add(readout);
     var roFrame=new THREE.Mesh(new THREE.BoxGeometry(0.72,0.4,0.05), shellDk);
     roFrame.position.set(0,0.62,1.29); roFrame.rotation.x=-0.32; grp.add(roFrame);
 
@@ -1267,7 +1274,7 @@ export function undockSample(lift = false) {
       lidPivot.rotation.x = -easeInOut(st.lid)*1.15;
       drawRPM(Math.min(st.spin,26)/26*13400);
     };
-    return grp;
+    return tagSpec(grp,'microcentrifuge');
   }
 
   /* ---------- waste beaker ---------- */
@@ -1291,7 +1298,7 @@ export function undockSample(lift = false) {
     var label = makeLabel("Flow-through","discard");
     label.position.set(0,1.7,0); grp.add(label);
     grp.userData.label=label; grp.userData.update=function(){};
-    return grp;
+    return tagSpec(grp,'beaker_600');
   }
 
   /* ---------- Syringe (manual homogenization: pass through a needle) ---------- */
@@ -1327,7 +1334,7 @@ export function undockSample(lift = false) {
     var fluidMat = new THREE.MeshPhysicalMaterial({ color:COL.lysis, roughness:0.32, transparent:false,
       emissive:COL.lysis, emissiveIntensity:0.12, envMapIntensity:0.6 });
     var fluid = new THREE.Mesh(new THREE.CylinderGeometry(BR*0.92,BR*0.92,1,32), fluidMat);
-    grp.add(fluid);
+    fx(fluid,'fluid'); grp.add(fluid);
 
     // plunger sub-group (piston + rod + thumb rest) — translated down as it presses
     var plungerGrp = new THREE.Group(); grp.add(plungerGrp);
@@ -1350,7 +1357,7 @@ export function undockSample(lift = false) {
     grp.userData.update=function(){};
     var label = makeLabel("20–21 G needle","homogenize");
     label.position.set(0,2.55,0); grp.add(label); grp.userData.label=label;
-    return grp;
+    return tagSpec(grp,'syringe_1ml');
   }
 
   /* ---------- NanoDrop ---------- */
@@ -1387,7 +1394,7 @@ export function undockSample(lift = false) {
     var scTex = new THREE.CanvasTexture(sc); scTex.anisotropy=MAX_ANISO;
     var scMat = new THREE.MeshBasicMaterial({ map:scTex, transparent:true });
     var screen = new THREE.Mesh(new THREE.PlaneGeometry(1.15,0.78), scMat);
-    screen.position.set(0.55,1.0,0.61); grp.add(screen);
+    screen.position.set(0.55,1.0,0.61); fx(screen,'decal'); grp.add(screen);
     var frame = new THREE.Mesh(new THREE.BoxGeometry(1.25,0.9,0.06), new THREE.MeshStandardMaterial({color:0x2a2f36, emissive:0x1FA6C8, emissiveIntensity:0.14, roughness:0.5, envMapIntensity:0.6}));
     frame.position.set(0.55,1.0,0.58); grp.add(frame);
 
@@ -1407,7 +1414,7 @@ export function undockSample(lift = false) {
       st.prog=lerp(st.prog,st.tProg,1-Math.pow(0.01,dt));
       drawTrace(sg,st.prog); scTex.needsUpdate=true;
     };
-    return grp;
+    return tagSpec(grp,'nanodrop');
   }
   function drawTrace(g,prog){
     var W=720,H=480,S=2;
@@ -1466,7 +1473,7 @@ export function undockSample(lift = false) {
     grp.userData.update=function(dt){ st.lit=lerp(st.lit,st.tLit,1-Math.pow(0.02,dt)); lampLight.intensity=st.lit*0.9; };
     grp.userData.update(0.001);
     grp.userData.stageY=stageY+0.04;
-    return grp;
+    return tagSpec(grp,'microscope_inverted');
   }
 
   /* ---------- upright light microscope (Stage-12 #4) — a SLIDE on the stage, viewed
@@ -1499,7 +1506,7 @@ export function undockSample(lift = false) {
     grp.userData.update=function(dt){ il.v=lerp(il.v,il.t,1-Math.pow(0.02,dt)); illumLight.intensity=il.v*0.7; };
     grp.userData.update(0.001);
     grp.userData.stageY=stageY+0.05;
-    return grp;
+    return tagSpec(grp,'microscope_upright');
   }
 
   /* ---------- UV transilluminator / gel doc (Stage-12 #4) — the GEL lies on a glowing
@@ -1527,7 +1534,7 @@ export function undockSample(lift = false) {
       surfMat.emissiveIntensity=0.15+st.g*0.95; uvLight.intensity=st.g*1.2; };
     grp.userData.update(0.001);
     grp.userData.stageY=surfY+0.05;
-    return grp;
+    return tagSpec(grp,'uv_transilluminator');
   }
 
   /* ---------- eluate droplet ---------- */
@@ -1536,7 +1543,7 @@ export function undockSample(lift = false) {
       transparent:false, emissive:color, emissiveIntensity:0.08, clearcoat:0.8, envMapIntensity:1.0 });
     var d = new THREE.Mesh(new THREE.SphereGeometry(0.07,22,18), m);
     d.scale.set(1,1.3,1); d.visible=false;
-    return d;
+    return fx(d,'fluid');
   }
 
   /* ---------- small pipette stand ---------- */
@@ -1556,7 +1563,7 @@ export function undockSample(lift = false) {
       ring.position.set(0.0,y,0); ring.rotation.x=Math.PI/2; grp.add(ring);
     }
     cradle(2.55,0.19); cradle(1.75,0.17);
-    return grp;
+    return tagSpec(grp,'pipette_stand');
   }
 
   /* ---------- reagent bottle (dressing) ---------- */
@@ -1575,7 +1582,7 @@ export function undockSample(lift = false) {
     var liqInnerFn=innerRadiusFn(bp,0.90);
     var liq=new THREE.Mesh(liquidProfileGeo(liqInnerFn, 0.02, h*0.55, 40),
       new THREE.MeshPhysicalMaterial({color:col,roughness:0.35,transparent:false,emissive:col,emissiveIntensity:0.11,envMapIntensity:0.7}));
-    grp.add(liq);
+    fx(liq,'fluid'); grp.add(liq);
     var cap=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.17,0.22,28), matPlastic(capColor==null?0x2b7f74:capColor));
     cap.position.y=h+0.11; grp.add(cap);
     // coloured neck ring under the cap — reads as a reagent-coded seal
@@ -1589,7 +1596,7 @@ export function undockSample(lift = false) {
     var lTex=new THREE.CanvasTexture(lc); lTex.anisotropy=MAX_ANISO;
     var band=new THREE.Mesh(new THREE.CylinderGeometry(0.365,0.365,h*0.42,40,1,true),
       new THREE.MeshStandardMaterial({map:lTex,roughness:0.75,metalness:0,envMapIntensity:0.25}));
-    band.position.y=h*0.4; grp.add(band);
+    band.position.y=h*0.4; fx(band,'decal'); grp.add(band);
     // IMPROVEMENT over the demo: the bottle OPENS to be aspirated and its level
     // DROPS as liquid is drawn (volume conserved with the receiving vessel).
     // setCap(on): on=true seals it; on=false lifts the cap up and tilts it aside.
@@ -1605,7 +1612,7 @@ export function undockSample(lift = false) {
       cap.position.set(-o*0.52, bState.capBaseY + o*0.42, o*0.14); // lift + slide aside
       cap.rotation.z = o*1.2;                                       // tilt aside
     };
-    return grp;
+    return tagSpec(grp,'bottle_250');
   }
 
   /* ---------- muted warning ring (⛔ caution) ---------- */
@@ -1980,7 +1987,7 @@ export {
     for(var r=0;r<22;r++){ var ra=r/22*Math.PI*2; var rib=new THREE.Mesh(new THREE.BoxGeometry(0.012,0.16,0.026), matPlastic(0x8f2f6a));
       rib.position.set(Math.cos(ra)*R*1.07,0,Math.sin(ra)*R*1.07); rib.rotation.y=-ra; cryoCapGrp.add(rib); }
     var liq=new THREE.Mesh(new THREE.CylinderGeometry(R*0.82,R*0.72,1,24), liquidMat());
-    grp.add(liq);
+    fx(liq,'fluid'); grp.add(liq);
     var label=makeLabel("",""); label.position.set(0,top+0.55,0); grp.add(label);
     attachSampleLiquid(grp, liq, function(liq,lv,color){
       var h=Math.max(0.02, lv*(bodyH*0.8)); liq.scale.set(1,h,1); liq.position.y=0.28+h/2;
@@ -2003,7 +2010,7 @@ export {
       else { e=easeInOut((o-0.7)/0.3); cryoCapGrp.position.set(BX, lerp(UP,BY,e), BZ); }
       cryoCapGrp.rotation.z = 0;
     };
-    return grp;
+    return tagSpec(grp,'cryovial_2ml');
   }
 
   /* 96-well microplate — 8×12 grid of RECESSED bores, skirt, A1 corner notch; the
@@ -2046,13 +2053,13 @@ export {
     deckMesh.position.y=FLOOR_Y; deckMesh.castShadow=true; deckMesh.receiveShadow=true; grp.add(deckMesh);
     // sample liquid in the active well — it fills the bore from its floor up
     var liq=new THREE.Mesh(new THREE.CylinderGeometry(WELL_R-0.008,WELL_R-0.008,1,16), liquidMat());
-    liq.position.set(awx,FLOOR_Y+0.01,awz); grp.add(liq);
+    liq.position.set(awx,FLOOR_Y+0.01,awz); fx(liq,'fluid'); grp.add(liq);
     var label=makeLabel("","96-well"); label.position.set(awx,0.9,awz); grp.add(label);
     attachSampleLiquid(grp, liq, function(liq,lv,color){
       var h=Math.max(0.006, lv*(WELL_D-0.012)); liq.scale.set(1,h,1); liq.position.y=FLOOR_Y+0.004+h/2;
       liq.material.color.copy(color); liq.material.emissive.copy(color);
     }, label, 0); // empty wells at rest
-    return grp;
+    return tagSpec(grp,'microplate_96');
   }
 
   /* T-flask (T-25/T-75) for adherent culture — LIES FLAT on its side. A flat
@@ -2094,11 +2101,11 @@ export {
       rib.position.set(Math.cos(ra)*0.205,0,Math.sin(ra)*0.205); rib.rotation.y=-ra; flaskCapGrp.add(rib); }
     // MEDIUM — a shallow layer flooding the flat base (NOT a tall column)
     var liq=new THREE.Mesh(new THREE.BoxGeometry(L-0.22,1,W-0.22), liquidMat());
-    grp.add(liq);
+    fx(liq,'fluid'); grp.add(liq);
     // the adherent MONOLAYER — a faint film on the growth surface; opacity = confluence
     var monoMat=new THREE.MeshStandardMaterial({ color:0xbfcbb6, roughness:0.7, transparent:true, opacity:0.0, emissive:0x2c3a24, emissiveIntensity:0.04 });
     var mono=new THREE.Mesh(new THREE.PlaneGeometry(L-0.24,W-0.24), monoMat);
-    mono.rotation.x=-Math.PI/2; mono.position.y=0.082; grp.add(mono);
+    mono.rotation.x=-Math.PI/2; mono.position.y=0.082; fx(mono,'decal'); grp.add(mono);
     // DETACHABLE CELLS — a cloud that lies flat as the confluent monolayer and, on
     // trypsinisation, ROUNDS UP and LIFTS into the medium as a suspension (this is
     // the visible payoff of the trypsin step). setMono(1)=attached, 0=detached.
@@ -2106,7 +2113,7 @@ export {
     var cellMat=new THREE.MeshStandardMaterial({ color:0xcdd8c4, roughness:0.6, emissive:0x38492c, emissiveIntensity:0.06 });
     var CELLN=70, cells=new THREE.InstancedMesh(cellGeo, cellMat, CELLN);
     var cseed=[]; for(var ci=0;ci<CELLN;ci++) cseed.push({ x:(Math.random()-0.5)*(L-0.5), z:(Math.random()-0.5)*(W-0.42), r:Math.random(), a:Math.random()*6.28, ry:0.25+Math.random()*0.85 });
-    grp.add(cells);
+    fx(cells,'effect'); grp.add(cells);
     var cmat=new THREE.Matrix4();
     function placeCells(v){ var lift=1-clamp(v,0,1);
       for(var i=0;i<CELLN;i++){ var s=cseed[i];
@@ -2144,7 +2151,7 @@ export {
       else if(o<0.7){ e=easeInOut((o-0.3)/0.4); flaskCapGrp.position.set(lerp(CAP_ON.x,CAP_BENCH.x,e), up, lerp(CAP_ON.z,CAP_BENCH.z,e)); flaskCapGrp.rotation.z=0; }
       else { e=easeInOut((o-0.7)/0.3); flaskCapGrp.position.set(CAP_BENCH.x, lerp(up, CAP_BENCH.y, e), CAP_BENCH.z); flaskCapGrp.rotation.z=0; }
     };
-    return grp;
+    return tagSpec(grp,'flask_t75');
   }
 
   /* petri dish — shallow round liquid layer, aspirated */
@@ -2157,13 +2164,13 @@ export {
     var lid=new THREE.Mesh(new THREE.CylinderGeometry(R*1.03,R*1.03,0.12,48,1,true), glassMaterial());
     lid.position.y=0.16; grp.add(lid);
     var liq=new THREE.Mesh(new THREE.CylinderGeometry(R*0.9,R*0.9,1,48), liquidMat());
-    grp.add(liq);
+    fx(liq,'fluid'); grp.add(liq);
     var label=makeLabel("","dish"); label.position.set(0,0.7,0); grp.add(label);
     attachSampleLiquid(grp, liq, function(liq,lv,color){
       var h=Math.max(0.008, lv*0.09); liq.scale.set(1,h,1); liq.position.y=0.012+h/2;
       liq.material.color.copy(color); liq.material.emissive.copy(color);
     }, label, 0); // empty dish at rest
-    return grp;
+    return tagSpec(grp,'petri_90');
   }
 
   /* glass microscope slide — sample is a smear/film; stain floods colour over it */
@@ -2179,13 +2186,13 @@ export {
     // it. Muted + capped opacity so it reads as a thin smear, never a floating blob.
     var filmMat=new THREE.MeshStandardMaterial({ color:0xc9c4cf, roughness:0.6, transparent:true, opacity:0.0, emissive:0x2a2630, emissiveIntensity:0.03 });
     var film=new THREE.Mesh(new THREE.CircleGeometry(0.32,40), filmMat);
-    film.rotation.x=-Math.PI/2; film.scale.set(1.6,1,0.7); film.position.set(0.35,0.075,0); grp.add(film);
+    film.rotation.x=-Math.PI/2; film.scale.set(1.6,1,0.7); film.position.set(0.35,0.075,0); fx(film,'decal'); grp.add(film);
     var label=makeLabel("","slide"); label.position.set(0,0.55,0); grp.add(label);
     attachSampleLiquid(grp, film, function(f,lv,color){
       f.material.color.copy(color); f.material.emissive.copy(color);
       f.material.opacity=Math.min(0.68, lv*0.9);             // thin muted smear
     }, label, 0); // clean slide at rest
-    return grp;
+    return tagSpec(grp,'slide_iso8037');
   }
 
   /* nitrocellulose membrane — a thin sheet carrying transferred bands (aspirated) */
@@ -2196,12 +2203,12 @@ export {
     // sample = a set of protein bands, coloured by setColor, revealed by setLevel
     var bands=[]; var bandMat=new THREE.MeshBasicMaterial({ color:COL.lysis, transparent:true, opacity:0 });
     for(var i=0;i<4;i++){ var b=new THREE.Mesh(new THREE.BoxGeometry(1.3,0.008,0.06), bandMat.clone());
-      b.position.set(0,0.057,-0.4+i*0.26); grp.add(b); bands.push(b); }
+      b.position.set(0,0.057,-0.4+i*0.26); fx(b,'decal'); grp.add(b); bands.push(b); }
     var label=makeLabel("","membrane"); label.position.set(0,0.7,0); grp.add(label);
     attachSampleLiquid(grp, bands, function(bs,lv,color){
       for(var k=0;k<bs.length;k++){ bs[k].material.color.copy(color); bs[k].material.opacity=Math.min(0.95, lv*1.3); }
     }, label, 0); // clean membrane at rest (bands appear on transfer)
-    return grp;
+    return tagSpec(grp,'membrane_mini');
   }
 
   /* agarose gel slab in a casting tray — sample = a loaded lane + a migrating band */
@@ -2219,16 +2226,16 @@ export {
     var GEL_TOP=0.08;
     var wellMat=new THREE.MeshBasicMaterial({ color:0x1c2128 });
     for(var w=0;w<6;w++){ var wl=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.06,0.05), wellMat);
-      wl.position.set(-0.6+w*0.24,GEL_TOP-0.03+0.002,-0.45); gel.add(wl); }
+      wl.position.set(-0.6+w*0.24,GEL_TOP-0.03+0.002,-0.45); fx(wl,'decal'); gel.add(wl); }
     // the loaded band runs IN the gel, just under its surface
     var band=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.02,0.05), new THREE.MeshBasicMaterial({ color:COL.lysis, transparent:true, opacity:0 }));
-    band.position.set(-0.36,GEL_TOP-0.01+0.002,-0.4); gel.add(band);
+    band.position.set(-0.36,GEL_TOP-0.01+0.002,-0.4); fx(band,'decal'); gel.add(band);
     var label=makeLabel("","gel"); label.position.set(0,0.8,0); grp.add(label);
     attachSampleLiquid(grp, band, function(b,lv,color){
       b.material.color.copy(color); b.material.opacity=Math.min(0.9,lv*1.3);
       b.position.z=-0.4+lv*0.7;   // the band migrates down the gel with fill/progress
     }, label, 0); // no band at rest (wells only)
-    return grp;
+    return tagSpec(grp,'gel_tray_7x10');
   }
 
   /* petri dish with an agar bed — for seed: liquid dropped on, spreader sweeps */
@@ -2242,13 +2249,13 @@ export {
     // the seeded film (bacterial lawn) — colour + coverage grow as it's spread
     var lawnMat=new THREE.MeshStandardMaterial({ color:COL.lysis, roughness:0.6, transparent:true, opacity:0, emissive:COL.lysis, emissiveIntensity:0.05 });
     var lawn=new THREE.Mesh(new THREE.CircleGeometry(R*0.9,48), lawnMat);
-    lawn.rotation.x=-Math.PI/2; lawn.position.y=0.142; grp.add(lawn);
+    lawn.rotation.x=-Math.PI/2; lawn.position.y=0.142; fx(lawn,'decal'); grp.add(lawn);
     var label=makeLabel("","agar"); label.position.set(0,0.7,0); grp.add(label);
     attachSampleLiquid(grp, lawn, function(l,lv,color){
       l.material.color.copy(color); l.material.emissive.copy(color);
       l.material.opacity=Math.min(0.75, lv*1.1); l.scale.setScalar(0.3+lv*1.0);
     }, label, 0); // freshly-poured plate: uniform agar, no lawn
-    return grp;
+    return tagSpec(grp,'petri_90');
   }
 
   /* −80 °C freezer box — the vessel is placed inside; door opens, frost breathes out */
@@ -2281,14 +2288,14 @@ export {
     // on the bench — it used to be an additive sphere in front of the door, larger than
     // the opening, that rendered as an opaque white disc hiding the freezer
     var frostMat=new THREE.MeshBasicMaterial({ color:0xdfeaf4, transparent:true, opacity:0.0, depthWrite:false, fog:false });
-    var frost=new THREE.Mesh(new THREE.SphereGeometry(0.5,20,12), frostMat); frost.position.set(0,0.14,1.05); frost.scale.set(1.8,0.22,0.5); grp.add(frost);
+    var frost=new THREE.Mesh(new THREE.SphereGeometry(0.5,20,12), frostMat); frost.position.set(0,0.14,1.05); frost.scale.set(1.8,0.22,0.5); fx(frost,'effect'); grp.add(frost);
     var label=makeLabel("−80 °C",""); label.position.set(0,2.9,0); grp.add(label);
     var st={ door:0, tDoor:0 }; // CLOSED at rest (the store animation opens it)
     grp.userData.label=label;
     grp.userData.setDoor=function(open){ st.tDoor=open?1:0; };
     grp.userData.setFrost=function(a){ frostMat.opacity=clamp(a,0,0.5)*0.4; };  // at most a faint mist
     grp.userData.update=function(dt){ st.door=lerp(st.door,st.tDoor,1-Math.pow(0.02,dt)); doorPivot.rotation.y=easeInOut(st.door)*1.2; };
-    return grp;
+    return tagSpec(grp,'ult_freezer_portable');
   }
 
   /* staining tray — a slotted tray the slide rests in while dye floods over it */
@@ -2303,7 +2310,7 @@ export {
       rail.position.set(0,0.22,-0.4+s*0.8); grp.add(rail); }
     var label=makeLabel("Staining tray",""); label.position.set(0,0.9,0); grp.add(label);
     grp.userData.label=label; grp.userData.update=function(){};
-    return grp;
+    return tagSpec(grp,'staining_tray');
   }
 
   /* vortex mixer — a squat box with a rubber cup on top; the tube presses in and
@@ -2322,7 +2329,7 @@ export {
     dial.rotation.x=Math.PI/2; dial.position.set(0.42,0.36,0.53); grp.add(dial);
     var label=makeLabel("Vortex",""); label.position.set(0,1.3,0); grp.add(label);
     grp.userData.label=label; grp.userData.update=function(){};
-    return grp;
+    return tagSpec(grp,'vortex_mixer');
   }
 
   /* bent-glass cell spreader ("hockey stick") for plating on agar — a long glass
@@ -2341,7 +2348,7 @@ export {
     handle.position.set(-0.06,0.78,0); handle.rotation.z=0.12; grp.add(handle);
     var label=makeLabel("Spreader",""); label.position.set(0,1.7,0); grp.add(label);
     grp.userData.label=label; grp.userData.update=function(){};
-    return grp;
+    return tagSpec(grp,'cell_spreader');
   }
 
   function buildSample(){
