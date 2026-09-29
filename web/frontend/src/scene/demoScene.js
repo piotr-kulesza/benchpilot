@@ -1718,8 +1718,10 @@ export function undockSample(lift = false) {
     var il={ v:0, t:0.9 }; grp.userData.setProgress=function(v){ il.t=0.5+0.5*clamp(v,0,1); };
     grp.userData.update=function(dt){ il.v=lerp(il.v,il.t,1-Math.pow(0.02,dt)); illumLight.intensity=il.v*0.7; };
     grp.userData.update(0.001);
-    grp.userData.stageY=stageY+0.05;
-    return tagSpec(grp,'microscope_upright');
+    var root=fitArt(grp,'microscope_upright');
+    addSocket(root,'stage',{ position:root.userData.fit.toWorld(0,stageY+0.035,0) });   // the stage top (0.07 thick)
+    root.userData.sampleSocket='stage';
+    return tagSpec(root,'microscope_upright');
   }
 
   /* ---------- UV transilluminator / gel doc (Stage-12 #4) — the GEL lies on a glowing
