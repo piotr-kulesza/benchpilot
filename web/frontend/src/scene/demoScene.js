@@ -2337,7 +2337,7 @@ export {
     // CANTED vented neck at one top corner + colour-coded screw cap
     var neckPivot=new THREE.Group(); neckPivot.position.set(L/2-0.18,H+0.02,W/2-0.34); grp.add(neckPivot);
     neckPivot.rotation.z=-0.62;                               // cant out toward the corner
-    var neck=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.2,0.52,24), psMat.clone());
+    var neck=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.2,0.52,24,1,true), psMat.clone());   // OPEN: a tube a tip goes down, not a plug
     neck.position.y=0.24; neckPivot.add(neck);
     // cap + its ribs live in ONE group so setCap can lift them off the neck together
     // the cap lives in the FLASK's frame (not the canted neck's), so taking it off can set
@@ -2407,7 +2407,9 @@ export {
     // neck axis a tip travels to reach the medium (drawing 0.95 along the axis)
     var NECK=0.62, ax=Math.sin(NECK)*F.sx, ay=Math.cos(NECK)*F.sy, alen=Math.hypot(ax,ay);
     var m=F.toWorld(neckPivot.position.x+Math.sin(NECK)*0.55, neckPivot.position.y+Math.cos(NECK)*0.55, neckPivot.position.z);
-    root.userData.mouth={ x:m.x, y:m.y, z:m.z, approach:'angled', tilt:-Math.atan2(ax,ay), depth:0.95*alen, standoff:0.75*alen };
+    // the tip goes IN the neck (0.3 of its length) and dispenses there — it stops above where
+    // the neck meets the body (the old 0.95 plunged it through the body's top into the medium)
+    root.userData.mouth={ x:m.x, y:m.y, z:m.z, approach:'angled', tilt:-Math.atan2(ax,ay), depth:0.3*0.52*alen, standoff:0.75*alen };
     return tagSpec(root,'flask_t75');
   }
 
