@@ -1030,9 +1030,21 @@ export function undockSample(lift = false) {
     var dial=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,0.06,16), matPlastic(0x8a94a0)); dial.rotation.x=Math.PI/2; dial.position.set(1.2,0.25,1.06); grp.add(dial);
     var label=makeLabel("Shaker",""); label.position.set(0,1.4,0); grp.add(label);
     grp.userData.label=label;
-    grp.userData.setOrbit=function(a){ platform.position.set(Math.cos(a)*0.06,0,Math.sin(a)*0.06); };
     grp.userData.update=function(){};
-    return tagSpec(grp,'plate_shaker');
+    var root=fitArt(grp,'plate_shaker'), F=root.userData.fit;
+    // the plate CLIPS hold an SBS plate at its corners (they stood ~0.5 plate-widths off it)
+    var P=dims('microplate_96'), cw=0.14*F.sx;
+    platform.children.forEach(function(c){ if(c===plat) return;
+      var sx=Math.sign(c.position.x), sz=Math.sign(c.position.z);
+      var wx=sx*(P.width/2+cw/2), wz=sz*(P.depth/2+cw/2);
+      c.position.x=(wx-F.art.position.x)/F.sx; c.position.z=(wz-F.art.position.z)/F.sz; });
+    // the vessel RIDES the platform (socket under the orbiting group): shaker and plate move as one
+    var top=F.toWorld(0,0.62,0).y;
+    addSocket(root,'platform',{ parent:platform, position:new THREE.Vector3(0,(top-F.art.position.y)/F.sy,0) });
+    var ORBIT=0.06;   // drawing units
+    root.userData.setOrbit=function(a){ platform.position.set(Math.cos(a)*ORBIT,0,Math.sin(a)*ORBIT); };
+    root.userData.sampleSocket='platform';
+    return tagSpec(root,'plate_shaker');
   }
 
   /* ---------- CO₂ incubator (warm, 37 °C) for flasks/dishes — a cabinet with a
