@@ -1108,18 +1108,7 @@ export function undockSample(lift = false) {
     base.position.y=0.35; base.castShadow=true; base.receiveShadow=true; grp.add(base);
     var deck = new THREE.Mesh(new THREE.BoxGeometry(2.3,0.06,1.5), shellTop);
     deck.position.set(0,0.72,0.05); grp.add(deck);
-    // raised heated BLOCK proud of the deck (avoids coplanar z-fighting) with a
-    // 2×6 array of recessed well bores sunk into it.
-    var boreMat = new THREE.MeshStandardMaterial({ color:0x1b2128, metalness:0.4, roughness:0.7, side:THREE.DoubleSide });
-    var block = new THREE.Mesh(new THREE.BoxGeometry(1.95,0.12,1.05), matAnodized(0x23272e));
-    block.position.set(0,0.81,0.0); grp.add(block);
-    for(var wr=0; wr<2; wr++) for(var wc=0; wc<6; wc++){
-      var bx=-0.75+wc*0.3, bz=-0.24+wr*0.48;
-      var bore=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.085,0.28,16,1,true), boreMat);
-      bore.position.set(bx,0.72,bz); grp.add(bore);                 // top ~0.86 (block top), sinks down
-      var bbot=new THREE.Mesh(new THREE.CircleGeometry(0.085,16), boreMat);
-      bbot.rotation.x=-Math.PI/2; bbot.position.set(bx,0.58,bz); grp.add(bbot);
-    }
+    // (the heated 96-well BLOCK is functional geometry, added at real size after the fit)
     // HINGED CLAMSHELL LID (back hinge). Raised at rest so the wells read; lowers to
     // rest FLAT ON TOP of the block during cycling (closed underside ~0.89 clears the
     // block top 0.87 and the sunk tube caps). No posts, no bench glow — restrained.
@@ -1165,7 +1154,24 @@ export function undockSample(lift = false) {
       lidPivot.rotation.x = -easeInOut(st.lid)*1.15; // 1=open(raised), 0=closed(flat over the block)
     };
     grp.userData.setProgress(0,30);
-    return tagSpec(grp,'thermocycler_96');
+    var root=fitArt(grp,'thermocycler_96'), F=root.userData.fit;
+    // the heated BLOCK at real size on the deck: 8 × 12 bores on the SBS 9 mm pitch, each
+    // sized to the 0.2 mL PCR tube it accepts (+ play) and dims('thermocycler_96').bore_depth
+    // deep — REAL holes through the block, not dark discs on a solid (the old block's 12
+    // bores were cylinders inside a solid box). Sockets A1…H12 accept PCR tubes only: a
+    // 1.5 mL tube does not go in a 96-well block, and that is a SocketError.
+    var TC=dims('thermocycler_96'), PT=dims('pcr_tube_0_2'), PITCH=TC.well_pitch;
+    var boreR=PT.radius+clearance('socket_fit'), BD=TC.bore_depth, deckY=F.toWorld(0,0.75,0).y;
+    var holes=[], ROWS='ABCDEFGH';
+    for(var r=0;r<8;r++) for(var c=0;c<12;c++) holes.push([(c-5.5)*PITCH,(r-3.5)*PITCH,boreR,ROWS[r]+(c+1)]);
+    var BW=12*PITCH+PITCH*0.8, BDEP=8*PITCH+PITCH*0.8;
+    var block=new THREE.Mesh(slabWithHoles(BW,BD,BDEP,holes,14), matAnodized(0x23272e));
+    block.position.y=deckY; root.add(block);
+    var floor=new THREE.Mesh(new THREE.PlaneGeometry(BW,BDEP), new THREE.MeshStandardMaterial({ color:0x1b2128, metalness:0.4, roughness:0.7 }));
+    floor.rotation.x=-Math.PI/2; floor.position.y=deckY+BD*0.01; fx(floor,'decal'); root.add(floor);   // the dark bore floors
+    holes.forEach(function(h){ addSocket(root,h[3],{ position:new THREE.Vector3(h[0],deckY,h[1]) }); });
+    root.userData.sampleSocket='E6';
+    return tagSpec(root,'thermocycler_96');
   }
 
   /* ---------- gel electrophoresis rig: buffer tank + gel with wells + power box.
