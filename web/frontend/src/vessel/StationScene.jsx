@@ -37,6 +37,8 @@ const R_REF = 3.0
 // station equipment fade by distance from the framed point (railX): the active
 // station is full, neighbours recede into fog, and mid-dolly BOTH are visible.
 const VIS_FULL = SPACING * 0.5 // fully visible within here
+// point-light slots: at most ~3 stations are visible at once, each with at most one light
+const LIGHT_POOL = 4
 const VIS_GONE = SPACING * 1.6 // faded out beyond here
 // (container → sample-vessel geometry is now owned by containerContract.js — the
 // microtube is one implementation of that contract, not the baked-in default.)
@@ -1249,7 +1251,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
   // tick. Fall back to a local idle ref when none is supplied (the dev matrix harness).
   const localTimer = useRef({ progress: 1, running: false, hasTimer: false, done: false })
   const timerRef = timerProp || localTimer
-  const { gl, scene } = useThree()
+  const { gl, scene, camera } = useThree()
   const steps = protocol?.steps || []
   const containers = useContainers(steps)
   const active = Math.max(0, Math.min(activeIndex, steps.length - 1))
@@ -1296,6 +1298,8 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
   // Drives where each carried mixture sits (home vs the station drawing from it) and when
   // it is visible (from where it's made through where it's consumed).
   const prepMetaRef = useRef({})
+  // constant point-light pool — see the env effect
+  const lightPoolRef = useRef([])
 
   // Position + show/hide every prep vessel for the active station: at its consumer it sits
   // at the draw seat (so it's carried there), otherwise at its home; visible only across
@@ -1326,7 +1330,20 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     scene.backgroundIntensity = 1.19
     const S = demo.initSample()
     S.vessels.forEach((v) => v.userData.label && (v.userData.label.visible = false))
+    // A CONSTANT POINT-LIGHT POOL. three keys every shader program on the number of VISIBLE
+    // point lights, and station lights (heat-bath glow, ice/freezer cold, microscope lamp,
+    // UV box) live in station groups whose visibility follows the fade — so entering such a
+    // station changed the count and recompiled every lit material on screen (frame-probe:
+    // up to 1.6 s). Station lights are therefore never rendered themselves (hidden at
+    // build); each frame the nearest visible stations' lights are mirrored into these
+    // always-visible slots (unused slots at intensity 0), so the count never changes and
+    // the precompile below covers every frame.
+    const pool = []
+    for (let i = 0; i < LIGHT_POOL; i++) { const L = new PointLight(0xffffff, 0, 1); pool.push(L); scene.add(L) }
+    lightPoolRef.current = pool
     return () => {
+      for (const L of pool) { scene.remove(L); L.dispose() }
+      lightPoolRef.current = []
       S.vessels.forEach((v) => {
         scene.remove(v)
         disposeGroup(v)
@@ -1467,7 +1484,33 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     activeRef.current = a
     prevActiveRef.current = a
 
+    // station lights are mirrored into the constant pool (env effect); never render them.
+    for (const st of stations) {
+      st.vLights = []
+      st.group.traverse((o) => { if (o.isPointLight) { o.visible = false; st.vLights.push(o) } })
+    }
+
+    // PRE-COMPILE every station's shaders NOW, while the 3D is loading, instead of on each
+    // station's first appearance (frame-probe: 9 of 137 stations blocked 67-1617 ms on
+    // entry compiling ~11 new programs). compile() walks the whole scene — hidden stations
+    // included — and with KHR_parallel_shader_compile the link runs off the main thread;
+    // compileAsync resolves when every program is ready. __benchperf.precompiled marks it.
+    let cancelled = false
+    if (typeof window !== 'undefined') (window.__benchperf || (window.__benchperf = {})).precompiled = false
+    // Two passes: a station mid-fade has every material set transparent (applyStationVis),
+    // which flips three's `opaque` bit in the program key — so the faded variant is
+    // compiled too (pass 1), then the base look (pass 2). compile() itself is synchronous;
+    // only the wait for the parallel link is async.
+    const fading = []
+    for (const st of stations) for (const e of st.mats || []) if (!e.m.transparent) { e.m.transparent = true; fading.push(e.m) }
+    const faded = gl.compileAsync(scene, camera)
+    for (const m of fading) m.transparent = false
+    Promise.all([faded, gl.compileAsync(scene, camera)]).then(() => {
+      if (!cancelled && typeof window !== 'undefined') window.__benchperf.precompiled = true
+    }).catch(() => {})
+
     return () => {
+      cancelled = true
       for (const st of stations) {
         scene.remove(st.group)
         disposeGroup(st.group)
@@ -1668,6 +1711,23 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       if (tgt >= 1 && st.vis > 0.999) st.vis = 1
       if (tgt <= 0 && st.vis < 0.001) st.vis = 0
       applyStationVis(st)
+    }
+    // mirror the visible stations' lights into the constant pool, nearest the rail first
+    {
+      const pool = lightPoolRef.current
+      let n = 0
+      const near = stations.filter((st) => st.vis > 0 && st.vLights && st.vLights.length)
+        .sort((a, b) => Math.abs(a.x - railX) - Math.abs(b.x - railX))
+      for (const st of near) {
+        for (const L of st.vLights) {
+          if (n >= pool.length) break
+          const P = pool[n++]
+          L.getWorldPosition(P.position)
+          P.color.copy(L.color); P.distance = L.distance; P.decay = L.decay
+          P.intensity = L.intensity * st.vis
+        }
+      }
+      for (; n < pool.length; n++) pool[n].intensity = 0
     }
 
     // dev perf probe — draw calls / triangles from the LAST render (info auto-resets each
