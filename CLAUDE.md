@@ -54,13 +54,13 @@ These govern every change to the 3D. They are correctness rules, not taste:
   This is the `removal` axis in `resolveContainer`.
 - **Do not rewrite the hand-built demo from scratch** — its builders are imported,
   not re-authored. **A bug in a builder is fixable**: correct it in place inside
-  `scene/demoScene.js` (one commit per builder), keeping the builder's look and
+  its module under `src/scene/` (one commit per builder), keeping the builder's look and
   signature; verify with a baseline → current diff.
 - Verify renders by **headless screenshot**, not by eye. See "Judging renders".
 - **Cutaway for enclosing containers.** When the subject sits inside an opaque container
   (water bath, ice bucket, centrifuge shell and rotor slot, freezer, plate reader, gel tank,
   a closed lid), the container's NEAR WALL is rendered see-through (`declareCutaway` in
-  `demoScene.js`; the station calls `setCutaway(true)` when the subject is seated in it).
+  `scene/modelKit.js`; the station calls `setCutaway(true)` when the subject is seated in it).
   It changes the wall's material opacity only — **it never moves or resizes the subject or
   the wall**; the geometry checks must stay green with it on.
 - **The camera frames the subject; it never rescales anything.** `frameStation` fits a
@@ -84,7 +84,7 @@ These govern every change to the 3D. They are correctness rules, not taste:
 - Layout gaps (`bench_gap`, `socket_fit`, `lift`, `contact_epsilon`) are also in the file.
 - **Pivot:** every builder returns its model with the origin at the centre of its base
   (tools held by a tip — the pipette — have the tip as origin, `userData.pivotAt='tip'`).
-  `fitArt(art, id)` in `demoScene.js` scales a builder's drawing to the table envelope and
+  `fitArt(art, id)` in `scene/modelKit.js` scales a builder's drawing to the table envelope and
   recentres it; functional geometry (bores, slots, stages, shelves) is authored in world
   units from the table on the returned root.
 - **Sockets, not coordinates** (`src/scene/sockets.js`): instruments declare named mount
@@ -125,13 +125,24 @@ with zero backend.
 
 ### The 3D — two modules, one contract
 
-- **`src/scene/demoScene.js`** (~143 KB) — the imported-verbatim builder library
-  from the hand-built demo. Every `buildX()` (containers, instruments, pipette
-  rig, bench, lights, env map, backdrop) plus the travelling-sample model
-  (`initSample`, `getSample`, `undockSample`, `prepAt`, `makePrep`) and easing
-  helpers (`lerp`, `clamp`, `easeInOut`). **This file is the art: never replace or
-  re-author a builder, but fix a builder's bug in place** (e.g. detail placed in the
-  wrong local space so it floats, a solid panel hiding a glass door).
+- **`src/scene/`** — the builder library from the hand-built demo, split by family.
+  `demoScene.js` is now a BARREL that re-exports every module, so `import * as demo`
+  call sites never change. Every `buildX()` is wrapped in its per-builder seeded random
+  stream (`streams.wrap`, same name) at the bottom of its own module.
+  - `vessels.js` (tube, spin column, cryovial, plate, flask, dish, slide, membrane, gel,
+    agar) · `props.js` (pipette, stand, bottle, waste, syringe, spreader, drop) ·
+    `instruments/{thermal,motion,readers,gel,staining}.js`
+  - `modelKit.js` (`fitArt`, `tagSpec`, `fx`, `declareCutaway`, `openTopBox`,
+    `slabWithHoles`) · `materials.js` · `liquid.js` · `labels.js` · `palette.js` ·
+    `util.js` (`lerp`, `clamp`, `easeInOut`) · `environment.js` (renderer, env map,
+    backdrop, floor)
+  - `sample.js` (the travelling sample + prep tubes: `initSample`, `getSample`,
+    `undockSample`, `makePrep`, `prepAt`) · `bench.js` (bench layout, back row, sources)
+    · `pipetting.js` (the held pipette, `pipetteRun`, `stationReagent`) · `spin.js`
+  **The builders are the art: never replace or re-author one, but fix a builder's bug in
+  place** (e.g. detail placed in the wrong local space so it floats, a solid panel hiding
+  a glass door). A pure refactor must be proven pixel-identical with
+  `scripts/pixel-diff.py <before> <after>` (the capture's noise floor is zero).
 - **`src/vessel/StationScene.jsx`** (~78 KB) — the R3F scene. `configureStation(st, opts)`
   is the single entry point that turns one parsed step into a station (equipment,
   container, reagent colours, timeline, camera push, countdown dial). The default
