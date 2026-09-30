@@ -267,6 +267,6 @@ npm run build
   protocol; the other 8 are the test of whether the verb and container
   vocabularies actually hold. `schema-audit.mjs` reports which actions and
   containers fall back to `generic` — every fallback is a step that renders bland.
-- The pipette is a held tool and is not framed: its body can leave the top of the frame
-  during a pour (the subject never does — the legibility audit guards that).
+- The pipette's tip and dispense are framed; its upper body leaves the frame top while it
+  cruises between the source and the subject (by design: framing it whole would shrink the tube).
 - An either/or choice does not change the 3D (no needle/syringe model).
