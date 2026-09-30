@@ -7,6 +7,7 @@ import { configureStation, stationConfig, lineStateChain, producedInRunOf, frame
 import { cameraPose } from '../vessel/stationCamera.js'
 import { visibilityDefects, makeCamera } from './visibilityAudit.js'
 import { sampleContainerSequence } from '../vessel/sceneRecipe.js'
+import { placeOnBench } from './sockets.js'
 import { inventory, contactDefects, containmentDefects, interpenetrationDefects, relativeScaleDefects, stabilityDefects } from './geometryAudit.js'
 
 export const POSES = Array.from({ length: 41 }, (_, k) => k / 40)
@@ -72,7 +73,8 @@ export function auditProtocol(protocol, { poses = POSES } = {}) {
     if (st.prep) st.prep.visible = true
     if (st.drawsFromId && demo.getPrep(st.drawsFromId)) {
       const pr = demo.getPrep(st.drawsFromId); pr.visible = true
-      pr.position.set(st.drawPos.x, st.drawPos.y, st.drawPos.z)
+      pr.position.set(st.drawPos.x, st.drawPos.y, st.drawPos.z); pr.userData.tPos.copy(pr.position)
+      placeOnBench(pr)                                           // put down: in the stand set out for it
     }
     const record = { index: steps[i].index ?? i, action: opts.action, equipment: opts.equipment, container: opts.container, defects: [] }
     // a vessel a socket refused is a containment ERROR (it was kept out, not drawn in)
@@ -143,14 +145,15 @@ export const VIS_POSES = [0, 0.25, 0.5, 0.75, 1]
 export const VIS_CHECKS = ['area', 'occlusion', 'safeArea', 'dominance']
 // the objects that may not out-size the subject: every spec'd object on the station and every
 // other travelling vessel — minus the subject's holder chain (it sits IN them), the step's
-// instrument (all of it: a gel rig's tank and power supply), held tools (offBench), and the
-// step's other subjects (a transfer acts on its source AND its destination)
+// instrument (all of it: a gel rig's tank and power supply), held tools (offBench), bench
+// holders (a tube stand is furniture), and the step's other subjects (a transfer acts on
+// its source AND its destination)
 export function rivalsOf(st, subject, travellers, cosubjects = []) {
   const exempt = new Set([st.dev, st.cen, st.pip, ...cosubjects].filter(Boolean))
   for (let n = subject; n; n = n.userData?.placement?.host || n.parent) exempt.add(n)
   const out = []
   const visit = (node) => {
-    if (!node || node.isLight || node.isSprite || node.userData?.offBench || exempt.has(node)) return
+    if (!node || node.isLight || node.isSprite || node.userData?.offBench || node.userData?.holder || exempt.has(node)) return
     if (node.userData?.spec) { if (!exempt.has(node)) out.push(node); return }
     for (const c of node.children) visit(c)
   }
@@ -177,7 +180,7 @@ export function auditVisibility(protocol, { poses = VIS_POSES } = {}) {
     demo.setSnap(true)
     st.enter?.()
     if (st.prep) st.prep.visible = true
-    if (st.drawsFromId && demo.getPrep(st.drawsFromId)) { const pr = demo.getPrep(st.drawsFromId); pr.visible = true; pr.position.set(st.drawPos.x, st.drawPos.y, st.drawPos.z) }
+    if (st.drawsFromId && demo.getPrep(st.drawsFromId)) { const pr = demo.getPrep(st.drawsFromId); pr.visible = true; pr.position.set(st.drawPos.x, st.drawPos.y, st.drawPos.z); pr.userData.tPos.copy(pr.position); placeOnBench(pr) }
     const record = { index: steps[i].index ?? i, action: opts.action, equipment: opts.equipment, container: opts.container, defects: [] }
     const cosubjects = st.subjectAt ? POSES.map((q) => st.subjectAt(q)) : []
     for (const p of poses) {

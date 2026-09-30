@@ -169,6 +169,7 @@ import { MAX_ANISO, clamp, easeInOut, lerp, roundRect } from './util.js'
     // "transfer the column to a clean tube" moves the column ONLY — the used collection
     // tube stays on the bench (detachCollection / reattachCollection)
     var collGrp = new THREE.Group(); grp.add(collGrp);
+    grp.userData.collection=collGrp;   // the station seats it where it is left (a stand)
     var coll = new THREE.Mesh(new THREE.LatheGeometry(cp,48), clearMat);
     coll.castShadow=true; collGrp.add(coll);
     var collRim = new THREE.Mesh(new THREE.TorusGeometry(0.325,0.02,12,44), clearMat);

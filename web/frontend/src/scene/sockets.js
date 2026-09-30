@@ -81,6 +81,33 @@ export function placeInto(vessel, host, name, { ride = false, frame = null } = {
   return socketPose(a, frame)
 }
 
-// the vessel stands on the bare bench (or is lifted out of a socket)
-export function placeOnBench(obj) { obj.userData.placement = { host: 'bench', socket: null } }
+// BENCH HOLDERS (holders.js: a tube stand): a station registers the stands it set out on
+// its bench. A vessel put down ON THE BENCH exactly at a stand's socket point (its base
+// centre on the seat) is IN that stand — its placement is the stand's socket, not the bare
+// bench. Only stands attached to a scene count (a disposed station's stands are gone).
+const benchHolders = new Set()
+export function registerBenchHolder(host) { benchHolders.add(host); return host }
+const SEAT_TOL = 1e-3   // 0.1 mm: the vessel is AT the seat, not near it
+const _w = new Vector3(), _o = new Vector3()
+function attached(o) { let n = o; while (n.parent) n = n.parent; return !!n.isScene }
+export function benchSeat(obj) {
+  const spec = obj.userData?.spec
+  if (!spec || !benchHolders.size) return null
+  // a travelling vessel is judged where it is GOING (it glides there at runtime)
+  if (obj.userData.tPos && obj.parent && obj.parent.isScene) _o.copy(obj.userData.tPos)
+  else { obj.updateWorldMatrix(true, false); _o.setFromMatrixPosition(obj.matrixWorld) }
+  for (const h of benchHolders) {
+    if (!attached(h)) continue
+    for (const [name, a] of Object.entries(h.userData.sockets || {})) {
+      if (!socketAccepts(a).includes(spec)) continue
+      a.updateWorldMatrix(true, false); _w.setFromMatrixPosition(a.matrixWorld)
+      if (_w.distanceTo(_o) < SEAT_TOL) return { host: h, socket: name }
+    }
+  }
+  return null
+}
+
+// the vessel is put down on the bench (or is lifted out of a socket): in a stand if one
+// is set out exactly there, else on the bare bench
+export function placeOnBench(obj) { obj.userData.placement = benchSeat(obj) || { host: 'bench', socket: null } }
 export function clearPlacement(obj) { obj.userData.placement = null }

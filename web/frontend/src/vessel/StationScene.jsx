@@ -22,7 +22,7 @@ import { streams } from '../scene/rng.js'
 import { dims, clearance } from '../scene/dims.js'
 import { cameraPose, fitFrame } from './stationCamera.js'
 import { solidBox } from '../scene/solids.js'
-import { placeInto, placeOnBench, clearPlacement, getSocket, socketPose, canPlace, SocketError, addSocket } from '../scene/sockets.js'
+import { placeInto, placeOnBench, clearPlacement, getSocket, socketPose, canPlace, SocketError, addSocket, registerBenchHolder, socketAccepts } from '../scene/sockets.js'
 import { resolveScenePreset } from '../scene/scenePresets.js'
 
 // the demo's cinematic camera — the one and only view
@@ -426,8 +426,66 @@ function addReagentSource(st, key, r, k, fromMix) {
 // (placeInto — a vessel class the socket does not accept is recorded in st.socketErrors
 // and the vessel stays on the bench, never a wrong render); every height a vessel is
 // carried at is derived from the heights of what it clears (+ the lift clearance).
+// A VESSEL THAT CANNOT STAND ON ITS OWN is put down in a stand (geometryAudit: stability).
+// Drive the configured station through its step (snapped, the group where it will stand)
+// and note every spot where such a vessel is PUT DOWN on the bare bench — the sample, a
+// prep tube, a µl source tube; set out a tube stand there. Its seat is the spot itself (the
+// tube's tip still rests on the bench through the stand's open floor), so no vessel moves:
+// placeOnBench now finds the stand and seats the vessel in it.
 const _Y = new Vector3(0, 1, 0)
+const STAND_POSES = Array.from({ length: 41 }, (_, k) => k / 40)
+function addBenchStands(st) {
+  const S = demo.getSample()
+  const probe = demo.buildTubeStand()
+  const accepts = socketAccepts(probe.userData.sockets.seat)
+  const spots = []
+  const note = (v, local) => {
+    if (!accepts.includes(v.userData.spec) || v.userData.held) return
+    const pl = v.userData.placement
+    if (!pl || pl.host !== 'bench') return
+    const p = local ? v.position.clone() : (v.userData.tPos || v.position).clone().sub(new Vector3(st.x, 0, 0))
+    if (Math.abs(p.y) > 1e-4) return                          // standing ON something else
+    if (!spots.some((q) => Math.hypot(q.x - p.x, q.z - p.z) < 1e-3)) spots.push(p)
+  }
+  const snap = demo.getSnap(), gx = st.group.position.x
+  st.group.position.x = st.x
+  demo.setSnap(true)
+  st.enter?.()
+  for (const p of STAND_POSES) {
+    st.timeline?.(p)
+    for (const v of S.vessels) if (shownIn(v)) note(v, false)
+    for (const v of demo.getPreps()) if (shownIn(v)) note(v, false)
+    for (const c of st.group.children) if (c.userData.spec) note(c, true)
+  }
+  // a carried prep this station draws from is parked on its bench at drawPos
+  if (st.drawsFromId && st.drawPos) { const p = new Vector3(st.drawPos.x - st.x, 0, st.drawPos.z); if (!spots.some((q) => Math.hypot(q.x - p.x, q.z - p.z) < 1e-3)) spots.push(p) }
+  demo.undockSample()
+  demo.setSnap(snap)
+  st.group.position.x = gx
+  const stands = spots.map((p) => {
+    const stand = demo.buildTubeStand()
+    stand.position.set(p.x, 0, p.z)
+    st.group.add(stand)
+    return registerBenchHolder(stand)
+  })
+  // the station's own props (a µl source tube in the back row) are seated now — the group
+  // is not in the scene yet, so directly; the travelling sample and the preps are seated
+  // whenever they are put down (placeOnBench finds the stand)
+  const seatAt = (v, p) => {
+    if (!v.userData.spec || v.userData.placement?.host !== 'bench' || !accepts.includes(v.userData.spec)) return
+    const k = spots.findIndex((q) => Math.hypot(q.x - p.x, q.z - p.z) < 1e-3)
+    if (k >= 0) placeInto(v, stands[k], 'seat')
+  }
+  for (const c of st.group.children) seatAt(c, c.position)
+  for (const v of [...S.vessels, ...demo.getPreps()]) seatAt(v, (v.userData.tPos || v.position).clone().sub(new Vector3(st.x, 0, 0)))
+  st.stands = stands
+}
+
 export function configureStation(st, o) {
+  configureStationCore(st, o)
+  addBenchStands(st)
+}
+function configureStationCore(st, o) {
   const { action, equipment, container, prevContainer, color, name, vol, seconds, startColor, startLevel, endColor, endLevel, cycles } = o
   const C = containerContract(container)
   const vessel = C.vessel
@@ -1184,13 +1242,14 @@ function configureNestMove(st, S, o) {
     tube.userData.setLevel?.(0)
     S.snapTo(col, st.x + AX, 0, Z); placeOnBench(col); col.userData.held = false
     S.snapTo(tube, st.x + BX, 0, Z); placeOnBench(tube)
+    st.collSeat = col.userData.placement            // the assembly's seat — the collection tube keeps it
   }
   st.timeline = (p) => {
     const col = S[columnKey], tube = S[tubeKey]
     col.visible = true; tube.visible = true
     tube.userData.setLevel?.(0)              // the clean tube NEVER fills — no liquid moves
     S.snapTo(tube, st.x + BX, 0, Z)
-    if (p > 0.001) col.userData.detachCollection?.(st.group)
+    if (p > 0.001) { col.userData.detachCollection?.(st.group); const cg = col.userData.collection; if (cg && st.collSeat) cg.userData.placement = st.collSeat }
     else col.userData.reattachCollection?.()
     let x, y
     if (p < 0.34) { x = AX; y = demo.lerp(0, CARRY, demo.easeInOut(p / 0.34)) }                 // 1 · straight up
