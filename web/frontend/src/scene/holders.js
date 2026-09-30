@@ -17,7 +17,9 @@ export function buildTubeStand() {
   // the bore takes the widest vessel it accepts, plus the socket play
   const boreR = Math.max(...D.accepts.map((s) => dims(s).radius)) + clearance('socket_fit')
   const grp = new THREE.Group()
-  const pp = matPlastic(0xe6ecf0)                 // natural polypropylene
+  // CLEAR ACRYLIC (as many tube stands are): the deck crosses the tube's body in front of the
+  // camera, and a nested column's frit sits right behind it — seen through, not hidden
+  const pp = new THREE.MeshPhysicalMaterial({ color: 0xdfe8ee, roughness: 0.18, metalness: 0, transparent: true, opacity: 0.45, clearcoat: 0.6, envMapIntensity: 0.6 })
   const deck = new THREE.Mesh(slabWithHoles(W, T, DEP, [[0, 0, boreR]], 40), pp)
   deck.position.y = H - T; deck.castShadow = true; deck.receiveShadow = true; grp.add(deck)
   for (const sx of [-1, 1]) {
