@@ -319,6 +319,16 @@
       "seats_1_5": { "count": 8, "est": "reagents of a typical reaction set-up" },
       "accepts": ["pcr_tube_0_2", "microtube_1_5"]
     },
+    "ice_pan": {
+      "name": "ice pan with crushed ice", "category": "instrument", "shape": "box", "model": "shallow polyethylene ice pan, crushed ice packed round a cooling rack",
+      "width": { "mm": 245, "est": "a 207 mm cooling rack + ~19 mm of ice each end" },
+      "depth": { "mm": 90, "est": "the 40 mm rack + ~25 mm of ice front and back" },
+      "height": { "mm": 22, "est": "a shallow pan: its front wall stays below the seated tubes" },
+      "wall": { "mm": 3, "est": "moulded pan wall and floor" },
+      "ice_depth": { "mm": 12, "est": "crushed ice packed round the rack's base" },
+      "ice_piece": { "mm": 9, "est": "crushed-ice piece size" },
+      "accepts": ["cool_rack"]
+    },
     "pipette_p200": {
       "name": "20–200 µL pipette with tip", "category": "tool", "shape": "round", "model": "Eppendorf Research plus 20–200 µL + 200 µL tip",
       "height": { "mm": 290, "est": "body ≥ 238 mm (src eppendorf-research-plus) + ~ 52 mm 200 µL tip" },

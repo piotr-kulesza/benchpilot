@@ -2,10 +2,11 @@
 // 1.5 mL tube cannot stand on its tip (geometryAudit: stability); in a lab it stands in a
 // rack. REAL SIZE from dims('tube_stand').
 import * as THREE from 'three'
+import { streams } from './rng.js'
 import { dims, clearance } from './dims.js'
 import { addSocket } from './sockets.js'
 import { matPlastic } from './materials.js'
-import { declareCutaway, slabWithHoles, tagSpec } from './modelKit.js'
+import { declareCutaway, fitArt, fx, slabWithHoles, tagSpec } from './modelKit.js'
 
 // An OPEN-FRAME stand: a bored deck on two end legs, open underneath and at the front and
 // back — the tube's tip rests on the bench through the open floor (so its base centre, its
@@ -43,7 +44,7 @@ export function buildTubeStand(id = 'tube_stand') {
 // the bores `notchXs` (radius r): 'back' is z0 … zc with half-bores notched into its front
 // edge, 'front' is zc … z1 with the other halves. Other bores (holes: [x, z, r]) sit whole in
 // the back piece. Extruded up (+y) from 0 — as slabWithHoles.
-function splitSlab(w, h, z0, zc, z1, notchXs, r, holes, part) {
+function splitSlab(w, h, z0, zc, z1, notchXs, r, holes, part, xa = -w / 2, xb = w / 2) {
   const sh = new THREE.Shape()                                  // shape (x, -z)
   const xs = [...notchXs].sort((a, b) => a - b)
   if (part === 'back') {
@@ -51,10 +52,10 @@ function splitSlab(w, h, z0, zc, z1, notchXs, r, holes, part) {
     for (const x of [...xs].reverse()) { sh.lineTo(x + r, -zc); sh.absarc(x, -zc, r, 0, Math.PI, false) }
     sh.lineTo(-w / 2, -zc); sh.lineTo(-w / 2, -z0)
     for (const [x, z, hr] of holes) { const hp = new THREE.Path(); hp.absarc(x, -z, hr, 0, Math.PI * 2, true); sh.holes.push(hp) }
-  } else {
-    sh.moveTo(-w / 2, -zc)
-    for (const x of xs) { sh.lineTo(x - r, -zc); sh.absarc(x, -zc, r, Math.PI, Math.PI * 2, false) }
-    sh.lineTo(w / 2, -zc); sh.lineTo(w / 2, -z1); sh.lineTo(-w / 2, -z1); sh.lineTo(-w / 2, -zc)
+  } else {                                                      // the front piece over x ∈ [xa, xb]
+    sh.moveTo(xa, -zc)
+    for (const x of xs.filter((x) => x > xa && x < xb)) { sh.lineTo(x - r, -zc); sh.absarc(x, -zc, r, Math.PI, Math.PI * 2, false) }
+    sh.lineTo(xb, -zc); sh.lineTo(xb, -z1); sh.lineTo(xa, -z1); sh.lineTo(xa, -zc)
   }
   const g = new THREE.ExtrudeGeometry(sh, { depth: h, bevelEnabled: false, curveSegments: 24 })
   g.rotateX(-Math.PI / 2)
@@ -94,8 +95,24 @@ export function buildCoolRack() {
   // the slab above: over the 0.2 mL section only the part above their floor
   const top = new THREE.Mesh(splitSlab(W, B15, -DEP / 2, ZC, DEP / 2, seats2, r2, seats15.map((x) => [x, ROWZ, r15]), 'back'), alu)
   top.position.y = floorY; top.castShadow = true; grp.add(top)
-  const front = new THREE.Mesh(splitSlab(W, B15, -DEP / 2, ZC, DEP / 2, seats2, r2, [], 'front'), alu)
+  // the front strip in TWO: only the part in front of the reaction seat is the near wall
+  // (cut away); the rest stays solid, so the other seats read as wells, not as the bore
+  // walls of a see-through block standing up like cans
+  const xCut = seats2[0] + D.pitch_0_2 / 2
+  const front = new THREE.Mesh(splitSlab(W, B15, -DEP / 2, ZC, DEP / 2, seats2, r2, [], 'front', -W / 2, xCut), alu)
   front.position.y = floorY; front.castShadow = true; grp.add(front)
+  const frontRest = new THREE.Mesh(splitSlab(W, B15, -DEP / 2, ZC, DEP / 2, seats2, r2, [], 'front', xCut, W / 2), alu)
+  frontRest.position.y = floorY; frontRest.castShadow = true; grp.add(frontRest)
+  // WELLS: each bore dark-lined and floored, so it reads as a hole in the block
+  const well = new THREE.MeshStandardMaterial({ color: 0x1d232b, metalness: 0.4, roughness: 0.7, side: THREE.DoubleSide })
+  const lineBore = (x, z, r, top, depth) => {
+    const wall = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.99, r * 0.99, depth, 24, 1, true), well)
+    wall.position.set(x, top - depth / 2, z); fx(wall, 'decal'); grp.add(wall)
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(r * 0.99, 24), well)
+    floor.rotation.x = -Math.PI / 2; floor.position.set(x, top - depth + 0.0005, z); fx(floor, 'decal'); grp.add(floor)
+  }
+  seats2.forEach((x, k) => { if (k > 0) lineBore(x, ZC, r2, H, B2) })   // (not the reaction's own seat: seen through the cut, its lining would hide the tube)
+  seats15.forEach((x) => lineBore(x, ROWZ, r15, H, B15))
   seats2.forEach((x, k) => addSocket(grp, k === 0 ? 'rx' : 'p' + k, { position: new THREE.Vector3(x, H - B2, ZC), accepts: ['pcr_tube_0_2'] }))
   seats15.forEach((x, k) => addSocket(grp, 's' + k, { position: new THREE.Vector3(x, floorY, ROWZ), accepts: ['microtube_1_5'] }))
   grp.userData.sampleSocket = 'rx'
@@ -104,3 +121,36 @@ export function buildCoolRack() {
   declareCutaway(grp, [front])
   return tagSpec(grp, 'cool_rack')
 }
+
+// AN ICE PAN — the stated "on ice", visibly: a shallow pan with crushed ice packed round the
+// cooling rack standing on its floor ('bed'). The pan's walls stay below the seated tubes.
+export function buildIcePan() {
+  const D = dims('ice_pan'), R = dims('cool_rack')
+  const W = D.width, DEP = D.depth, H = D.height, T = D.wall
+  const grp = new THREE.Group()
+  const pe = matPlastic(0xeef1f3)                        // white polyethylene
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(W, T, DEP), pe)
+  floor.position.y = T / 2; floor.receiveShadow = true; floor.castShadow = true; grp.add(floor)
+  ;[[W, H, T, 0, (DEP - T) / 2], [W, H, T, 0, -(DEP - T) / 2], [T, H, DEP - 2 * T, (W - T) / 2, 0], [T, H, DEP - 2 * T, -(W - T) / 2, 0]].forEach((r) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(r[0], r[1], r[2]), pe); m.position.set(r[3], r[1] / 2, r[4]); m.castShadow = true; grp.add(m)
+  })
+  // the rack's seat: on the floor, one contact tolerance up (it stands on the floor, never in it)
+  addSocket(grp, 'bed', { position: new THREE.Vector3(0, T + clearance('contact_epsilon'), 0), accepts: ['cool_rack'] })
+  // crushed ice packed round the rack's footprint (not under it), to ice_depth
+  const iceMat = new THREE.MeshPhysicalMaterial({ color: 0xd4e2ea, roughness: 0.14, transparent: true, opacity: 0.55, clearcoat: 0.8, envMapIntensity: 1.0, flatShading: true, depthWrite: false })
+  const rw = R.width / 2 + 0.002, rd = R.depth / 2 + 0.002, top = T + D.ice_depth
+  for (let i = 0; i < 90; i++) {
+    const cs = D.ice_piece * (0.35 + Math.random() * 0.3)
+    const x = (Math.random() - 0.5) * (W - 2 * T - 2 * cs), z = (Math.random() - 0.5) * (DEP - 2 * T - 2 * cs)
+    if (Math.abs(x) < rw + cs && Math.abs(z) < rd + cs) continue           // the rack stands there
+    const cube = new THREE.Mesh(new THREE.IcosahedronGeometry(cs, 0), iceMat)
+    cube.position.set(x, top - cs * (0.3 + Math.random() * 0.6), z)
+    cube.rotation.set(Math.random(), Math.random(), Math.random())
+    cube.castShadow = true; fx(cube, 'granular'); grp.add(cube)
+  }
+  grp.userData.sampleSocket = 'bed'
+  grp.userData.holder = true
+  return tagSpec(grp, 'ice_pan')
+}
+// per-builder seeded random stream (the ice pieces) — deterministic captures
+buildIcePan = streams.wrap('buildIcePan', buildIcePan)

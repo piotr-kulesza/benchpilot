@@ -42,6 +42,7 @@ export const MODELS = [
   { id: 'tube_stand',    kind: 'equipment', span: 1.2, orient: 'open microtube stand: bored deck on two end legs, open floor — a tube stands in it tip-on-bench', build: () => demo.buildTubeStand() },
   { id: 'pcr_tube_stand', kind: 'equipment', span: 0.8, orient: 'open 0.2 mL PCR tube stand: bored deck on two end legs, open floor', build: () => demo.buildTubeStand('pcr_tube_stand') },
   { id: 'cool_rack',     kind: 'equipment', span: 2.4, orient: 'chilled aluminium tube rack lying along x: 4 × 0.2 mL seats (left), 8 × 1.5 mL seats (right), real bores', build: () => demo.buildCoolRack() },
+  { id: 'ice_pan',       kind: 'equipment', span: 2.8, orient: 'shallow white ice pan, crushed ice packed round an empty rack bed', build: () => demo.buildIcePan() },
   { id: 'ice_bucket',    kind: 'equipment', span: 2.4, orient: 'ice bucket', build: () => demo.buildIceBucket() },
   { id: 'waste',         kind: 'equipment', span: 1.8, orient: 'waste beaker/container', build: () => demo.buildWaste() },
   { id: 'syringe',       kind: 'equipment', span: 2.9, orient: 'syringe with needle', build: () => demo.buildSyringe() },
