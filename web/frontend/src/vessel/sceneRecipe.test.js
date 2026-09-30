@@ -409,11 +409,11 @@ describe('bundled protocols resolve every instrument-bearing step honestly', () 
     ['cryopreservation', 6, 'freezer'],   // −80 °C freezer overnight
     ['cryopreservation', 7, 'bench'],     // liquid nitrogen dewar — unmodelled
     ['neutrophil_rna', 25, 'freezer'],    // store at −80 °C
-    ['pcr', 7, 'bench'],                  // hold at 4 °C
+    ['pcr', 7, 'thermocycler'],           // hold at 4 °C — a program step, the cycler named, in a PCR tube
     // finding #2 — heat
     ['transformation', 5, 'water_bath'],  // 42 °C water bath, named
-    ['pcr', 4, 'bench'],                  // initial denaturation 94 °C — no instrument named
-    ['pcr', 6, 'bench'],                  // final extension 72 °C — no instrument named
+    ['pcr', 4, 'thermocycler'],           // initial denaturation 94 °C — the program names the thermocycler
+    ['pcr', 6, 'thermocycler'],           // final extension 72 °C — likewise
     ['agarose_gel', 2, 'bench'],          // microwave — unmodelled
     ['gram_stain', 2, 'bench'],           // heat-fix the slide in a flame — unmodelled
     // finding #3 — incubate at 37 °C
