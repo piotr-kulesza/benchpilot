@@ -69,3 +69,13 @@ describe('transferKind — loading a gel from a tube is a pipette run', () => {
     expect(transferKind('microtube', 'membrane')).toBe('place')
   })
 })
+
+describe('the 0.2 mL PCR tube', () => {
+  it('pcr_tube is its own vessel at its real size, upright, tipped to empty', async () => {
+    const { containerContract } = await import('./containerContract.js')
+    const c = containerContract('pcr_tube')
+    expect(c.spec).toBe('pcr_tube_0_2')
+    expect(c.vessel).toBe('pcrtube')
+    expect(c.orientation).toBe('upright')
+  })
+})

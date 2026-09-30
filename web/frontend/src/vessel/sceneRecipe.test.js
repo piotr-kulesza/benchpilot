@@ -22,7 +22,7 @@ const EQUIPMENT = new Set([
 ])
 const CONTAINERS = [
   'microtube', 'tube', 'well_plate', 'flask', 'dish', 'gel', 'slide',
-  'cryovial', 'membrane', 'spin_column', 'eluate_tube', 'bottle', 'agar_plate', 'generic',
+  'cryovial', 'membrane', 'spin_column', 'eluate_tube', 'bottle', 'agar_plate', 'pcr_tube', 'generic',
 ]
 
 describe('action → scene recipe mapping', () => {
@@ -557,9 +557,27 @@ describe('findUnmodelledInstruments — an action that stages the instrument', (
   it('a thermocycle step naming the thermocycler is not flagged', () => {
     expect(findUnmodelledInstruments([{ index: 1, action: 'thermocycle', text_en: 'Run 40 cycles in the thermocycler.' }])).toEqual([])
   })
-  it('a heat step naming the thermocycler still is (heat renders the bench for it)', () => {
-    expect(findUnmodelledInstruments([{ index: 1, action: 'heat', text_en: 'Final extension 72 °C in the thermocycler.' }])
-      .map((d) => [d.index, d.names])).toEqual([[1, ['thermocycler']]])
+  it('a heat step naming the thermocycler is not flagged either (the thermocycler is modelled)', () => {
+    expect(findUnmodelledInstruments([{ index: 1, action: 'heat', text_en: 'Final extension 72 °C in the thermocycler.' }])).toEqual([])
+  })
+})
+
+// A thermocycler PROGRAM step (initial denaturation, final extension, the 4 °C hold) runs
+// IN the thermocycler — when the step names it and the sample is in a 0.2 mL PCR tube,
+// the only vessel its 96-well block takes. Otherwise the bench (a guess is worse).
+describe('the thermocycler for heat / store program steps', () => {
+  const tc = { names: ['thermocycler'] }
+  it('heat naming the thermocycler, sample in a PCR tube → thermocycler', () => {
+    expect(resolveRecipe('heat', { container: 'pcr_tube', conditions: { ...tc, tempC: 94 } }).equipment).toBe('thermocycler')
+  })
+  it('store (hold at 4 °C) naming the thermocycler, in a PCR tube → thermocycler', () => {
+    expect(resolveRecipe('store', { container: 'pcr_tube', conditions: { ...tc, tempC: 4 } }).equipment).toBe('thermocycler')
+  })
+  it('the block takes no 1.5 mL tube → the bench', () => {
+    expect(resolveRecipe('heat', { container: 'microtube', conditions: { ...tc, tempC: 94 } }).equipment).toBe('bench')
+  })
+  it('a temperature alone does not say thermocycler → not the thermocycler', () => {
+    expect(resolveRecipe('heat', { container: 'pcr_tube', conditions: { tempC: 94, names: [] } }).equipment).not.toBe('thermocycler')
   })
 })
 
