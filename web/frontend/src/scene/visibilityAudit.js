@@ -37,7 +37,9 @@ function shown(o) { for (let n = o; n; n = n.parent) if (!n.visible) return fals
 function inSubtree(o, root) { for (let n = o; n; n = n.parent) if (n === root) return true; return false }
 export function isOpaque(obj) {
   const mats = Array.isArray(obj.material) ? obj.material : [obj.material]
-  return mats.some((m) => m && m.visible !== false && !(m.transparent && m.opacity < VIS.OPAQUE))
+  // see-through: a low-opacity material, or an ALPHA-TEXTURED decal (a printed graduation:
+  // opacity 1, but its texture is clear except for the marks)
+  return mats.some((m) => m && m.visible !== false && !(m.transparent && (m.opacity < VIS.OPAQUE || m.map)))
 }
 
 const _v = new Vector3()
@@ -82,16 +84,16 @@ export function visibilityDefects(cam, subject, occluderRoots) {
     const sample = inFrame.filter((_, k) => k % step === 0)
     const ray = new Raycaster(); ray.camera = cam
     const saved = occ.filter((o) => o.isMesh).map((o) => { const arr = Array.isArray(o.material) ? o.material : [o.material]; const s = arr.map((a) => a && a.side); arr.forEach((a) => { if (a) a.side = DoubleSide }); return [arr, s] })
-    let blocked = 0, blocker = null
+    let blocked = 0, blocker = null, blockAt = null
     for (const p of sample) {
       const d = p.distanceTo(cam.position)
       ray.set(cam.position, p.clone().sub(cam.position).normalize()); ray.far = d - 1e-3
       const h = ray.intersectObjects(occ, false)
-      if (h.length) { blocked++; blocker = blocker || h[0].object }
+      if (h.length) { blocked++; if (!blocker) { blocker = h[0].object; blockAt = h[0].point } }
     }
     saved.forEach(([arr, s]) => arr.forEach((a, i) => { if (a) a.side = s[i] }))
     const frac = blocked / sample.length
-    if (frac > VIS.MAX_OCCLUDED) out.push({ check: 'occlusion', kind: 'hidden', fraction: +frac.toFixed(3), by: ownerName(blocker) })
+    if (frac > VIS.MAX_OCCLUDED) { const d = { check: 'occlusion', kind: 'hidden', fraction: +frac.toFixed(3), by: ownerName(blocker), at: blockAt && blockAt.toArray().map((n) => +n.toFixed(2)) }; Object.defineProperty(d, 'blocker', { value: blocker }); d.blockerWorld = new Vector3().setFromMatrixPosition(blocker.matrixWorld).toArray().map((n) => +n.toFixed(2)); d.subjectWorld = new Vector3().setFromMatrixPosition(subject.matrixWorld).toArray().map((n) => +n.toFixed(2)); d.cam = cam.position.toArray().map((n) => +n.toFixed(2)); out.push(d) }
   }
   return out
 }

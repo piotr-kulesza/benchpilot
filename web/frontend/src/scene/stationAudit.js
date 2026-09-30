@@ -3,7 +3,7 @@
 // checks (geometryAudit.js) on what is there. Needs installHeadless() before import.
 import { Scene, Group, Matrix4 } from 'three'
 import * as demo from './demoScene.js'
-import { configureStation, stationConfig, lineStateChain, producedInRunOf, computeStationFrame, addStationLabel } from '../vessel/StationScene.jsx'
+import { configureStation, stationConfig, lineStateChain, producedInRunOf, frameStation, frameAt, addStationLabel } from '../vessel/StationScene.jsx'
 import { cameraPose } from '../vessel/stationCamera.js'
 import { visibilityDefects, makeCamera } from './visibilityAudit.js'
 import { sampleContainerSequence } from '../vessel/sceneRecipe.js'
@@ -35,7 +35,10 @@ function drive(st, S, p) {
   demo.setSnap(true)
   st.timeline?.(p)
   settle(st, S)
-  st.group.updateMatrixWorld(true)
+  // EVERYTHING's world matrices — the travelling sample and the prep tubes live directly in
+  // the scene (not in the station group); a stale matrix put a prep where it USED to be
+  let root = st.group; while (root.parent) root = root.parent
+  root.updateMatrixWorld(true)
 }
 
 function snapshotMatrices(objs) { return objs.map((o) => { o.node.updateWorldMatrix(true, false); return new Matrix4().copy(o.node.matrixWorld) }) }
@@ -150,7 +153,7 @@ export function auditVisibility(protocol, { poses = VIS_POSES } = {}) {
     const st = { group: new Group(), updatables: [], reagents: {}, pip: null, enter: null, timeline: null, x: 0, cen: null, dev: null, vis: 1, _vstate: -1 }
     const { opts, o } = stationConfig(steps, i, { containers, stateChain, lang: 'en', producedInRun })
     configureStation(st, opts)
-    st.frame = computeStationFrame(st)          // measured exactly when the runner measures it
+    st.frame = frameStation(st)                // framed exactly as the runner frames it
     if (!st.prepId) addStationLabel(st, o.title, o.sub)
     scene.add(st.group)
     demo.setSnap(true)
@@ -161,10 +164,10 @@ export function auditVisibility(protocol, { poses = VIS_POSES } = {}) {
     for (const p of poses) {
       drive(st, S, p)
       const push = st.pushCam ? st.pushCam(p) : 0
-      const cam = makeCamera(cameraPose(st.frame, { push, pushTarget: st.pushTarget }))
-      const subject = st.subject ? st.subject() : null
+      const cam = makeCamera(cameraPose(frameAt(st, p), { push, pushTarget: st.pushTarget }))
+      const subject = st.subjectAt ? st.subjectAt(p) : st.subject ? st.subject() : null
       const roots = [st.group, ...S.vessels.filter((v) => v !== subject), ...demo.getPreps().filter((v) => v !== subject)]
-      for (const d of visibilityDefects(cam, subject, roots)) record.defects.push({ ...d, p, object: subject?.userData?.spec || '?' })
+      for (const d of visibilityDefects(cam, subject, roots)) { const e = { ...d, p, object: subject?.userData?.spec || '?' }; if (d.blocker) Object.defineProperty(e, 'blocker', { value: d.blocker }); record.defects.push(e) }
     }
     scene.remove(st.group)
     demo.undockSample()
