@@ -134,10 +134,13 @@ function makeBenchTag(text) {
 // It names the SUBJECT, so it stands over the subject (not over the middle of the props —
 // it floated over the idle sample while the step made a mix beside it), and is sized to
 // the FRAME (a constant share of its height), since the camera now zooms to the subject.
-const LABEL_SHARE = 0.075, LABEL_GAP_SHARE = 0.035
+const LABEL_SHARE = 0.05, LABEL_GAP_SHARE = 0.05   // smaller, and clear of the subject (at 7.5 % it sat mid-frame on it)
 export function addStationLabel(st, title, sub) {
   const label = demo.makeLabel(title, sub)
-  const frameH = st.frame.dist != null ? 2 * st.frame.dist * Math.tan((FOV / 2) * Math.PI / 180) : 7
+  // sized to the TIGHTEST frame of the step (sized to the first, a station that zooms in after
+  // it — a thermocycler whose lid closes — blew the plate up across the top of the frame)
+  const dMin = st.frames && st.frames.length ? Math.min(...st.frames.map((f) => f.dist)) : st.frame.dist
+  const frameH = dMin != null ? 2 * dMin * Math.tan((FOV / 2) * Math.PI / 180) : 7
   const wh = label.userData.worldH || 0.5
   const k = (LABEL_SHARE * frameH) / wh
   label.scale.multiplyScalar(k)
@@ -191,7 +194,9 @@ function subjectBoxes(st) {
     st.timeline?.(p)
     st.group.updateMatrixWorld(true)
     const s = st.subjectAt ? st.subjectAt(p) : st.subject?.()
-    const b = s && shownIn(s) ? solidBox(s) : new Box3()
+    // a station may frame a PART of an instrument subject — what shows the step (a cycler's
+    // display and the tube in its block; a rotor) — rather than the whole machine
+    const b = st.frameBoxAt ? st.frameBoxAt(p) : s && shownIn(s) ? solidBox(s) : new Box3()
     if (!b.isEmpty()) b.translate(new Vector3(-st.x, 0, 0))   // world → station-local
     return b
   })
@@ -246,7 +251,7 @@ export function frameStation(st) {
   // zoom; it never rescales) — a tube carried from the bench into a rotor is framed on the
   // bench, then on the rotor, not as a speck in a frame holding the whole path
   st.frames = boxes.map((sb) => {
-    const used = sb.clone().union(usedProps), context = used.clone().union(ctxProps)
+    const used = sb.clone().union(usedProps), context = st.tightFrame ? used.clone() : used.clone().union(ctxProps)
     const f = fitFrame(sb, used, context)
     const sc = sb.getCenter(new Vector3()), sz = sb.getSize(new Vector3())
     f.top = sb.max.y
@@ -1135,16 +1140,93 @@ function configureStationCore(st, o) {
     st.dev = tc
     const n = cycles > 0 ? cycles : 30
     const hold = action !== 'thermocycle'
-    const show = (p) => hold ? tc.userData.setHold('HOLD', o.tempC, seconds, p) : tc.userData.setProgress(p, n)
+    // THE LID STAYS DOWN BETWEEN PROGRAM STEPS: it opens only as the tube arrives (the step
+    // before was not in the cycler) and before it leaves (the next one is not)
+    const openAtStart = o.prevEquipment !== 'thermocycler', openAtEnd = o.nextEquipment !== 'thermocycler'
+    const lidOpen = (p) => (p < 0.12 && openAtStart) || (p > 0.78 && openAtEnd)
+    // the cycle's stated temperatures, in order (denature · anneal · extend)
+    const temps = [...String(o.text || '').matchAll(/(-?\d+(?:\.\d+)?)\s*°\s*C/g)].map((m) => +m[1]).slice(0, 3)
+    const show = (p) => hold ? tc.userData.setHold('HOLD', o.tempC, seconds, p) : tc.userData.setProgress(p, n, temps)
     const SOCK = tc.userData.sampleSocket
     const ok = fitsSocket(tc, SOCK)
     const benchX = ok ? 0 : demo.benchSlot(st, VD.width / 2, +1)
     if (ok) tc.userData.setCutaway?.(true)   // CUTAWAY: the tube is seen in its well, through the block's near wall
-    st.enter = () => { seat(benchX); if (ok) seatIn(tc, SOCK); tc.userData.setLid(true); show(0) }
+    // seated, the step acts on the tube THROUGH the cycler — its program on the display is
+    // what the step shows: the cycler (tube in its front row, display) is the subject.
+    // Framed alone, the 21 mm tube filled the frame and the display was never seen.
+    if (ok) {
+      st.subjectAt = () => tc
+      // …framed on what shows the step — the display with its readout and the tube in its
+      // block (and the lid, whole, while it is raised) — not the whole cycler, the tube a speck
+      st.frameBoxAt = (p) => {
+        tc.updateMatrixWorld(true)
+        const b = solidBox(S[vessel]).union(new Box3().setFromObject(tc.userData.display))
+        return lidOpen(p) ? b.union(tc.userData.openLidBox()) : b
+      }
+      st.tightFrame = true
+    }
+    st.enter = () => { seat(benchX); if (ok) seatIn(tc, SOCK); tc.userData.setLid(lidOpen(0)); show(0) }
     st.timeline = (p) => {
-      tc.userData.setLid(!(p > 0.12 && p < 0.78))
+      tc.userData.setLid(lidOpen(p))
       show(p)
       evolve(p) // contents unchanged; the tube just cycles temperature
+    }
+  } else if (action === 'electrophorese' && container === 'gel' && prevContainer && !containerContract(prevContainer).flat) {
+    // "RUN 5 µl OF THE PRODUCT ON A GEL": the product is LOADED from its tube into a well —
+    // the gel is already in the tank under buffer, lid off; the tube stands beside the tank.
+    // The pipette draws from the tube and dispenses into the well; the lid goes on; it runs.
+    // (A hand-off here lifted the tube away and conjured the gel — nothing was loaded.)
+    // The power supply stands further off: at one bench gap the close-up cropped it into a
+    // white wedge at the frame edge
+    const rig = subject(demo.buildGelRig({ psuGap: clearance('bench_gap') * 4 }))
+    st.dev = rig
+    rig.userData.showGel(false)
+    const tank = rig.userData.tank
+    const SOCK = rig.userData.sampleSocket
+    const ok = fitsSocket(tank, SOCK)
+    if (ok) rig.userData.setCutaway?.(true)
+    const src = containerContract(prevContainer).vessel
+    const SD = dims(S[src].userData.spec)
+    const TX = demo.benchSlot(st, SD.width / 2, +1)
+    const DOCK = socketY(tank, SOCK)
+    demo.addPipetteRig(st)
+    st._skipHandoff = true
+    const draw = () => new Vector3(TX, S[src].userData.entry, 0)
+    const well = () => { const m = S[vessel].userData.mouth; return { x: DOCK.x + m.x, y: DOCK.y + m.y, z: DOCK.z + m.z } }
+    st.drawFrom = draw()
+    st.subjectAt = () => S[vessel]                     // the gel being loaded, then run
+    st.cosubjects = () => [S[src]]                     // …from the product's tube
+    // loading fills most of the step (the dispense is mid-step); then the lid, then the run
+    const LOAD = 0.7, AWAY = 0.75, LID = 0.84
+    st.enter = () => {
+      S.only(vessel)
+      const g = S[vessel]
+      g.visible = true; g.rotation.set(0, 0, 0); g.userData.held = false
+      g.userData.setColor?.(startColor); g.userData.setLevel?.(startLevel)
+      S.at(g, st.x + DOCK.x, DOCK.y, DOCK.z)
+      if (ok) placeInto(g, tank, SOCK); else placeOnBench(g)
+      const t = S[src]
+      t.visible = true; t.rotation.set(0, 0, 0); t.userData.held = false
+      t.userData.setColor?.(startColor); t.userData.setLevel?.(startLevel)
+      S.at(t, st.x + TX, 0, 0); placeOnBench(t)
+      rig.userData.setLidLift(1, 1); rig.userData.setVolts(false)
+      demo.pipRest(st)
+    }
+    st.timeline = (p) => {
+      const seg = (a, b) => demo.easeInOut(demo.clamp((p - a) / (b - a), 0, 1))
+      S[src].visible = true
+      demo.pipetteRun(st, draw(), well(), Math.min(p / LOAD, 1), { color: startColor, fill: 0.4, dipDepth: 0 })
+      if (p >= LOAD) {                                   // loaded: the pipette goes back over the tube, out of the lid's way
+        const w = well(), cy = demo.cruiseY(st, draw(), w), r = demo.restPoint(st), e = seg(LOAD, AWAY)
+        st.pip.position.set(demo.lerp(w.x, r.x, e), cy, demo.lerp(w.z, r.z, e))
+      }
+      if (p < AWAY) { rig.userData.setLidLift(1, 1); rig.userData.setVolts(false) }                    // lid off, set aside
+      else if (p < LID) {                                                                             // lid (leads and all) back over, then down on
+        const q = (p - AWAY) / (LID - AWAY)
+        rig.userData.setLidLift(q < 0.5 ? 1 : 1 - demo.easeInOut((q - 0.5) / 0.5), q < 0.5 ? 1 - demo.easeInOut(q / 0.5) : 0); rig.userData.setVolts(false)
+      }
+      else { rig.userData.setLidLift(0); rig.userData.setVolts(p < 0.97) }                             // the run
+      evolve(demo.clamp((p - LID) / (1 - LID), 0, 1))       // bands only while it runs
     }
   } else if (action === 'electrophorese' && container === 'gel') {
     // DOCK THE SAMPLE GEL IN THE TANK, run it, lift it out. The lid (leads and all) comes
@@ -1548,12 +1630,15 @@ export function stationConfig(steps, i, { containers, stateChain, lang = 'en', a
   const container = containers[i] || 'microtube'
   const prevContainer = i > 0 ? (containers[i - 1] || 'microtube') : null
   const o = stationParams(baseStep, lang, altIdx, stateChain[i], producedInRun, container)
+  // the neighbours' instruments (a thermocycler's lid stays down between its program steps)
+  const eqAt = (j) => (j >= 0 && j < steps.length) ? resolveRecipe(effectiveStep(steps[j], altByStep[steps[j].index] || 0).action, { container: containers[j] || 'microtube', conditions: stepConditions(steps[j]), spin: steps[j].spin }).equipment : null
   return {
     o, altIdx, container,
     opts: {
       action: o.action, equipment: o.equipment, container, prevContainer, color: o.colorHex, name: o.title, vol: o.vol, seconds: o.seconds,
       startColor: o.start.color, startLevel: o.start.level, endColor: o.end.color, endLevel: o.end.level, cycles: o.cycles, reagents: o.reagents,
       drawsFrom: o.drawsFrom, produces: o.produces, text: o.text, tempC: o.tempC, onIce: o.onIce,
+      prevEquipment: eqAt(i - 1), nextEquipment: eqAt(i + 1),
     },
   }
 }
@@ -1596,6 +1681,11 @@ export function stationParams(baseStep, lang, altIdx, chain, producedInRun, cont
            target: step.target || 'sample', produces: step.produces || null, drawsFrom,
            text: step.text_en || step.text || '' }
 }
+
+// DEV ONLY — `?pin=<0..1>` holds the active station's timeline at that progress (the
+// review renders: a station at its start, middle and end, in the real runner)
+const PIN = (import.meta.env?.DEV && typeof window !== 'undefined')
+  ? parseFloat(new URLSearchParams(window.location.search).get('pin')) : NaN
 
 export default function StationScene({ protocol, activeIndex = 0, lang = 'en', altByStep = {}, timerRef: timerProp, chromeless = false }) {
   ensureMaps()
@@ -1941,6 +2031,8 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     if (act) {
       if (restartRef.current) { pRef.current = 0; restartRef.current = false }
       const tm = timerRef.current
+      if (Number.isFinite(PIN)) { pRef.current = PIN; act.timeline?.(PIN) }   // dev: pinned
+      else {
       if (tm.hasTimer) pRef.current = tm.progress // countdown drives every timed instrument
       else pRef.current = Math.min(pRef.current + dt / STEP_DUR, 1)
       // the centrifuge needs absolute-time dock/lift choreography (a 10-min spin can't
@@ -1948,6 +2040,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       // continuous in p and tracks the countdown just by being fed the elapsed fraction.
       if (act.driveTimed && tm.hasTimer) act.driveTimed(tm, dt)
       else act.timeline?.(pRef.current)
+      }
     }
     // 4c · idle instrument animations run ONLY for the active station and its immediate
     // neighbours (the ones visible during a dolly). Every other station is faded out and

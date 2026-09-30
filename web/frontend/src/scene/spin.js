@@ -123,7 +123,11 @@ import { clamp, easeInOut, lerp } from './util.js'
     // while the rotor SPINS, the step acts on the sample THROUGH it: the rotor carrying the
     // sample round the ring is the subject (framed whole, legible at any angle it stops at);
     // before and after, the sample itself
-    st.subjectAt=function(p){ return (fits && p>=0.12 && p<0.86) ? cen.userData.rotor : SAMPLE[o.vessel]; };
+    // docked, the step acts on the sample THROUGH the rotor: the rotor carrying it is the
+    // subject at every pose (a 21 mm PCR tube framed alone buried the camera in the machine)
+    st.subjectAt=function(p){ return fits ? cen.userData.rotor : SAMPLE[o.vessel]; };
+    // framed on the rotor and the tube in it — not widened to the whole machine and its bench
+    if(fits) st.tightFrame=true;
     st.timeline=function(p){
       var v=SAMPLE[o.vessel]; v.visible=true;
       if(!fits){                                // a rejected vessel never enters; the rotor runs empty
