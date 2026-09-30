@@ -62,11 +62,31 @@ These govern every change to the 3D. They are correctness rules, not taste:
   a closed lid), the container's NEAR WALL is rendered see-through (`declareCutaway` in
   `scene/modelKit.js`; the station calls `setCutaway(true)` when the subject is seated in it).
   It changes the wall's material opacity only — **it never moves or resizes the subject or
-  the wall**; the geometry checks must stay green with it on.
+  the wall**; the geometry checks must stay green with it on. **A cutaway removes a wall,
+  not the scene:** only the near (+z, camera-side) wall changes — round parts are built as
+  front and back halves so the back stays solid; never a back or side wall (the backdrop the
+  subject is read against), never a liquid (water keeps its density), never the subject. The
+  only other thing a cutaway may take is a declared **carrier** (a rotor: its disc and slots
+  turn with the tube, so no fixed half of it is "near"). Cut walls and liquids draw before
+  the vessels, so the subject is never veiled. `cutaway.test.js` enforces all of it.
 - **The camera frames the subject; it never rescales anything.** `frameStation` fits a
   frame per pose from the subject's real extent plus the props the step uses
   (`stationCamera.fitFrame`); the instrument around it is shown only while the subject
   stays legible. A 41 mm tube and a 700 mm freezer do not share one camera distance.
+- **The subject is the largest object in frame.** A source that out-sizes the subject (a
+  250 mL bottle for a tube or a slide) is set down OUT of frame (`stageSources`, then
+  `frameStation` moves it past the frame edge); a poured one is tipped from high enough that
+  only its stream comes in. A same-size source (a µl tube) stays in the back row, in frame.
+  While a rotor spins, the rotor carrying the sample is the subject.
+- **The dispense is framed:** the held pipette's tip at its lowest point over the subject,
+  and half its cone above, are in the frame.
+- **A vessel that cannot stand is in a holder.** A conical tube or spin column put down on
+  the bare bench stands in a `tube_stand` (`scene/holders.js`, set out by `addBenchStands`;
+  `placeOnBench` seats a vessel in a stand at its base point). Holders are furniture: not
+  the subject, not its rivals.
+- **No text on vessels.** Bottles carry a colour band in the reagent's colour; tube writing
+  patches are blank. The reagent is named by the station title (over its source's front
+  edge) and the HUD — text wrapped round a 10 mm tube rendered cropped and read as a bug.
 - **Stage only what the step uses.** No pipette stand (the pipette is held); sources stand
   in a compact back row behind the subject; a µl reagent comes from a 1.5 mL tube, a mL
   reagent from a bottle; a step that names no reagent draws from the sample itself; a
@@ -92,15 +112,19 @@ These govern every change to the 3D. They are correctness rules, not taste:
   socket does not accept is a `SocketError` / `st.socketErrors`, never a render. Station
   bench items are placed by `benchPlace` / `benchSlot` (real footprints + `bench_gap`).
 - **Geometry audit** (`src/scene/geometryAudit.js`, `stationAudit.js`): contact,
-  containment, interpenetration, relative scale over every station × 41 poses, plus the
+  stability (a resting object whose base span / height < 0.2 — a conical tip — must be in a
+  socket or held), containment, interpenetration, relative scale over every station × 41 poses, plus the
   pivot check — in `npm test` (`geometry.*.test.js`) and `npx vite-node
   scripts/geometry-audit.mjs`. Accepted defects: `src/scene/geometry-exceptions.json`
   (dated, with a clearing condition; a stale one fails). Mark non-solids `fx(mesh, kind)`
   and in-hand objects `userData.held`.
 - **Legibility audit** (`src/scene/visibilityAudit.js`, `stationAudit.auditVisibility`):
   every station declares its subject (`st.subject()` / `st.subjectAt(p)`); through the
-  runner's own camera it must cover ≥ 1 % of the frame, be ≤ 25 % hidden behind anything
-  opaque, and centre inside the safe area (clear of the top HUD band) — `visibility.test.js`
+  runner's own camera it must cover ≥ 3 % of the frame (a 1.5 mL tube at the framing's 55 %
+  height cap covers 3.55 %), be ≤ 25 % hidden behind anything opaque, centre inside the safe
+  area (clear of the top HUD band), and be the LARGEST object in frame (dominance: no other
+  spec'd object's in-frame box is bigger — its holders, the step's instrument, held tools
+  and the step's other subjects aside) — `visibility.test.js`
   and `npx vite-node scripts/visibility-audit.mjs`.
 - **Scale sheet:** `?scale=1` (shots group `scale`) — every model at real size on one
   ground line, orthographic, with a ruler. Look at it after any builder change.
