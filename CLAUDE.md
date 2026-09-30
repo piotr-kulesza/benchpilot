@@ -84,6 +84,12 @@ These govern every change to the 3D. They are correctness rules, not taste:
   the bare bench stands in a `tube_stand` (`scene/holders.js`, set out by `addBenchStands`;
   `placeOnBench` seats a vessel in a stand at its base point). Holders are furniture: not
   the subject, not its rivals.
+- **What may appear that the protocol does not state.** Objects the INSTRUMENT requires
+  for correct use may appear — a balance tube opposite the sample in a centrifuge, a closed
+  lid while it runs. Content the protocol does not state may NOT — no invented reagent,
+  volume, speed, temperature or time: a centrifuge readout shows the stated ×g or PULSE
+  ("briefly spin down"), never a number the step did not give; a pipette tip holds the
+  stated volume, not a full tip.
 - **No text on vessels.** Bottles carry a colour band in the reagent's colour; tube writing
   patches are blank. The reagent is named by the station title (over its source's front
   edge) and the HUD — text wrapped round a 10 mm tube rendered cropped and read as a bug.
