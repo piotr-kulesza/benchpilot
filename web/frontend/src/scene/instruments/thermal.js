@@ -91,9 +91,16 @@ import { MAX_ANISO, clamp, easeInOut, lerp } from '../util.js'
     var frontW=new THREE.Mesh(new THREE.BoxGeometry(W,FRONT_TOP-FLOOR_Y,wz), steel); frontW.position.set(0,(FLOOR_Y+FRONT_TOP)/2,(DEP-wz)/2); grp.add(frontW);
     for(var sw=0;sw<2;sw++){ var side=new THREE.Mesh(new THREE.BoxGeometry(wx,IH,ID), steel);
       side.position.set((sw?1:-1)*(W-wx)/2, FLOOR_Y+IH/2, 0); side.castShadow=true; grp.add(side); }
-    // muted stainless inner LINER (open-topped — nothing lowered in passes through a lid)
+    // muted stainless inner LINER (open-topped — nothing lowered in passes through a lid).
+    // Its FRONT face is part of the near wall, so it is its own mesh: the cutaway takes the
+    // near wall away and leaves the back and side lining — the backdrop the tube is read
+    // against — solid (it used to turn the whole liner translucent).
     var innerMat=new THREE.MeshStandardMaterial({ color:0x6b7580, roughness:0.5, metalness:0.25, side:THREE.DoubleSide });
-    var liner=new THREE.Mesh(openTopBox(IW,IH,ID), innerMat); liner.position.y=FLOOR_Y+IH/2; fx(liner,'decal'); grp.add(liner);
+    var linerGeo=new THREE.BoxGeometry(IW,IH,ID), lIdx=linerGeo.index.array, lKeep=[];
+    linerGeo.groups.forEach(function(g,k){ if(k===2||k===4) return; for(var i=g.start;i<g.start+g.count;i++) lKeep.push(lIdx[i]); });   // drop +y (top) and +z (front)
+    linerGeo.setIndex(lKeep); linerGeo.clearGroups(); linerGeo.addGroup(0,lKeep.length,0);
+    var liner=new THREE.Mesh(linerGeo, innerMat); liner.position.y=FLOOR_Y+IH/2; fx(liner,'decal'); grp.add(liner);
+    var linerFront=new THREE.Mesh(new THREE.PlaneGeometry(IW,IH), innerMat); linerFront.position.set(0,FLOOR_Y+IH/2,ID/2); fx(linerFront,'decal'); grp.add(linerFront);
     // the submerged tube RACK: a perforated steel platform on four legs
     var RW=IW*0.5, RD=ID*0.7, RT=D.rack_height*0.08;
     var rackMat=matBrushed(0x9aa4b0);
@@ -101,13 +108,19 @@ import { MAX_ANISO, clamp, easeInOut, lerp } from '../util.js'
     for(var lg=0;lg<4;lg++){ var leg=new THREE.Mesh(new THREE.BoxGeometry(RT,D.rack_height-RT,RT), rackMat);
       leg.position.set((lg&1?1:-1)*(RW/2-RT), FLOOR_Y+(D.rack_height-RT)/2, (lg&2?1:-1)*(RD/2-RT)); grp.add(leg); }
     addSocket(grp,'rack',{ position:new THREE.Vector3(0,RACK_Y,0) });
-    // WATER — RESTRAINED: a muted blue-grey, mostly transparent, NO emissive glow
-    var waterMat=new THREE.MeshPhysicalMaterial({ color:0x93b2c2, roughness:0.16, metalness:0,
-      transparent:true, opacity:0.36, clearcoat:0.5, clearcoatRoughness:0.3, envMapIntensity:0.9 });
+    // WATER — RESTRAINED: a muted blue, NO emissive glow — but dense enough to read as a
+    // body of liquid (at 0.36 over a cut-away wall it read as a grey haze)
+    var waterMat=new THREE.MeshPhysicalMaterial({ color:0x3d6d88, roughness:0.16, metalness:0,
+      transparent:true, opacity:0.5, depthWrite:false, clearcoat:0.15, clearcoatRoughness:0.3, envMapIntensity:0.25 });
     var water=new THREE.Mesh(new THREE.BoxGeometry(IW*0.998,SURFY-FLOOR_Y,ID*0.998), waterMat); water.position.y=(SURFY+FLOOR_Y)/2; fx(water,'fluid'); grp.add(water);
+    // the water is drawn BEFORE the vessels in it: the tube stands INSIDE the water box and
+    // both are transparent with centres at the same depth, so their order was a coin toss —
+    // the water's front face washed over the tube's submerged half and the cone read as a
+    // separate ghost. The subject is never veiled: tube and contents draw as one object.
+    water.renderOrder=-1;
     // faint surface sheen — a reflective meniscus, not a glowing cap
-    var surfMat=new THREE.MeshPhysicalMaterial({ color:0xb6ccd6, roughness:0.09, metalness:0.15, transparent:true, opacity:0.3, envMapIntensity:1.1 });
-    var surf=new THREE.Mesh(new THREE.BoxGeometry(IW*0.99,IH*0.01,ID*0.99), surfMat); surf.position.y=SURFY; fx(surf,'fluid'); grp.add(surf);
+    var surfMat=new THREE.MeshPhysicalMaterial({ color:0xb6ccd6, roughness:0.09, metalness:0.15, transparent:true, opacity:0.12, depthWrite:false, envMapIntensity:0.4 });
+    var surf=new THREE.Mesh(new THREE.BoxGeometry(IW*0.99,IH*0.01,ID*0.99), surfMat); surf.position.y=SURFY; surf.renderOrder=-1; fx(surf,'fluid'); grp.add(surf);
     // temperature DIAL on the housing front (a real water bath's defining control)
     var DR=W*0.06, dialY=FLOOR_Y*0.5, dialX=W*0.3, fz=DEP/2;
     var dialRim=new THREE.Mesh(new THREE.CylinderGeometry(DR,DR,DR*0.25,24), matBrushed(0xcfd5db));
@@ -138,7 +151,7 @@ import { MAX_ANISO, clamp, easeInOut, lerp } from '../util.js'
       }
     };
     grp.userData.sampleSocket='rack';
-    declareCutaway(grp, [frontW, liner]);   // the front wall and the liner's front face
+    declareCutaway(grp, [frontW, linerFront]);   // the NEAR wall only: its steel and its lining
     return tagSpec(grp,'water_bath_5l');
   }
 
