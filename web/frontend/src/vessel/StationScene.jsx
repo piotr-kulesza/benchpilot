@@ -142,11 +142,17 @@ export function addStationLabel(st, title, sub) {
   const k = (LABEL_SHARE * frameH) / wh
   label.scale.multiplyScalar(k)
   const halfH = (wh * k) / 2
-  const sb = st.frame.subjectBox
-  // over its BACK edge: seen from the front-above camera the plate then projects above the
-  // whole subject — centred over a flat membrane it hid it completely
+  // WHERE: a title that names a REAGENT stands over that reagent's SOURCE (it read as naming
+  // whatever it floated over); any other title stands over the step's SUBJECT as the step
+  // ends (a handoff's outgoing vessel, framed first, is not what the step is about). Over the
+  // object's BACK edge: from the front-above camera the plate then projects above it — centred
+  // over a flat membrane it hid it completely.
+  let sb = (st.frames && st.frames[st.frames.length - 1].subjectBox) || st.frame.subjectBox
+  const src = st.group.children.find((c) => c.userData.used && c.userData.reagentName && c.userData.reagentName === title)
+  if (src) { st.group.updateMatrixWorld(true); sb = solidBox(src, st.group) }
   const cx = sb ? (sb.min.x + sb.max.x) / 2 : st.frame.center.x, cz = sb ? sb.min.z : st.frame.center.z
-  label.position.set(cx, st.frame.top + LABEL_GAP_SHARE * frameH + halfH, cz)
+  const top = sb ? sb.max.y : st.frame.top
+  label.position.set(cx, top + LABEL_GAP_SHARE * frameH + halfH, cz)
   st.group.add(label)
   st.label = label; st.labelBaseY = label.position.y; st.labelHalfH = halfH
   return label
@@ -498,7 +504,7 @@ export function configureStation(st, o) {
   } else if (source === 'sample_tube') {
     // the reagent IS the sample (e.g. "load the denatured protein samples into the wells"):
     // the pipette draws from the samples' own TUBE — a bottle of samples would be invented
-    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: MOUTH, entry: ENTRY })
+    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: MOUTH, entry: ENTRY, rname: (o.reagents && o.reagents[0] && o.reagents[0].name) || '' })
     // the samples' own tube REPLACES the invented reagent source (not staged at all)
     const old = st.reagents.r.grp
     st.group.remove(old); st.backRow = (st.backRow || []).filter((o) => o !== old)
@@ -522,7 +528,7 @@ export function configureStation(st, o) {
     const tiltBase = { x: M.x + H * Math.sin(TH), y: M.y - H * Math.cos(TH), z: M.z }
     let HOME = null, CAP_ON = null, CAP_BENCH = null
     if (reag) {
-      bottle = demo.addBottle(st, 'pour', '', reag.color, reag.vol)
+      bottle = demo.addBottle(st, 'pour', reag.name, reag.color, reag.vol)
       HOME = bottle.position.clone()
       // the bottle's cap comes OFF before the pour and is set down on the bench IN FRONT
       // of the bottle (the bottle's own cap follows its tilt, so it is hidden and this
@@ -580,7 +586,7 @@ export function configureStation(st, o) {
     const prep = (fromMix && o.drawsFrom) ? demo.getPrep(o.drawsFrom) : null
     if (reags.length <= 1 && !fromMix) {
       // single-reagent path: resident pipette rig + bottle; fill ramps in the dispense window.
-      demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: MOUTH, entry: ENTRY })
+      demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: MOUTH, entry: ENTRY, rname: (o.reagents && o.reagents[0] && o.reagents[0].name) || '' })
     } else if (prep) {
       // DRAW FROM THE CARRIED MIX (Stage 36). The prep tube made at its own station is
       // glided HERE to a bench slot on the right; the pipette draws OUT of it.
@@ -1037,7 +1043,7 @@ export function configureStation(st, o) {
       })
       st._skipHandoff = true
     } else {
-      demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: MOUTH, entry: ENTRY })
+      demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: MOUTH, entry: ENTRY, rname: (o.reagents && o.reagents[0] && o.reagents[0].name) || '' })
     }
     if (container === 'agar_plate') {
       const spr = demo.buildSpreader()

@@ -2754,6 +2754,7 @@ export {
       b = buildBottle(color, labelText, 0, color);
       b.userData.capRoom=dims('bottle_250').neck_diameter+clearance('bench_gap');
     }
+    b.userData.reagentName=labelText||'';          // what it holds — a title naming it stands over it
     backRowPlace(st, b);
     if(b.userData.update) st.updatables.push(b);   // animate its cap + level each frame
     st.reagents[key] = { grp:b, get pos(){ return b.position.clone().add(b.userData.draw); } };
@@ -2761,7 +2762,7 @@ export {
   }
   function stationReagent(st, Y, o){
     addPipetteRig(st);
-    addBottle(st, o.key, o.blabel, o.color, o.vol||o.vsub);
+    addBottle(st, o.key, o.rname||o.blabel, o.color, o.vol||o.vsub);
     // CONTRACT: the container tells the pipette WHERE to dispense (a tube: dead
     // centre; a well: one off-centre well; a flask: at the canted neck). Default =
     // centre (the microtube), so nothing regresses when a container omits it.
