@@ -17,11 +17,8 @@ import { resolveScenePreset } from './scenePresets.js'
 import { exitLiftPoint } from '../vessel/sceneRecipe.js'
 import { solidBox } from './solids.js'
 import { dims, clearance } from './dims.js'
-import { addSocket, placeInto, placeOnBench, clearPlacement, getSocket, socketPose, canPlace } from './sockets.js'
+import { placeInto, placeOnBench, clearPlacement, getSocket, socketPose, canPlace } from './sockets.js'
 import { buildCentrifuge } from './instruments/motion.js'
-import { makeLabel } from './labels.js'
-import { matPlastic } from './materials.js'
-import { fitArt, fx, tagSpec } from './modelKit.js'
 import { COL } from './palette.js'
 import { buildBottle, buildPipette } from './props.js'
 import { MAX_ANISO, clamp, easeInOut, lerp } from './util.js'
@@ -38,6 +35,7 @@ export * from './instruments/thermal.js'
 export * from './instruments/motion.js'
 export * from './instruments/readers.js'
 export * from './instruments/gel.js'
+export * from './instruments/staining.js'
 
 
 // A sample leaving a docked instrument rises straight up to its OWN exit height (set when
@@ -395,26 +393,6 @@ export function undockSample(lift = false) {
   // per-sample buffer volume); a mL-scale reagent from a 250 mL bottle. The stated unit
   // decides (µl / µL / ul → tube).
   function smallVolume(vol){ return /[µu]l\b/i.test(String(vol||'')); }
-  function buildStainingTray(){
-    var grp=new THREE.Group();
-    var tray=new THREE.Mesh(new THREE.BoxGeometry(2.4,0.24,1.3), matPlastic(0x394049));
-    tray.position.y=0.12; tray.castShadow=true; tray.receiveShadow=true; grp.add(tray);
-    var well=new THREE.Mesh(new THREE.BoxGeometry(2.2,0.001,1.1), new THREE.MeshStandardMaterial({ color:0x20262d, roughness:0.8, side:THREE.DoubleSide }));
-    well.position.y=0.2405; fx(well,'decal'); grp.add(well);        // the dark drip well, printed on the tray top
-    var label=makeLabel("Staining tray",""); label.position.set(0,0.9,0); grp.add(label);
-    grp.userData.label=label; grp.userData.update=function(){};
-    var D=dims('staining_tray'), SL=dims('slide_iso8037');
-    var root=fitArt(grp,'staining_tray',{ size:{ height:D.tray_height } });
-    // two RAILS the slide BRIDGES, lengthwise: spaced inside the slide's REAL length so it
-    // rests on both (they stood 80 mm apart under a 76 mm slide that lay along them)
-    var RH=D.rail_height, RW=RH*0.4, SPAN=SL.width*0.6;
-    for(var s=0;s<2;s++){ var rail=new THREE.Mesh(new THREE.BoxGeometry(D.width*0.9,RH,RW), matPlastic(0x596270));
-      rail.position.set(0,D.tray_height+RH/2,(s?1:-1)*SPAN/2); root.add(rail); }
-    // the slide lies ACROSS the rails: its length along z (socket turned 90° about y)
-    addSocket(root,'rails',{ position:new THREE.Vector3(0,D.tray_height+RH,0), quaternion:new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),Math.PI/2) });
-    root.userData.sampleSocket='rails';
-    return tagSpec(root,'staining_tray');
-  }
 
   function buildSample(){
     var tube   = buildTube({color:COL.pellet, label:"Neutrophil pellet", sub:"", cold:true, capColor:0x3f7fd0});
@@ -619,7 +597,6 @@ buildEnvMap = streams.wrap('buildEnvMap', buildEnvMap)
 makeGradientTexture = streams.wrap('makeGradientTexture', makeGradientTexture)
 makeCineBackdrop = streams.wrap('makeCineBackdrop', makeCineBackdrop)
 buildFloor = streams.wrap('buildFloor', buildFloor)
-buildStainingTray = streams.wrap('buildStainingTray', buildStainingTray)
 buildSample = streams.wrap('buildSample', buildSample)
 
-export { buildFloor, buildStainingTray, buildEnvMap, makeCineBackdrop, makeGradientTexture, dispenseProgress, pipetteRun, addPipetteRig, pipRest, restPoint, backRowPlace, buildSample, addBottle, stationReagent, stationSpin, benchPlace, benchSlot, benchExtents, held }
+export { buildFloor, buildEnvMap, makeCineBackdrop, makeGradientTexture, dispenseProgress, pipetteRun, addPipetteRig, pipRest, restPoint, backRowPlace, buildSample, addBottle, stationReagent, stationSpin, benchPlace, benchSlot, benchExtents, held }
