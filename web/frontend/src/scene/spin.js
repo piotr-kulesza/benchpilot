@@ -5,9 +5,10 @@
 import * as THREE from 'three'
 import { dims, clearance } from './dims.js'
 import { placeInto, placeOnBench, clearPlacement, getSocket, socketPose, canPlace } from './sockets.js'
+import { standFor } from './holders.js'
 import { benchSlot } from './bench.js'
 import { buildCentrifuge } from './instruments/motion.js'
-import { SAMPLE, scene } from './sample.js'
+import { SAMPLE, scene, getSnap } from './sample.js'
 import { clamp, easeInOut, lerp } from './util.js'
 
   // A vessel IN HAND is not resting on anything (the geometry audit's contact check)
@@ -18,14 +19,18 @@ import { clamp, easeInOut, lerp } from './util.js'
     // spins — never scaled down to fit a slot it does not fit (the old SEAT_SCALE 0.6).
     var cen=buildCentrifuge();
     st.group.add(cen); placeOnBench(cen); st.updatables.push(cen); st.cen=cen;
-    var SOCK=cen.userData.sampleSocket, v0=SAMPLE[o.vessel];
+    var v0=SAMPLE[o.vessel];
+    var SOCK=cen.userData.socketFor ? cen.userData.socketFor(v0.userData.spec) : cen.userData.sampleSocket;
     var fits=canPlace(v0, cen, SOCK);
+    if(fits && cen.userData.setAdapter) cen.userData.setAdapter(SOCK, /p$/.test(SOCK));   // a PCR tube rides in its adapter
     if(!fits) (st.socketErrors||(st.socketErrors=[])).push({ vessel:v0.userData.spec, host:'microcentrifuge', socket:SOCK });
     if(fits) cen.userData.setCutaway&&cen.userData.setCutaway(true);   // CUTAWAY: the tube is seen in its slot
     var VH=dims(v0.userData.spec).height, LIFT=clearance('lift');
     var CEN_TOP=dims('microcentrifuge').height;
     // the sample waits on the bench beside the centrifuge (a rejected one stays there)
     var BENCH=new THREE.Vector3(benchSlot(st, dims(v0.userData.spec).width/2, +1),0,0);
+    // the sample ARRIVES at that bench spot (in its stand) and is then loaded into the rotor
+    if(fits) st.extraSpots=[{ x:BENCH.x, z:BENCH.z, stand:standFor(v0.userData.spec) }];
     var docked=false;
     // the slot's CURRENT pose (the rotor stops wherever it stops) and the approach points
     function slotPose(){ cen.updateMatrixWorld(true); return socketPose(getSocket(cen,SOCK), st.group); }
@@ -64,14 +69,22 @@ import { clamp, easeInOut, lerp } from './util.js'
       else if(q<0.7){ var c=easeInOut((q-0.5)/0.2); put(v, P.above.clone().lerp(P.pre,c), new THREE.Quaternion().slerp(P.q,c)); }
       else { var d=easeInOut((q-0.7)/0.3); put(v, P.pre.clone().lerp(P.seat,d), P.q); }
     }
+    // THE REPRESENTATIVE MOMENT IS THE TUBE IN THE ROTOR: at rest the station shows it
+    // LOADED (lid open, rotor still). A jump (snapped) seats it there; a sequential arrival
+    // glides it to its stand beside the centrifuge and then loads it down the slot axis —
+    // it never teleports into the slot.
+    var arrive=0;
+    function loaded(v){ undock(); inPath(v,1); dock(); cen.userData.setSpin(0); cen.userData.setLid(true); }
     st.enter=function(){
       SAMPLE.only(o.vessel);
       var v=SAMPLE[o.vessel];
       if(o.vlabel) v.userData.setLabel(o.vlabel, o.vsub||"");
       if(o.color!=null) v.userData.setColor(o.color);
       v.userData.setLevel(o.lStart==null?0.5:o.lStart);
-      v.visible=true; restState(v);
+      v.visible=true;
       cen.userData.setLabel(o.cenLabel||"Centrifuge", o.cenSub||"");
+      if(!fits){ restState(v); return; }
+      if(getSnap()){ loaded(v); arrive=-1; } else { restState(v); arrive=0; }
     };
     if(o.seconds) st.hud={label:o.hudLabel||"Centrifuge", seconds:o.seconds};
     // COUNTDOWN-OWNED SPIN (Stage 19): the rotor spins for exactly as long as the digits
@@ -81,43 +94,46 @@ import { clamp, easeInOut, lerp } from './util.js'
     st.driveTimed=function(t,dt){
       var v=SAMPLE[o.vessel]; v.visible=true;
       var engaged = t.running || t.done || t.progress>0.0001;
-      if(!engaged){ if(phase!=="rest"){ phase="rest"; runT=0; endT=0; } restState(v); v.userData.setLevel(o.lStart==null?0.5:o.lStart); return; }
+      if(!engaged){
+        if(phase!=="rest"){ phase="rest"; runT=0; endT=0; }
+        v.userData.setLevel(o.lStart==null?0.5:o.lStart);
+        if(!fits){ restState(v); return; }
+        if(arrive<0 || docked){ cen.userData.setSpin(0); cen.userData.setLid(true); return; }    // loaded, waiting
+        // arrived in its stand beside the centrifuge? then load it (0.55 s, down the slot axis)
+        var bw=new THREE.Vector3(st.x+BENCH.x,0,BENCH.z);
+        if(arrive===0 && v.position.distanceTo(bw)>0.02){ restState(v); return; }
+        arrive+=dt; var q=clamp(arrive/0.55,0,1);
+        if(q<1) inPath(v,q); else { inPath(v,1); dock(); arrive=-1; }
+        return;
+      }
       if(!fits){ cen.userData.setLid(!t.running); cen.userData.setSpin(t.running?24:0); return; }
       if(t.done || t.progress>=1){
         if(phase!=="end"){ phase="end"; endT=0; }
         endT+=dt;
         cen.userData.setSpin(0);
-        if(endT<0.9){ dock(); cen.userData.setLid(false); }
-        else if(endT<1.5){ cen.userData.setLid(true); }
-        else { undock(); inPath(v, 1-clamp((endT-1.5)/0.6,0,1)); }
+        dock(); cen.userData.setLid(endT>=0.9);        // rotor stops, lid opens; it stays in its slot
         return;
       }
       if(phase!=="run"){ phase="run"; runT=0; }
       runT+=dt;
-      var ent=clamp(runT/0.55,0,1);
-      if(ent<1 && !docked){ inPath(v, ent); cen.userData.setLid(true); cen.userData.setSpin(0); }
-      else { dock(); cen.userData.setLid(false); cen.userData.setSpin(t.running?24:0); }
+      if(!docked){ inPath(v,1); dock(); }            // (loaded at rest — this only catches a jump)
+      cen.userData.setLid(false); cen.userData.setSpin(t.running?24:0);
       if(o.lEnd!=null) v.userData.setLevel(lerp(o.lStart==null?0.5:o.lStart,o.lEnd,easeInOut(clamp(t.progress,0,1))));
     };
     // while the rotor SPINS, the step acts on the sample THROUGH it: the rotor carrying the
     // sample round the ring is the subject (framed whole, legible at any angle it stops at);
     // before and after, the sample itself
-    st.subjectAt=function(p){ return (fits && p>=0.30 && p<0.80) ? cen.userData.rotor : SAMPLE[o.vessel]; };
+    st.subjectAt=function(p){ return (fits && p>=0.12 && p<0.86) ? cen.userData.rotor : SAMPLE[o.vessel]; };
     st.timeline=function(p){
       var v=SAMPLE[o.vessel]; v.visible=true;
       if(!fits){                                // a rejected vessel never enters; the rotor runs empty
         restState(v); cen.userData.setLid(!(p>0.26 && p<0.8)); cen.userData.setSpin(p>0.26 && p<0.8 ? 24 : 0);
-      } else if(p<0.26){                        // 1 · over the open rotor, tilt, down the slot axis
-        undock(); inPath(v, clamp(p/0.26,0,1)); cen.userData.setSpin(0); cen.userData.setLid(true);
-      } else if(p<0.30){                        // 2 · seated in the slot; lid closes over it
-        dock(); cen.userData.setSpin(0); cen.userData.setLid(false);
-      } else if(p<0.80){                        // 3 · lid closed + SPINNING — the sample rides the rotor
+      } else if(p<0.12){                        // 1 · LOADED in its slot (lid open); the lid closes
+        if(!docked){ undock(); inPath(v,1); } dock(); cen.userData.setSpin(0); cen.userData.setLid(p<0.04);
+      } else if(p<0.86){                        // 2 · lid closed + SPINNING — the sample rides the rotor
         dock(); cen.userData.setSpin(24); cen.userData.setLid(false);
-      } else if(p<0.90){                        // 4 · rotor stops; lid opens
-        dock(); cen.userData.setSpin(0); cen.userData.setLid(true);
-      } else {                                  // 5 · out along the slot axis, back over the rotor
-        undock(); inPath(v, 1-easeInOut((p-0.90)/0.10));
-        cen.userData.setSpin(0); cen.userData.setLid(true);
+      } else {                                  // 3 · rotor stops; lid opens — the tube is still in its slot
+        dock(); cen.userData.setSpin(0); cen.userData.setLid(p>0.93);
       }
       if(o.lEnd!=null) v.userData.setLevel(lerp(o.lStart==null?0.5:o.lStart, o.lEnd, easeInOut(clamp(p,0,1))));
     };

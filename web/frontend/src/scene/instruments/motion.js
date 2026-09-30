@@ -144,6 +144,14 @@ import { MAX_ANISO, easeInOut, lerp } from '../util.js'
     grp.userData.update=function(dt){
       st.spin=lerp(st.spin,st.tSpin,1-Math.pow(0.01,dt));
       rotor.rotation.y += st.spin*dt;
+      // spinning down, the rotor COASTS TO ITS LOADING POSITION (the nearest whole turn): the
+      // sample's slot comes to rest facing the front again, where it was loaded and where it
+      // is lifted out — it used to stop wherever it happened to, the tube at the back
+      if(st.tSpin===0 && st.spin<2){
+        var home=Math.round(rotor.rotation.y/(Math.PI*2))*Math.PI*2;
+        rotor.rotation.y=lerp(rotor.rotation.y, home, 1-Math.pow(0.001,dt));
+        st.spin=Math.min(st.spin, Math.abs(home-rotor.rotation.y)*2);
+      }
       st.lid=lerp(st.lid,st.tLid,1-Math.pow(0.02,dt));
       lidPivot.rotation.x = -easeInOut(st.lid)*1.15;
       drawRPM(Math.min(st.spin,26)/26*13400);
@@ -160,10 +168,21 @@ import { MAX_ANISO, easeInOut, lerp } from '../util.js'
     // y 0.75): slot bottom = 0.40 (drawing, rotor units) down the slot axis
     var floorW=F.toWorld(0,0.75,0).y, drop=0.40*u*Math.cos(ang), margin=clearance('socket_fit')*3;
     rotor.position.y=(floorW+drop+margin-F.art.position.y)/F.sy;
+    // each slot takes a 1.5 mL tube / spin column at its round bottom, OR — in an ADAPTER
+    // sleeve (dims pcr_adapter) — a 0.2 mL PCR tube, its rim at the slot's mouth (a PCR tube
+    // dropped into a bare 1.5 mL slot would sit lost at its bottom)
+    var PT=dims('pcr_tube_0_2'), adTop=0.31-PT.height/u, adapters={};
+    var adMat=matPlastic(0xe8ecef);
     holders.forEach(function(h,k){ var a=k/holders.length*Math.PI*2;
       h.position.set(Math.cos(a)*rr,0,Math.sin(a)*rr);
       h.quaternion.setFromAxisAngle(new THREE.Vector3(-Math.sin(a),0,Math.cos(a)), -ang);
-      addSocket(root,'slot'+k,{ parent:h, position:new THREE.Vector3(0,-0.40,0) }); });
+      addSocket(root,'slot'+k,{ parent:h, position:new THREE.Vector3(0,-0.40,0), accepts:['microtube_1_5','spin_column_mini'] });
+      addSocket(root,'slot'+k+'p',{ parent:h, position:new THREE.Vector3(0,adTop,0), accepts:['pcr_tube_0_2'] });
+      var sleeve=new THREE.Mesh(new THREE.CylinderGeometry(0.085,0.075,adTop+0.40,18), adMat);
+      sleeve.position.y=(adTop-0.40)/2; sleeve.visible=false; h.add(sleeve); adapters['slot'+k+'p']=sleeve; });
+    // which slot socket a vessel class goes in; its adapter is shown while it is used
+    root.userData.socketFor=function(spec){ return spec==='pcr_tube_0_2' ? 'slot2p' : 'slot2'; };
+    root.userData.setAdapter=function(name, on){ if(adapters[name]) adapters[name].visible=!!on; };
     // the rotor DISC (rotor units) with a hole where each tilted slot crosses it: the slot
     // (top radius 0.11) passes a slab 0.12 thick at the rotor angle — the old disc was solid
     var DT=0.12, holeR=0.11/Math.cos(ang)+(DT/2)*Math.tan(ang)+0.01;
