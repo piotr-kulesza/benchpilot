@@ -19,8 +19,8 @@ from PIL import Image, ImageChops
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dev-shots')
 
 
-def pngs(set_name):
-    base = os.path.join(ROOT, set_name)
+def pngs(set_name, root=ROOT):
+    base = os.path.join(root, set_name)
     out = {}
     for d, _, files in os.walk(base):
         for f in files:
@@ -34,8 +34,8 @@ def sha(p):
     return hashlib.sha256(open(p, 'rb').read()).hexdigest()
 
 
-def main(a, b):
-    A, B = pngs(a), pngs(b)
+def main(a, b, root=ROOT):
+    A, B = pngs(a, root), pngs(b, root)
     only_a, only_b = sorted(set(A) - set(B)), sorted(set(B) - set(A))
     changed, identical_bytes, identical_pixels = [], 0, 0
     per_group = {}
