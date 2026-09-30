@@ -24,7 +24,7 @@ export function defineGeometrySuite(ids, { pivots = false } = {}) {
       const { MODELS } = await import('../dev/registry.js')
       piv = MODELS.map((m) => ({ id: m.id, issues: pivotDefect(m.build()) })).filter((r) => r.issues)
     }
-  }, 600000)
+  }, 1500000)   // the whole-protocol audit (framing included) runs ~4 min alone, longer beside the other suites
   const fmt = (check) => out.rows.filter((r) => r.check === check).map((r) => `${r.protocol}#${r.step} p=${r.p} ${r.kind || ''} ${r.object || r.a} ${r.host || r.into || r.on || r.b || ''}`.trim())
   describe(`scene geometry — every station of ${ids.join(', ')}`, () => {
     it('contact: every resting object sits on what is beneath it, or on its socket (no float, no sink)', () => { expect(fmt('contact')).toEqual([]) })

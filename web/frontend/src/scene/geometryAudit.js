@@ -104,7 +104,9 @@ export function contactDefects(objects, resting = () => true) {
       const a = pl.host.userData.sockets[pl.socket]
       a.updateWorldMatrix(true, false); o.node.updateWorldMatrix(true, false)
       const d = new Vector3().setFromMatrixPosition(a.matrixWorld).distanceTo(new Vector3().setFromMatrixPosition(o.node.matrixWorld))
-      if (d > EPS) out.push({ check: 'contact', kind: 'off-socket', object: o.name, on: pl.socket, gap: +d.toFixed(4) })
+      if (d > EPS) out.push({ check: 'contact', kind: 'off-socket', object: o.name, on: pl.socket, gap: +d.toFixed(4),
+        at: new Vector3().setFromMatrixPosition(o.node.matrixWorld).toArray().map((n) => +n.toFixed(3)),
+        seat: new Vector3().setFromMatrixPosition(a.matrixWorld).toArray().map((n) => +n.toFixed(3)) })
       continue
     }
     const face = restingFace(o.node)
