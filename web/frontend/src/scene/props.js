@@ -193,8 +193,11 @@ import { MAX_ANISO, clamp, easeInOut, lerp } from './util.js'
     capRing.rotation.x=Math.PI/2; capRing.position.y=h-0.04; grp.add(capRing);   // just UNDER the cap (it sat inside the cap's skirt)
     var lc=document.createElement("canvas"); lc.width=256; lc.height=128; var lg=lc.getContext("2d");
     lg.fillStyle="#eef1f4"; lg.fillRect(0,0,256,128);
-    lg.fillStyle="#252c34"; lg.font="700 30px 'IBM Plex Sans'"; lg.textAlign="center";
-    lg.fillText(labelText||"", 128,58);
+    // NO TEXT on the label: a 256-px canvas wrapped round the bottle cropped the reagent's
+    // name mid-word ("er … di"), which read as a bug. The reagent is identified by a COLOUR
+    // BAND in its own colour here and by the station title in the HUD.
+    var band0=new THREE.Color(col==null?0x2b7f74:col);
+    lg.fillStyle="#"+band0.getHexString(); lg.fillRect(0,30,256,38);
     lg.strokeStyle="rgba(120,130,146,0.4)"; lg.lineWidth=2; lg.strokeRect(10,74,236,40);
     var lTex=new THREE.CanvasTexture(lc); lTex.anisotropy=MAX_ANISO;
     var band=new THREE.Mesh(new THREE.CylinderGeometry(0.365,0.365,h*0.42,40,1,true),
