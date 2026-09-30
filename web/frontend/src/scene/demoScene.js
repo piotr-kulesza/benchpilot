@@ -30,5 +30,6 @@ export * from './sample.js'
 export * from './bench.js'
 export * from './pipetting.js'
 export * from './spin.js'
+export * from './holders.js'
 
 

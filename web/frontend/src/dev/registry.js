@@ -39,6 +39,7 @@ export const MODELS = [
   { id: 'bottle',        kind: 'equipment', span: 2.0, orient: 'reagent bottle with a cap', build: () => demo.buildBottle(demo.COL.wash, 'RPE', 1.3, demo.COL.wash) },
   { id: 'pipette',       kind: 'equipment', span: 2.6, orient: 'air-displacement micropipette', build: () => demo.buildPipette() },
   { id: 'pipette_stand', kind: 'equipment', span: 3.2, orient: 'pipette carousel/stand', build: () => demo.buildPipetteStand() },
+  { id: 'tube_stand',    kind: 'equipment', span: 1.2, orient: 'open microtube stand: bored deck on two end legs, open floor — a tube stands in it tip-on-bench', build: () => demo.buildTubeStand() },
   { id: 'ice_bucket',    kind: 'equipment', span: 2.4, orient: 'ice bucket', build: () => demo.buildIceBucket() },
   { id: 'waste',         kind: 'equipment', span: 1.8, orient: 'waste beaker/container', build: () => demo.buildWaste() },
   { id: 'syringe',       kind: 'equipment', span: 2.9, orient: 'syringe with needle', build: () => demo.buildSyringe() },
