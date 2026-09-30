@@ -108,6 +108,15 @@ import { clamp, easeInOut, lerp } from './util.js'
   function pipRest(st){ if(!st.pip) return;
     st.pip.position.copy(restPoint(st)); st.pip.rotation.set(0,0,0);
     st.pip.userData.setFluid(0); }
+  // HOW FULL THE TIP IS for a stated volume: a 200 µL tip holds ~200 µL, and a cone's volume
+  // grows as the cube of its filled height — so a few µL is a short column at the very end,
+  // not a full tip. Unstated / unparseable → a small draw. (Height fraction, for setFluid.)
+  function tipFill(vol){
+    var m=String(vol||'').replace(',', '.').match(/(\d+(?:\.\d+)?)\s*(µ|u|m)?l\b/i), ul=null;
+    if(m){ var u=(m[2]||'').toLowerCase(); ul=+m[1]*(u==='m'?1000:(u?1:1e6)); }   // µL / mL / L
+    if(ul==null || !isFinite(ul)) return 0.2;
+    return clamp(Math.cbrt(Math.min(ul,200)/200), 0.12, 0.8);
+  }
   function stationReagent(st, Y, o){
     addPipetteRig(st);
     addBottle(st, o.key, o.rname||o.blabel, o.color, o.vol||o.vsub);
@@ -140,7 +149,7 @@ import { clamp, easeInOut, lerp } from './util.js'
       // NOT the seat plane — otherwise the tip dips onto the flat top face.
       var toY = (disp.approach==='angled' && disp.y!=null) ? disp.y : Y;
       pipetteRun(st, st.reagents[o.key].pos, {x:disp.x,y:toY,z:disp.z}, p,
-        {color:o.color, fill:0.8, approach:disp.approach, tilt:disp.tilt, depth:disp.depth, standoff:disp.standoff, dipDepth:o.entry});
+        {color:o.color, fill:tipFill(o.vol||o.vsub), approach:disp.approach, tilt:disp.tilt, depth:disp.depth, standoff:disp.standoff, dipDepth:o.entry});
       if(p>DISPENSE_FROM){ var q=dispenseProgress(p);
         v.userData.setLevel(lerp(o.lStart,o.lEnd,q));
         if(o.cEnd!=null) v.userData.setColor(o.cEnd);
@@ -148,4 +157,4 @@ import { clamp, easeInOut, lerp } from './util.js'
     };
   }
 
-export { DISPENSE_FROM, DISPENSE_TO, dispenseProgress, cruiseY, pipetteRun, addPipetteRig, restPoint, pipRest, stationReagent }
+export { DISPENSE_FROM, DISPENSE_TO, dispenseProgress, cruiseY, pipetteRun, addPipetteRig, restPoint, pipRest, stationReagent, tipFill }

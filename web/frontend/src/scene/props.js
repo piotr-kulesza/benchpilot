@@ -72,8 +72,12 @@ import { MAX_ANISO, clamp, easeInOut, lerp } from './util.js'
 
     var fluidMat = new THREE.MeshPhysicalMaterial({ color:COL.lysis, roughness:0.32,
       transparent:false, emissive:COL.lysis, emissiveIntensity:0.06, envMapIntensity:0.6 });
-    var fluid = new THREE.Mesh(new THREE.CylinderGeometry(0.058,0.016,0.6,24), fluidMat);
-    fluid.position.y=-0.18; fluid.scale.y=0.0001; fluid.visible=false; fx(fluid,'fluid'); grp.add(fluid);
+    // the liquid IN THE TIP follows the tip's own inner wall, from its end up to the fill line
+    // (it was a 7 mm cylinder scaled in height only: a part-filled tip showed a wide slab
+    // sticking out of a narrow cone — a 'full' cone, a disc at a tube's mouth)
+    var tipInner=innerRadiusFn(tp, 0.8), fluidH=-1;
+    var fluid = new THREE.Mesh(liquidProfileGeo(tipInner, -0.84, -0.83, 24), fluidMat);
+    fluid.visible=false; fx(fluid,'fluid'); grp.add(fluid);
     var drop = new THREE.Mesh(new THREE.SphereGeometry(0.03,16,12), fluidMat);
     drop.scale.set(1,1.3,1); drop.position.y=-0.9; drop.visible=false; fx(drop,'fluid'); grp.add(drop);
 
@@ -126,7 +130,8 @@ import { MAX_ANISO, clamp, easeInOut, lerp } from './util.js'
       drop.visible=dispensing;
       if(dispensing){ var t=performance.now()*0.006; drop.position.y=-0.9-Math.sin(t)*0.01; drop.scale.y=1.3+Math.sin(t*1.3)*0.15; }
       if(st.fill<0.01){ fluid.visible=false; }
-      else{ fluid.visible=true; var h=st.fill*0.66; fluid.scale.y=h/0.6; fluid.position.y=-0.8+h/2; }
+      else{ fluid.visible=true; var yTop=-0.84+st.fill*0.8;           // fill = the fraction of the tip's height
+        if(Math.abs(yTop-fluidH)>0.004){ fluid.geometry.dispose(); fluid.geometry=liquidProfileGeo(tipInner, -0.84, yTop, 24); fluidH=yTop; } }
     };
     // a pipette is positioned by its TIP: its origin is the tip end (the lowest point),
     // not its footprint centre (the finger hook makes it asymmetric) — see PIVOT_AT_TIP
