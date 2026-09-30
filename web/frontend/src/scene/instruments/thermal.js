@@ -270,6 +270,22 @@ import { MAX_ANISO, clamp, easeInOut, lerp } from '../util.js'
       var tempC = hot ? 95 : (cp<0.7 ? 58 : 72);
       drawDisp(cyc, cycles, tempC, hot);
     };
+    // A single-temperature PROGRAM STEP (initial denaturation, final extension, the 4 °C
+    // hold): the display shows the step's own stated temperature and the time left of its
+    // stated duration — an open-ended hold shows ∞, as a real cycler does. p in [0,1].
+    function drawHold(title, tempC, seconds, p){
+      dg.fillStyle="#0d1218"; dg.fillRect(0,0,256,128);
+      dg.strokeStyle="rgba(90,100,116,0.4)"; dg.lineWidth=3; dg.strokeRect(6,6,244,116);
+      dg.textAlign="left"; dg.fillStyle="#7a8290"; dg.font="600 20px 'IBM Plex Sans'"; dg.fillText(title, 16,34);
+      var left = seconds>0 ? Math.max(0, Math.round(seconds*(1-p))) : null;
+      var clock = left==null ? "\u221e" : Math.floor(left/60)+":"+("0"+(left%60)).slice(-2);
+      dg.fillStyle="#8fcabf"; dg.font="700 46px 'IBM Plex Mono'"; dg.fillText(clock, 16,96);
+      var hot = tempC!=null && tempC>=37;
+      dg.textAlign="right"; dg.fillStyle=hot?"#ff9a5a":"#6fb8f0"; dg.font="700 40px 'IBM Plex Mono'";
+      dg.fillText(tempC==null ? "" : Math.round(tempC)+"°", 240,64);
+      dTex.needsUpdate=true;
+    }
+    grp.userData.setHold=function(title, tempC, seconds, p){ drawHold(title||"HOLD", tempC, seconds, clamp(p||0,0,1)); };
     grp.userData.update=function(dt){
       st.lid=lerp(st.lid, st.tLid, 1-Math.pow(0.02,dt));
       lidPivot.rotation.x = -easeInOut(st.lid)*1.15; // 1=open(raised), 0=closed(flat over the block)
@@ -286,12 +302,22 @@ import { MAX_ANISO, clamp, easeInOut, lerp } from '../util.js'
     var holes=[], ROWS='ABCDEFGH';
     for(var r=0;r<8;r++) for(var c=0;c<12;c++) holes.push([(c-5.5)*PITCH,(r-3.5)*PITCH,boreR,ROWS[r]+(c+1)]);
     var BW=12*PITCH+PITCH*0.8, BDEP=8*PITCH+PITCH*0.8;
-    var block=new THREE.Mesh(slabWithHoles(BW,BD,BDEP,holes,14), matAnodized(0x23272e));
-    block.position.y=deckY; root.add(block);
+    // the block in TWO slabs split between rows G and H (z = 3 pitches; no bore crosses it):
+    // the FRONT slab — row H and the front margin — is the block's near wall. The reaction
+    // sits in row H; seated 16 mm deep, the slab in front of it hid a third of the tube, so
+    // the cutaway takes that slab (and nothing else) away.
+    var ZS=3*PITCH, blockMat=matAnodized(0x23272e);
+    var backH=holes.filter(function(h){ return h[1]<ZS; }), frontH=holes.filter(function(h){ return h[1]>ZS; });
+    var backD=ZS+BDEP/2, frontD=BDEP/2-ZS;
+    var block=new THREE.Mesh(slabWithHoles(BW,BD,backD,backH.map(function(h){ return [h[0],h[1]-(ZS-backD/2),h[2]]; }),14), blockMat);
+    block.position.set(0,deckY,ZS-backD/2); root.add(block);
+    var blockFront=new THREE.Mesh(slabWithHoles(BW,BD,frontD,frontH.map(function(h){ return [h[0],h[1]-(ZS+frontD/2),h[2]]; }),14), blockMat);
+    blockFront.position.set(0,deckY,ZS+frontD/2); root.add(blockFront);
     var floor=new THREE.Mesh(new THREE.PlaneGeometry(BW,BDEP), new THREE.MeshStandardMaterial({ color:0x1b2128, metalness:0.4, roughness:0.7 }));
     floor.rotation.x=-Math.PI/2; floor.position.y=deckY+BD*0.01; fx(floor,'decal'); root.add(floor);   // the dark bore floors
     holes.forEach(function(h){ addSocket(root,h[3],{ position:new THREE.Vector3(h[0],deckY,h[1]) }); });
-    root.userData.sampleSocket='E6';
+    root.userData.sampleSocket='H6';                 // the front row: seen through the cut near wall
+    declareCutaway(root, [blockFront]);
     return tagSpec(root,'thermocycler_96');
   }
 
