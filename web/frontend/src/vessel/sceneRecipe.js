@@ -132,12 +132,13 @@ export const INSTRUMENT_REQUIRES = {
   inverted_microscope: (c) => named(c, 'microscope'),
   light_microscope:    (c) => named(c, 'microscope') || named(c, 'hemocytometer'),
   uv_transilluminator: (c) => named(c, 'transilluminator'),
+  thermocycler:        (c) => named(c, 'thermocycler'),
 }
 
 // Named instruments we have NO model for. When a step names one, the honest render is
 // the bench — never the nearest-looking device (a dewar is not a −80 freezer, a shaking
 // incubator is not a dry block, a Bioanalyzer is not a NanoDrop).
-export const UNMODELLED = ['shaking_incubator', 'liquid_nitrogen', 'bioanalyzer', 'microwave', 'flame', 'thermocycler']
+export const UNMODELLED = ['shaking_incubator', 'liquid_nitrogen', 'bioanalyzer', 'microwave', 'flame']
 const VETO = {
   store: ['liquid_nitrogen'],
   incubate_wait: ['shaking_incubator'],
@@ -146,8 +147,10 @@ const VETO = {
 // action → the instruments it MAY use, in preference order. The first whose requirement
 // holds and which accepts the sample's container wins; otherwise the bench.
 const CANDIDATES = {
-  store:         ['freezer', 'co2_incubator'],
-  heat:          ['water_bath'],
+  // a thermocycler PROGRAM step (initial denaturation, final extension, the 4 °C hold)
+  // runs in the cycler — when the step names it and the sample is in a PCR tube
+  store:         ['thermocycler', 'freezer', 'co2_incubator'],
+  heat:          ['thermocycler', 'water_bath'],
   incubate_wait: ['ice_bucket', 'plate_shaker', 'co2_incubator', 'incubation_block'],
   measure:       ['nanodrop', 'plate_reader', 'inverted_microscope', 'light_microscope', 'uv_transilluminator'],
 }
@@ -246,6 +249,7 @@ const CONTAINERS = {
   tube:        { geo: 'tube',     removal: 'tip' },
   spin_column: { geo: 'column',   removal: 'tip' },
   eluate_tube: { geo: 'elu',      removal: 'tip' },
+  pcr_tube:    { geo: 'pcrtube',  removal: 'tip' },
   cryovial:    { geo: 'cryovial', removal: 'tip' },
   bottle:      { geo: 'tube',     removal: 'tip' },
   well_plate:  { geo: 'wellplate', removal: 'aspirate' },

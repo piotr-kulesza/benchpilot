@@ -53,7 +53,7 @@ ACTIONS = (
 CONTAINERS = (
     "microtube", "tube", "well_plate", "flask", "dish", "gel", "slide",
     "cryovial", "membrane", "spin_column", "eluate_tube", "bottle", "agar_plate",
-    "generic",
+    "pcr_tube", "generic",
 )
 
 # Instruments a step can NAME. Soft vocabulary: the parser should use these ids, but

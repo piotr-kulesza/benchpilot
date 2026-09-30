@@ -186,7 +186,7 @@
       "wall": { "mm": 15, "est": "insulated foam wall" },
       "ice_depth": { "mm": 30, "est": "crushed ice packed to ~3/4 of a 1.5 mL tube (41 mm) standing on the floor" },
       "ice_piece": { "mm": 14, "est": "crushed-ice piece size" },
-      "accepts": ["microtube_1_5", "cryovial_2ml", "spin_column_mini"]
+      "accepts": ["microtube_1_5", "cryovial_2ml", "spin_column_mini", "pcr_tube_0_2"]
     },
     "plate_reader": {
       "name": "absorbance microplate reader", "category": "instrument", "shape": "box", "model": "BioTek 800 TS",
@@ -220,7 +220,7 @@
       "inner_width": { "mm": 332, "src": "stirling-ult25" },
       "inner_depth": { "mm": 221, "src": "stirling-ult25" },
       "inner_height": { "mm": 340, "src": "stirling-ult25" },
-      "accepts": ["microtube_1_5", "cryovial_2ml", "spin_column_mini"]
+      "accepts": ["microtube_1_5", "cryovial_2ml", "spin_column_mini", "pcr_tube_0_2"]
     },
     "microscope_inverted": {
       "name": "inverted microscope", "category": "instrument", "shape": "box", "model": "Nikon ECLIPSE Ts2",

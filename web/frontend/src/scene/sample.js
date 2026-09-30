@@ -90,10 +90,10 @@ export function undockSample(lift = false) {
     var elu    = buildTube({color:COL.rna, label:"Eluate", sub:"RNA", capColor:0x49b26a});
     // Stage-8: the sample can also be ANY of these container types — one persistent
     // travelling sample carried through the actual glassware of any protocol.
-    var S={ tube:tube, column:column, elu:elu,
+    var S={ tube:tube, column:column, elu:elu, pcrtube:buildTube({spec:'pcr_tube_0_2', color:COL.pellet, label:false}),
       cryovial:buildCryovial(), wellplate:buildWellPlate(), flask:buildFlask(), dish:buildDish(),
       slide:buildSlide(), membrane:buildMembrane(), gel:buildGelSlab(), agarplate:buildAgarPlate() };
-    var KEYS=['tube','column','elu','cryovial','wellplate','flask','dish','slide','membrane','gel','agarplate'];
+    var KEYS=['tube','column','elu','pcrtube','cryovial','wellplate','flask','dish','slide','membrane','gel','agarplate'];
     var vessels=KEYS.map(function(k){ return S[k]; });
     S.vessels=vessels; S.active=tube;
     for(var v=0;v<vessels.length;v++){

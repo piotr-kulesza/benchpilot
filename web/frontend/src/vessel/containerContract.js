@@ -33,6 +33,8 @@ export const CONTAINER_CONTRACT = {
   tube:        { vessel: 'tube',      spec: 'microtube_1_5',    orientation: 'upright', flat: false, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
   spin_column: { vessel: 'column',    spec: 'spin_column_mini', orientation: 'upright', flat: false, liquid: 'column', emptyMotion: 'tip', framing: 'tall', nestsIn: ['tube', 'eluate_tube', 'microtube'] },
   eluate_tube: { vessel: 'elu',       spec: 'microtube_1_5',    orientation: 'upright', flat: false, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
+  // the 0.2 mL thin-wall PCR tube: the one vessel a thermocycler's 96-well block takes
+  pcr_tube:    { vessel: 'pcrtube',   spec: 'pcr_tube_0_2',     orientation: 'upright', flat: false, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
   cryovial:    { vessel: 'cryovial',  spec: 'cryovial_2ml',     orientation: 'upright', flat: false, capped: true, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
   bottle:      { vessel: 'tube',      spec: 'microtube_1_5',    orientation: 'upright', flat: false, liquid: 'column', emptyMotion: 'tip', framing: 'tall' },
   // flat-lying vessels — seat on the bench, aspirated (NEVER tipped), wide framing
@@ -98,8 +100,9 @@ export const INSTRUMENTS = {
   light_microscope:    { accepts: ['slide'] },                   // Gram / haemocytometer, 100× oil
   uv_transilluminator: { accepts: ['gel'] },                     // visualise DNA bands under UV
   water_bath:          { accepts: ['microtube', 'tube', 'spin_column', 'eluate_tube', 'cryovial'] },
-  freezer:             { accepts: ['microtube', 'tube', 'spin_column', 'eluate_tube', 'cryovial'] },
-  ice_bucket:          { accepts: ['microtube', 'tube', 'spin_column', 'eluate_tube', 'cryovial'] },
+  freezer:             { accepts: ['microtube', 'tube', 'spin_column', 'eluate_tube', 'cryovial', 'pcr_tube'] },
+  ice_bucket:          { accepts: ['microtube', 'tube', 'spin_column', 'eluate_tube', 'cryovial', 'pcr_tube'] },
+  thermocycler:        { accepts: ['pcr_tube'] },                 // 96-well block, 0.2 mL tubes only
 }
 
 // Side-by-side placement of a SOURCE (left) and DESTINATION (right) vessel: their facing
