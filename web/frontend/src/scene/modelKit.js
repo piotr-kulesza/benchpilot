@@ -31,7 +31,12 @@ import { dims } from './dims.js'
      place. It changes the wall's MATERIAL only (opacity) — the wall is still there, nothing
      moves, nothing is resized. A builder declares which meshes are its near wall. */
   var CUTAWAY_OPACITY=0.28;
-  function declareCutaway(root, meshes){
+  // meshes: the NEAR WALL — the parts between the camera and the seated subject. carrier
+  // (optional): { node, meshes } — the part the subject RIDES in (a rotor: its disc and the
+  // subject's own slot), cut away with the wall wherever it has turned to; node must hold the
+  // sample socket (cutaway.test.js checks both).
+  function declareCutaway(root, meshes, carrier){
+    if(carrier){ meshes=meshes.concat(carrier.meshes); root.userData.cutCarrier=carrier; }
     root.userData.setCutaway=function(on){
       meshes.forEach(function(m){
         if(!m.userData.cutMats){ m.material=Array.isArray(m.material)?m.material.map(function(x){ return x.clone(); }):m.material.clone();

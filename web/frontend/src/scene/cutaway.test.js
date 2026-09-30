@@ -1,7 +1,9 @@
 // CUTAWAY REMOVES A WALL, NOT THE SCENE (CLAUDE.md "Cutaway"). For every model that declares
 // a cutaway, setCutaway(true) may change ONLY the near wall — the meshes on the camera side
-// (+z) of the enclosure. Never the back or side walls (the backdrop the subject is read
-// against), never a liquid (the water must still read as water), never the subject.
+// (+z) of the enclosure — and a declared CARRIER (the part the subject rides in, e.g. a
+// rotor: it turns with the subject, so no fixed half of it is "near"). Never the back or
+// side walls (the backdrop the subject is read against), never a liquid (the water must
+// still read as water), never the subject.
 import { describe, it, expect, beforeAll } from 'vitest'
 import { Box3, Vector3 } from 'three'
 import { installHeadless } from './headless.js'
@@ -39,7 +41,17 @@ function nearWallDefects(id) {
   const before = snapshot(host)
   host.userData.setCutaway(true)
   const out = []
+  // the CARRIER (declareCutaway's third argument): the part the subject rides in may be cut
+  // wherever it has turned to — if it really carries the sample socket
+  const car = host.userData.cutCarrier
+  const inCarrier = (m) => { if (!car) return false; for (let n = m; n; n = n.parent) if (n === car.node) return true; return false }
+  if (car) {
+    const sock = host.userData.sockets?.[host.userData.sampleSocket]
+    let carries = false; for (let n = sock; n; n = n.parent) if (n === car.node) carries = true
+    if (!carries) out.push(`${id}: the declared carrier does not hold the sample socket`)
+  }
   for (const m of changed(host, before)) {
+    if (inCarrier(m) && car.meshes.includes(m)) continue
     const b = new Box3().setFromObject(m)
     const what = `${id}: ${m.name || m.geometry?.type || m.type}${m.userData.fx ? ` (${m.userData.fx})` : ''}`
     if (m.userData.fx === 'fluid') out.push(`${what} — a liquid made see-through`)
