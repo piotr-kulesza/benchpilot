@@ -234,12 +234,19 @@ if none fits, use "generic"):
 CONTAINER (where the SAMPLE now sits) — set `container` per step:
   A protocol may live in many vessels. Set `container` to ONE of: microtube, tube,
   well_plate, flask, dish, gel, slide, cryovial, membrane, spin_column, eluate_tube,
-  bottle, agar_plate — ONLY when the step names where the SAMPLE now sits:
+  bottle, agar_plate, pcr_tube — ONLY when the step names where the SAMPLE now sits:
     "aliquot into cryovials" -> cryovial ; "add to the wells" -> well_plate ;
     "onto a nitrocellulose membrane" -> membrane ; "into new culture flasks" -> flask ;
     "smear on a glass slide" -> slide ; "load into the gel wells" -> gel ;
     "onto the RNeasy column" -> spin_column ; "elute into a clean tube" -> eluate_tube ;
-    "spread on an LB agar plate" -> agar_plate.
+    "spread on an LB agar plate" -> agar_plate ; a PCR / qPCR reaction -> pcr_tube.
+  THE PCR TUBE. A reaction that is thermocycled (PCR, qPCR, any thermocycler program)
+  is assembled IN the 0.2 mL PCR tube it is cycled in — the thermocycler's block takes
+  nothing else. The step that assembles the reaction IS the sample being made, not a
+  side preparation: action pour_add, target "sample", container: pcr_tube. (A master
+  mix made in its own tube and THEN dispensed into the reaction tubes is a `prepare`;
+  the reaction itself never is.) Every later step of that reaction stays in pcr_tube
+  (omit `container`).
   CRITICAL: `container` is where the SAMPLE goes, NEVER where a REAGENT lives.
   "Add 350 µl RW1 FROM THE BOTTLE" does NOT set container:bottle — the sample stays
   in its column. If the step names no new home for the sample, OMIT `container`
@@ -375,6 +382,11 @@ For each step extract, when present:
         incubator" -> co2_incubator; a "shaking incubator" -> shaking_incubator (NOT
         co2_incubator, NOT plate_shaker). A named instrument not in the list: give a
         short snake_case id of your own. None named -> [].
+        Every step of a THERMOCYCLER PROGRAM — the initial denaturation, the cycled
+        block, the final extension and the final hold ("Hold at 4 °C") — runs in the
+        thermocycler: instruments ["thermocycler"] on each, also when only the
+        program's heading ("Thermocycler program:") names it. The final hold is a
+        `store` step in the thermocycler, not a freezer.
     Give `conditions` on EVERY step, including prepare steps — omit its empty fields
     (false / null / []); {} means the step states none of them.
       "Incubate 15 min at room temperature" -> {"room_temperature": true}
