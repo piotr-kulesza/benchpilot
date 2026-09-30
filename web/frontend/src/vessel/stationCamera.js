@@ -54,7 +54,7 @@ export function cameraPose(frame, { railX = 0, time = null, push = 0, pushTarget
 export const FRAMING = {
   FIT: { x: 0.82, top: 0.7, bottom: -0.82 }, // NDC box the framed content must stay inside (inside the safe area)
   MACRO: 1.1,    // subject's projected height ≤ 55 % of the frame (NDC span of 2)
-  LEGIBLE: 0.025, // widen to the context only while the subject keeps ≥ 2.5 % of the frame
+  LEGIBLE: 0.06,  // widen to the context only while the subject keeps ≥ 6 % of the frame by its box (the audit asks 3 % by its vertices; a tilted tube's box overstates it ~1.5×)
 }
 const DIR = new Vector3(0, CAM.RAIL_Y - CAM.LOOK_Y, CAM.RAIL_Z).normalize()
 const _cam = new PerspectiveCamera(CAM.FOV, CAM.ASPECT, 0.1, 400)
@@ -72,6 +72,9 @@ const area = (b, c, d) => { const n = ndcBox(b, c, d); const w = Math.min(1, n.x
 // the smallest distance at which pred holds (pred is monotone in d)
 function minDist(pred) { let lo = 0.05, hi = 200; if (!pred(hi)) return hi; for (let i = 0; i < 48; i++) { const m = (lo + hi) / 2; if (pred(m)) hi = m; else lo = m } return hi }
 function maxDist(pred) { let lo = 0.05, hi = 200; if (!pred(lo)) return lo; for (let i = 0; i < 48; i++) { const m = (lo + hi) / 2; if (pred(m)) lo = m; else hi = m } return lo }
+
+// where a (station-local) box lands in a fitted frame, in NDC: { x0, x1, y0, y1 }
+export function frameNdc(box, frame) { return ndcBox(box, frame.center, frame.dist) }
 
 // subject, used, context: Box3 (station-local). Returns the frame { center, dist, … }.
 export function fitFrame(subject, used, context) {

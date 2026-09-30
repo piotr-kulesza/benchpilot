@@ -66,6 +66,7 @@ export function auditProtocol(protocol, { poses = POSES } = {}) {
     const st = { group: new Group(), updatables: [], reagents: {}, pip: null, enter: null, timeline: null, x: 0, cen: null, dev: null, vis: 1, _vstate: -1 }
     const { opts } = stationConfig(steps, i, { containers, stateChain, lang: 'en', producedInRun })
     configureStation(st, opts)
+    st.frame = frameStation(st)                // as the runner: framing sets out-sized sources down out of frame
     scene.add(st.group)
     demo.setSnap(true)
     st.enter?.()
@@ -182,7 +183,7 @@ export function auditVisibility(protocol, { poses = VIS_POSES } = {}) {
     if (st.prep) st.prep.visible = true
     if (st.drawsFromId && demo.getPrep(st.drawsFromId)) { const pr = demo.getPrep(st.drawsFromId); pr.visible = true; pr.position.set(st.drawPos.x, st.drawPos.y, st.drawPos.z); pr.userData.tPos.copy(pr.position); placeOnBench(pr) }
     const record = { index: steps[i].index ?? i, action: opts.action, equipment: opts.equipment, container: opts.container, defects: [] }
-    const cosubjects = st.subjectAt ? POSES.map((q) => st.subjectAt(q)) : []
+    const cosubjects = [...(st.subjectAt ? POSES.map((q) => st.subjectAt(q)) : []), ...(st.cosubjects ? st.cosubjects() : [])]
     for (const p of poses) {
       drive(st, S, p)
       const push = st.pushCam ? st.pushCam(p) : 0

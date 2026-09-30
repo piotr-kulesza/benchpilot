@@ -21,8 +21,9 @@ import { cameraPose, CAM } from '../vessel/stationCamera.js'
 
 export const VIS = {
   // 1 % passed tiles that were plainly unreadable (a tube in an ice bucket at 2.2 % reads
-  // as a speck); a tube that reads as the step's subject covers ≥ ~4 % of the frame
-  MIN_AREA: 0.04,
+  // as a speck). The ceiling for a tall thin subject is the framing's MACRO cap: a 1.5 mL
+  // tube at 55 % of the frame height covers 3.55 % (its box is 41 × 11 mm) — so ≥ 3 %
+  MIN_AREA: 0.03,
   MAX_OCCLUDED: 0.25,
   // NDC (−1..1): 7.5 % margin at the sides and bottom; the top 12.5 % is the HUD band
   SAFE: { x: 0.85, top: 0.75, bottom: -0.85 },

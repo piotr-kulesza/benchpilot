@@ -99,6 +99,10 @@ import { clamp, easeInOut, lerp } from './util.js'
       else { dock(); cen.userData.setLid(false); cen.userData.setSpin(t.running?24:0); }
       if(o.lEnd!=null) v.userData.setLevel(lerp(o.lStart==null?0.5:o.lStart,o.lEnd,easeInOut(clamp(t.progress,0,1))));
     };
+    // while the rotor SPINS, the step acts on the sample THROUGH it: the rotor carrying the
+    // sample round the ring is the subject (framed whole, legible at any angle it stops at);
+    // before and after, the sample itself
+    st.subjectAt=function(p){ return (fits && p>=0.30 && p<0.80) ? cen.userData.rotor : SAMPLE[o.vessel]; };
     st.timeline=function(p){
       var v=SAMPLE[o.vessel]; v.visible=true;
       if(!fits){                                // a rejected vessel never enters; the rotor runs empty
