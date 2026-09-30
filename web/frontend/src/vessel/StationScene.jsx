@@ -20,8 +20,9 @@ import { reagentName, reagentVolume, effectiveStep, selectAlternative, hasAltern
 import * as demo from '../scene/demoScene.js'
 import { streams } from '../scene/rng.js'
 import { dims, clearance } from '../scene/dims.js'
-import { cameraPose } from './stationCamera.js'
-import { placeInto, placeOnBench, clearPlacement, getSocket, socketPose, canPlace, SocketError } from '../scene/sockets.js'
+import { cameraPose, fitFrame } from './stationCamera.js'
+import { solidBox } from '../scene/solids.js'
+import { placeInto, placeOnBench, clearPlacement, getSocket, socketPose, canPlace, SocketError, addSocket } from '../scene/sockets.js'
 import { resolveScenePreset } from '../scene/scenePresets.js'
 
 // the demo's cinematic camera — the one and only view
@@ -104,15 +105,6 @@ function expandByProps(box, obj) {
 // reaching up and out along the neck axis; the camera must take it in. Frame it by an
 // ANCHOR at the pipette's top in that pose — the pipette's REAL length along the neck axis
 // from its standoff — and keep its stand in frame too.
-function frameAngledPipette(st, disp, offsetX = 0, offsetZ = 0) {
-  if (!disp || disp.approach !== 'angled') return
-  const ax = Math.sin(-disp.tilt), ay = Math.cos(-disp.tilt)
-  const reach = (disp.standoff || 0) + dims('pipette_p200').height + clearance('lift')
-  const top = new Vector3(offsetX + (disp.x || 0) + ax * reach, (disp.y || 0) + ay * reach, offsetZ + (disp.z || 0))
-  const anchors = [top]
-  if (st.stand) { const b = new Box3().setFromObject(st.stand); anchors.push(b.min.clone(), b.max.clone()) }
-  st.frameAnchors = [...(st.frameAnchors || []), ...anchors]
-}
 
 // Actions whose station, with no modelled instrument, rests the sample on the bench.
 const BENCH_REST_ACTIONS = new Set(['incubate_wait', 'heat', 'store', 'measure', 'centrifuge', 'generic'])
@@ -139,11 +131,22 @@ function makeBenchTag(text) {
 }
 
 // the station's title plate, above the frame's content (shared with the visibility audit)
+// It names the SUBJECT, so it stands over the subject (not over the middle of the props —
+// it floated over the idle sample while the step made a mix beside it), and is sized to
+// the FRAME (a constant share of its height), since the camera now zooms to the subject.
+const LABEL_SHARE = 0.075, LABEL_GAP_SHARE = 0.035
 export function addStationLabel(st, title, sub) {
   const label = demo.makeLabel(title, sub)
-  const LABEL_GAP = 0.95
-  const halfH = (label.userData.worldH || 0.5) / 2
-  label.position.set(st.frame.center.x, st.frame.top + LABEL_GAP + halfH, st.frame.center.z)
+  const frameH = st.frame.dist != null ? 2 * st.frame.dist * Math.tan((FOV / 2) * Math.PI / 180) : 7
+  const wh = label.userData.worldH || 0.5
+  const k = (LABEL_SHARE * frameH) / wh
+  label.scale.multiplyScalar(k)
+  const halfH = (wh * k) / 2
+  const sb = st.frame.subjectBox
+  // over its BACK edge: seen from the front-above camera the plate then projects above the
+  // whole subject — centred over a flat membrane it hid it completely
+  const cx = sb ? (sb.min.x + sb.max.x) / 2 : st.frame.center.x, cz = sb ? sb.min.z : st.frame.center.z
+  label.position.set(cx, st.frame.top + LABEL_GAP_SHARE * frameH + halfH, cz)
   st.group.add(label)
   st.label = label; st.labelBaseY = label.position.y; st.labelHalfH = halfH
   return label
@@ -163,6 +166,68 @@ function clampLabel(st, cam) {
     y -= 0.05
   }
   lab.position.y = Math.max(y, Math.min(floorY, st.labelBaseY))
+}
+
+// FRAME THE STATION FROM ITS SUBJECT (stationCamera.fitFrame). The subject's box is its
+// extent over the WHOLE step (driven through its timeline at build, snapped, then
+// released), so the camera holds every pose of it; `used` adds the props the step uses
+// (back-row sources, the waste, a second vessel: userData.used / frameAnchors); `context`
+// is everything on the station. The camera only moves and zooms.
+const FRAME_POSES = [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1]
+function shownIn(o) { for (let n = o; n; n = n.parent) if (!n.visible) return false; return true }
+export function frameStation(st) {
+  const snap = demo.getSnap()
+  // the travelling sample lives in WORLD coordinates (st.x + local) while a docked one rides
+  // a part inside the group: measure with the group where it will stand, then back to local
+  const gx = st.group.position.x
+  st.group.position.x = st.x
+  demo.setSnap(true)
+  st.enter?.()
+  const boxes = []
+  for (const p of FRAME_POSES) {
+    st.timeline?.(p)
+    st.group.updateMatrixWorld(true)
+    const s = st.subjectAt ? st.subjectAt(p) : st.subject?.()
+    const b = s && shownIn(s) ? solidBox(s) : new Box3()
+    if (!b.isEmpty()) b.translate(new Vector3(-st.x, 0, 0))   // world → station-local
+    boxes.push(b)
+  }
+  demo.undockSample()
+  demo.setSnap(snap)
+  st.group.position.x = gx
+  st.group.updateMatrixWorld(true)
+  const fallback = new Box3(new Vector3(-0.05, 0, -0.05), new Vector3(0.05, st.subjectH || 0.4, 0.05))
+  for (let k = 0; k < boxes.length; k++) if (boxes[k].isEmpty()) boxes[k] = (boxes[k - 1] && !boxes[k - 1].isEmpty()) ? boxes[k - 1].clone() : fallback.clone()
+  // used props (static) and the rest of the station (context)
+  const usedProps = new Box3(), ctxProps = new Box3()
+  for (const c of st.group.children) {
+    if (c.isLight || c.isSprite || c === st.pip || c.userData.offBench) continue
+    const b = solidBox(c, st.group); if (b.isEmpty()) continue
+    if (c.userData.used) usedProps.union(b)
+    if (!c.userData.noFrame || c.userData.used) ctxProps.union(b)
+  }
+  for (const a of st.frameAnchors || []) { usedProps.expandByPoint(a); ctxProps.expandByPoint(a) }
+  // ONE FRAME PER POSE: the camera follows the subject through the step (it may move and
+  // zoom; it never rescales) — a tube carried from the bench into a rotor is framed on the
+  // bench, then on the rotor, not as a speck in a frame holding the whole path
+  st.frames = boxes.map((sb) => {
+    const used = sb.clone().union(usedProps), context = used.clone().union(ctxProps)
+    const f = fitFrame(sb, used, context)
+    const sc = sb.getCenter(new Vector3()), sz = sb.getSize(new Vector3())
+    f.top = sb.max.y
+    f.footprint = { cx: sc.x, cz: sc.z, r: 0.5 * Math.max(sz.x, sz.z) }
+    return f
+  })
+  return st.frames[0]
+}
+// the frame at step progress p: interpolated between the fitted poses
+const _fc = new Vector3()
+export function frameAt(st, p) {
+  const fs = st.frames
+  if (!fs || !fs.length) return st.frame
+  const t = Math.min(1, Math.max(0, p)) * (fs.length - 1), k = Math.min(fs.length - 2, Math.floor(t)), u = t - k
+  const a = fs[k], b = fs[k + 1] || a
+  return { center: _fc.copy(a.center).lerp(b.center, u).clone(), dist: a.dist + (b.dist - a.dist) * u }
 }
 
 export function computeStationFrame(st) {
@@ -203,7 +268,7 @@ const DIAL_TRACK = 0x2b333d  // dim remaining-track slate
 // [-π/2 - len, -π/2] with len = fraction·2π, so the leading edge is always visible.
 const DIAL_START = -Math.PI / 2  // front of the dial (nearest the camera)
 function makeBenchDial(radius) {
-  const th = Math.max(0.15, radius * 0.11)      // legible thickness, scales with the dial
+  const th = radius * 0.18                       // legible thickness, scales with the dial
   const rOut = radius, rIn = Math.max(0.06, radius - th)
   const g = new Group()
   const trackMat = new MeshBasicMaterial({ color: DIAL_TRACK, transparent: true, opacity: 0.9, toneMapped: false, depthWrite: false })
@@ -337,11 +402,11 @@ function addReagentSource(st, key, r, k, fromMix) {
     const src = demo.buildTube({})
     src.userData.noFrame = true
     src.userData.setColor(r.color); src.userData.setLevel(0.55); src.userData.setLabel(r.name, r.vol || '')
-    demo.benchPlace(st, src, +1)
+    demo.backRowPlace(st, src)
     if (src.userData.update) st.updatables.push(src)
-    st.reagents[key] = { grp: src, pos: src.position.clone().setY(src.userData.entry) }
+    st.reagents[key] = { grp: src, get pos() { return src.position.clone().setY(src.userData.entry) } }
   } else {
-    demo.addBottle(st, key, r.name, r.color, st.sourceSide)
+    demo.addBottle(st, key, r.name, r.color, r.vol)
   }
 }
 
@@ -368,11 +433,8 @@ export function configureStation(st, o) {
   const MOUTH = VU.mouth || { x: 0, y: VD.height, z: 0, approach: 'top' }
   const ENTRY = VU.entry
   const LIFT = clearance('lift'), GAP = clearance('bench_gap')
-  st.subjectFoot = { hw: VD.width / 2 }
+  st.subjectFoot = { hw: VD.width / 2, hd: VD.depth / 2 }
   st.subjectH = VD.height
-  // reagent sources stand on the side AWAY from a canted neck: a pipette dispensing down a
-  // T-flask's neck leans out over the neck's side (it leaned through the bottle there)
-  st.sourceSide = MOUTH.approach === 'angled' ? -Math.sign(Math.sin(-MOUTH.tilt) || 1) : +1
   st.socketErrors = st.socketErrors || []
 
   // seat the travelling sample on the BENCH at (x, z) WITHOUT resetting its contents: it
@@ -437,14 +499,15 @@ export function configureStation(st, o) {
     // the reagent IS the sample (e.g. "load the denatured protein samples into the wells"):
     // the pipette draws from the samples' own TUBE — a bottle of samples would be invented
     demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: MOUTH, entry: ENTRY })
-    const src = st.reagents.r
-    src.grp.visible = false
+    // the samples' own tube REPLACES the invented reagent source (not staged at all)
+    const old = st.reagents.r.grp
+    st.group.remove(old); st.backRow = (st.backRow || []).filter((o) => o !== old)
     const tube = demo.buildTube({ color: endColor, label: '' })
     tube.userData.noFrame = true
     tube.userData.setLevel?.(0.6)
-    st.group.add(tube); tube.position.copy(src.grp.position); placeOnBench(tube)
+    demo.backRowPlace(st, tube)
     if (tube.userData.update) st.updatables.push(tube)
-    src.pos = tube.position.clone().setY(tube.userData.entry)
+    st.reagents.r = { grp: tube, get pos() { return tube.position.clone().setY(tube.userData.entry) } }
     const baseTl = st.timeline
     st.timeline = (p) => { baseTl(p); tube.userData.setLevel?.(demo.lerp(0.6, 0.4, demo.clamp(p / 0.3, 0, 1))) }
   } else if (pour && pour.pour) {
@@ -459,7 +522,7 @@ export function configureStation(st, o) {
     const tiltBase = { x: M.x + H * Math.sin(TH), y: M.y - H * Math.cos(TH), z: M.z }
     let HOME = null, CAP_ON = null, CAP_BENCH = null
     if (reag) {
-      bottle = demo.addBottle(st, 'pour', '', reag.color)
+      bottle = demo.addBottle(st, 'pour', '', reag.color, reag.vol)
       HOME = bottle.position.clone()
       // the bottle's cap comes OFF before the pour and is set down on the bench IN FRONT
       // of the bottle (the bottle's own cap follows its tilt, so it is hidden and this
@@ -470,7 +533,7 @@ export function configureStation(st, o) {
       st.group.add(cap)
       const capR = BD.neck_diameter / 2
       CAP_ON = { x: HOME.x, y: bottle.userData.capOnY, z: HOME.z }
-      CAP_BENCH = { x: HOME.x, y: bottle.userData.capHalfH, z: HOME.z + BD.radius + GAP + capR }
+      CAP_BENCH = { x: HOME.x, y: bottle.userData.capHalfH, z: HOME.z - (BD.radius + GAP + capR) }   // behind it: the subject is in front
       const sr = BD.neck_diameter * 0.12
       stream = new Mesh(new CylinderGeometry(sr * 0.7, sr, LIFT, 12), new MeshStandardMaterial({ color: reag.color, roughness: 0.3, transparent: true, opacity: 0.8 }))
       stream.position.set(M.x, M.y - LIFT / 2, M.z); stream.visible = false
@@ -518,7 +581,6 @@ export function configureStation(st, o) {
     if (reags.length <= 1 && !fromMix) {
       // single-reagent path: resident pipette rig + bottle; fill ramps in the dispense window.
       demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: MOUTH, entry: ENTRY })
-      frameAngledPipette(st, MOUTH, 0)
     } else if (prep) {
       // DRAW FROM THE CARRIED MIX (Stage 36). The prep tube made at its own station is
       // glided HERE to a bench slot on the right; the pipette draws OUT of it.
@@ -526,12 +588,15 @@ export function configureStation(st, o) {
       const toY = disp.approach === 'angled' ? disp.y : SEAT_Y
       const T = dims(prep.userData.spec)
       demo.addPipetteRig(st)
-      const dx = demo.benchSlot(st, T.width / 2, +1)
-      const draw = { x: dx, y: prep.userData.entry, z: 0 }    // the tip goes into the parked tube
+      // the carried tube parks in the BACK ROW, behind the subject (beside it, it hid part of it)
+      const dx = 0, dz = -(VD.depth / 2 + GAP + T.depth / 2)
+      const draw = { x: dx, y: prep.userData.entry, z: dz }   // the tip goes into the parked tube
+      st.drawFrom = new Vector3(draw.x, draw.y, draw.z)       // the pipette is held over it at rest
       const streamColor = prep.userData.mixColor != null ? prep.userData.mixColor : reags[0].color
       const PREP_FULL = 0.62
       st.drawsFromId = o.drawsFrom
-      st.drawPos = { x: st.x + dx, y: 0, z: 0 } // WORLD seat the carried tube glides to
+      st.drawPos = { x: st.x + dx, y: 0, z: dz } // WORLD seat the carried tube glides to
+      st.frameAnchors = [new Vector3(dx - T.width / 2, 0, dz - T.depth / 2), new Vector3(dx + T.width / 2, T.height, dz + T.depth / 2)] // a used source: in frame
       st.enter = () => { seat(0); demo.pipRest(st); prep.userData.setLevel(PREP_FULL) }
       st.timeline = (p) => {
         const v = S[vessel]
@@ -564,7 +629,6 @@ export function configureStation(st, o) {
         v.userData.setLevel(demo.lerp(startLevel, endLevel, done))
         v.userData.setColor(reags[Math.min(k, n - 1)].color)
       }
-      frameAngledPipette(st, MOUTH, 0)
     }
   } else if (action === 'prepare') {
     // NOT EVERY STEP HAPPENS TO THE SAMPLE. Combine the reagents in a SEPARATE vessel (the
@@ -586,7 +650,7 @@ export function configureStation(st, o) {
     st.subject = () => prep // the step acts on the PREP tube, not the idle sample
     const idleX = demo.benchSlot(st, VD.width / 2, -1)       // the idle sample, left of the prep
     demo.addPipetteRig(st)
-    reags.forEach((r, k) => demo.addBottle(st, 'r' + k, r.name, r.color))
+    reags.forEach((r, k) => demo.addBottle(st, 'r' + k, r.name, r.color, r.vol))
     const DIP = { x: 0, y: SEAT_Y, z: 0 }
     const idleSample = () => {
       S.only(vessel)
@@ -790,15 +854,7 @@ export function configureStation(st, o) {
       motionFn = (p) => { dev.userData.setOrbit(p * 40) }
     } else if (inst === 'co2_incubator') {
       dev = subject(demo.buildCO2Incubator())
-      if (incubating) {
-        motionFn = (p) => { dev.userData.setDoor(p > 0.5) }
-        // push the camera in on the flask as the step resolves: the SAME offsets from the
-        // look point the old push used, but aimed at the SHELF SOCKET (not a typed point)
-        const sp = socketY(dev, dev.userData.sampleSocket)
-        const d = C.framing === 'wide' ? { pos: [0, 0.58, 4.95] } : { pos: [0, 0.5, 4.0] }
-        st.pushCam = (p) => demo.easeInOut(demo.clamp((p - 0.35) / 0.4, 0, 1))
-        st.pushTarget = { pos: [sp.x + d.pos[0], sp.y + d.pos[1], sp.z + d.pos[2]], look: [sp.x, sp.y, sp.z] }
-      }
+      if (incubating) motionFn = (p) => { dev.userData.setDoor(p > 0.5) }
     } else if (inst === 'incubation_block') {
       dev = subject(demo.buildColdBlock())
     }
@@ -828,6 +884,7 @@ export function configureStation(st, o) {
     st.group.add(st.warm)
     const SURF = bath.userData.surfaceY, IN = bath.userData.inner
     const ok = !FLAT && fitsSocket(bath, bath.userData.sampleSocket)
+    if (ok) bath.userData.setCutaway?.(true)   // CUTAWAY: the tube is seen in place, in the water
     if (FLAT || !ok) {
       // a flat vessel (or one the rack doesn't take) rests on the bench IN FRONT; the bath behind it
       bath.position.set(0, 0, -(BD.depth / 2 + GAP + VD.depth / 2))
@@ -863,6 +920,7 @@ export function configureStation(st, o) {
     st.group.add(st.cold)
     const SOCK = ice.userData.sampleSocket
     const ok = fitsSocket(ice, SOCK)
+    if (ok) ice.userData.setCutaway?.(true)   // CUTAWAY: the tube is seen in place, in the ice
     const benchX = ok ? 0 : demo.benchSlot(st, VD.width / 2, +1)
     st.enter = () => { seat(benchX); if (ok) seatIn(ice, SOCK) }
     st.timeline = (p) => {
@@ -896,6 +954,7 @@ export function configureStation(st, o) {
     const tank = rig.userData.tank
     const SOCK = rig.userData.sampleSocket
     const ok = fitsSocket(tank, SOCK)
+    if (ok) rig.userData.setCutaway?.(true)    // CUTAWAY: the gel is seen on its platform
     const BENCH = { x: demo.benchSlot(st, VD.width / 2, -1), z: 0 }
     const DOCK = socketY(tank, SOCK)
     const CLEAR = rig.userData.rimY + LIFT                  // gel base clears the rim on the way in/out
@@ -934,6 +993,7 @@ export function configureStation(st, o) {
     st.group.add(st.cold)
     const SOCK = fr.userData.sampleSocket
     const ok = fitsSocket(fr, SOCK)
+    if (ok) fr.userData.setCutaway?.(true)     // CUTAWAY: the vial is seen on its shelf behind the door
     const benchX = demo.benchSlot(st, VD.width / 2, -1)
     const shelf = socketY(fr, SOCK)
     const carryY = shelf.y + LIFT                           // just clear of the cavity floor
@@ -961,9 +1021,21 @@ export function configureStation(st, o) {
       }
     }
   } else if (action === 'seed') {
-    // dispense the sample into the culture vessel; on agar, a spreader then sweeps it out.
-    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: MOUTH, entry: ENTRY })
-    frameAngledPipette(st, MOUTH, 0)
+    // dispense into the culture vessel; on agar, a spreader then sweeps it out. What is seeded
+    // is the step's reagent — or, when it names NONE ("plate the transformation"), the SAMPLE
+    // itself, drawn from the vessel it came in: a pipette transfer, no invented bottle.
+    const prevC3 = prevContainer ? containerContract(prevContainer) : null
+    if (!(o.reagents || []).length && prevC3 && prevC3.vessel !== vessel) {
+      configurePipetteTransfer(st, S, {
+        fromKey: prevC3.vessel, toKey: vessel,
+        srcDisp: S[prevC3.vessel].userData.mouth, srcEntry: S[prevC3.vessel].userData.entry, dstDisp: MOUTH, dstEntry: ENTRY,
+        srcToken: prevContainer, dstToken: container,
+        color: endColor, startLevel, endLevel, name, vol,
+      })
+      st._skipHandoff = true
+    } else {
+      demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: MOUTH, entry: ENTRY })
+    }
     if (container === 'agar_plate') {
       const spr = demo.buildSpreader()
       spr.visible = false
@@ -1012,6 +1084,7 @@ export function configureStation(st, o) {
       st.dev = reader
       const SOCK = reader.userData.sampleSocket
       const ok = fitsSocket(reader, SOCK)
+      if (ok) reader.userData.setCutaway?.(true) // CUTAWAY: the plate is seen in the tunnel
       const benchX = ok ? 0 : demo.benchSlot(st, VD.width / 2, +1)
       st.enter = () => {
         demo.undockSample(); seat(benchX)
@@ -1074,13 +1147,12 @@ function configureNestMove(st, S, o) {
   const GAP = clearance('bench_gap'), LIFT = clearance('lift')
   const AX = -(GAP / 2 + CD.width / 2), BX = GAP / 2 + TD.width / 2, Z = 0
   st.benchReserved = [{ minX: AX - CD.width / 2, maxX: AX + CD.width / 2 }, { minX: BX - TD.width / 2, maxX: BX + TD.width / 2 }]
-  const CARRY = Math.max(CD.height, TD.height) + TD.height + LIFT   // column bottom clears the tube top
+  const CARRY = TD.height + LIFT                                    // the column's base clears the tube top
   const NEST_Y = tube0.userData.mouth.y - col0.userData.flangeY      // flange seated on the tube rim
   st.subject = () => S[columnKey]                                      // the COLUMN is what moves
-  st.frameAnchors = [
-    new Vector3(AX, 0, Z), new Vector3(AX, CD.height, Z),
-    new Vector3(BX, 0, Z), new Vector3(BX, TD.height, Z),
-  ]
+  // the clean tube takes the column as an INSERT: a socket whose point is where the column's
+  // base centre sits when its flange rests on the rim — contact is judged there
+  if (!tube0.userData.sockets?.insert) addSocket(tube0, 'insert', { position: new Vector3(0, NEST_Y, 0), accepts: ['spin_column_mini'] })
   st.enter = () => {
     S.only(tubeKey)
     S[columnKey].userData.reattachCollection?.()   // arrives as the full assembly
@@ -1108,6 +1180,7 @@ function configureNestMove(st, S, o) {
     col.userData.setLevel?.(level)
     col.userData.held = p > 0.001 && p < 0.999
     S.snapTo(col, st.x + x, y, Z)
+    if (p >= 0.999) placeInto(col, tube, 'insert'); else if (p > 0.001) clearPlacement(col); else placeOnBench(col)
   }
 }
 
@@ -1121,9 +1194,15 @@ function wrapHandoff(st, S, fromKey, toKey, color, level) {
   const LIFT = Math.max(dims(S[fromKey].userData.spec).height, dims(S[toKey].userData.spec).height) + clearance('lift')
   // while the old vessel is lifted out, IT is what the step shows; then the new one
   st.subject = () => (S[toKey].visible ? S[toKey] : S[fromKey])
-  // the OLD vessel stands on the BENCH beside everything (its own slot) — never on the new
-  // vessel's seat, which may be a socket that does not take it (a tube on a microscope stage)
-  const oldX = demo.benchSlot(st, dims(S[fromKey].userData.spec).width / 2, -1)
+  // the OLD vessel stands on the BENCH in FRONT of the station (clear of everything on it) —
+  // never on the new vessel's seat, which may be a socket that does not take it (a tube on
+  // a microscope stage), and not at the far end of the bench, where the camera had to go
+  const OD = dims(S[fromKey].userData.spec)
+  st.group.updateMatrixWorld(true)
+  let front = S[toKey].userData.tPos ? 0 : 0
+  for (const c of st.group.children) { if (c.isLight || c.isSprite || c === st.pip || c.userData.offBench) continue; const b = solidBox(c, st.group); if (!b.isEmpty()) front = Math.max(front, b.max.z) }
+  front = Math.max(front, dims(S[toKey].userData.spec).depth / 2)
+  const oldX = 0, oldZ = front + clearance('bench_gap') + OD.depth / 2
   st.enter = () => {
     baseEnter && baseEnter()             // seats the NEW vessel at its target + sets its state
     const nv = S[toKey]
@@ -1134,7 +1213,7 @@ function wrapHandoff(st, S, fromKey, toKey, color, level) {
     ov.userData.setColor?.(color)
     ov.userData.setLevel?.(level)
     ov.userData.held = false
-    S.snapTo(ov, st.x + oldX, 0, 0); placeOnBench(ov)
+    S.snapTo(ov, st.x + oldX, 0, oldZ); placeOnBench(ov)
     nv.visible = false
     st._handoff = true
   }
@@ -1146,7 +1225,7 @@ function wrapHandoff(st, S, fromKey, toKey, color, level) {
       if (q < 0.5) {                     // old vessel lifts straight up (remove)
         ov.visible = true; nv.visible = false
         const e = demo.easeInOut(q / 0.5)
-        S.snapTo(ov, st.x + oldX, e * LIFT, 0)
+        S.snapTo(ov, st.x + oldX, e * LIFT, oldZ)
         ov.userData.held = e > 0
       } else {                           // new vessel settles down into the seat (insert)
         ov.visible = false; nv.visible = true
@@ -1182,13 +1261,10 @@ function configurePipetteTransfer(st, S, o) {
   const dstAngled = dstDisp && dstDisp.approach === 'angled'
   const from = { x: AX + (srcDisp?.x || 0), y: srcEntry, z: Z + (srcDisp?.z || 0) }
   const to = { x: BX + (dstDisp?.x || 0), y: dstAngled ? dstDisp.y : 0, z: Z + (dstDisp?.z || 0) }
-  st.frameAnchors = [
-    new Vector3(AX + srcFoot.minX, 0, Z), new Vector3(AX + srcFoot.maxX, hA, Z),
-    new Vector3(BX + dstFoot.minX, 0, Z), new Vector3(BX + dstFoot.maxX, hB, Z),
-  ]
   demo.addPipetteRig(st)
-  if (dstAngled) frameAngledPipette(st, dstDisp, BX, Z)
-  st.subject = () => S[toKey]   // the vessel the sample is moved INTO
+  // the step acts on the SOURCE while the tip draws from it, then on the destination
+  st.subject = () => S[toKey]
+  st.subjectAt = (p) => (p < 0.3 ? S[fromKey] : S[toKey])
 
   st.enter = () => {
     S.only(toKey)
@@ -1336,6 +1412,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
   const perspRef = useRef()
   const keyRef = useRef()
   const rimRef = useRef()
+  const camFrameRef = useRef({ init: false })
   // prep-vessel lifetimes: id -> { prepareIndex, consumerIndex, home:{x,y,z}, draw:{x,y,z} }.
   // Drives where each carried mixture sits (home vs the station drawing from it) and when
   // it is visible (from where it's made through where it's consumed).
@@ -1437,7 +1514,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       // MEASURE the framing from the equipment now — group is still at the origin and
       // carries only the instrument (not the label/decal added below), so this is the
       // station's true content extent in local coords.
-      st.frame = computeStationFrame(st)
+      st.frame = frameStation(st)
       st.group.position.set(st.x, 0, 0)
       // the title sits just ABOVE the thing the step is about — the props' bbox top,
       // centred on it — not over the station origin. Its own half-height (worldH/2)
@@ -1447,13 +1524,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       // travels with it — a station title here would duplicate it (and be left behind), so skip.
       if (!chromeless && !st.prepId) addStationLabel(st, o.title, o.sub)
       scene.add(st.group)
-      // the bench station number in front
-      if (!chromeless) {
-        const decal = demo.stationDecal(i + 1)
-        decal.position.set(st.x, 0.02, 2.4)
-        scene.add(decal)
-        st.decal = decal
-      }
+      // (no station-number decal on the bench: the step number is in the timeline above)
       // BENCH-FALLBACK STAGING: a step that rests on the bare bench (no modelled instrument)
       // shows only what it states — a bench tag for a stated temperature / room temperature,
       // and (below) the countdown dial at rest when it is timed.
@@ -1473,9 +1544,10 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       // never clobbers the opacity the timer driver sets (paused-dim / done-fade).
       // the sample vessel is not a station prop, so size the ring to take in ITS footprint
       // too (a 1.9-wide agar plate hid a tube-sized ring completely)
-      const vd = dims(containerContract(container).spec)
-      const vesselR = Math.max(vd.width, vd.depth) / 2
-      const dial = makeBenchDial(Math.max(st.frame.footprint.r, vesselR) + DIAL_MARGIN)
+      // the ring encircles the SUBJECT's base with a margin proportional to it (a fixed
+      // 0.38 margin drew a 90 mm ring round an 11 mm tube)
+      const r0 = st.frame.footprint.r
+      const dial = makeBenchDial(r0 + Math.max(r0 * 0.6, clearance('bench_gap')))
       dial.position.set(st.frame.footprint.cx, DIAL_Y, st.frame.footprint.cz)
       st.group.add(dial)
       st.dial = dial
@@ -1601,7 +1673,16 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     // 2 · position the cinematic camera — pure lateral tracking, no orbit — aimed and
     // fit on the active station's MEASURED content frame (never an assumed origin).
     const actCam = stations[activeRef.current]
-    const f = actCam && actCam.frame ? actCam.frame : DEFAULT_FRAME
+    const tf = actCam && actCam.frames ? frameAt(actCam, pRef.current) : actCam && actCam.frame ? actCam.frame : DEFAULT_FRAME
+    // ease the framing (look point + distance) toward the active station's, so a step change
+    // from a 41 mm tube to a 450 mm incubator dollies and zooms, never pops
+    const cf = camFrameRef.current
+    if (tf.dist != null) {
+      if (!cf.init) { cf.center = tf.center.clone(); cf.dist = tf.dist; cf.init = true }
+      const k = 1 - Math.pow(0.002, dt)
+      cf.center.lerp(tf.center, k); cf.dist += (tf.dist - cf.dist) * k
+    }
+    const f = tf.dist != null ? { center: cf.center, dist: cf.dist } : tf
     const cam = perspRef.current
     if (cam) {
       // the pose is a pure function of the measured frame (stationCamera.js) — the SAME one

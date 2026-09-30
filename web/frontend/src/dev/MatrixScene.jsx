@@ -7,7 +7,8 @@ import { useThree, useFrame } from '@react-three/fiber'
 import { PerspectiveCamera } from '@react-three/drei'
 import { FogExp2, Group, Color } from 'three'
 import * as demo from '../scene/demoScene.js'
-import { configureStation } from '../vessel/StationScene.jsx'
+import { configureStation, frameStation, frameAt } from '../vessel/StationScene.jsx'
+import { cameraPose } from '../vessel/stationCamera.js'
 import { resolveRecipe, stepConditions } from '../vessel/sceneRecipe.js'
 import { reagentColor } from '../vessel/theme.js'
 
@@ -65,6 +66,7 @@ export function MatrixScene({ action = 'pour_add', container = 'microtube', from
       startColor: INIT_COLOR, startLevel: 0.4, endColor, endLevel: recipe.anim.fill, cycles: 30,
       text,
     })
+    st.frame = frameStation(st)   // the runner's framing: from the subject, per pose
     scene.add(st.group)
     demo.setSnap(true); st.enter?.(); demo.setSnap(false)
     pRef.current = 0
@@ -84,17 +86,11 @@ export function MatrixScene({ action = 'pour_add', container = 'microtube', from
     for (const u of st.updatables) u.userData?.update?.(dt)
     const S = demo.getSample()
     if (S) for (const v of S.vessels) { if (!v.userData.docked) v.position.lerp(v.userData.tPos, 1 - Math.pow(0.02, dt)); v.userData.update?.(dt) }
-    // honour the station's camera PUSH (same as the runner) so the harness verifies it
+    // THE RUNNER'S CAMERA (stationCamera.js): framed from the station's subject at this p
     const cam = camRef.current
-    if (cam) {
-      let px = 0, py = 3.35, pz = 9.6, lx = 0, ly = 1.05, lz = 0
-      const push = st.pushCam ? st.pushCam(pRef.current) : 0
-      if (push > 0 && st.pushTarget) {
-        const t = st.pushTarget
-        px = demo.lerp(px, t.pos[0], push); py = demo.lerp(py, t.pos[1], push); pz = demo.lerp(pz, t.pos[2], push)
-        lx = demo.lerp(lx, t.look[0], push); ly = demo.lerp(ly, t.look[1], push); lz = demo.lerp(lz, t.look[2], push)
-      }
-      cam.position.set(px, py, pz); cam.lookAt(lx, ly, lz)
+    if (cam && st.frames) {
+      const pose = cameraPose(frameAt(st, pRef.current))
+      cam.position.set(...pose.pos); cam.lookAt(...pose.look)
     }
   })
 

@@ -33,6 +33,7 @@ let SNAP_SAMPLE = false
 let SAMPLE = null
 export function setScene(s) { scene = s }
 export function setSnap(v) { SNAP_SAMPLE = v }
+export function getSnap() { return SNAP_SAMPLE }
 export function initSample() { SAMPLE = buildSample(); return SAMPLE }
 export function getSample() { return SAMPLE }
 
@@ -173,6 +174,26 @@ export function undockSample(lift = false) {
      (a non-uniformly scaled parent would squash them) and sit just above the model.
      Returns the root; root.userData carries the art's userData (hooks, state) and `fit`. */
   var LABEL_GAP = 0.25;   // world units a builder's name plate floats above its top
+  /* CUTAWAY (scene convention, CLAUDE.md): when the station's subject sits INSIDE an opaque
+     container, the container's NEAR WALL is rendered see-through so the subject is seen in
+     place. It changes the wall's MATERIAL only (opacity) — the wall is still there, nothing
+     moves, nothing is resized. A builder declares which meshes are its near wall. */
+  var CUTAWAY_OPACITY=0.28;
+  function declareCutaway(root, meshes){
+    root.userData.setCutaway=function(on){
+      meshes.forEach(function(m){
+        if(!m.userData.cutMats){ m.material=Array.isArray(m.material)?m.material.map(function(x){ return x.clone(); }):m.material.clone();
+          m.userData.cutMats=(Array.isArray(m.material)?m.material:[m.material]).map(function(x){ return { m:x, t:x.transparent, o:x.opacity, dw:x.depthWrite }; }); }
+        m.userData.cutMats.forEach(function(c){
+          if(on){ c.m.transparent=true; c.m.opacity=Math.min(c.o, CUTAWAY_OPACITY); c.m.depthWrite=false; }
+          else { c.m.transparent=c.t; c.m.opacity=c.o; c.m.depthWrite=c.dw; }
+          c.m.needsUpdate=true;
+        });
+      });
+      root.userData.cutaway=!!on;
+    };
+    return root;
+  }
   function fitArt(art, id, opts){
     opts=opts||{};
     var d=dims(id);
@@ -964,6 +985,7 @@ export function undockSample(lift = false) {
       }
     };
     grp.userData.sampleSocket='rack';
+    declareCutaway(grp, [frontW, liner]);   // the front wall and the liner's front face
     return tagSpec(grp,'water_bath_5l');
   }
 
@@ -983,13 +1005,14 @@ export function undockSample(lift = false) {
     var TW=CW+gap, TH=P.height+CT+gap, TBOT=H*0.3, TDEP=CD+gap;    // tunnel it drives into
     function part(w,h,d,x,y,z){ var m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), shell); m.position.set(x,y,z); m.castShadow=true; m.receiveShadow=true; grp.add(m); return m; }
     part(W,TBOT,DEP, 0,TBOT/2,0);                                   // below the tunnel
-    part(W,H-TBOT-TH,DEP, 0,(H+TBOT+TH)/2,0);                       // above it
+    var above=part(W,H-TBOT-TH,DEP, 0,(H+TBOT+TH)/2,0);             // above it
     var sideW=(W-TW)/2;
-    part(sideW,TH,DEP, -(W-sideW)/2,TBOT+TH/2,0);                   // its two sides
-    part(sideW,TH,DEP, (W-sideW)/2,TBOT+TH/2,0);
+    var sideL=part(sideW,TH,DEP, -(W-sideW)/2,TBOT+TH/2,0);         // its two sides
+    var sideR=part(sideW,TH,DEP, (W-sideW)/2,TBOT+TH/2,0);
     part(TW,TH,DEP-TDEP, 0,TBOT+TH/2,-DEP/2+(DEP-TDEP)/2);          // and its back wall
-    var inner=new THREE.Mesh(openTopBox(TW,TH,TDEP), new THREE.MeshStandardMaterial({ color:0x181d23, roughness:0.8, side:THREE.DoubleSide }));
-    inner.position.set(0,TBOT+TH/2,DEP/2-TDEP/2); fx(inner,'decal'); grp.add(inner);   // dark tunnel lining
+    // dark tunnel lining — OPEN at the front (its front face used to close the tunnel mouth)
+    var inner=new THREE.Mesh(openTopBox(TW,TDEP,TH), new THREE.MeshStandardMaterial({ color:0x181d23, roughness:0.8, side:THREE.DoubleSide }));
+    inner.rotation.x=Math.PI/2; inner.position.set(0,TBOT+TH/2,DEP/2-TDEP/2); fx(inner,'decal'); grp.add(inner);
     // the CARRIER: a tray + front lip on the drawer; it travels out along +z
     var drawer=new THREE.Group(); grp.add(drawer);
     var tray=new THREE.Mesh(new THREE.BoxGeometry(CW,CT,CD), matPlastic(0x8a94a0)); tray.position.y=TBOT+CT/2; drawer.add(tray);
@@ -1012,6 +1035,7 @@ export function undockSample(lift = false) {
     grp.userData.update=function(dt){ pst.draw=lerp(pst.draw,pst.tDraw,1-Math.pow(0.02,dt)); drawer.position.z=lerp(IN_Z,OUT_Z,pst.draw); };
     grp.userData.update(1e6);
     grp.userData.sampleSocket='carrier';
+    declareCutaway(grp, [above, sideL, sideR, lip, inner]);   // the housing around the tunnel + the drawer front
     return tagSpec(grp,'plate_reader');
   }
 
@@ -1186,6 +1210,7 @@ export function undockSample(lift = false) {
     // (now a box with NO top face at all — an invisible face's triangles were still there
     // for a gel lowered in to pass through)
     var tank = new THREE.Mesh(openTopBox(2.6,0.7,1.6), tankMat);
+    var rims=[];
     tank.position.y=0.55; tank.castShadow=true; grp.add(tank);
     var frameMat = matPlastic(0x2b3038);
     // base + top rim frames so the tank reads as a solid moulded vessel, not a haze
@@ -1194,7 +1219,7 @@ export function undockSample(lift = false) {
     // hid anything inside it)
     [[2.66,0.08,0.08, 0,0.86, 0.79],[2.66,0.08,0.08, 0,0.86,-0.79],
      [0.08,0.08,1.66, 1.29,0.86,0],[0.08,0.08,1.66,-1.29,0.86,0]].forEach(function(r){
-      var m=new THREE.Mesh(new THREE.BoxGeometry(r[0],r[1],r[2]), frameMat); m.position.set(r[3],r[4],r[5]); grp.add(m); });
+      var m=new THREE.Mesh(new THREE.BoxGeometry(r[0],r[1],r[2]), frameMat); m.position.set(r[3],r[4],r[5]); grp.add(m); rims.push(m); });
     // clear smoked-acrylic lid (as on real mini-gel tanks): a run is watched THROUGH it —
     // the dye front moving in the gel is the one visible sign that the gel is running.
     var lidMat = new THREE.MeshPhysicalMaterial({ color:0x2b3038, roughness:0.25, metalness:0, transparent:true,
@@ -1239,6 +1264,7 @@ export function undockSample(lift = false) {
     bed.position.y=(floorY+platY)/2; tankRoot.add(bed);
     addSocket(tankRoot,'platform',{ position:new THREE.Vector3(0,platY,0) });
     tankRoot.userData.sampleSocket='platform';
+    declareCutaway(tankRoot, rims.concat([tbase]));   // the moulded rim frame + base frame
     tankRoot.userData.rimY=TF.toWorld(0,0.9,0).y;          // a docked gel lifts clear of the rim
     // the POWER SUPPLY is its own instrument (dims('power_supply')), on the bench beside the tank
     var pg=new THREE.Group();
@@ -1276,6 +1302,7 @@ export function undockSample(lift = false) {
     root.userData.sockets=tankRoot.userData.sockets; root.userData.sampleSocket='platform';
     root.userData.tank=tankRoot; root.userData.psu=psu; root.userData.rimY=tankRoot.userData.rimY;
     root.userData.showGel=tankRoot.userData.showGel; root.userData.setLidLift=tankRoot.userData.setLidLift;
+    root.userData.setCutaway=tankRoot.userData.setCutaway;
     root.userData.setProgress=function(p){
       var e=easeInOut(clamp(p,0,1));
       for(var k=0;k<bands.length;k++){ bands[k].position.z = -0.5 + e*0.9; }  // migrate toward the front
@@ -1332,6 +1359,8 @@ export function undockSample(lift = false) {
     label.position.set(0,H+LABEL_GAP,0); grp.add(label);
     grp.userData.label=label; grp.userData.update=function(){};
     grp.userData.sampleSocket='bed';
+    var near=[wall,rim,inner]; grp.children.forEach(function(c){ if(c.userData.fx==='effect') near.push(c); });   // the tub's walls + its frost
+    declareCutaway(grp, near);
     return tagSpec(grp,'ice_bucket_4l');
   }
 
@@ -1480,6 +1509,11 @@ export function undockSample(lift = false) {
     var dg=new THREE.ExtrudeGeometry(dsh,{ depth:DT, bevelEnabled:false, curveSegments:28 }); dg.rotateX(-Math.PI/2);
     var disc=new THREE.Mesh(dg, rotorMat); disc.position.y=-0.02-DT/2; rotor.add(disc);
     root.userData.sampleSocket='slot2';      // the slot facing the camera at rest
+    // the round shell (body, bowl, base, panel) AND the rotor's slots and disc — a slot is the
+    // tube's own container: seated, the tube is seen in it
+    var rotorParts=[]; rotor.traverse(function(o){ if(o.isMesh && !o.userData.fx) rotorParts.push(o); });
+    lidPivot.traverse(function(o){ if(o.isMesh && o!==dome) rotorParts.push(o); });   // the closed lid's rim + handle
+    declareCutaway(root, grp.children.filter(function(c){ return c.isMesh && c!==rotor; }).concat(rotorParts));
     root.userData.rimY=F.toWorld(0,1.16,0).y; // the bowl rim (lid seat)
     return tagSpec(root,'microcentrifuge');
   }
@@ -1841,7 +1875,7 @@ export function undockSample(lift = false) {
       liq.scale.y=Math.max(0.001,bState.level);                    // surface drops
       // unscrew UP off the neck (0-0.3), carry clear (0.3-0.7), SET DOWN upright on the bench
       // in front of the bottle (0.7-1) — it used to hang tilted in the air beside the neck
-      var o=bState.open, UP=bState.capBaseY+0.42, BZ=0.36+0.17+0.3, e;
+      var o=bState.open, UP=bState.capBaseY+0.42, BZ=-(0.36+0.17+0.3), e;   // BEHIND the bottle (the subject is in front)
       if(o<0.3){ e=easeInOut(o/0.3); cap.position.set(0, lerp(bState.capBaseY,UP,e), 0); }
       else if(o<0.7){ e=easeInOut((o-0.3)/0.4); cap.position.set(0, UP, lerp(0,BZ,e)); }
       else { e=easeInOut((o-0.7)/0.3); cap.position.set(0, lerp(UP,0.11,e), BZ); }
@@ -2082,7 +2116,7 @@ export {
   function pipetteRun(st, from, to, p, opts){
     opts=opts||{};
     var pip=st.pip; if(!pip) return;
-    var rest=st.pipRestPos||pip.position, out=(st.stand&&st.stand.userData.hookOut)||0;
+    var rest=opts.start||restPoint(st);
     var lift=clearance('lift');
     var CRUISE=cruiseY(st, from, to);
     var draw=0.26, travel=0.50;
@@ -2096,25 +2130,20 @@ export {
     // the tip on the destination: where it dispenses
     function tipAt(x,y,z,rot){ pip.position.set(x,y,z); pip.rotation.set(0,0,rot||0); }
     var fill=opts.fill||0.8;
-    if(p<draw){                                    // A · stand → source → aspirate
+    if(p<draw){                                    // A · (in hand) over the source → aspirate
       var q=p/draw;
       pip.userData.setColor(opts.color||COL.lysis);
-      if(q<0.12){ var a=easeInOut(q/0.12); tipAt(rest.x, rest.y+a*lift, rest.z); pip.userData.setFluid(0); }                  // lift off the cradle
-      else if(q<0.22){ var b=easeInOut((q-0.12)/0.1); tipAt(rest.x, rest.y+lift, rest.z+b*out); pip.userData.setFluid(0); }  // out of its open front
-      else if(q<0.34){ var c=easeInOut((q-0.22)/0.12); tipAt(rest.x, lerp(rest.y+lift,CRUISE,c), rest.z+out); pip.userData.setFluid(0); } // up to cruise
-      else if(q<0.46){ var e=easeInOut((q-0.34)/0.12); tipAt(lerp(rest.x,from.x,e), CRUISE, rest.z+out); pip.userData.setFluid(0); } // along the FRONT lane, clear of the stand
-      else if(q<0.52){ var e2=easeInOut((q-0.46)/0.06); tipAt(from.x, CRUISE, lerp(rest.z+out,from.z,e2)); pip.userData.setFluid(0); } // in over the source
+      if(q<0.34){ var a=easeInOut(q/0.34); tipAt(rest.x, lerp(rest.y,CRUISE,a), rest.z); pip.userData.setFluid(0); }          // up to the cruise height
+      else if(q<0.52){ var e=easeInOut((q-0.34)/0.18); tipAt(lerp(rest.x,from.x,e), CRUISE, lerp(rest.z,from.z,e)); pip.userData.setFluid(0); } // over the source
       else { var f=(q-0.52)/0.48, s=f<0.4?easeInOut(f/0.4):f<0.6?1:easeInOut(1-(f-0.6)/0.4);
         tipAt(from.x, lerp(CRUISE, from.y, s), from.z);                               // down in, draw, up
         pip.userData.setFluid(clamp((f-0.3)/0.3,0,1)*fill); }
       return;
     }
-    if(p<travel){                                  // B · cruise level (front lane) to over the destination
-      var qb=(p-draw)/(travel-draw), zl=rest.z+out;
+    if(p<travel){                                  // B · cruise level, above everything, to over the destination
+      var qb=easeInOut((p-draw)/(travel-draw));
       var tx=angled?to.x+ax*dTop:to.x, tz=to.z;
-      if(qb<0.2) tipAt(from.x, CRUISE, lerp(from.z,zl,easeInOut(qb/0.2)));
-      else if(qb<0.8) tipAt(lerp(from.x,tx,easeInOut((qb-0.2)/0.6)), CRUISE, zl);
-      else tipAt(tx, CRUISE, lerp(zl,tz,easeInOut((qb-0.8)/0.2)));
+      tipAt(lerp(from.x,tx,qb), CRUISE, lerp(from.z,tz,qb));
       pip.userData.setFluid(fill);
       return;
     }
@@ -2168,28 +2197,54 @@ export {
     return x;
   }
 
-  // a stand (dressing), left of the subject — for stations that don't pipette
-  function addStand(st){
-    var stand = buildPipetteStand();
-    stand.userData.noFrame = true;   // pipetting DRESSING — excluded from the camera fit
-    benchPlace(st, stand, -1);
-    st.stand = stand;
-    return stand;
-  }
-  // resident equipment: a stand AND its OWN pipette hanging in it, at real size
+  // STAGE ONLY WHAT THE STEP USES: the pipette is HELD (no stand — an empty stand read as
+  // an unused rack taking a quarter of the frame). Its resting pose is in hand, poised
+  // above the first source it will draw from (or above the subject's mouth).
   function addPipetteRig(st){
-    var stand=addStand(st);
     var pip = buildPipette();
     pip.userData.noFrame = true;    // the pipette travels high on its arc — never frame it
-    pip.userData.offBench = true;   // it hangs in its stand, not on the bench
-    st.pipRestPos = stand.position.clone().add(stand.userData.cradle);
-    pip.position.copy(st.pipRestPos);
+    pip.userData.offBench = true;   // it is held, not on the bench
     st.group.add(pip); st.pip = pip; st.updatables.push(pip);
+    pipRest(st);
   }
-  // hang this station's resident pipette back in its stand
+  function restPoint(st){
+    var first=null; for(var k in st.reagents){ first=st.reagents[k]; break; }
+    var from=st.drawFrom ? st.drawFrom : first ? first.pos : new THREE.Vector3(0, st.subjectH||0, 0);
+    return new THREE.Vector3(from.x, cruiseY(st, from, from), from.z);
+  }
   function pipRest(st){ if(!st.pip) return;
-    st.pip.position.copy(st.pipRestPos); st.pip.rotation.set(0,0,0);
+    st.pip.position.copy(restPoint(st)); st.pip.rotation.set(0,0,0);
     st.pip.userData.setFluid(0); }
+
+  // ── the BACK ROW: the sources a step draws from stand in a compact grid BEHIND the
+  // subject (≤ 3 per row, bench_gap apart, rows stepping back), so the frame that holds
+  // the subject holds them whole — never a bottle cut off at the frame edge.
+  function backRowPlace(st, obj){
+    if(obj.parent!==st.group) st.group.add(obj);
+    placeOnBench(obj); obj.userData.used=true;
+    (st.backRow||(st.backRow=[])).push(obj);
+    layoutBackRow(st);
+    return obj;
+  }
+  function layoutBackRow(st){
+    var gap=clearance('bench_gap'), PER=3, row=st.backRow||[];
+    var boxes=row.map(function(o){ o.position.set(0,0,0); o.updateMatrixWorld(true); return solidBox(o,o); });
+    var z=-((st.subjectFoot&&st.subjectFoot.hd)||0)-gap;
+    for(var r=0;r*PER<row.length;r++){
+      var items=row.slice(r*PER,r*PER+PER), bx=boxes.slice(r*PER,r*PER+PER);
+      var total=bx.reduce(function(n,b){ return n+(b.max.x-b.min.x); },0)+gap*(items.length-1);
+      var depth=Math.max.apply(null,bx.map(function(b){ return b.max.z-b.min.z; }));
+      var capRoom=Math.max.apply(null,items.map(function(o){ return o.userData.capRoom||0; }));
+      var x=-total/2;
+      items.forEach(function(o,k){ var b=bx[k];
+        o.position.set(x-b.min.x, 0, z-depth/2-(b.min.z+b.max.z)/2); x+=(b.max.x-b.min.x)+gap; });
+      z-=depth+gap+capRoom;                 // an opened cap is set down BEHIND its bottle
+    }
+  }
+  // a MICROLITRE draw is taken from a 1.5 mL tube aliquot (enzymes, primers, template, a
+  // per-sample buffer volume); a mL-scale reagent from a 250 mL bottle. The stated unit
+  // decides (µl / µL / ul → tube).
+  function smallVolume(vol){ return /[µu]l\b/i.test(String(vol||'')); }
 
   // ─── Stage-8 container vessels (the sample-follow model shows exactly one) ───
   // Shared liquid state matching buildTube's contract: setLevel/setColor/setLabel +
@@ -2588,6 +2643,7 @@ export {
     grp.userData.update=function(dt){ st.door=lerp(st.door,st.tDoor,1-Math.pow(0.02,dt)); doorPivot.rotation.y=-easeInOut(st.door)*1.2; };   // swings OUT (+z) — a +angle swung it back through the body
     grp.userData.cavity={ bottom:CB, top:CT, front:FRONT, back:FRONT-ID, halfW:IW/2 };
     grp.userData.sampleSocket='shelf';
+    declareCutaway(grp, doorPivot.children.slice());   // the door (and its handle) is the near wall
     return tagSpec(grp,'ult_freezer_portable');
   }
   function buildStainingTray(){
@@ -2684,17 +2740,27 @@ export {
 
   // a reagent bottle on the bench to the RIGHT of everything; its tip draw point is in
   // its liquid (from the bottle's own geometry)
-  function addBottle(st, key, labelText, color, side){
-    var b = buildBottle(color, labelText, 0, color);
-    b.userData.noFrame = true;   // reagent SOURCE (dressing) — not framed
-    benchPlace(st, b, side||st.sourceSide||+1);
+  // a reagent SOURCE in the back row: a bottle, or a 1.5 mL tube for a µl-scale reagent
+  // (vol). Its draw point is in its liquid, from the source's own geometry — a getter,
+  // since the back row re-lays out as sources are added.
+  function addBottle(st, key, labelText, color, vol){
+    var b;
+    if(smallVolume(vol)){
+      b = buildTube({ color:color, label:labelText||'' });
+      b.userData.setColor(color); b.userData.setLevel(0.55);
+      b.userData.draw=new THREE.Vector3(0, b.userData.entry, 0);
+    } else {
+      b = buildBottle(color, labelText, 0, color);
+      b.userData.capRoom=dims('bottle_250').neck_diameter+clearance('bench_gap');
+    }
+    backRowPlace(st, b);
     if(b.userData.update) st.updatables.push(b);   // animate its cap + level each frame
-    st.reagents[key] = { grp:b, pos:b.position.clone().add(b.userData.draw) };
+    st.reagents[key] = { grp:b, get pos(){ return b.position.clone().add(b.userData.draw); } };
     return b;
   }
   function stationReagent(st, Y, o){
     addPipetteRig(st);
-    addBottle(st, o.key, o.blabel, o.color, st.sourceSide);
+    addBottle(st, o.key, o.blabel, o.color, o.vol||o.vsub);
     // CONTRACT: the container tells the pipette WHERE to dispense (a tube: dead
     // centre; a well: one off-centre well; a flask: at the canted neck). Default =
     // centre (the microtube), so nothing regresses when a container omits it.
@@ -2742,6 +2808,7 @@ export {
     var SOCK=cen.userData.sampleSocket, v0=SAMPLE[o.vessel];
     var fits=canPlace(v0, cen, SOCK);
     if(!fits) (st.socketErrors||(st.socketErrors=[])).push({ vessel:v0.userData.spec, host:'microcentrifuge', socket:SOCK });
+    if(fits) cen.userData.setCutaway&&cen.userData.setCutaway(true);   // CUTAWAY: the tube is seen in its slot
     var VH=dims(v0.userData.spec).height, LIFT=clearance('lift');
     var CEN_TOP=dims('microcentrifuge').height;
     // the sample waits on the bench beside the centrifuge (a rejected one stays there)
@@ -2752,7 +2819,7 @@ export {
     function pathFor(pose){
       var axis=new THREE.Vector3(0,1,0).applyQuaternion(pose.quaternion);
       var pre=pose.position.clone().addScaledVector(axis, VH+LIFT);                 // above the slot, along its axis
-      var above=new THREE.Vector3(pre.x, Math.max(pre.y, CEN_TOP)+VH+LIFT, pre.z);  // over it, upright, clear of the body
+      var above=new THREE.Vector3(pre.x, Math.max(pre.y, CEN_TOP+LIFT), pre.z);  // over it, upright: its base clears the body
       return { pre:pre, above:above, seat:pose.position, q:pose.quaternion };
     }
     var P=pathFor(slotPose());
@@ -2839,4 +2906,4 @@ export {
     };
   }
 
-export { dispenseProgress, pipetteRun, addStand, addPipetteRig, pipRest, buildSample, addBottle, stationReagent, stationSpin, benchPlace, benchSlot, benchExtents, held, easeInOut, lerp, clamp }
+export { dispenseProgress, pipetteRun, addPipetteRig, pipRest, restPoint, backRowPlace, buildSample, addBottle, stationReagent, stationSpin, benchPlace, benchSlot, benchExtents, held, easeInOut, lerp, clamp }
