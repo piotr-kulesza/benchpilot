@@ -17,7 +17,7 @@ export default defineConfig({
       output: {
         // Split the heavy 3D stack into its own long-cached vendor chunk.
         manualChunks: {
-          three: ['three', '@react-three/fiber', '@react-three/drei', '@react-three/postprocessing'],
+          three: ['three', '@react-three/fiber', '@react-three/drei'],
         },
       },
     },
