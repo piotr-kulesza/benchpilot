@@ -172,7 +172,9 @@ import { MAX_ANISO, clamp, easeInOut, lerp } from './util.js'
     var grp=new THREE.Group(); h=1.3;
     var glass=glassMaterial(); glass.opacity=0.24;
     var bp=[
-      new THREE.Vector2(0.001,0), new THREE.Vector2(0.34,0.02), new THREE.Vector2(0.36,0.08),
+      // a FLAT foot: the base used to rise 2 mm from centre to rim — a convex bottom that
+      // rocks on its centre point (the stability check measured a 0.1 % support span)
+      new THREE.Vector2(0.001,0), new THREE.Vector2(0.34,0), new THREE.Vector2(0.36,0.06),
       new THREE.Vector2(0.36,h*0.72), new THREE.Vector2(0.3,h*0.82), new THREE.Vector2(0.16,h*0.9),
       new THREE.Vector2(0.15,h), new THREE.Vector2(0.155,h+0.005)
     ];
