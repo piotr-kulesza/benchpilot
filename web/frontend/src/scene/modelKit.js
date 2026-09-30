@@ -41,6 +41,10 @@ import { dims } from './dims.js'
           else { c.m.transparent=c.t; c.m.opacity=c.o; c.m.depthWrite=c.dw; }
           c.m.needsUpdate=true;
         });
+        // the cut wall is drawn BEFORE the vessels (it writes no depth): the subject behind it
+        // draws over it whole — a cutaway never veils the subject
+        if(m.userData.cutOrder==null) m.userData.cutOrder=m.renderOrder;
+        m.renderOrder = on ? -1 : m.userData.cutOrder;
       });
       root.userData.cutaway=!!on;
     };
