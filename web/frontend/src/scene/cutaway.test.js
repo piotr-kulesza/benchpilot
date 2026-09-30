@@ -61,7 +61,7 @@ function nearWallDefects(id) {
 }
 
 describe('cutaway — removes a wall, not the scene', () => {
-  const ids = ['water_bath', 'ice_bucket', 'centrifuge', 'gel_rig', 'freezer', 'plate_reader']
+  const ids = ['water_bath', 'ice_bucket', 'centrifuge', 'gel_rig', 'freezer', 'plate_reader', 'thermocycler', 'cool_rack']
   for (const id of ids) {
     it(`${id}: only the near wall changes`, () => {
       const m = MODELS.find((x) => x.id === id)

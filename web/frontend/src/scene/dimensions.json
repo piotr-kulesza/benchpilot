@@ -134,7 +134,8 @@
       "rotor_angle": { "deg": 45, "src": "minispin-plus" },
       "rotor_places": { "count": 12, "src": "minispin-plus" },
       "rotor_radius": { "mm": 48, "est": "slot-centre radius that fits 12 × 1.5 mL tubes in a ~ 150 mm bowl" },
-      "accepts": ["microtube_1_5", "spin_column_mini"]
+      "pcr_adapter": { "mm": 21, "est": "0.2 mL tube adapter for a 1.5 mL slot: the PCR tube stands in it with its rim at the slot's mouth (the F-45-12-11 takes 0.2 mL tubes in adapters)" },
+      "accepts": ["microtube_1_5", "spin_column_mini", "pcr_tube_0_2"]
     },
     "thermocycler_96": {
       "name": "thermal cycler", "category": "instrument", "shape": "box", "model": "Bio-Rad T100",
@@ -294,6 +295,29 @@
       "deck_thickness": { "mm": 3, "est": "moulded PP deck" },
       "leg": { "mm": 3, "est": "end-wall leg thickness" },
       "accepts": ["microtube_1_5", "spin_column_mini"]
+    },
+    "pcr_tube_stand": {
+      "name": "open 0.2 mL tube stand", "category": "instrument", "shape": "box", "model": "single-position open-frame clear-acrylic 0.2 mL tube stand (bored deck on two end legs, open floor)",
+      "width": { "mm": 16, "est": "bore (Ø 6.6 mm) + ~4.5 mm of deck each side" },
+      "depth": { "mm": 11, "est": "a narrow bar deck: bore + ~2 mm front and back" },
+      "height": { "mm": 14, "est": "deck on the 0.2 mL tube's upper body, below its rim (tube 21 mm)" },
+      "deck_thickness": { "mm": 2, "est": "moulded deck" },
+      "leg": { "mm": 2, "est": "end-wall leg thickness" },
+      "accepts": ["pcr_tube_0_2"]
+    },
+    "cool_rack": {
+      "name": "tube cooling rack", "category": "instrument", "shape": "box", "model": "pre-chilled aluminium tube cooling rack (a row of 0.2 mL seats + a row of 1.5 mL seats), as for assembling a PCR on ice",
+      "width": { "mm": 207, "est": "4 × 0.2 mL seats on a 9 mm pitch, a 35 mm gap, 8 × 1.5 mL seats on a 17 mm pitch, 12–14 mm end margins" },
+      "depth": { "mm": 40, "est": "a single row of seats + margins" },
+      "height": { "mm": 30, "est": "block deep enough for a 22 mm 1.5 mL bore over an 8 mm floor" },
+      "bore_depth_0_2": { "mm": 14, "est": "a 21 mm PCR tube stands 7 mm proud (its cap clear for opening)" },
+      "bore_depth_1_5": { "mm": 22, "est": "a 41 mm 1.5 mL tube stands 19 mm proud (its conical part held)" },
+      "pitch_0_2": { "mm": 9, "est": "SBS 96-well pitch" },
+      "pitch_1_5": { "mm": 17, "est": "common 1.5 mL rack pitch" },
+      "gap": { "mm": 35, "est": "between the 0.2 mL row and the 1.5 mL row — the reagent tubes stand clear of the reaction's close-up" },
+      "seats_0_2": { "count": 4, "est": "a short 0.2 mL row" },
+      "seats_1_5": { "count": 8, "est": "reagents of a typical reaction set-up" },
+      "accepts": ["pcr_tube_0_2", "microtube_1_5"]
     },
     "pipette_p200": {
       "name": "20–200 µL pipette with tip", "category": "tool", "shape": "round", "model": "Eppendorf Research plus 20–200 µL + 200 µL tip",
