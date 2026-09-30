@@ -21,37 +21,54 @@ import { MAX_ANISO, easeInOut, lerp } from '../util.js'
     // realistic light-grey instrument shell with just a slim brand-blue accent (no glow)
     var trim  = new THREE.MeshStandardMaterial({ color:0x9fb6cf, metalness:0.3, roughness:0.42,
       envMapIntensity:0.7 });
-    var foot = new THREE.Mesh(new THREE.CylinderGeometry(1.5,1.58,0.18,56), matBrushed(0x7c8590));
-    foot.position.y=0.09; foot.receiveShadow=true; grp.add(foot);
-    var base = new THREE.Mesh(new THREE.CylinderGeometry(1.35,1.5,0.62,56), metalBase);
-    base.position.y=0.44; base.castShadow=true; base.receiveShadow=true; grp.add(base);
+    // THE ROUND SHELL IN HALVES: every round part is a FRONT half (camera side, +z) and a BACK
+    // half, so the cutaway can take the near wall away and leave the back of the machine — the
+    // backdrop the tube is read against — solid (it used to turn the whole machine and its
+    // rotor translucent). A solid half is closed on its cut face.
+    var near=[];
+    var F0=-Math.PI/2, B0=Math.PI/2, HALF=Math.PI;                 // CylinderGeometry: z = r·cos θ
+    function cylHalves(rt,rb,h,seg,open,mat,y,shadow){
+      var out=[F0,B0].map(function(t0,i){
+        var m=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg/2,1,open,t0,HALF), mat);
+        m.position.y=y; if(shadow){ m.castShadow=true; m.receiveShadow=true; } grp.add(m); return m; });
+      if(!open){   // close the back half's cut face (a trapezoid in the x-y plane, facing +z)
+        var sh=new THREE.Shape(); sh.moveTo(-rb,-h/2); sh.lineTo(rb,-h/2); sh.lineTo(rt,h/2); sh.lineTo(-rt,h/2); sh.lineTo(-rb,-h/2);
+        var cap=new THREE.Mesh(new THREE.ShapeGeometry(sh), mat); cap.position.y=y; grp.add(cap); }
+      near.push(out[0]); return out[0];
+    }
+    function torusHalves(r,t,rs,ts,mat,y,parent,z){   // torus laid flat (rotation.x = π/2): arc 0..π is z ≥ 0
+      parent=parent||grp;
+      var f=new THREE.Mesh(new THREE.TorusGeometry(r,t,rs,ts/2,Math.PI), mat); f.rotation.x=Math.PI/2; f.position.set(0,y,z||0); parent.add(f);
+      var b=new THREE.Mesh(new THREE.TorusGeometry(r,t,rs,ts/2,Math.PI), mat); b.rotation.set(Math.PI/2,0,Math.PI); b.position.set(0,y,z||0); parent.add(b);
+      near.push(f); return f;
+    }
+    var foot = cylHalves(1.5,1.58,0.18,56,false,matBrushed(0x7c8590),0.09,false);
+    var base = cylHalves(1.35,1.5,0.62,56,false,metalBase,0.44,true);
     // rubber feet
     var cfFoot=matRubber(0x161a20);
     for(var ft=0;ft<4;ft++){ var fa=ft/4*Math.PI*2+Math.PI/4;
       var fm=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.18,0.1,16), cfFoot);
-      fm.position.set(Math.cos(fa)*1.34,0.05,Math.sin(fa)*1.34); grp.add(fm); }
+      fm.position.set(Math.cos(fa)*1.34,0.05,Math.sin(fa)*1.34); grp.add(fm); if(fm.position.z>0.18) near.push(fm); }
     // cooling vent slits around the base
     var cfVent=new THREE.MeshStandardMaterial({ color:0x11151a, roughness:0.85, metalness:0.3, envMapIntensity:0.4 });
     for(var vv=0;vv<20;vv++){ var va=vv/20*Math.PI*2;
       var vent=new THREE.Mesh(new THREE.BoxGeometry(0.045,0.24,0.03), cfVent);
-      vent.position.set(Math.cos(va)*1.40,0.4,Math.sin(va)*1.40); vent.rotation.y=-va; grp.add(vent); }
+      vent.position.set(Math.cos(va)*1.40,0.4,Math.sin(va)*1.40); vent.rotation.y=-va; grp.add(vent); if(vent.position.z>0.05) near.push(vent); }
     // the body is a RING around the bowl (open walls + a top annulus): the old solid
     // cylinder put the rotor, and every tube in it, inside solid shell
-    var body = new THREE.Mesh(new THREE.CylinderGeometry(1.25,1.3,0.5,56,1,true), shell);
-    body.position.y=0.9; grp.add(body);
-    var bodyTop = new THREE.Mesh(new THREE.RingGeometry(1.15,1.25,56), shell);
-    bodyTop.rotation.x=-Math.PI/2; bodyTop.position.y=1.15; grp.add(bodyTop);
-    var lipRing = new THREE.Mesh(new THREE.TorusGeometry(1.24,0.05,16,60), shellDk);
-    lipRing.rotation.x=Math.PI/2; lipRing.position.y=1.14; grp.add(lipRing);
-    var ringT = new THREE.Mesh(new THREE.TorusGeometry(1.2,0.072,16,60), trim);
-    ringT.rotation.x=Math.PI/2; ringT.position.y=1.12; grp.add(ringT);
+    var body = cylHalves(1.25,1.3,0.5,56,true,shell,0.9,false);
+    // the top annulus: RingGeometry lies in x-y; turned flat (rotation.x = −π/2) θ π..2π is z ≥ 0
+    var bodyTop = new THREE.Mesh(new THREE.RingGeometry(1.15,1.25,28,1,Math.PI,Math.PI), shell);
+    bodyTop.rotation.x=-Math.PI/2; bodyTop.position.y=1.15; grp.add(bodyTop); near.push(bodyTop);
+    var bodyTopBack = new THREE.Mesh(new THREE.RingGeometry(1.15,1.25,28,1,0,Math.PI), shell);
+    bodyTopBack.rotation.x=-Math.PI/2; bodyTopBack.position.y=1.15; grp.add(bodyTopBack);
+    var lipRing = torusHalves(1.24,0.05,16,60,shellDk,1.14);
+    var ringT = torusHalves(1.2,0.072,16,60,trim,1.12);
     // bold petrol-teal accent band wrapping the metal base — a real colour panel, not a dot
-    var accentBand = new THREE.Mesh(new THREE.CylinderGeometry(1.315,1.315,0.13,56,1,true), trim);
-    accentBand.position.y=0.7; grp.add(accentBand);
+    var accentBand = cylHalves(1.315,1.315,0.13,56,true,trim,0.7,false);
 
-    var bowl = new THREE.Mesh(new THREE.CylinderGeometry(1.15,1.0,0.5,48,1,true),
-      new THREE.MeshStandardMaterial({color:0x15191f,metalness:0.4,roughness:0.7,side:THREE.DoubleSide}));
-    bowl.position.y=0.9; grp.add(bowl);
+    var bowl = cylHalves(1.15,1.0,0.5,48,true,
+      new THREE.MeshStandardMaterial({color:0x15191f,metalness:0.4,roughness:0.7,side:THREE.DoubleSide}),0.9,false);
 
     var rotor = new THREE.Group(); rotor.position.y=1.08;
     var rotorMat = matBrushed(0x9ba6b2);
@@ -99,7 +116,7 @@ import { MAX_ANISO, easeInOut, lerp } from '../util.js'
     var readout=new THREE.Mesh(new THREE.PlaneGeometry(0.62,0.31), new THREE.MeshBasicMaterial({map:rTex,transparent:true}));
     readout.position.set(0,0.62,1.31); readout.rotation.x=-0.32; fx(readout,'decal'); grp.add(readout);
     var roFrame=new THREE.Mesh(new THREE.BoxGeometry(0.72,0.4,0.05), shellDk);
-    roFrame.position.set(0,0.62,1.29); roFrame.rotation.x=-0.32; grp.add(roFrame);
+    roFrame.position.set(0,0.62,1.29); roFrame.rotation.x=-0.32; grp.add(roFrame); near.push(roFrame);
 
     var domeMat = fresnelize(new THREE.MeshPhysicalMaterial({ color:0x282d36, roughness:0.12,
       transparent:true, opacity:0.5, clearcoat:1, clearcoatRoughness:0.08, envMapIntensity:1.1,
@@ -107,10 +124,9 @@ import { MAX_ANISO, easeInOut, lerp } from '../util.js'
     var lidPivot = new THREE.Group(); lidPivot.position.set(0,1.16,-1.2); grp.add(lidPivot);
     var dome = new THREE.Mesh(new THREE.SphereGeometry(1.22,44,30,0,Math.PI*2,0,Math.PI*0.5), domeMat);
     dome.position.set(0,0,1.2); lidPivot.add(dome);
-    var lidRim = new THREE.Mesh(new THREE.TorusGeometry(1.2,0.045,14,60), matBrushed(0x6d7783));
-    lidRim.rotation.x=Math.PI/2; lidRim.position.set(0,0.01,1.2); lidPivot.add(lidRim);
+    var lidRim = torusHalves(1.2,0.045,14,60,matBrushed(0x6d7783),0.01,lidPivot,1.2);
     var handle = new THREE.Mesh(new THREE.TorusGeometry(0.16,0.03,12,24,Math.PI), matPlastic(0x232a33));
-    handle.position.set(0,0.6,2.2); handle.rotation.x=Math.PI/2; lidPivot.add(handle);
+    handle.position.set(0,0.6,2.2); handle.rotation.x=Math.PI/2; lidPivot.add(handle); near.push(handle);
 
     // (status LED + start button removed — colour comes only from liquids/caps/reagents)
 
@@ -157,11 +173,13 @@ import { MAX_ANISO, easeInOut, lerp } from '../util.js'
     var dg=new THREE.ExtrudeGeometry(dsh,{ depth:DT, bevelEnabled:false, curveSegments:28 }); dg.rotateX(-Math.PI/2);
     var disc=new THREE.Mesh(dg, rotorMat); disc.position.y=-0.02-DT/2; rotor.add(disc);
     root.userData.sampleSocket='slot2';      // the slot facing the camera at rest
-    // the round shell (body, bowl, base, panel) AND the rotor's slots and disc — a slot is the
-    // tube's own container: seated, the tube is seen in it
-    var rotorParts=[]; rotor.traverse(function(o){ if(o.isMesh && !o.userData.fx) rotorParts.push(o); });
-    lidPivot.traverse(function(o){ if(o.isMesh && o!==dome) rotorParts.push(o); });   // the closed lid's rim + handle
-    declareCutaway(root, grp.children.filter(function(c){ return c.isMesh && c!==rotor; }).concat(rotorParts));
+    // the NEAR WALL only: the front halves of the round shell, the front feet / vents / panel,
+    // the closed lid's front rim + handle. The back of the machine and the hub stay solid.
+    // The CARRIER — the rotor disc the tube passes through and its slots — is cut
+    // with it: it spins with the tube, so no fixed half of it is "near" (any slot can turn
+    // between the camera and the tube).
+    var carried=[disc]; holders.forEach(function(h){ h.traverse(function(o){ if(o.isMesh) carried.push(o); }); });
+    declareCutaway(root, near, { node:rotor, meshes:carried });
     root.userData.rimY=F.toWorld(0,1.16,0).y; // the bowl rim (lid seat)
     return tagSpec(root,'microcentrifuge');
   }
