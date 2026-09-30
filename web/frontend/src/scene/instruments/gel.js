@@ -9,13 +9,17 @@ import { addSocket } from '../sockets.js'
 import { makeLabel } from '../labels.js'
 import { matPainted, matPlastic, matRubber } from '../materials.js'
 import { declareCutaway, fitArt, fx, openTopBox, tagSpec } from '../modelKit.js'
-import { MAX_ANISO, clamp, easeInOut } from '../util.js'
+import { MAX_ANISO, clamp, easeInOut, lerp } from '../util.js'
 
 
   /* ---------- gel electrophoresis rig: buffer tank + gel with wells + power box.
      setProgress(p) migrates the dye front / bands down the gel and ramps the
      voltage readout. Stylized to match the bench (matFrosted tank, matPainted box). */
-  function buildGelRig(){
+  // opts.psuGap: the bench gap between the tank and its power supply (default one bench gap);
+  // a loading close-up sets the supply further off so it is not cropped at the frame edge —
+  // the leads are built to wherever it stands
+  function buildGelRig(opts){
+    opts=opts||{};
     var grp = new THREE.Group();
     // buffer tank (clear box) — solid enough to read as a vessel, with a dark frame
     var tankMat = new THREE.MeshPhysicalMaterial({ color:0xcdd6de, roughness:0.2, metalness:0, transparent:true, opacity:0.5, clearcoat:0.6, envMapIntensity:0.8 });
@@ -66,7 +70,15 @@ import { MAX_ANISO, clamp, easeInOut } from '../util.js'
     var label=makeLabel("Electrophoresis",""); label.position.set(0,1.5,0); grp.add(label);
     grp.userData.label=label;
     grp.userData.showGel=function(on){ gel.visible=!!on; };
-    grp.userData.setLidLift=function(q){ lidGrp.position.y=clamp(q,0,1)*1.15; };  // straight up, leads with it
+    // straight up, leads with it; `aside` (0–1) then carries the raised lid BACK behind the
+    // tank (0–0.5) and sets it DOWN on the bench there (0.5–1) — to load a gel the lid is off
+    // and out of the way, resting on the bench, not hanging in the air over the wells
+    var LID_BACK=1.9, LID_DOWN=-(0.96-0.045-0.19);          // lid centre 0.96, half-thickness 0.045; the tank's base at 0.19
+    grp.userData.setLidLift=function(q, aside){
+      var a=clamp(aside||0,0,1), up=clamp(q,0,1)*1.15;
+      lidGrp.position.z=-LID_BACK*easeInOut(clamp(a/0.5,0,1));
+      lidGrp.position.y=lerp(up, LID_DOWN, easeInOut(clamp((a-0.5)/0.5,0,1)));
+    };
     grp.userData.update=function(){};
     var tankRoot=fitArt(grp,'gel_tank_mini'), TF=tankRoot.userData.fit;
     tagSpec(tankRoot,'gel_tank_mini');
@@ -96,7 +108,7 @@ import { MAX_ANISO, clamp, easeInOut } from '../util.js'
     var psu=tagSpec(fitArt(pg,'power_supply'),'power_supply');
     var PS=dims('power_supply');
     var root=new THREE.Group(); root.add(tankRoot); root.add(psu);
-    psu.position.set(GD.width/2+gap+PS.width/2, 0, 0);
+    psu.position.set(GD.width/2+(opts.psuGap!=null?opts.psuGap:gap)+PS.width/2, 0, 0);
     // the ASSEMBLY's origin is the centre of its base: centre the tank + supply pair
     var shiftX=-(psu.position.x+PS.width/2-GD.width/2)/2;
     tankRoot.position.x+=shiftX; psu.position.x+=shiftX;
