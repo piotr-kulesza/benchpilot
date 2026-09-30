@@ -289,8 +289,8 @@
     "tube_stand": {
       "name": "open microtube stand", "category": "instrument", "shape": "box", "model": "single-position open-frame PP microtube stand (bored deck on two end legs, open floor)",
       "width": { "mm": 28, "est": "bore (Ø 11.8 mm) + ~8 mm of deck each side" },
-      "depth": { "mm": 28, "est": "square deck" },
-      "height": { "mm": 27, "est": "deck on the tube's straight body: a 1.5 mL tube is straight from 18.5 mm (0.45 H) up" },
+      "depth": { "mm": 16, "est": "a narrow bar deck: bore + ~2 mm each side front and back — a deep deck, seen from above, hides a band of the tube behind it" },
+      "height": { "mm": 27, "est": "deck high on the tube's straight body (straight from 18.5 mm, 0.45 H): the band it hides is above the contents" },
       "deck_thickness": { "mm": 3, "est": "moulded PP deck" },
       "leg": { "mm": 3, "est": "end-wall leg thickness" },
       "accepts": ["microtube_1_5", "spin_column_mini"]
