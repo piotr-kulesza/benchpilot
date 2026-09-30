@@ -19,7 +19,9 @@ import { solidBox } from './solids.js'
 import { dims, clearance } from './dims.js'
 import { addSocket, placeInto, placeOnBench, clearPlacement, getSocket, socketPose, canPlace } from './sockets.js'
 import { COL } from './palette.js'
+import { MAX_ANISO, clamp, easeInOut, lerp, roundRect } from './util.js'
 export * from './palette.js'
+export * from './util.js'
 
 
 // A sample leaving a docked instrument rises straight up to its OWN exit height (set when
@@ -102,12 +104,6 @@ export function undockSample(lift = false) {
     }
   }
 }
-
-  /* helpers */
-  function lerp(a,b,t){ return a + (b-a)*t; }
-  function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
-  function easeInOut(t){ t=clamp(t,0,1); return t<0.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2; }
-  var MAX_ANISO = 8;
   // METADATA ONLY (no geometry): tag a mesh that is NOT a rigid solid so the geometry
   // audit (src/scene/geometryAudit.js) leaves it out of contact / overlap checks —
   // 'fluid' (a liquid volume), 'effect' (steam, droplets, cells), 'decal' (a print or
@@ -197,28 +193,6 @@ export function undockSample(lift = false) {
     return g;
   }
   function tagSpec(grp, id){ grp.userData.spec=id; grp.userData.canonicalSize=solidBox(grp, grp).getSize(new THREE.Vector3()); return grp; }
-
-  function radialTex(stops){
-    var c=document.createElement("canvas"); c.width=128; c.height=128;
-    var g=c.getContext("2d");
-    var grad=g.createRadialGradient(64,64,0,64,64,64);
-    for(var i=0;i<stops.length;i++) grad.addColorStop(stops[i][0],stops[i][1]);
-    g.fillStyle=grad; g.fillRect(0,0,128,128);
-    return new THREE.CanvasTexture(c);
-  }
-  var GLOW_TEX = null, DUST_TEX = null;
-  // muted "glow" — really just a soft, low-opacity light bloom (no neon)
-  function addGlow(color, size, opacity){
-    var m=new THREE.SpriteMaterial({ map:GLOW_TEX, color:color, transparent:true,
-      opacity:opacity==null?0.18:opacity, blending:THREE.AdditiveBlending, depthWrite:false, depthTest:true });
-    var s=new THREE.Sprite(m); s.scale.set(size,size,1); return s;
-  }
-
-  function roundRect(g,x,y,w,h,r){
-    g.beginPath();
-    g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r);
-    g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath();
-  }
   // floating vessel label — muted editorial card
   // The floating station label. The plate is sized FROM the measured text (never a
   // fixed sprite the text can overflow) — it grows to fit, the text never shrinks or
@@ -2850,4 +2824,4 @@ buildVortexMixer = streams.wrap('buildVortexMixer', buildVortexMixer)
 buildSpreader = streams.wrap('buildSpreader', buildSpreader)
 buildSample = streams.wrap('buildSample', buildSample)
 
-export { buildFloor, buildSharedMaps, makeLabel, stationDecal, buildTube, buildPipette, buildPipetteStand, buildBottle, buildSpinColumn, buildCentrifuge, buildColdBlock, buildWaterBath, buildIceBucket, buildNanoDrop, buildDrop, buildWaste, buildSyringe, buildThermocycler, buildGelRig, buildFreezer, buildStainingTray, buildSpreader, buildVortexMixer, buildPlateReader, buildPlateShaker, buildCO2Incubator, buildInvertedMicroscope, buildLightMicroscope, buildUVTransilluminator, buildCryovial, buildWellPlate, buildFlask, buildDish, buildSlide, buildMembrane, buildGelSlab, buildAgarPlate, buildEnvMap, makeCineBackdrop, makeGradientTexture, glassMaterial, matPlastic, matBrushed, matAnodized, matPainted, matFrosted, matRubber, matSilicone, dispenseProgress, pipetteRun, addPipetteRig, pipRest, restPoint, backRowPlace, buildSample, addBottle, stationReagent, stationSpin, benchPlace, benchSlot, benchExtents, held, easeInOut, lerp, clamp }
+export { buildFloor, buildSharedMaps, makeLabel, stationDecal, buildTube, buildPipette, buildPipetteStand, buildBottle, buildSpinColumn, buildCentrifuge, buildColdBlock, buildWaterBath, buildIceBucket, buildNanoDrop, buildDrop, buildWaste, buildSyringe, buildThermocycler, buildGelRig, buildFreezer, buildStainingTray, buildSpreader, buildVortexMixer, buildPlateReader, buildPlateShaker, buildCO2Incubator, buildInvertedMicroscope, buildLightMicroscope, buildUVTransilluminator, buildCryovial, buildWellPlate, buildFlask, buildDish, buildSlide, buildMembrane, buildGelSlab, buildAgarPlate, buildEnvMap, makeCineBackdrop, makeGradientTexture, glassMaterial, matPlastic, matBrushed, matAnodized, matPainted, matFrosted, matRubber, matSilicone, dispenseProgress, pipetteRun, addPipetteRig, pipRest, restPoint, backRowPlace, buildSample, addBottle, stationReagent, stationSpin, benchPlace, benchSlot, benchExtents, held }
