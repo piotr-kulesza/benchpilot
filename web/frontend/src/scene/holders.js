@@ -82,18 +82,20 @@ export function buildCoolRack() {
   const alu = new THREE.MeshStandardMaterial({ color: 0xb4c3d2, metalness: 0.55, roughness: 0.38, envMapIntensity: 0.9 })   // cold-tinted aluminium
   const grp = new THREE.Group()
   const floorY = H - B15
-  const base = new THREE.Mesh(new THREE.BoxGeometry(W, floorY, DEP), alu)
-  base.position.y = floorY / 2; base.castShadow = true; base.receiveShadow = true; grp.add(base)
+  // the BASE: under the 1.5 mL seats it floors them at floorY; under the 0.2 mL section it
+  // rises to their shallower floor (H − B2) — a solid block, not a plug per bore (seen through
+  // the cut front strip, plugs stood round the reaction tube like posts)
+  const xSplit = (seats2[seats2.length - 1] + xs15) / 2
+  const w2 = xSplit + W / 2, w15 = W / 2 - xSplit
+  const base2 = new THREE.Mesh(new THREE.BoxGeometry(w2, H - B2, DEP), alu)
+  base2.position.set(-W / 2 + w2 / 2, (H - B2) / 2, 0); base2.castShadow = true; base2.receiveShadow = true; grp.add(base2)
+  const base15 = new THREE.Mesh(new THREE.BoxGeometry(w15, floorY, DEP), alu)
+  base15.position.set(W / 2 - w15 / 2, floorY / 2, 0); base15.castShadow = true; base15.receiveShadow = true; grp.add(base15)
+  // the slab above: over the 0.2 mL section only the part above their floor
   const top = new THREE.Mesh(splitSlab(W, B15, -DEP / 2, ZC, DEP / 2, seats2, r2, seats15.map((x) => [x, ROWZ, r15]), 'back'), alu)
   top.position.y = floorY; top.castShadow = true; grp.add(top)
   const front = new THREE.Mesh(splitSlab(W, B15, -DEP / 2, ZC, DEP / 2, seats2, r2, [], 'front'), alu)
   front.position.y = floorY; front.castShadow = true; grp.add(front)
-  // the 0.2 mL bores are shallower: a plug floors each at its own depth
-  const plugH = B15 - B2
-  for (const x of seats2) {
-    const plug = new THREE.Mesh(new THREE.CylinderGeometry(r2, r2, plugH, 20), alu)
-    plug.position.set(x, floorY + plugH / 2, ZC); grp.add(plug)
-  }
   seats2.forEach((x, k) => addSocket(grp, k === 0 ? 'rx' : 'p' + k, { position: new THREE.Vector3(x, H - B2, ZC), accepts: ['pcr_tube_0_2'] }))
   seats15.forEach((x, k) => addSocket(grp, 's' + k, { position: new THREE.Vector3(x, floorY, ROWZ), accepts: ['microtube_1_5'] }))
   grp.userData.sampleSocket = 'rx'
