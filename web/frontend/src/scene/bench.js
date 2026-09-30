@@ -54,7 +54,11 @@ import { buildTube } from './vessels.js'
     return obj;
   }
   function layoutBackRow(st){
-    var gap=clearance('bench_gap'), PER=3, row=st.backRow||[];
+    // a row of µl TUBES (each in its stand) packs at the stand's width + a little play, as a
+    // rack would; anything else keeps a hand-width bench gap
+    var row=st.backRow||[], PER=3;
+    var gap=row.length && row.every(function(o){ return o.userData.rowGap!=null; })
+      ? Math.max.apply(null,row.map(function(o){ return o.userData.rowGap; })) : clearance('bench_gap');
     var boxes=row.map(function(o){ o.position.set(0,0,0); o.updateMatrixWorld(true); return solidBox(o,o); });
     var z=-((st.subjectFoot&&st.subjectFoot.hd)||0)-gap;
     for(var r=0;r*PER<row.length;r++){
@@ -62,7 +66,10 @@ import { buildTube } from './vessels.js'
       var total=bx.reduce(function(n,b){ return n+(b.max.x-b.min.x); },0)+gap*(items.length-1);
       var depth=Math.max.apply(null,bx.map(function(b){ return b.max.z-b.min.z; }));
       var capRoom=Math.max.apply(null,items.map(function(o){ return o.userData.capRoom||0; }));
-      var x=-total/2;
+      // alternate rows are STAGGERED by half a pitch: a source directly behind another stacked
+      // on it from the camera, and a title over one read as naming the other (PCR 1)
+      var pitch=bx.length? (bx[0].max.x-bx[0].min.x)+gap : 0;
+      var x=-total/2 + (r%2 ? pitch/2 : 0);
       items.forEach(function(o,k){ var b=bx[k];
         o.position.set(x-b.min.x, 0, z-depth/2-(b.min.z+b.max.z)/2); x+=(b.max.x-b.min.x)+gap; });
       z-=depth+gap+capRoom;                 // an opened cap is set down BEHIND its bottle
@@ -84,6 +91,8 @@ import { buildTube } from './vessels.js'
       b = buildTube({ color:color, label:false });   // no world-size plate: the step's title names it
       b.userData.setColor(color); b.userData.setLevel(0.55);
       b.userData.draw=new THREE.Vector3(0, b.userData.entry, 0);
+      // it will stand in a tube stand: the row packs stand to stand (+ 3 mm)
+      b.userData.rowGap=dims('tube_stand').width-dims('microtube_1_5').width+clearance('bench_gap')*0.1;
     } else {
       b = buildBottle(color, labelText, 0, color);
       b.userData.capRoom=dims('bottle_250').neck_diameter+clearance('bench_gap');
