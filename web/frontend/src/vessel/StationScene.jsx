@@ -258,6 +258,8 @@ export function frameStation(st) {
   // out around what it frames)
   const SWAY = 0.04, STEP = clearance('bench_gap')
   for (const g of outsized) {
+    // a reagent seated in a RACK stays in it: the rack's own layout keeps it clear of the frame
+    if (g.userData.placement?.host?.userData?.rack) continue
     st.group.updateMatrixWorld(true)
     // a source standing in a tube stand is set down WITH its stand (the stand was left
     // behind, holding nothing, while the tube claimed to be in it 80 mm away)
@@ -494,15 +496,14 @@ const _Y = new Vector3(0, 1, 0)
 const STAND_POSES = Array.from({ length: 41 }, (_, k) => k / 40)
 function addBenchStands(st) {
   const S = demo.getSample()
-  const probe = demo.buildTubeStand()
-  const accepts = socketAccepts(probe.userData.sockets.seat)
   const spots = []
   const note = (v, local) => {
-    if (!accepts.includes(v.userData.spec) || v.userData.held) return
+    if (!demo.standFor(v.userData.spec) || v.userData.held) return
     const pl = v.userData.placement
     if (!pl || pl.host !== 'bench') return
     const p = local ? v.position.clone() : (v.userData.tPos || v.position).clone().sub(new Vector3(st.x, 0, 0))
     if (Math.abs(p.y) > 1e-4) return                          // standing ON something else
+    p.stand = demo.standFor(v.userData.spec)
     if (!spots.some((q) => Math.hypot(q.x - p.x, q.z - p.z) < 1e-3)) spots.push(p)
   }
   const snap = demo.getSnap(), gx = st.group.position.x
@@ -515,13 +516,14 @@ function addBenchStands(st) {
     for (const v of demo.getPreps()) if (shownIn(v)) note(v, false)
     for (const c of st.group.children) if (c.userData.spec) note(c, true)
   }
+  for (const e of st.extraSpots || []) { const p = new Vector3(e.x, 0, e.z); p.stand = e.stand; if (!spots.some((q) => Math.hypot(q.x - p.x, q.z - p.z) < 1e-3)) spots.push(p) }
   // a carried prep this station draws from is parked on its bench at drawPos
-  if (st.drawsFromId && st.drawPos) { const p = new Vector3(st.drawPos.x - st.x, 0, st.drawPos.z); if (!spots.some((q) => Math.hypot(q.x - p.x, q.z - p.z) < 1e-3)) spots.push(p) }
+  if (st.drawsFromId && st.drawPos) { const p = new Vector3(st.drawPos.x - st.x, 0, st.drawPos.z); p.stand = demo.standFor(demo.getPrep(st.drawsFromId)?.userData.spec) || 'tube_stand'; if (!spots.some((q) => Math.hypot(q.x - p.x, q.z - p.z) < 1e-3)) spots.push(p) }
   demo.undockSample()
   demo.setSnap(snap)
   st.group.position.x = gx
   const stands = spots.map((p) => {
-    const stand = demo.buildTubeStand()
+    const stand = demo.buildTubeStand(p.stand)
     stand.position.set(p.x, 0, p.z)
     st.group.add(stand)
     return registerBenchHolder(stand)
@@ -530,8 +532,8 @@ function addBenchStands(st) {
   // is not in the scene yet, so directly; the travelling sample and the preps are seated
   // whenever they are put down (placeOnBench finds the stand)
   const seatAt = (v, p) => {
-    if (!v.userData.spec || v.userData.placement?.host !== 'bench' || !accepts.includes(v.userData.spec)) return
-    const k = spots.findIndex((q) => Math.hypot(q.x - p.x, q.z - p.z) < 1e-3)
+    if (!v.userData.spec || v.userData.placement?.host !== 'bench' || !demo.standFor(v.userData.spec)) return
+    const k = spots.findIndex((q) => Math.hypot(q.x - p.x, q.z - p.z) < 1e-3 && q.stand === demo.standFor(v.userData.spec))
     if (k >= 0) placeInto(v, stands[k], 'seat')
   }
   for (const c of st.group.children) seatAt(c, c.position)
@@ -767,10 +769,30 @@ function configureStationCore(st, o) {
     } else {
       // N reagents → N pipette passes INTO the sample (one per reagent, from its own source).
       const disp = MOUTH
-      const toY = disp.approach === 'angled' ? disp.y : SEAT_Y
       demo.addPipetteRig(st)
       reags.forEach((r, k) => addReagentSource(st, 'r' + k, r, k, fromMix))
-      st.enter = () => { seat(0); demo.pipRest(st) }
+      // ASSEMBLED ON ICE from µl reagents (a PCR set-up): ONE pre-chilled rack holds the
+      // reaction (its 'rx' seat, at the station origin) and every reagent tube (a row of
+      // 1.5 mL seats along it) — the stated ice, and one rack, not a stand per tube
+      const tubes = reags.map((r, k) => st.reagents['r' + k].grp)
+      let rack = null, seatY = SEAT_Y
+      if (o.onIce && tubes.every((g) => g.userData.spec === 'microtube_1_5')) {
+        const probe = demo.buildCoolRack()
+        if (canPlace(V, probe, 'rx') && tubes.length <= probe.userData.sourceSockets.length) {
+          rack = probe
+          st.group.add(rack); placeOnBench(rack)
+          const rx = rack.userData.sockets.rx.position
+          rack.position.set(-rx.x, 0, -rx.z)
+          st.group.updateMatrixWorld(true)
+          st.backRow = (st.backRow || []).filter((g) => !tubes.includes(g))
+          tubes.forEach((g, k) => { const pose = placeInto(g, rack, rack.userData.sourceSockets[k], { frame: st.group }); g.position.copy(pose.position) })
+          seatY = socketY(rack, 'rx').y
+          rack.userData.setCutaway(true)   // CUTAWAY: the reaction is seen in its seat through the rack's near strip
+          st.rack = rack
+        }
+      }
+      const toY = disp.approach === 'angled' ? disp.y : seatY
+      st.enter = () => { seat(0); if (rack) seatIn(rack, 'rx'); demo.pipRest(st) }
       st.timeline = (p) => {
         const v = S[vessel]
         if (v.userData.setCap) v.userData.setCap(!(p > 0.1 && p < 0.95)) // uncap for the passes
@@ -1102,20 +1124,26 @@ function configureStationCore(st, o) {
       evolve(p) // holds the carried contents
       st.cold.intensity = p * 2.6 // cold cast ramps up (monotonic)
     }
-  } else if (action === 'thermocycle') {
-    // PCR: the sample goes into a block WELL socket; the lid closes; it cycles hot↔cool with
-    // a live CYCLE n/N counter. The 96-well block takes 0.2 mL PCR tubes ONLY: any other
-    // vessel is a SocketError (recorded) and waits on the bench beside the cycler.
+  } else if (action === 'thermocycle' || equipment === 'thermocycler') {
+    // PCR: the sample goes into a block WELL socket; the lid closes. The cycled block shows
+    // a live CYCLE n/N counter; a single-temperature PROGRAM step (initial denaturation,
+    // final extension, the 4 °C hold) shows its own stated temperature and the time left on
+    // the cycler's display — never a countdown ring on the bench. The 96-well block takes
+    // 0.2 mL PCR tubes ONLY: any other vessel is a SocketError (recorded) and waits on the
+    // bench beside the cycler.
     const tc = subject(demo.buildThermocycler())
     st.dev = tc
     const n = cycles > 0 ? cycles : 30
+    const hold = action !== 'thermocycle'
+    const show = (p) => hold ? tc.userData.setHold('HOLD', o.tempC, seconds, p) : tc.userData.setProgress(p, n)
     const SOCK = tc.userData.sampleSocket
     const ok = fitsSocket(tc, SOCK)
     const benchX = ok ? 0 : demo.benchSlot(st, VD.width / 2, +1)
-    st.enter = () => { seat(benchX); if (ok) seatIn(tc, SOCK); tc.userData.setLid(true); tc.userData.setProgress(0, n) }
+    if (ok) tc.userData.setCutaway?.(true)   // CUTAWAY: the tube is seen in its well, through the block's near wall
+    st.enter = () => { seat(benchX); if (ok) seatIn(tc, SOCK); tc.userData.setLid(true); show(0) }
     st.timeline = (p) => {
       tc.userData.setLid(!(p > 0.12 && p < 0.78))
-      tc.userData.setProgress(p, n)
+      show(p)
       evolve(p) // contents unchanged; the tube just cycles temperature
     }
   } else if (action === 'electrophorese' && container === 'gel') {
@@ -1525,7 +1553,7 @@ export function stationConfig(steps, i, { containers, stateChain, lang = 'en', a
     opts: {
       action: o.action, equipment: o.equipment, container, prevContainer, color: o.colorHex, name: o.title, vol: o.vol, seconds: o.seconds,
       startColor: o.start.color, startLevel: o.start.level, endColor: o.end.color, endLevel: o.end.level, cycles: o.cycles, reagents: o.reagents,
-      drawsFrom: o.drawsFrom, produces: o.produces, text: o.text,
+      drawsFrom: o.drawsFrom, produces: o.produces, text: o.text, tempC: o.tempC, onIce: o.onIce,
     },
   }
 }
@@ -1562,7 +1590,9 @@ export function stationParams(baseStep, lang, altIdx, chain, producedInRun, cont
   // draws_from only renders as an on-bench mix tube when its product is actually made in
   // this run; a do-ahead buffer (in the intake checklist) stays a normal bottle.
   const drawsFrom = (step.draws_from && producedInRun && producedInRun.has(step.draws_from)) ? step.draws_from : null
+  const cond = stepConditions(step)
   return { action: step.action, equipment, colorHex, vol, title, sub, seconds: step.duration_seconds, start, end, cycles, reagents,
+           tempC: cond.tempC, onIce: !!cond.onIce,
            target: step.target || 'sample', produces: step.produces || null, drawsFrom,
            text: step.text_en || step.text || '' }
 }
