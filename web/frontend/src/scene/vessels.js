@@ -29,9 +29,11 @@ import { MAX_ANISO, clamp, easeInOut, lerp, roundRect } from './util.js'
     var lx=250, ly=196, lw=150, lh=118;
     g.fillStyle="rgba(238,241,244,0.92)"; roundRect(g,lx,ly,lw,lh,10); g.fill();
     g.strokeStyle="rgba(140,150,166,0.5)"; g.lineWidth=2; roundRect(g,lx,ly,lw,lh,10); g.stroke();
-    g.fillStyle="#20252c"; g.font="italic 600 30px 'IBM Plex Sans'"; g.textAlign="center";
-    g.fillText(label||"", lx+lw/2, ly+52);
+    // NO TEXT on the writing patch: a reagent name at 30 px on a 150 px patch wrapped round a
+    // 10.8 mm tube rendered cropped and mid-word — it read as a bug. The patch stays blank
+    // (ruled); what the tube holds is named by the station title in the HUD.
     g.strokeStyle="rgba(120,130,146,0.35)"; g.lineWidth=1.5;
+    g.beginPath(); g.moveTo(lx+16,ly+52); g.lineTo(lx+lw-16,ly+52); g.stroke();
     g.beginPath(); g.moveTo(lx+16,ly+78); g.lineTo(lx+lw-16,ly+78); g.stroke();
     g.beginPath(); g.moveTo(lx+16,ly+96); g.lineTo(lx+lw-30,ly+96); g.stroke();
     var t=new THREE.CanvasTexture(c); t.anisotropy=MAX_ANISO;
