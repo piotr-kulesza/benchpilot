@@ -57,6 +57,20 @@ These govern every change to the 3D. They are correctness rules, not taste:
   `scene/demoScene.js` (one commit per builder), keeping the builder's look and
   signature; verify with a baseline → current diff.
 - Verify renders by **headless screenshot**, not by eye. See "Judging renders".
+- **Cutaway for enclosing containers.** When the subject sits inside an opaque container
+  (water bath, ice bucket, centrifuge shell and rotor slot, freezer, plate reader, gel tank,
+  a closed lid), the container's NEAR WALL is rendered see-through (`declareCutaway` in
+  `demoScene.js`; the station calls `setCutaway(true)` when the subject is seated in it).
+  It changes the wall's material opacity only — **it never moves or resizes the subject or
+  the wall**; the geometry checks must stay green with it on.
+- **The camera frames the subject; it never rescales anything.** `frameStation` fits a
+  frame per pose from the subject's real extent plus the props the step uses
+  (`stationCamera.fitFrame`); the instrument around it is shown only while the subject
+  stays legible. A 41 mm tube and a 700 mm freezer do not share one camera distance.
+- **Stage only what the step uses.** No pipette stand (the pipette is held); sources stand
+  in a compact back row behind the subject; a µl reagent comes from a 1.5 mL tube, a mL
+  reagent from a bottle; a step that names no reagent draws from the sample itself. No
+  station-number decal; the title plate names the subject and stands over it.
 
 ## Scene units and dimensions (non-negotiable)
 
@@ -82,6 +96,11 @@ These govern every change to the 3D. They are correctness rules, not taste:
   scripts/geometry-audit.mjs`. Accepted defects: `src/scene/geometry-exceptions.json`
   (dated, with a clearing condition; a stale one fails). Mark non-solids `fx(mesh, kind)`
   and in-hand objects `userData.held`.
+- **Legibility audit** (`src/scene/visibilityAudit.js`, `stationAudit.auditVisibility`):
+  every station declares its subject (`st.subject()` / `st.subjectAt(p)`); through the
+  runner's own camera it must cover ≥ 1 % of the frame, be ≤ 25 % hidden behind anything
+  opaque, and centre inside the safe area (clear of the top HUD band) — `visibility.test.js`
+  and `npx vite-node scripts/visibility-audit.mjs`.
 - **Scale sheet:** `?scale=1` (shots group `scale`) — every model at real size on one
   ground line, orthographic, with a ruler. Look at it after any builder change.
 
@@ -212,5 +231,6 @@ npm run build
   protocol; the other 8 are the test of whether the verb and container
   vocabularies actually hold. `schema-audit.mjs` reports which actions and
   containers fall back to `generic` — every fallback is a step that renders bland.
-- Pipette clips the top HUD during pours.
+- The pipette is a held tool and is not framed: its body can leave the top of the frame
+  during a pour (the subject never does — the legibility audit guards that).
 - An either/or choice does not change the 3D (no needle/syringe model).
