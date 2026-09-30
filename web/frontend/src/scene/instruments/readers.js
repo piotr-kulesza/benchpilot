@@ -58,7 +58,10 @@ import { MAX_ANISO, clamp, lerp } from '../util.js'
     grp.userData.update=function(dt){ pst.draw=lerp(pst.draw,pst.tDraw,1-Math.pow(0.02,dt)); drawer.position.z=lerp(IN_Z,OUT_Z,pst.draw); };
     grp.userData.update(1e6);
     grp.userData.sampleSocket='carrier';
-    declareCutaway(grp, [above, sideL, sideR, lip, inner]);   // the housing around the tunnel + the drawer front
+    // the NEAR wall only: the drawer's front lip, which stands in front of the plate in the
+    // tunnel (at the rail's 13.5° the plate is seen through the tunnel mouth); the housing,
+    // its sides and the tunnel lining stay solid — they used to go translucent with it
+    declareCutaway(grp, [lip]);
     return tagSpec(grp,'plate_reader');
   }
 
