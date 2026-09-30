@@ -139,7 +139,24 @@ export function summarize(protocolResults) {
 
 // ── LEGIBILITY: the subject through the station's own camera ───────────────────────────
 export const VIS_POSES = [0, 0.25, 0.5, 0.75, 1]
-export const VIS_CHECKS = ['area', 'occlusion', 'safeArea']
+export const VIS_CHECKS = ['area', 'occlusion', 'safeArea', 'dominance']
+// the objects that may not out-size the subject: every spec'd object on the station and every
+// other travelling vessel — minus the subject's holder chain (it sits IN them), the step's
+// instrument (all of it: a gel rig's tank and power supply), held tools (offBench), and the
+// step's other subjects (a transfer acts on its source AND its destination)
+export function rivalsOf(st, subject, travellers, cosubjects = []) {
+  const exempt = new Set([st.dev, st.cen, st.pip, ...cosubjects].filter(Boolean))
+  for (let n = subject; n; n = n.userData?.placement?.host || n.parent) exempt.add(n)
+  const out = []
+  const visit = (node) => {
+    if (!node || node.isLight || node.isSprite || node.userData?.offBench || exempt.has(node)) return
+    if (node.userData?.spec) { if (!exempt.has(node)) out.push(node); return }
+    for (const c of node.children) visit(c)
+  }
+  for (const c of st.group.children) visit(c)
+  for (const v of travellers) if (v !== subject) visit(v)
+  return out
+}
 export function auditVisibility(protocol, { poses = VIS_POSES } = {}) {
   const { scene, S } = setup()
   const steps = protocol.steps || []
@@ -161,13 +178,14 @@ export function auditVisibility(protocol, { poses = VIS_POSES } = {}) {
     if (st.prep) st.prep.visible = true
     if (st.drawsFromId && demo.getPrep(st.drawsFromId)) { const pr = demo.getPrep(st.drawsFromId); pr.visible = true; pr.position.set(st.drawPos.x, st.drawPos.y, st.drawPos.z) }
     const record = { index: steps[i].index ?? i, action: opts.action, equipment: opts.equipment, container: opts.container, defects: [] }
+    const cosubjects = st.subjectAt ? POSES.map((q) => st.subjectAt(q)) : []
     for (const p of poses) {
       drive(st, S, p)
       const push = st.pushCam ? st.pushCam(p) : 0
       const cam = makeCamera(cameraPose(frameAt(st, p), { push, pushTarget: st.pushTarget }))
       const subject = st.subjectAt ? st.subjectAt(p) : st.subject ? st.subject() : null
       const roots = [st.group, ...S.vessels.filter((v) => v !== subject), ...demo.getPreps().filter((v) => v !== subject)]
-      for (const d of visibilityDefects(cam, subject, roots)) { const e = { ...d, p, object: subject?.userData?.spec || '?' }; if (d.blocker) Object.defineProperty(e, 'blocker', { value: d.blocker }); record.defects.push(e) }
+      for (const d of visibilityDefects(cam, subject, roots, rivalsOf(st, subject, travellers(st, S), cosubjects))) { const e = { ...d, p, object: subject?.userData?.spec || '?' }; if (d.blocker) Object.defineProperty(e, 'blocker', { value: d.blocker }); record.defects.push(e) }
     }
     scene.remove(st.group)
     demo.undockSample()

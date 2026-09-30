@@ -21,4 +21,5 @@ describe('legibility — the subject of every station', () => {
   it('area: the subject covers at least MIN_AREA of the frame (and is in it)', () => { expect(fmt('area')).toEqual([]) })
   it('occlusion: no more than MAX_OCCLUDED of the subject is hidden behind anything opaque', () => { expect(fmt('occlusion')).toEqual([]) })
   it('safe area: the subject centre is clear of the frame edges and the top HUD band', () => { expect(fmt('safeArea')).toEqual([]) })
+  it('dominance: the subject is the largest object in frame (holders, the instrument and held tools aside)', () => { expect(rows.filter((r) => r.check === 'dominance').map((r) => `${r.protocol}#${r.step} p=${r.p} ${r.object} < ${r.by}`)).toEqual([]) })
 })

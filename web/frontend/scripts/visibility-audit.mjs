@@ -24,7 +24,7 @@ else {
   for (const c of VIS_CHECKS) {
     const rs = rows.filter((r) => r.check === c)
     console.log(`${rs.length ? '✗' : '✓'} ${c}: ${rs.length}`)
-    for (const r of rs) console.log(`    ${r.protocol} step ${r.step} (${r.action}${r.equipment && r.equipment !== 'generic' ? ` on ${r.equipment}` : ''}) p=${r.p}: ${r.object} ${r.kind}${r.area != null ? ` ${(r.area * 100).toFixed(2)}%` : ''}${r.fraction != null ? ` ${(r.fraction * 100).toFixed(0)}% by ${r.by}` : ''}${r.ndc ? ` at ${r.ndc}` : ''}`)
+    for (const r of rs) console.log(`    ${r.protocol} step ${r.step} (${r.action}${r.equipment && r.equipment !== 'generic' ? ` on ${r.equipment}` : ''}) p=${r.p}: ${r.object} ${r.kind}${r.area != null ? ` ${(r.area * 100).toFixed(2)}%` : ''}${r.fraction != null ? ` ${(r.fraction * 100).toFixed(0)}% by ${r.by}` : ''}${r.ndc ? ` at ${r.ndc}` : ''}${r.rivalArea != null ? ` < ${r.by} ${(r.rivalArea * 100).toFixed(2)}%` : ''}`)
   }
   console.log(`\nred counts (stations failing): ${VIS_CHECKS.map((c) => `${c} ${counts[c]}`).join(' · ')}\n`)
 }

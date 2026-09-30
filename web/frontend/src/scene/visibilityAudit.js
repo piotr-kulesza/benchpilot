@@ -8,14 +8,21 @@
 //              something OPAQUE (glass, water and a cutaway wall are see-through)
 //  safeArea  — the subject's centre projects inside the safe area: clear of the frame
 //              edges and of the top HUD band
+//  dominance — the subject is the LARGEST object in frame: no rival's in-frame projected
+//              box is bigger than the subject's. Rivals are the other spec'd objects on
+//              the station (sources, bottles, other vessels, props). Not rivals: the
+//              subject's own holder chain (rack, block, bath, rotor — it sits IN them),
+//              the step's instrument, and held tools (offBench: pipette, syringe). A
+//              source may be partly out of frame — only its in-frame part counts.
 // Pure three.js; no DOM, no renderer.
 import { PerspectiveCamera, Vector3, Raycaster, DoubleSide, Box3 } from 'three'
 import { solidMeshes } from './solids.js'
 import { cameraPose, CAM } from '../vessel/stationCamera.js'
 
 export const VIS = {
-  // the hand-built demo's hero tube filled ~2 % of the frame; a subject must reach half that
-  MIN_AREA: 0.01,
+  // 1 % passed tiles that were plainly unreadable (a tube in an ice bucket at 2.2 % reads
+  // as a speck); a tube that reads as the step's subject covers ≥ ~4 % of the frame
+  MIN_AREA: 0.04,
   MAX_OCCLUDED: 0.25,
   // NDC (−1..1): 7.5 % margin at the sides and bottom; the top 12.5 % is the HUD band
   SAFE: { x: 0.85, top: 0.75, bottom: -0.85 },
@@ -53,9 +60,22 @@ function subjectPoints(subject) {
   return pts
 }
 
+// the object's projected screen-space bounding box, clipped to the frame, as a fraction of it
+export function projectedArea(cam, pts) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  for (const p of pts) {
+    const q = p.clone().project(cam)
+    if (q.z > 1 || q.z < -1) continue
+    minX = Math.min(minX, q.x); maxX = Math.max(maxX, q.x); minY = Math.min(minY, q.y); maxY = Math.max(maxY, q.y)
+  }
+  const cx0 = Math.max(-1, minX), cx1 = Math.min(1, maxX), cy0 = Math.max(-1, minY), cy1 = Math.min(1, maxY)
+  return cx1 > cx0 && cy1 > cy0 ? ((cx1 - cx0) * (cy1 - cy0)) / 4 : 0
+}
+
 // subject: an Object3D; occluderRoots: every other thing in the scene (station group,
 // other vessels, preps). Returns the defects (possibly several) at this camera.
-export function visibilityDefects(cam, subject, occluderRoots) {
+// rivals: the objects that must not out-size the subject in frame (see `dominance`).
+export function visibilityDefects(cam, subject, occluderRoots, rivals = []) {
   const out = []
   if (!subject || !shown(subject)) return [{ check: 'area', kind: 'absent', area: 0 }]
   subject.updateWorldMatrix(true, true)
@@ -73,6 +93,15 @@ export function visibilityDefects(cam, subject, occluderRoots) {
   const cx0 = Math.max(-1, minX), cx1 = Math.min(1, maxX), cy0 = Math.max(-1, minY), cy1 = Math.min(1, maxY)
   const area = cx1 > cx0 && cy1 > cy0 ? ((cx1 - cx0) * (cy1 - cy0)) / 4 : 0
   if (area < VIS.MIN_AREA) out.push({ check: 'area', kind: area === 0 ? 'out-of-frame' : 'too-small', area: +area.toFixed(4) })
+  // dominance: nothing the step does not act on out-sizes the subject in frame
+  let big = null
+  for (const r of rivals) {
+    if (!r || r === subject || !shown(r)) continue
+    r.updateWorldMatrix(true, true)
+    const a = projectedArea(cam, subjectPoints(r))
+    if (a > area && (!big || a > big.area)) big = { by: r.userData?.spec || r.name || r.type, area: a }
+  }
+  if (big) out.push({ check: 'dominance', kind: 'out-sized', area: +area.toFixed(4), by: big.by, rivalArea: +big.area.toFixed(4) })
   // safe area: the centre of the subject's bounding box
   const c = new Box3().setFromPoints(pts).getCenter(new Vector3()).project(cam)
   if (Math.abs(c.x) > VIS.SAFE.x || c.y > VIS.SAFE.top || c.y < VIS.SAFE.bottom) out.push({ check: 'safeArea', kind: c.y > VIS.SAFE.top ? 'under-hud' : 'at-edge', ndc: [+c.x.toFixed(3), +c.y.toFixed(3)] })
