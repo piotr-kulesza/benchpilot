@@ -79,7 +79,7 @@ import { MAX_ANISO, clamp, easeInOut } from '../util.js'
     bed.position.y=(floorY+platY)/2; tankRoot.add(bed);
     addSocket(tankRoot,'platform',{ position:new THREE.Vector3(0,platY,0) });
     tankRoot.userData.sampleSocket='platform';
-    declareCutaway(tankRoot, rims.concat([tbase]));   // the moulded rim frame + base frame
+    declareCutaway(tankRoot, [rims[0]]);   // the NEAR rail of the rim frame only (+z): the side rails, back rail and base frame stay solid
     tankRoot.userData.rimY=TF.toWorld(0,0.9,0).y;          // a docked gel lifts clear of the rim
     // the POWER SUPPLY is its own instrument (dims('power_supply')), on the bench beside the tank
     var pg=new THREE.Group();
