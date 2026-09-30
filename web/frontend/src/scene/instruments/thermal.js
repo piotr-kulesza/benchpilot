@@ -165,13 +165,23 @@ import { MAX_ANISO, clamp, easeInOut, lerp } from '../util.js'
     var R=D.radius, H=D.height, WALL=D.wall, RB=R*0.84, FL=WALL;
     var steel = matBrushed(0xc4cbd4); steel.roughness=0.4;
     var steelDk = matBrushed(0x929ba6);
-    var wall = new THREE.Mesh(new THREE.CylinderGeometry(R,RB,H,44,1,true), steel);
+    // the tub's wall, rim and lining are each drawn as a FRONT half (camera side, +z) and a
+    // BACK half: the cutaway takes the near half away and leaves the back — the backdrop the
+    // tube is read against — solid (it used to turn the whole tub translucent)
+    var FRONT=-Math.PI/2, BACK=Math.PI/2, HALF=Math.PI;             // CylinderGeometry: z = r·cos θ
+    var wall = new THREE.Mesh(new THREE.CylinderGeometry(R,RB,H,22,1,true,FRONT,HALF), steel);
     wall.position.y=H/2; wall.castShadow=true; wall.receiveShadow=true; grp.add(wall);
-    var rim = new THREE.Mesh(new THREE.TorusGeometry(R-WALL*0.2,WALL*0.2,14,48), steelDk);
+    var wallBack = new THREE.Mesh(new THREE.CylinderGeometry(R,RB,H,22,1,true,BACK,HALF), steel);
+    wallBack.position.y=H/2; wallBack.castShadow=true; wallBack.receiveShadow=true; grp.add(wallBack);
+    var rim = new THREE.Mesh(new THREE.TorusGeometry(R-WALL*0.2,WALL*0.2,14,24,Math.PI), steelDk);   // arc 0..π → z ≥ 0
     rim.rotation.x=Math.PI/2; rim.position.y=H-WALL*0.2; grp.add(rim);
+    var rimBack = new THREE.Mesh(new THREE.TorusGeometry(R-WALL*0.2,WALL*0.2,14,24,Math.PI), steelDk);
+    rimBack.rotation.set(Math.PI/2,0,Math.PI); rimBack.position.y=H-WALL*0.2; grp.add(rimBack);
     var innerMat = new THREE.MeshStandardMaterial({ color:0x6f7d89, metalness:0.3, roughness:0.55, envMapIntensity:0.7, side:THREE.DoubleSide }); // muted cool-grey interior
-    var inner = new THREE.Mesh(new THREE.CylinderGeometry(R-WALL,RB-WALL,H-FL,44,1,true), innerMat);
+    var inner = new THREE.Mesh(new THREE.CylinderGeometry(R-WALL,RB-WALL,H-FL,22,1,true,FRONT,HALF), innerMat);
     inner.position.y=FL+(H-FL)/2; fx(inner,'decal'); grp.add(inner);
+    var innerBack = new THREE.Mesh(new THREE.CylinderGeometry(R-WALL,RB-WALL,H-FL,22,1,true,BACK,HALF), innerMat);
+    innerBack.position.y=FL+(H-FL)/2; fx(innerBack,'decal'); grp.add(innerBack);
     var base = new THREE.Mesh(new THREE.CylinderGeometry(RB,RB,FL,44), innerMat);
     base.position.y=FL/2; grp.add(base);                                 // the insulated floor
     addSocket(grp,'bed',{ position:new THREE.Vector3(0,FL,0) });
@@ -195,13 +205,14 @@ import { MAX_ANISO, clamp, easeInOut, lerp } from '../util.js'
       var fa=Math.random()*Math.PI*2, fy=H*(0.13+Math.random()*0.8);
       var rAt=lerp(RB,R,fy/H);
       fm.position.set(Math.cos(fa)*rAt, fy, Math.sin(fa)*rAt);
-      var fs=R*(0.014+Math.random()*0.027); fm.scale.set(fs,fs,fs); fx(fm,'effect'); grp.add(fm);
+      var fs=R*(0.014+Math.random()*0.027); fm.scale.set(fs,fs,fs); fx(fm,'effect');
+      if(Math.abs(fm.position.z)>fs) grp.add(fm);   // a blob straddling the cut plane would half-vanish (same random draws either way)
     }
     var label = makeLabel("On ice","");   // (was sublabelled "store −80 °C" — ice is not −80 °C)
     label.position.set(0,H+LABEL_GAP,0); grp.add(label);
     grp.userData.label=label; grp.userData.update=function(){};
     grp.userData.sampleSocket='bed';
-    var near=[wall,rim,inner]; grp.children.forEach(function(c){ if(c.userData.fx==='effect') near.push(c); });   // the tub's walls + its frost
+    var near=[wall,rim,inner]; grp.children.forEach(function(c){ if(c.userData.fx==='effect' && c.position.z>c.scale.z) near.push(c); });   // the near half of the tub + the frost on it
     declareCutaway(grp, near);
     return tagSpec(grp,'ice_bucket_4l');
   }
