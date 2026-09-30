@@ -103,16 +103,27 @@ import { MAX_ANISO, easeInOut, lerp } from '../util.js'
 
     var rc=document.createElement("canvas"); rc.width=256; rc.height=128; var rg=rc.getContext("2d");
     var rTex=new THREE.CanvasTexture(rc); rTex.anisotropy=MAX_ANISO;
-    function drawRPM(v){
+    // THE READOUT SHOWS ONLY WHAT THE STEP STATES. It used to derive a ×g figure from the
+    // animation's spin rate (12,369 ×g for "briefly spin down"). Now: the stated RCF while
+    // it runs; a stated-nothing brief spin reads PULSE; at rest the field is blank.
+    var ro={ rcf:null, running:false, drawn:null };
+    function drawReadout(){
+      var key=ro.running+"|"+ro.rcf; if(key===ro.drawn) return; ro.drawn=key;
       rg.fillStyle="#12161c"; rg.fillRect(0,0,256,128);
       rg.strokeStyle="rgba(90,100,116,0.4)"; rg.lineWidth=3; rg.strokeRect(6,6,244,116);
-      rg.fillStyle="#8fcabf"; rg.font="700 52px 'IBM Plex Mono'"; rg.textAlign="right";
-      rg.fillText(Math.round(v)+"", 200,72);
-      rg.fillStyle="#727a85"; rg.font="600 20px 'IBM Plex Sans'"; rg.fillText("× g", 244,72);
-      rg.textAlign="left"; rg.fillText("SPEED", 16,34);
+      rg.fillStyle="#727a85"; rg.font="600 20px 'IBM Plex Sans'"; rg.textAlign="left"; rg.fillText("SPEED", 16,34);
+      rg.textAlign="right";
+      if(ro.running && ro.rcf!=null){
+        rg.fillStyle="#8fcabf"; rg.font="700 52px 'IBM Plex Mono'"; rg.fillText(Math.round(ro.rcf).toLocaleString()+"", 200,90);
+        rg.fillStyle="#727a85"; rg.font="600 20px 'IBM Plex Sans'"; rg.fillText("× g", 244,90);
+      } else if(ro.running){
+        rg.fillStyle="#8fcabf"; rg.font="700 40px 'IBM Plex Mono'"; rg.fillText("PULSE", 232,90);
+      } else {
+        rg.fillStyle="#3a414b"; rg.font="700 40px 'IBM Plex Mono'"; rg.fillText("– – –", 232,90);
+      }
       rTex.needsUpdate=true;
     }
-    drawRPM(0);
+    drawReadout();
     var readout=new THREE.Mesh(new THREE.PlaneGeometry(0.62,0.31), new THREE.MeshBasicMaterial({map:rTex,transparent:true}));
     readout.position.set(0,0.62,1.31); readout.rotation.x=-0.32; fx(readout,'decal'); grp.add(readout);
     var roFrame=new THREE.Mesh(new THREE.BoxGeometry(0.72,0.4,0.05), shellDk);
@@ -137,6 +148,7 @@ import { MAX_ANISO, easeInOut, lerp } from '../util.js'
     grp.userData.rotor=rotor; grp.userData.dome=dome; grp.userData.label=label; grp.userData.st=st;
     grp.userData.holders=holders;
     grp.userData.setSpin=function(v){ st.tSpin=v; };
+    grp.userData.setRcf=function(v){ ro.rcf=(v==null||!isFinite(v))?null:v; ro.drawn=null; drawReadout(); };   // the step's stated ×g, or none
     // IMPROVEMENT: explicit lid hook. stationSpin closes it before the rotor spins
     // up and opens it once the rotor stops (no longer auto-coupled to spin).
     grp.userData.setLid=function(open){ st.tLid = open?1:0; };
@@ -154,7 +166,7 @@ import { MAX_ANISO, easeInOut, lerp } from '../util.js'
       }
       st.lid=lerp(st.lid,st.tLid,1-Math.pow(0.02,dt));
       lidPivot.rotation.x = -easeInOut(st.lid)*1.15;
-      drawRPM(Math.min(st.spin,26)/26*13400);
+      ro.running = st.tSpin>0; drawReadout();
     };
     var root=fitArt(grp,'microcentrifuge'), F=root.userData.fit;
     // The ROTOR at real size and a UNIFORM scale u (a tube riding a slot must not be

@@ -8,6 +8,7 @@ import { placeInto, placeOnBench, clearPlacement, getSocket, socketPose, canPlac
 import { standFor } from './holders.js'
 import { benchSlot } from './bench.js'
 import { buildCentrifuge } from './instruments/motion.js'
+import { buildTube, buildSpinColumn } from './vessels.js'
 import { SAMPLE, scene, getSnap } from './sample.js'
 import { clamp, easeInOut, lerp } from './util.js'
 
@@ -19,6 +20,7 @@ import { clamp, easeInOut, lerp } from './util.js'
     // spins — never scaled down to fit a slot it does not fit (the old SEAT_SCALE 0.6).
     var cen=buildCentrifuge();
     st.group.add(cen); placeOnBench(cen); st.updatables.push(cen); st.cen=cen;
+    if(cen.userData.setRcf) cen.userData.setRcf(o.rcf);   // the readout shows the stated ×g, or PULSE
     var v0=SAMPLE[o.vessel];
     var SOCK=cen.userData.socketFor ? cen.userData.socketFor(v0.userData.spec) : cen.userData.sampleSocket;
     var fits=canPlace(v0, cen, SOCK);
@@ -41,6 +43,22 @@ import { clamp, easeInOut, lerp } from './util.js'
       return { pre:pre, above:above, seat:pose.position, q:pose.quaternion };
     }
     var P=pathFor(slotPose());
+    // THE BALANCE: a centrifuge is never run with one tube. Opposite the sample's slot rides a
+    // counterweight — the same vessel, water-clear contents at the sample's level. An object
+    // the INSTRUMENT requires for correct use may appear; content the protocol does not
+    // state may not (CLAUDE.md).
+    var balance=null;
+    if(fits){
+      var k=+SOCK.replace(/^slot(\d+).*$/,'$1'), n=cen.userData.holders.length, opp='slot'+((k+n/2)%n)+(/p$/.test(SOCK)?'p':'');
+      balance = v0.userData.spec==='spin_column_mini' ? buildSpinColumn() : buildTube({ spec:v0.userData.spec, color:0xe4edf2, label:false });
+      if(balance.userData.label) balance.userData.label.visible=false;
+      balance.userData.setColor&&balance.userData.setColor(0xe4edf2);
+      balance.userData.setLevel&&balance.userData.setLevel(o.lStart==null?0.5:o.lStart);
+      balance.userData.balance=true;
+      placeInto(balance, cen, opp, { ride:true });
+      if(cen.userData.setAdapter) cen.userData.setAdapter(opp, /p$/.test(opp));
+      st.updatables.push(balance);
+    }
     function put(v, pnt, q){ SAMPLE.at(v, st.x+pnt.x, pnt.y, pnt.z); if(q) v.quaternion.copy(q); else v.quaternion.identity(); }
     function dock(){
       if(docked||!fits) return;
