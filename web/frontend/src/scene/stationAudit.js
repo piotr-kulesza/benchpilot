@@ -154,7 +154,7 @@ export function auditVisibility(protocol, { poses = VIS_POSES } = {}) {
     const { opts, o } = stationConfig(steps, i, { containers, stateChain, lang: 'en', producedInRun })
     configureStation(st, opts)
     st.frame = frameStation(st)                // framed exactly as the runner frames it
-    if (!st.prepId) addStationLabel(st, o.title, o.sub)
+    addStationLabel(st, o.title, o.sub)
     scene.add(st.group)
     demo.setSnap(true)
     st.enter?.()

@@ -645,19 +645,21 @@ export function configureStation(st, o) {
     prep.position.set(home.x, home.y, home.z); prep.userData.tPos.copy(prep.position); placeOnBench(prep)
     prep.userData.mixColor = reags[reags.length - 1].color // the mixture's settled colour
     prep.userData.setColor(reags[0].color); prep.userData.setLevel(0)
-    prep.userData.setLabel(name || 'mixture', vol || '')
+    if (prep.userData.label) prep.userData.label.visible = false   // the station title names it (its own plate was world-sized)
     st.prep = prep; st.prepId = prepId; st.prepHome = home; st.prepFull = PREP_FULL
     st.subject = () => prep // the step acts on the PREP tube, not the idle sample
-    const idleX = demo.benchSlot(st, VD.width / 2, -1)       // the idle sample, left of the prep
     demo.addPipetteRig(st)
     reags.forEach((r, k) => demo.addBottle(st, 'r' + k, r.name, r.color, r.vol))
+    // STAGE ONLY WHAT THE STEP USES: a prepare does not touch the sample, so the sample is
+    // not staged here (framed beside the prep it cost the prep its legibility); it is shown
+    // again, unchanged, at the next station
     const DIP = { x: 0, y: SEAT_Y, z: 0 }
     const idleSample = () => {
       S.only(vessel)
       const sv = S[vessel]
       sv.userData.setColor(startColor); sv.userData.setLevel(startLevel)
-      sv.visible = true; sv.rotation.set(0, 0, 0); sv.scale.setScalar(1); sv.userData.held = false
-      S.snapTo(sv, st.x + idleX, 0, 0) // idle beside the prep; never clobber global snap
+      sv.visible = false; sv.rotation.set(0, 0, 0); sv.scale.setScalar(1); sv.userData.held = false
+      S.snapTo(sv, st.x, 0, 0) // (hidden) held here, so it glides on from this station; never clobber global snap
       placeOnBench(sv)
       return sv
     }
@@ -890,7 +892,8 @@ export function configureStation(st, o) {
       bath.position.set(0, 0, -(BD.depth / 2 + GAP + VD.depth / 2))
     }
     placeOnBench(bath)
-    st.warm.position.set(bath.position.x, SURF, bath.position.z)
+    // the warm glow comes from the water behind the tube, not from the tube itself
+    st.warm.position.set(bath.position.x, SURF + BD.inner_height * 0.4, bath.position.z - BD.inner_depth * 0.35)
     const R = dims('microtube_1_5').radius
     st.bubbles = streams.wrap('heatBubbles', () => Array.from({ length: 8 }, () => {
       const b = new Mesh(new SphereGeometry(R * 0.4, 10, 8), new MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, roughness: 0.1 }))
@@ -1522,7 +1525,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       // chromeless (the Home hero): just the lit glass, no title plate, no bench number.
       // A `prepare` station's subject is the CARRIED prep tube, which owns its own label and
       // travels with it — a station title here would duplicate it (and be left behind), so skip.
-      if (!chromeless && !st.prepId) addStationLabel(st, o.title, o.sub)
+      if (!chromeless) addStationLabel(st, o.title, o.sub)
       scene.add(st.group)
       // (no station-number decal on the bench: the step number is in the timeline above)
       // BENCH-FALLBACK STAGING: a step that rests on the bare bench (no modelled instrument)

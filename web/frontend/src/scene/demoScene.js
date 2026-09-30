@@ -965,7 +965,7 @@ export function undockSample(lift = false) {
     needle.position.set(dialX,dialY,fz+DR*0.29); needle.rotation.z=0.7; fx(needle,'decal'); grp.add(needle);
     // steam wisps rise ONLY when warm (at rest: none) — very subtle, no colour cast
     var steamMat=new THREE.MeshBasicMaterial({ color:0xeef2f4, transparent:true, opacity:0.0, depthWrite:false, blending:THREE.AdditiveBlending, fog:false });
-    var WS=ID*0.12;
+    var WS=ID*0.03;      // a wisp is a few cm across, not a 15 cm ball
     var wisps=[]; for(var w=0;w<6;w++){ var s=new THREE.Mesh(new THREE.SphereGeometry(WS,10,8), steamMat.clone());
       s.userData.seed={ x:(Math.random()-0.5)*IW*0.8, z:(Math.random()-0.5)*ID*0.7, off:Math.random(), sp:0.3+Math.random()*0.35 };
       fx(s,'effect'); grp.add(s); wisps.push(s); }
@@ -1337,9 +1337,10 @@ export function undockSample(lift = false) {
     // crushed ICE packed to ice_depth, leaving the centre clear for the tube
     var iceMat=new THREE.MeshPhysicalMaterial({ color:0xd4e2ea, roughness:0.14,
       transparent:true, opacity:0.55, clearcoat:0.8, envMapIntensity:1.0, flatShading:true, depthWrite:false });
+    // real-size pieces (dims ice_piece), packed to ice_depth — which is BELOW the tube's top
     var iceTop=FL+D.ice_depth, clearR=T.radius*1.8;
-    for(var ic=0;ic<12;ic++){
-      var a=Math.random()*Math.PI*2, cs=R*(0.16+Math.random()*0.1), rr=clearR+cs+Math.random()*(RB-WALL-clearR-2*cs);
+    for(var ic=0;ic<48;ic++){
+      var a=Math.random()*Math.PI*2, cs=D.ice_piece*(0.35+Math.random()*0.3), rr=clearR+cs+Math.random()*(RB-WALL-clearR-2*cs);
       var cube=new THREE.Mesh(new THREE.IcosahedronGeometry(cs,0), iceMat);
       cube.position.set(Math.cos(a)*rr, iceTop-cs*(0.3+Math.random()*0.6), Math.sin(a)*rr);
       cube.rotation.set(Math.random(),Math.random(),Math.random());
@@ -2746,7 +2747,7 @@ export {
   function addBottle(st, key, labelText, color, vol){
     var b;
     if(smallVolume(vol)){
-      b = buildTube({ color:color, label:labelText||'' });
+      b = buildTube({ color:color, label:false });   // no world-size plate: the step's title names it
       b.userData.setColor(color); b.userData.setLevel(0.55);
       b.userData.draw=new THREE.Vector3(0, b.userData.entry, 0);
     } else {

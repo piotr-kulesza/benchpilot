@@ -69,7 +69,8 @@ These govern every change to the 3D. They are correctness rules, not taste:
   stays legible. A 41 mm tube and a 700 mm freezer do not share one camera distance.
 - **Stage only what the step uses.** No pipette stand (the pipette is held); sources stand
   in a compact back row behind the subject; a µl reagent comes from a 1.5 mL tube, a mL
-  reagent from a bottle; a step that names no reagent draws from the sample itself. No
+  reagent from a bottle; a step that names no reagent draws from the sample itself; a
+  prepare does not stage the idle sample (it does not use it). No
   station-number decal; the title plate names the subject and stands over it.
 
 ## Scene units and dimensions (non-negotiable)
