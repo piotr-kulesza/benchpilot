@@ -426,6 +426,7 @@ function addReagentSource(st, key, r, k, fromMix) {
 // (placeInto — a vessel class the socket does not accept is recorded in st.socketErrors
 // and the vessel stays on the bench, never a wrong render); every height a vessel is
 // carried at is derived from the heights of what it clears (+ the lift clearance).
+const _Y = new Vector3(0, 1, 0)
 export function configureStation(st, o) {
   const { action, equipment, container, prevContainer, color, name, vol, seconds, startColor, startLevel, endColor, endLevel, cycles } = o
   const C = containerContract(container)
@@ -1051,15 +1052,25 @@ export function configureStation(st, o) {
       spr.userData.offBench = true
       st.group.add(spr)
       const base = st.timeline
-      const R = VD.radius * 0.45
+      // the FOOT stays on the agar: its centre circles inside the plate at a radius that keeps
+      // its whole length inside the rim (the bend used to orbit at 0.45 R with the 38 mm foot
+      // pointing outward — its tip swept past the rim, through the wall, over the bench)
+      const F = spr.userData.fit, footC = F.toWorld(0.4, 0, 0), footTip = F.toWorld(0.8, 0, 0)
+      const halfFoot = footTip.x - footC.x
+      const R = Math.max(0, VD.radius - VD.wall - halfFoot - clearance('lift') * 0.12)
+      const _fc = new Vector3()
       // dispense first (the whole pipette run in p 0-0.6), THEN spread (0.62-1) with the
       // spreader's foot ON the agar surface
       st.timeline = (p) => {
         base(demo.clamp(p / 0.6, 0, 1))
         spr.visible = p > 0.62
         const a = demo.clamp((p - 0.62) / 0.36, 0, 1) * Math.PI * 3 // sweeping circles
-        spr.position.set(Math.cos(a) * R, ENTRY, Math.sin(a) * R)
         spr.rotation.y = a
+        _fc.set(footC.x, 0, footC.z).applyAxisAngle(_Y, a)            // the foot's centre, turned with it
+        // ON THE PLATE, wherever it stands (a pipette-transfer seed puts it right of centre —
+        // the spreader used to circle the station origin, spreading the bare bench)
+        const pl = S[vessel].userData.tPos || S[vessel].position
+        spr.position.set(pl.x - st.x + Math.cos(a) * R - _fc.x, pl.y + ENTRY, pl.z + Math.sin(a) * R - _fc.z)
       }
     }
   } else if (action === 'stain') {
