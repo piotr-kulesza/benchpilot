@@ -13,6 +13,12 @@
 //                      EPS of contact. Vessel/instrument pairs are containment's job.
 //  relativeScale     — every pair of objects in the frame is sized in the ratio of its
 //                      real-world counterparts (dimensions.json) within SCALE_TOLERANCE.
+//  stability         — contact is not support: an object whose BASE IS NOT FLAT (a conical
+//                      tube touching at its tip) cannot stand on its own. Resting and not
+//                      held, it must be seated in a socket (a rack, a block, a float, a
+//                      rotor). Flat = the resting face (the solid vertices within EPS of
+//                      the lowest point) is at least FLAT_BASE × the object's height wide
+//                      in its narrower direction (the tangent of the lean that tips it).
 //
 // Plus pivotAudit: a freshly built model's origin is the centre of its base.
 import { Raycaster, Vector3, Matrix4, Box3, DoubleSide, BufferAttribute, BufferGeometry } from 'three'
@@ -22,6 +28,7 @@ import { dims, clearance } from './dims.js'
 
 export const EPS = clearance('contact_epsilon') // ½ mm in world units
 export const SCALE_TOLERANCE = 1.3               // a pair may be off its real ratio by ≤ 30 %
+export const FLAT_BASE = 0.2                     // tips over past ~11° of lean
 
 const categoryOf = (o) => (o.spec ? dims(o.spec).category : 'unknown')
 function hasSpec(n) { let f = false; n.traverse((c) => { if (c.userData && c.userData.spec) f = true }); return f }
@@ -119,6 +126,42 @@ export function contactDefects(objects, resting = () => true) {
     if (face.y < -EPS) out.push({ check: 'contact', kind: 'below-bench', object: o.name, gap: +face.y.toFixed(4) })
     else if (sunk) out.push({ check: 'contact', kind: 'sunk', object: o.name, into: sunk.into, depth: +sunk.depth.toFixed(4) })
     else if (bestGap > EPS) out.push({ check: 'contact', kind: 'floating', object: o.name, on, gap: +bestGap.toFixed(4) })
+  }
+  return out
+}
+
+// ── stability ───────────────────────────────────────────────────────────────────────
+// TIP-OVER MARGIN: the resting face's narrower span over the object's height. An upright
+// body tips once tan(lean) exceeds half its support width over its centre-of-mass height
+// (~ half its height) — so this ratio is that tangent: ~0.5 for a flat-bottomed bottle,
+// ~0.05 for a conical tube standing on its tip, large for a plate or a slide.
+export function baseSpan(node) {
+  node.updateWorldMatrix(true, true)
+  let minY = Infinity
+  const pts = []
+  for (const m of solidMeshes(node)) {
+    if (m.isInstancedMesh) continue
+    const pos = m.geometry.attributes.position
+    for (let i = 0; i < pos.count; i++) {
+      _v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld)
+      if (_v.y < minY - EPS) { minY = _v.y; pts.length = 0 }
+      if (_v.y <= minY + EPS) pts.push([_v.x, _v.z])
+    }
+  }
+  if (!pts.length) return Infinity
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity
+  for (const [x, z] of pts) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z) }
+  const b = solidBox(node), h = b.max.y - b.min.y
+  return h > 0 ? Math.min(x1 - x0, z1 - z0) / h : Infinity
+}
+export function stabilityDefects(objects, resting = () => true) {
+  const out = []
+  for (const o of objects) {
+    if (o.category === 'tool' || o.node.userData.held || !resting(o)) continue
+    const pl = o.node.userData.placement
+    if (pl && pl.host && pl.host !== 'bench' && pl.host.userData?.sockets?.[pl.socket]) continue   // seated
+    const span = baseSpan(o.node)
+    if (span < FLAT_BASE) out.push({ check: 'stability', kind: 'unsupported', object: o.name, on: pl?.host === 'bench' ? 'bench' : 'unseated', span: +span.toFixed(3) })
   }
   return out
 }

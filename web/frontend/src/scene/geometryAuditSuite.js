@@ -28,6 +28,7 @@ export function defineGeometrySuite(ids, { pivots = false } = {}) {
   const fmt = (check) => out.rows.filter((r) => r.check === check).map((r) => `${r.protocol}#${r.step} p=${r.p} ${r.kind || ''} ${r.object || r.a} ${r.host || r.into || r.on || r.b || ''}`.trim())
   describe(`scene geometry — every station of ${ids.join(', ')}`, () => {
     it('contact: every resting object sits on what is beneath it, or on its socket (no float, no sink)', () => { expect(fmt('contact')).toEqual([]) })
+    it('stability: a resting object whose base is not flat is in a rack, a block, a float or a hand', () => { expect(fmt('stability')).toEqual([]) })
     it('containment: a vessel in an instrument is in a socket that accepts it, never through a wall', () => { expect(fmt('containment')).toEqual([]) })
     it('interpenetration: no two solids intersect', () => { expect(fmt('interpenetration')).toEqual([]) })
     it('relative scale: objects in one frame keep their real-world size ratio', () => { expect(fmt('relativeScale')).toEqual([]) })

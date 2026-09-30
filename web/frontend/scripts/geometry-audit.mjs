@@ -41,6 +41,7 @@ if (JSON_OUT) {
   const fmt = (d) => {
     const where = `${d.protocol} step ${d.step} (${d.action}${d.equipment && d.equipment !== 'generic' ? ` on ${d.equipment}` : ''}, ${d.container}) p=${d.p}`
     if (d.check === 'contact') return `${where}: ${d.object} ${d.kind}${d.on ? ` above ${d.on}` : ''}${d.into ? ` into ${d.into}` : ''} ${d.gap ?? d.depth}`
+    if (d.check === 'stability') return `${where}: ${d.object} stands ${d.kind} on the ${d.on} (base spans ${(d.span * 100).toFixed(0)}% of its footprint)`
     if (d.check === 'containment') return `${where}: ${d.object} in ${d.host} — ${d.kind}`
     if (d.check === 'interpenetration') return `${where}: ${d.a} ∩ ${d.b}`
     return `${where}: ${d.a} vs ${d.b} — off real ratio ×${d.ratioOff}`

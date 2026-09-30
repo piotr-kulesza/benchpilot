@@ -7,7 +7,7 @@ import { configureStation, stationConfig, lineStateChain, producedInRunOf, frame
 import { cameraPose } from '../vessel/stationCamera.js'
 import { visibilityDefects, makeCamera } from './visibilityAudit.js'
 import { sampleContainerSequence } from '../vessel/sceneRecipe.js'
-import { inventory, contactDefects, containmentDefects, interpenetrationDefects, relativeScaleDefects } from './geometryAudit.js'
+import { inventory, contactDefects, containmentDefects, interpenetrationDefects, relativeScaleDefects, stabilityDefects } from './geometryAudit.js'
 
 export const POSES = Array.from({ length: 41 }, (_, k) => k / 40)
 const MOTION_DP = 0.02    // a pose's neighbour for the "is it being carried?" test
@@ -88,6 +88,7 @@ export function auditProtocol(protocol, { poses = POSES } = {}) {
       const tag = (d) => ({ ...d, p })
       record.defects.push(
         ...contactDefects(objs, (o) => resting.has(o)).map(tag),
+        ...stabilityDefects(objs, (o) => resting.has(o)).map(tag),
         ...containmentDefects(objs).map(tag),
         ...interpenetrationDefects(objs).map(tag),
         ...(p === poses[0] ? relativeScaleDefects(objs).map(tag) : []),
@@ -102,7 +103,7 @@ export function auditProtocol(protocol, { poses = POSES } = {}) {
 
 // Distinct defects per check: one per (station, check, kind, objects) — a defect present
 // at several poses of the same station counts once.
-export const CHECKS = ['contact', 'containment', 'interpenetration', 'relativeScale']
+export const CHECKS = ['contact', 'stability', 'containment', 'interpenetration', 'relativeScale']
 export function distinctKey(stationIndex, d) {
   return [stationIndex, d.check, d.kind || '', d.object || d.a || '', d.host || d.into || d.on || d.b || ''].join('|')
 }
