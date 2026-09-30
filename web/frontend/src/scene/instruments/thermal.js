@@ -264,16 +264,32 @@ import { MAX_ANISO, clamp, easeInOut, lerp } from '../util.js'
     grp.userData.setLid=function(open){ st.tLid=open?1:0; };
     // p in [0,1] over the whole step; `cycles` = repeat.count. Steps the CYCLE readout
     // and its hot/cool temperature — the ONLY heat cue (no bench-blooming glow light).
-    // temps: the step's STATED [denature, anneal, extend] °C (it used to show a fixed
-    // 95 / 58 / 72 whatever the protocol said); a generic program when it states none
-    grp.userData.setProgress=function(p, cycles, temps){
+    // THE CYCLE AS STATED: the counter on its own line, and the cycle's three steps laid out
+    // with their stated temperatures — the one running now lit (any still shows the whole
+    // cycle and where in it the tube is; one big temperature overlapped the counter and read
+    // 94° in every frame). temps / durs: [denature, anneal, extend] °C and seconds.
+    function drawCycle(cyc, tot, T, phase){
+      dg.fillStyle="#0d1218"; dg.fillRect(0,0,256,128);
+      dg.strokeStyle="rgba(90,100,116,0.4)"; dg.lineWidth=3; dg.strokeRect(6,6,244,116);
+      dg.textAlign="left"; dg.fillStyle="#7a8290"; dg.font="600 18px 'IBM Plex Sans'"; dg.fillText("CYCLE", 16,32);
+      dg.textAlign="right"; dg.fillStyle="#8fcabf"; dg.font="700 26px 'IBM Plex Mono'"; dg.fillText(cyc+" / "+tot, 240,34);
+      var NAMES=["DEN","ANN","EXT"], X=[48,128,208];
+      for(var i=0;i<3;i++){
+        var on=i===phase;
+        if(on){ dg.fillStyle="rgba(143,202,191,0.14)"; dg.fillRect(X[i]-38,46,76,70); }
+        dg.textAlign="center"; dg.fillStyle=on?"#aab4c0":"#4a525c"; dg.font="600 14px 'IBM Plex Sans'"; dg.fillText(NAMES[i], X[i],64);
+        dg.fillStyle=on?(T[i]>=37?"#ff9a5a":"#6fb8f0"):"#4a525c"; dg.font="700 30px 'IBM Plex Mono'"; dg.fillText(Math.round(T[i])+"°", X[i],102);
+      }
+      dTex.needsUpdate=true;
+    }
+    grp.userData.setProgress=function(p, cycles, temps, durs){
       cycles=Math.max(1, cycles||30);
       var T=(temps&&temps.length>=3)?temps:[95,58,72];
+      var D=(durs&&durs.length>=3&&durs.every(function(d){ return d>0; }))?durs:[1,1,1];
       var cyc=Math.min(cycles, Math.floor(p*cycles)+1);
-      var cp=(p*cycles)%1;                     // progress within the current cycle
-      var hot=cp<0.4;                            // denature (hot) then anneal/extend (cooler)
-      var tempC = hot ? T[0] : (cp<0.7 ? T[1] : T[2]);
-      drawDisp(cyc, cycles, tempC, hot);
+      var cp=(p*cycles)%1, tot=D[0]+D[1]+D[2], t=cp*tot;   // progress within the cycle, in its stated time
+      var phase = t<D[0] ? 0 : (t<D[0]+D[1] ? 1 : 2);
+      drawCycle(cyc, cycles, T, phase);
     };
     // A single-temperature PROGRAM STEP (initial denaturation, final extension, the 4 °C
     // hold): the display shows the step's own stated temperature and the time left of its
@@ -321,8 +337,30 @@ import { MAX_ANISO, clamp, easeInOut, lerp } from '../util.js'
     var floor=new THREE.Mesh(new THREE.PlaneGeometry(BW,BDEP), new THREE.MeshStandardMaterial({ color:0x1b2128, metalness:0.4, roughness:0.7 }));
     floor.rotation.x=-Math.PI/2; floor.position.y=deckY+BD*0.01; fx(floor,'decal'); root.add(floor);   // the dark bore floors
     holes.forEach(function(h){ addSocket(root,h[3],{ position:new THREE.Vector3(h[0],deckY,h[1]) }); });
+    // THE LID SEATS ON THE TUBES AND HINGES AT THE BACK. Drawn, it closed ~13 mm above the
+    // block with nothing joining it to the body — a slab hovering over the machine. Now: its
+    // underside rests just above the tube caps (a heated lid presses them; the tube stands
+    // bore_depth short of its height, proud of the block), a SKIRT hangs from it to the deck
+    // round the block (closed, the lid meets the machine: no gap), and a HINGE barrel on two
+    // brackets joins its back edge to the body. It opens by rotating about that hinge.
+    var toArtY=function(w){ return (w-F.art.position.y)/F.sy; }, toArtX=function(w){ return (w-F.art.position.x)/F.sx; }, toArtZ=function(w){ return (w-F.art.position.z)/F.sz; };
+    var capTop=deckY+BD+(PT.height-BD), under=capTop+clearance('contact_epsilon')*1.2;
+    var pivY=toArtY(under)-0.01;                       // the lid box's underside sits 0.01 above its pivot
+    lidPivot.position.y=pivY;
+    var lidMat=lid.material, deckTop=0.75, skirtH=pivY+0.01-deckTop, skT=0.03;
+    var bx=toArtX(BW/2+clearance('socket_fit')*6)-toArtX(0), bz=toArtZ(BDEP/2+clearance('socket_fit')*6)-toArtZ(0), zc=toArtZ(0)-lidPivot.position.z;
+    [[2*bx+2*skT, skT, 0, zc+bz+skT/2],[2*bx+2*skT, skT, 0, zc-bz-skT/2]].forEach(function(r){   // front + back walls
+      var w=new THREE.Mesh(new THREE.BoxGeometry(r[0],skirtH,r[1]), lidMat); w.position.set(r[2],0.01-skirtH/2,r[3]); lidPivot.add(w); });
+    [-1,1].forEach(function(sx){                                                                  // side walls
+      var w=new THREE.Mesh(new THREE.BoxGeometry(skT,skirtH,2*bz), lidMat); w.position.set(sx*(bx+skT/2),0.01-skirtH/2,zc); lidPivot.add(w); });
+    var hingeMat=matBrushed(0x7c858f);
+    var barrel=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,1.7,16), hingeMat);
+    barrel.rotation.z=Math.PI/2; barrel.position.set(0,pivY,lidPivot.position.z); grp.add(barrel);
+    [-0.7,0.7].forEach(function(x){                                                               // brackets: barrel → body top
+      var bH=pivY-0.7, b=new THREE.Mesh(new THREE.BoxGeometry(0.14,bH,0.07), hingeMat);
+      b.position.set(x,0.7+bH/2,lidPivot.position.z); grp.add(b); });
     root.userData.sampleSocket='H6';                 // the front row: seen through the cut near wall
-    root.userData.display=disp; root.userData.block=block;
+    root.userData.display=disp; root.userData.block=block; root.userData.blockParts=[block, blockFront]; root.userData.lidMesh=lid;
     // the lid's box when it is RAISED (for framing: an open lid is framed whole)
     root.userData.openLidBox=function(){ var r=lidPivot.rotation.x; lidPivot.rotation.x=-1.15; root.updateMatrixWorld(true);
       var b=new THREE.Box3().setFromObject(lid); lidPivot.rotation.x=r; root.updateMatrixWorld(true); return b; };
