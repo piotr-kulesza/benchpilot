@@ -20,7 +20,7 @@ import { reagentName, reagentVolume, effectiveStep, selectAlternative, hasAltern
 import * as demo from '../scene/demoScene.js'
 import { streams } from '../scene/rng.js'
 import { dims, clearance } from '../scene/dims.js'
-import { cameraPose, fitFrame, frameNdc } from './stationCamera.js'
+import { cameraPose, fitFrame, frameNdc, viewDir, CAM } from './stationCamera.js'
 import { solidBox } from '../scene/solids.js'
 import { placeInto, placeOnBench, clearPlacement, getSocket, socketPose, canPlace, SocketError, addSocket, registerBenchHolder, socketAccepts } from '../scene/sockets.js'
 import { resolveScenePreset } from '../scene/scenePresets.js'
@@ -252,7 +252,7 @@ export function frameStation(st) {
   // bench, then on the rotor, not as a speck in a frame holding the whole path
   st.frames = boxes.map((sb) => {
     const used = sb.clone().union(usedProps), context = st.tightFrame ? used.clone() : used.clone().union(ctxProps)
-    const f = fitFrame(sb, used, context)
+    const f = fitFrame(sb, used, context, st.viewDir || null, { macro: !st.instrumentFrame })
     const sc = sb.getCenter(new Vector3()), sz = sb.getSize(new Vector3())
     f.top = sb.max.y
     f.footprint = { cx: sc.x, cz: sc.z, r: 0.5 * Math.max(sz.x, sz.z) }
@@ -291,6 +291,7 @@ export function frameStation(st) {
   st.group.updateMatrixWorld(true)
   return st.frames[0]
 }
+const DIR0 = new Vector3(0, CAM.RAIL_Y - CAM.LOOK_Y, CAM.RAIL_Z).normalize()
 // the frame at step progress p: interpolated between the fitted poses
 const _fc = new Vector3()
 export function frameAt(st, p) {
@@ -298,7 +299,8 @@ export function frameAt(st, p) {
   if (!fs || !fs.length) return st.frame
   const t = Math.min(1, Math.max(0, p)) * (fs.length - 1), k = Math.min(fs.length - 2, Math.floor(t)), u = t - k
   const a = fs[k], b = fs[k + 1] || a
-  return { center: _fc.copy(a.center).lerp(b.center, u).clone(), dist: a.dist + (b.dist - a.dist) * u }
+  const dir = (a.dir || b.dir) ? (a.dir || DIR0).clone().lerp(b.dir || DIR0, u).normalize() : null
+  return { center: _fc.copy(a.center).lerp(b.center, u).clone(), dist: a.dist + (b.dist - a.dist) * u, dir }
 }
 
 export function computeStationFrame(st) {
@@ -623,6 +625,22 @@ function configureStationCore(st, o) {
     return false
   }
   const socketY = (host, sock) => socketPose(getSocket(host, sock), st.group).position
+  // ON ICE: an ice pan (crushed ice, visible) with ONE cooling rack standing in it; the
+  // reaction's seat 'rx' at the station origin. Returns null if the vessel has no seat there.
+  const onIceRack = () => {
+    const rack = demo.buildCoolRack()
+    if (!canPlace(V, rack, 'rx')) return null
+    const pan = demo.buildIcePan()
+    st.group.add(pan); placeOnBench(pan)
+    const bed = pan.userData.sockets.bed.position, rx = rack.userData.sockets.rx.position
+    pan.position.set(-(bed.x + rx.x), 0, -(bed.z + rx.z))
+    st.group.add(rack); st.group.updateMatrixWorld(true)
+    const pose = placeInto(rack, pan, 'bed', { frame: st.group }); rack.position.copy(pose.position)
+    st.group.updateMatrixWorld(true)
+    rack.userData.setCutaway(true)   // CUTAWAY: the reaction is seen in its seat through the strip in front of it
+    st.rack = rack
+    return { rack, pan, seatY: socketY(rack, 'rx').y }
+  }
 
   // evolve the sample's level (and, past the midpoint, its colour) from the carried-in
   // start toward this step's end, paced by p. Returns the base level.
@@ -781,19 +799,12 @@ function configureStationCore(st, o) {
       // 1.5 mL seats along it) — the stated ice, and one rack, not a stand per tube
       const tubes = reags.map((r, k) => st.reagents['r' + k].grp)
       let rack = null, seatY = SEAT_Y
-      if (o.onIce && tubes.every((g) => g.userData.spec === 'microtube_1_5')) {
-        const probe = demo.buildCoolRack()
-        if (canPlace(V, probe, 'rx') && tubes.length <= probe.userData.sourceSockets.length) {
-          rack = probe
-          st.group.add(rack); placeOnBench(rack)
-          const rx = rack.userData.sockets.rx.position
-          rack.position.set(-rx.x, 0, -rx.z)
-          st.group.updateMatrixWorld(true)
+      if (o.onIce && tubes.every((g) => g.userData.spec === 'microtube_1_5') && tubes.length <= dims('cool_rack').seats_1_5) {
+        const ice = onIceRack()
+        if (ice) {
+          rack = ice.rack; seatY = ice.seatY
           st.backRow = (st.backRow || []).filter((g) => !tubes.includes(g))
           tubes.forEach((g, k) => { const pose = placeInto(g, rack, rack.userData.sourceSockets[k], { frame: st.group }); g.position.copy(pose.position) })
-          seatY = socketY(rack, 'rx').y
-          rack.userData.setCutaway(true)   // CUTAWAY: the reaction is seen in its seat through the rack's near strip
-          st.rack = rack
         }
       }
       const toY = disp.approach === 'angled' ? disp.y : seatY
@@ -807,7 +818,7 @@ function configureStationCore(st, o) {
         const src = st.reagents['r' + k].grp
         if (src.userData.setCap) src.userData.setCap(!(lp > 0.03 && lp < 0.36))
         demo.pipetteRun(st, st.reagents['r' + k].pos, { x: disp.x, y: toY, z: disp.z }, lp,
-          { color: reags[k].color, fill: 0.8, approach: disp.approach, tilt: disp.tilt, depth: disp.depth, standoff: disp.standoff, dipDepth: ENTRY })
+          { color: reags[k].color, fill: demo.tipFill(reags[k].vol), approach: disp.approach, tilt: disp.tilt, depth: disp.depth, standoff: disp.standoff, dipDepth: ENTRY })
         const done = (k + demo.dispenseProgress(lp)) / n
         v.userData.setLevel(demo.lerp(startLevel, endLevel, done))
         v.userData.setColor(reags[Math.min(k, n - 1)].color)
@@ -863,10 +874,14 @@ function configureStationCore(st, o) {
   } else if (action === 'pipette_mix') {
     // resuspend / mix by pipetting: the pipette bobs STRAIGHT down into the vessel's mouth
     // and back — tip raised just clear of the mouth, plunged to the vessel's entry depth.
-    const TOP = MOUTH.y + LIFT
-    const BOT = ENTRY
+    // CONTINUITY: a reaction assembled on ice is mixed where it was assembled — in its seat in
+    // the cooling rack, on the ice (it used to jump to an acrylic stand)
+    const ice = (o.onIce || o.prevOnIce) ? onIceRack() : null
+    const Y0 = ice ? ice.seatY : 0
+    const TOP = Y0 + MOUTH.y + LIFT
+    const BOT = Y0 + ENTRY
     demo.addPipetteRig(st)
-    st.enter = () => { seat(0); if (st.pip) { st.pip.position.set(MOUTH.x, TOP, MOUTH.z); st.pip.userData.setFluid(0) } }
+    st.enter = () => { seat(0); if (ice) seatIn(ice.rack, 'rx'); if (st.pip) { st.pip.position.set(MOUTH.x, TOP, MOUTH.z); st.pip.userData.setFluid(0) } }
     st.timeline = (p) => {
       const pip = st.pip
       if (pip) {
@@ -874,7 +889,7 @@ function configureStationCore(st, o) {
         const dip = Math.sin(cp * Math.PI) // 0→1→0, CONTINUOUS across the reset (no jump)
         pip.position.set(MOUTH.x, demo.lerp(TOP, BOT, dip), MOUTH.z)
         pip.userData.setColor(endColor)
-        pip.userData.setFluid((1 - dip) * 0.6) // draw up when raised, expel when plunged
+        pip.userData.setFluid((1 - dip) * demo.tipFill(vol)) // draw up when raised, expel when plunged (the step states no mix volume: a small draw)
       }
       S[vessel].userData.setLevel(evolve(p) + Math.sin(p * 26) * 0.02) // surface ripple over carried level
     }
@@ -1041,7 +1056,7 @@ function configureStationCore(st, o) {
     }
   } else if (equipment === 'centrifuge' || action === 'elute') {
     // benchtop centrifuge: the sample goes INTO a rotor slot socket and rides the rotor.
-    demo.stationSpin(st, SEAT_Y, { vessel, vlabel: name || '', vsub: vol || '', color: endColor, lStart: startLevel, lEnd: endLevel, cenLabel: 'Centrifuge', cenSub: vol || '', seconds })
+    demo.stationSpin(st, SEAT_Y, { vessel, vlabel: name || '', vsub: vol || '', color: endColor, lStart: startLevel, lEnd: endLevel, cenLabel: 'Centrifuge', cenSub: vol || '', seconds, rcf: o.rcf })
   } else if ((action === 'incubate_wait' && equipment !== 'ice_bucket') || (action === 'store' && equipment === 'co2_incubator')) {
     // EQUIPMENT CONTRACT: the instrument was resolved from the container AND the step's
     // stated conditions (resolveRecipe) — anything else is the bench (never a wrong
@@ -1145,8 +1160,11 @@ function configureStationCore(st, o) {
     const openAtStart = o.prevEquipment !== 'thermocycler', openAtEnd = o.nextEquipment !== 'thermocycler'
     const lidOpen = (p) => (p < 0.12 && openAtStart) || (p > 0.78 && openAtEnd)
     // the cycle's stated temperatures, in order (denature · anneal · extend)
-    const temps = [...String(o.text || '').matchAll(/(-?\d+(?:\.\d+)?)\s*°\s*C/g)].map((m) => +m[1]).slice(0, 3)
-    const show = (p) => hold ? tc.userData.setHold('HOLD', o.tempC, seconds, p) : tc.userData.setProgress(p, n, temps)
+    // …and each one's stated time ("94°C for 30 s", "72°C for 1 min per 1000 bp")
+    const cyc = [...String(o.text || '').matchAll(/(-?\d+(?:\.\d+)?)\s*°\s*C(?:\s*for\s*(\d+(?:\.\d+)?)\s*(s|sec|min))?/g)].slice(0, 3)
+    const temps = cyc.map((m) => +m[1])
+    const durs = cyc.map((m) => (m[2] ? +m[2] * (m[3] === 'min' ? 60 : 1) : 0))
+    const show = (p) => hold ? tc.userData.setHold('HOLD', o.tempC, seconds, p) : tc.userData.setProgress(p, n, temps, durs)
     const SOCK = tc.userData.sampleSocket
     const ok = fitsSocket(tc, SOCK)
     const benchX = ok ? 0 : demo.benchSlot(st, VD.width / 2, +1)
@@ -1155,18 +1173,37 @@ function configureStationCore(st, o) {
     // what the step shows: the cycler (tube in its front row, display) is the subject.
     // Framed alone, the 21 mm tube filled the frame and the display was never seen.
     if (ok) {
-      st.subjectAt = () => tc
-      // …framed on what shows the step — the display with its readout and the tube in its
-      // block (and the lid, whole, while it is raised) — not the whole cycler, the tube a speck
+      // A THREE-QUARTER VIEW in which the lid, the block and the display read as ONE machine
+      // (straight on, four stations were the same black box with a display, the tube a speck).
+      // The step opens CLOSE on the tube being seated in its well, lid open (the first program
+      // step), and ends close on it as the lid opens (the last); otherwise the whole machine.
+      st.viewDir = viewDir(0.62, 0.44)
+      const close = (p) => (p < 0.1 && openAtStart) || (p > 0.9 && openAtEnd)
+      st.subjectAt = (p) => (close(p) ? S[vessel] : tc)
       st.frameBoxAt = (p) => {
         tc.updateMatrixWorld(true)
-        const b = solidBox(S[vessel]).union(new Box3().setFromObject(tc.userData.display))
+        // close: the tube and a few wells of block round it (it reads as seated IN the cycler)
+        if (close(p)) { const b = solidBox(S[vessel]), w = dims('thermocycler_96').well_pitch * 1.5; return b.expandByVector(new Vector3(w, 0, w)) }
+        // the machine as the step shows it: its display, its block (the tube in it) and its
+        // lid — the deep body behind may crop (a box round all 470 mm of it framed loosely)
+        const b = new Box3().setFromObject(tc.userData.display).union(solidBox(S[vessel]))
+        tc.userData.blockParts.forEach((m) => b.union(new Box3().setFromObject(m)))
+        b.union(new Box3().setFromObject(tc.userData.lidMesh))
         return lidOpen(p) ? b.union(tc.userData.openLidBox()) : b
       }
       st.tightFrame = true
+      st.instrumentFrame = true
     }
+    const SEATED = ok ? socketY(tc, SOCK) : null, DROP = VD.height + LIFT
     st.enter = () => { seat(benchX); if (ok) seatIn(tc, SOCK); tc.userData.setLid(lidOpen(0)); show(0) }
     st.timeline = (p) => {
+      // the first program step SEATS the tube: straight down into its well (0–0.08), lid open
+      if (ok && openAtStart) {
+        const v = S[vessel], k = demo.easeInOut(demo.clamp(p / 0.08, 0, 1))
+        S.at(v, st.x + SEATED.x, SEATED.y + (1 - k) * DROP, SEATED.z)
+        v.userData.held = k < 1
+        if (k < 1) clearPlacement(v); else placeInto(v, tc, SOCK)
+      }
       tc.userData.setLid(lidOpen(p))
       show(p)
       evolve(p) // contents unchanged; the tube just cycles temperature
@@ -1215,7 +1252,7 @@ function configureStationCore(st, o) {
     st.timeline = (p) => {
       const seg = (a, b) => demo.easeInOut(demo.clamp((p - a) / (b - a), 0, 1))
       S[src].visible = true
-      demo.pipetteRun(st, draw(), well(), Math.min(p / LOAD, 1), { color: startColor, fill: 0.4, dipDepth: 0 })
+      demo.pipetteRun(st, draw(), well(), Math.min(p / LOAD, 1), { color: startColor, fill: demo.tipFill(vol), dipDepth: 0 })
       if (p >= LOAD) {                                   // loaded: the pipette goes back over the tube, out of the lid's way
         const w = well(), cy = demo.cruiseY(st, draw(), w), r = demo.restPoint(st), e = seg(LOAD, AWAY)
         st.pip.position.set(demo.lerp(w.x, r.x, e), cy, demo.lerp(w.z, r.z, e))
@@ -1637,8 +1674,9 @@ export function stationConfig(steps, i, { containers, stateChain, lang = 'en', a
     opts: {
       action: o.action, equipment: o.equipment, container, prevContainer, color: o.colorHex, name: o.title, vol: o.vol, seconds: o.seconds,
       startColor: o.start.color, startLevel: o.start.level, endColor: o.end.color, endLevel: o.end.level, cycles: o.cycles, reagents: o.reagents,
-      drawsFrom: o.drawsFrom, produces: o.produces, text: o.text, tempC: o.tempC, onIce: o.onIce,
+      drawsFrom: o.drawsFrom, produces: o.produces, text: o.text, tempC: o.tempC, onIce: o.onIce, rcf: o.rcf,
       prevEquipment: eqAt(i - 1), nextEquipment: eqAt(i + 1),
+      prevOnIce: i > 0 && !!stepConditions(steps[i - 1]).onIce && (containers[i - 1] || null) === container,
     },
   }
 }
@@ -1677,7 +1715,7 @@ export function stationParams(baseStep, lang, altIdx, chain, producedInRun, cont
   const drawsFrom = (step.draws_from && producedInRun && producedInRun.has(step.draws_from)) ? step.draws_from : null
   const cond = stepConditions(step)
   return { action: step.action, equipment, colorHex, vol, title, sub, seconds: step.duration_seconds, start, end, cycles, reagents,
-           tempC: cond.tempC, onIce: !!cond.onIce,
+           tempC: cond.tempC, onIce: !!cond.onIce, rcf: step.spin?.rcf_min ?? null,
            target: step.target || 'sample', produces: step.produces || null, drawsFrom,
            text: step.text_en || step.text || '' }
 }
@@ -1985,11 +2023,12 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     // from a 41 mm tube to a 450 mm incubator dollies and zooms, never pops
     const cf = camFrameRef.current
     if (tf.dist != null) {
-      if (!cf.init) { cf.center = tf.center.clone(); cf.dist = tf.dist; cf.init = true }
+      if (!cf.init) { cf.center = tf.center.clone(); cf.dist = tf.dist; cf.dir = (tf.dir || DIR0).clone(); cf.init = true }
       const k = 1 - Math.pow(0.002, dt)
       cf.center.lerp(tf.center, k); cf.dist += (tf.dist - cf.dist) * k
+      cf.dir.lerp(tf.dir || DIR0, k).normalize()                       // a three-quarter view swings in, never pops
     }
-    const f = tf.dist != null ? { center: cf.center, dist: cf.dist } : tf
+    const f = tf.dist != null ? { center: cf.center, dist: cf.dist, dir: cf.dir } : tf
     const cam = perspRef.current
     if (cam) {
       // the pose is a pure function of the measured frame (stationCamera.js) — the SAME one
@@ -2002,6 +2041,9 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       // if its top edge would project above LABEL_TOP_NDC, lower it (never below the
       // subject's top) — a pushed-in or widened frame used to clip it at the top edge
       if (actCam && actCam.label) clampLabel(actCam, cam)
+      // only the ACTIVE station's title shows: a neighbour's plate hung in the edge of a
+      // three-quarter view, naming a machine that is not the step's
+      for (const s2 of stations) if (s2.label) s2.label.visible = s2 === actCam
     }
 
     // 3 · the key + rim lights follow the framed station. The key grazes lower and more

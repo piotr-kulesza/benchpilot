@@ -23,9 +23,9 @@ export function cameraPose(frame, { railX = 0, time = null, push = 0, pushTarget
   const f = frame
   if (f.dist != null) {            // a frame fitted to its subject (fitFrame)
     const d = f.dist, sway = time == null ? 0 : Math.sin(time * 0.15) * 0.012 * d
-    const e = CAM.RAIL_Y - CAM.LOOK_Y, n = Math.hypot(e, CAM.RAIL_Z)
+    const v = f.dir || DIR                                      // its own view direction, or the rail's
     const cx = railX + f.center.x + sway
-    return { pos: [cx, f.center.y + (e / n) * d, f.center.z + (CAM.RAIL_Z / n) * d], look: [cx, f.center.y, f.center.z], fov: CAM.FOV }
+    return { pos: [cx + v.x * d, f.center.y + v.y * d, f.center.z + v.z * d], look: [cx, f.center.y, f.center.z], fov: CAM.FOV }
   }
   const fit = clamp(f.radius / CAM.R_REF, 1, 1.7) // back off only for oversized rigs
   const cx = railX + f.center.x + (time == null ? 0 : Math.sin(time * 0.15) * 0.12)
@@ -57,9 +57,13 @@ export const FRAMING = {
   LEGIBLE: 0.06,  // widen to the context only while the subject keeps ≥ 6 % of the frame by its box (the audit asks 3 % by its vertices; a tilted tube's box overstates it ~1.5×)
 }
 const DIR = new Vector3(0, CAM.RAIL_Y - CAM.LOOK_Y, CAM.RAIL_Z).normalize()
+// a THREE-QUARTER view: azimuth `az` (rad, toward +x) and elevation `el` (rad) — a station
+// that must show an instrument's lid, block and front panel as one machine
+export function viewDir(az, el) { return new Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)) }
 const _cam = new PerspectiveCamera(CAM.FOV, CAM.ASPECT, 0.1, 400)
 const _p = new Vector3()
-function place(c, d) { _cam.position.copy(c).addScaledVector(DIR, d); _cam.lookAt(c); _cam.updateMatrixWorld(true); _cam.updateProjectionMatrix() }
+let _dir = DIR
+function place(c, d) { _cam.position.copy(c).addScaledVector(_dir, d); _cam.lookAt(c); _cam.updateMatrixWorld(true); _cam.updateProjectionMatrix() }
 function corners(b) { const o = []; for (let i = 0; i < 8; i++) o.push(new Vector3(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z)); return o }
 function ndcBox(b, c, d) {
   place(c, d)
@@ -74,13 +78,19 @@ function minDist(pred) { let lo = 0.05, hi = 200; if (!pred(hi)) return hi; for 
 function maxDist(pred) { let lo = 0.05, hi = 200; if (!pred(lo)) return lo; for (let i = 0; i < 48; i++) { const m = (lo + hi) / 2; if (pred(m)) lo = m; else hi = m } return lo }
 
 // where a (station-local) box lands in a fitted frame, in NDC: { x0, x1, y0, y1 }
-export function frameNdc(box, frame) { return ndcBox(box, frame.center, frame.dist) }
+export function frameNdc(box, frame) { _dir = frame.dir || DIR; try { return ndcBox(box, frame.center, frame.dist) } finally { _dir = DIR } }
 
 // subject, used, context: Box3 (station-local). Returns the frame { center, dist, … }.
-export function fitFrame(subject, used, context) {
+// opts.macro === false: the subject is an INSTRUMENT framed whole — the "a tube is not a
+// macro shot" cap does not apply (it kept a thermocycler at half the frame, its display tiny)
+export function fitFrame(subject, used, context, dir = null, opts = {}) {
+  _dir = dir || DIR
+  try { return { ...fitFrameAt(subject, used, context, opts.macro !== false), dir: dir || null } } finally { _dir = DIR }
+}
+function fitFrameAt(subject, used, context, useMacro = true) {
   const cU = used.getCenter(new Vector3())
   const dU = minDist((d) => fits(used, cU, d))
-  const macro = (c) => minDist((d) => { const n = ndcBox(subject, c, d); return n.y1 - n.y0 <= FRAMING.MACRO })
+  const macro = (c) => (useMacro ? minDist((d) => { const n = ndcBox(subject, c, d); return n.y1 - n.y0 <= FRAMING.MACRO }) : 0)
   const cC = context.getCenter(new Vector3())
   const dC = minDist((d) => fits(context, cC, d))
   let center, dist
