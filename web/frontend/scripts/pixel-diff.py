@@ -52,7 +52,9 @@ def main(a, b):
             per_group[g][1] += 1
             continue
         diff = ImageChops.difference(ia, ib)
-        bbox = diff.getbbox()
+        # alpha_only=False: Pillow's getbbox() on RGBA looks at ALPHA only by default — every
+        # opaque tile's alpha difference is 0, so an RGB change read as 'pixel-identical'
+        bbox = diff.getbbox(alpha_only=False)
         if bbox is None:
             identical_pixels += 1
             continue
