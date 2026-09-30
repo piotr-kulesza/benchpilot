@@ -252,7 +252,9 @@ import { MAX_ANISO, clamp, easeInOut, lerp } from '../util.js'
     }
     drawDisp(0,30,25,false);
     var disp=new THREE.Mesh(new THREE.PlaneGeometry(0.7,0.35), new THREE.MeshBasicMaterial({map:dTex,transparent:true}));
-    disp.position.set(0,0.5,0.96); disp.rotation.x=-0.35; fx(disp,'decal'); grp.add(disp);
+    // IN FRONT of its frame: the frame box (front face z 0.965) used to cover the display at
+    // z 0.96, so the readout was never seen
+    disp.position.set(0,0.5,0.975); disp.rotation.x=-0.35; fx(disp,'decal'); grp.add(disp);
     var dispFrame=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.44,0.05), matPainted(0x22262c,0.5));
     dispFrame.position.set(0,0.5,0.94); dispFrame.rotation.x=-0.35; grp.add(dispFrame);
 
@@ -262,12 +264,15 @@ import { MAX_ANISO, clamp, easeInOut, lerp } from '../util.js'
     grp.userData.setLid=function(open){ st.tLid=open?1:0; };
     // p in [0,1] over the whole step; `cycles` = repeat.count. Steps the CYCLE readout
     // and its hot/cool temperature — the ONLY heat cue (no bench-blooming glow light).
-    grp.userData.setProgress=function(p, cycles){
+    // temps: the step's STATED [denature, anneal, extend] °C (it used to show a fixed
+    // 95 / 58 / 72 whatever the protocol said); a generic program when it states none
+    grp.userData.setProgress=function(p, cycles, temps){
       cycles=Math.max(1, cycles||30);
+      var T=(temps&&temps.length>=3)?temps:[95,58,72];
       var cyc=Math.min(cycles, Math.floor(p*cycles)+1);
       var cp=(p*cycles)%1;                     // progress within the current cycle
       var hot=cp<0.4;                            // denature (hot) then anneal/extend (cooler)
-      var tempC = hot ? 95 : (cp<0.7 ? 58 : 72);
+      var tempC = hot ? T[0] : (cp<0.7 ? T[1] : T[2]);
       drawDisp(cyc, cycles, tempC, hot);
     };
     // A single-temperature PROGRAM STEP (initial denaturation, final extension, the 4 °C
@@ -317,6 +322,10 @@ import { MAX_ANISO, clamp, easeInOut, lerp } from '../util.js'
     floor.rotation.x=-Math.PI/2; floor.position.y=deckY+BD*0.01; fx(floor,'decal'); root.add(floor);   // the dark bore floors
     holes.forEach(function(h){ addSocket(root,h[3],{ position:new THREE.Vector3(h[0],deckY,h[1]) }); });
     root.userData.sampleSocket='H6';                 // the front row: seen through the cut near wall
+    root.userData.display=disp; root.userData.block=block;
+    // the lid's box when it is RAISED (for framing: an open lid is framed whole)
+    root.userData.openLidBox=function(){ var r=lidPivot.rotation.x; lidPivot.rotation.x=-1.15; root.updateMatrixWorld(true);
+      var b=new THREE.Box3().setFromObject(lid); lidPivot.rotation.x=r; root.updateMatrixWorld(true); return b; };
     declareCutaway(root, [blockFront]);
     return tagSpec(root,'thermocycler_96');
   }
