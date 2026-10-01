@@ -117,6 +117,12 @@ import { clamp, easeInOut, lerp } from './util.js'
     if(ul==null || !isFinite(ul)) return 0.2;
     return clamp(Math.cbrt(Math.min(ul,200)/200), 0.12, 0.8);
   }
+  // THE DISPENSE IS THE STEP'S MIDDLE (a single pipette pass): the draw and the cruise (the
+  // source is often a bottle set down out of frame) take the first 36 % of the step; the tip
+  // goes down into the vessel and dispenses across the middle (p ≈ 0.52–0.69) and withdraws
+  // by 0.8 — at pipetteRun's own pace the middle of the step was the pipette cruising above
+  // the frame. Maps step progress to pipetteRun progress.
+  function singlePassP(p){ return p<0.36 ? p/0.36*0.5 : Math.min(1, 0.5+(p-0.36)/0.44*0.5); }
   function stationReagent(st, Y, o){
     addPipetteRig(st);
     addBottle(st, o.key, o.rname||o.blabel, o.color, o.vol||o.vsub);
@@ -133,7 +139,8 @@ import { clamp, easeInOut, lerp } from './util.js'
       SAMPLE.at(v, st.x, Y, 0); v.quaternion.identity(); v.userData.held=false; placeOnBench(v);
       pipRest(st);
     };
-    st.timeline=function(p){
+    st.timeline=function(p0){
+      var p=singlePassP(p0);
       var v=SAMPLE[o.vessel];
       var b=st.reagents[o.key].grp;
       // the bottle opens BEFORE the pipette dips in (phase A), stays open while it
@@ -157,4 +164,4 @@ import { clamp, easeInOut, lerp } from './util.js'
     };
   }
 
-export { DISPENSE_FROM, DISPENSE_TO, dispenseProgress, cruiseY, pipetteRun, addPipetteRig, restPoint, pipRest, stationReagent, tipFill }
+export { DISPENSE_FROM, DISPENSE_TO, dispenseProgress, cruiseY, pipetteRun, addPipetteRig, restPoint, pipRest, stationReagent, tipFill, singlePassP }

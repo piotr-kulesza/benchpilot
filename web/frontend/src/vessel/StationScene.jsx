@@ -752,7 +752,8 @@ function configureStationCore(st, o) {
       st.drawPos = { x: st.x + dx, y: 0, z: dz } // WORLD seat the carried tube glides to
       st.frameAnchors = [new Vector3(dx - T.width / 2, 0, dz - T.depth / 2), new Vector3(dx + T.width / 2, T.height, dz + T.depth / 2)] // a used source: in frame
       st.enter = () => { seat(0); demo.pipRest(st); prep.userData.setLevel(PREP_FULL) }
-      st.timeline = (p) => {
+      st.timeline = (p0) => {
+        const p = demo.singlePassP(p0)   // the dispense is the step's middle (one pass)
         const v = S[vessel]
         if (v.userData.setCap) v.userData.setCap(!(p > 0.1 && p < 0.95)) // uncap to receive
         demo.pipetteRun(st, new Vector3(draw.x, draw.y, draw.z), { x: disp.x, y: toY, z: disp.z }, p,
@@ -787,7 +788,9 @@ function configureStationCore(st, o) {
         if (v.userData.setCap) v.userData.setCap(!(p > 0.1 && p < 0.95)) // uncap for the passes
         const n = reags.length, seg = 1 / n
         const k = Math.min(n - 1, Math.floor(p / seg))
-        const lp = demo.clamp((p - k * seg) / seg, 0, 1)
+        // ONE pass: its dispense is the step's middle (as the single-reagent add); several
+        // passes keep their even split (the PCR set-up's middle pass dispenses at 0.54)
+        const lp = n === 1 ? demo.singlePassP(p) : demo.clamp((p - k * seg) / seg, 0, 1)
         const src = st.reagents['r' + k].grp
         if (src.userData.setCap) src.userData.setCap(!(lp > 0.03 && lp < 0.36))
         demo.pipetteRun(st, st.reagents['r' + k].pos, { x: disp.x, y: toY, z: disp.z }, lp,
