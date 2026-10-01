@@ -650,8 +650,11 @@ function configureStationCore(st, o) {
     // round the rack, over the rack's front — not through the ice to the tube — and the frame
     // takes in the ice bed in front of the reaction's seat
     st.viewDir = viewDir(0, 0.5)
-    const pb = solidBox(pan, st.group)
-    st.frameAnchors = [...(st.frameAnchors || []), new Vector3(0, pb.max.y, pb.max.z)]   // the pan's front, in line with the seat (at the origin)
+    // …and the frame reaches the ice just in front of the rack, in line with the seat (at the
+    // origin): its top, a piece out — the pan's front wall as anchor shrank the tube under
+    // the 3 % legibility floor
+    const rb = solidBox(rack, st.group), ice = dims('ice_pan')
+    st.frameAnchors = [...(st.frameAnchors || []), new Vector3(0, ice.wall + ice.ice_depth, rb.max.z + ice.ice_piece)]
     return { rack, pan, seatY: socketY(rack, 'rx').y }
   }
 
