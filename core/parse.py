@@ -149,6 +149,14 @@ than brevity. The HARD rules (follow every one):
     — NOT a separate step.
   • "Discard the flow-through" is PART of the centrifugation it follows — fold it
     into that spin step's text, NOT a separate step.
+  • "KEEP X UNTIL Y, THEN Z" is TWO steps IN THAT ORDER, with Y's own steps between
+    them: the holding step NOW (where the sentence stands), then — only AFTER the steps
+    that do Y — the step that does Z. A storage clause in the same sentence as a "keep …
+    until" does NOT happen now; emit it as its own step placed after Y (copy the same
+    `verbatim` onto both). Freezing the sample now and taking it out later is the very
+    freeze–thaw such protocols warn against.
+      "keep the RNA on ice until measurement, store at −80 °C"   (measurements follow)
+          -> cool_ice (on ice, now) ; … the measurement steps … ; store (−80 °C)
 So "Add 350 µl RW1, centrifuge 15 s, discard the flow-through" is TWO steps:
 pour_add (RW1) then centrifuge (the discard IS the spin).
 
