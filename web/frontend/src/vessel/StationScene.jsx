@@ -1190,11 +1190,12 @@ function configureStationCore(st, o) {
         tc.updateMatrixWorld(true)
         // close: the tube and a few wells of block round it (it reads as seated IN the cycler)
         if (close(p)) { const b = solidBox(S[vessel]), w = dims('thermocycler_96').well_pitch * 1.5; return b.expandByVector(new Vector3(w, 0, w)) }
-        // the machine as the step shows it: its display, its block (the tube in it) and its
-        // lid — the deep body behind may crop (a box round all 470 mm of it framed loosely)
+        // the machine as the step shows it: its FRONT QUARTER — the display (it carries every
+        // stated value of the step), the block's front row with the tube in it, and the lid
+        // edge above them; the rest of the lid and the deep body run out of the frame, still
+        // one machine (framed whole, the display was 2.6 % of the frame)
         const b = new Box3().setFromObject(tc.userData.display).union(solidBox(S[vessel]))
-        tc.userData.blockParts.forEach((m) => b.union(new Box3().setFromObject(m)))
-        b.union(new Box3().setFromObject(tc.userData.lidMesh))
+        b.union(new Box3().setFromObject(tc.userData.blockParts[1]))
         return lidOpen(p) ? b.union(tc.userData.openLidBox()) : b
       }
       st.tightFrame = true
