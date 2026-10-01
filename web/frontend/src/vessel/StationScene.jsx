@@ -1135,7 +1135,10 @@ function configureStationCore(st, o) {
     st.group.add(st.cold)
     const SOCK = ice.userData.sampleSocket
     const ok = fitsSocket(ice, SOCK)
-    if (ok) ice.userData.setCutaway?.(true)   // CUTAWAY: the tube is seen in place, in the ice
+    // LOOKING DOWN INTO THE BUCKET: the tube stands pushed into ice filled near the rim, so
+    // the camera sees it from above (48°) — over the wall, no cutaway (from the bench's 13°
+    // the tub was a grey wall and the ice a few lumps at tube level)
+    st.viewDir = viewDir(0, 0.84)
     const benchX = ok ? 0 : demo.benchSlot(st, VD.width / 2, +1)
     // ONTO THE ICE: a tube arriving from a station where it was not on ice is SET INTO the
     // ice here — from its stand beside the bucket, straight up clear of the rim, across,
@@ -1465,7 +1468,7 @@ function configureStationCore(st, o) {
         const BW = dims('ice_bucket_4l').diameter
         st.group.add(bucket); placeOnBench(bucket); st.updatables.push(bucket)
         bucket.position.x = demo.benchSlot(st, BW / 2, -1); st.group.updateMatrixWorld(true)
-        bucket.userData.setCutaway?.(true)                 // CUTAWAY: the tube is seen in the ice
+        st.viewDir = viewDir(0, 0.66)                     // from above: the tube is seen in the ice, the NanoDrop beside it
         const BS = bucket.userData.sampleSocket, seatP = socketY(bucket, BS), carryY = dims('ice_bucket_4l').height + LIFT
         const at = (x, y, z) => S.at(S[vessel], st.x + x, y, z)
         st.enter = () => { seat(0); seatIn(bucket, BS); nano.userData.setProgress?.(0) }

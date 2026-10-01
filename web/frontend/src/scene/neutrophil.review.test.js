@@ -39,7 +39,7 @@ function hiddenFraction(cam, pts, occ) {
 // ice pieces, plain or instanced: each piece's world matrix and its size (max extent)
 function icePieces(root) {
   const out = []
-  for (const m of meshesOf(root, (x) => x.userData.fx === 'granular' && shown(x))) {
+  for (const m of meshesOf(root, (x) => x.userData.fx === 'granular' && !x.userData.iceBed && shown(x))) {   // pieces (not the packed bed under them)
     m.updateWorldMatrix(true, false)
     const g = m.geometry; g.computeBoundingBox(); const gs = g.boundingBox.getSize(new Vector3())
     const mats = []
@@ -165,9 +165,17 @@ describe('8 · the NanoDrop reads as an instrument, and the sample is applied', 
 })
 
 describe('9 · station 23 start: nothing cropped into the frame edge', () => {
-  it('the ice bucket the tube is going into is whole in frame at the start', () => at(23, (st, { cam }) => {
-    const c = cam(0); const b = new Box3().setFromObject(specOf(st, 'ice_bucket_4l'))
-    const corners = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => new Vector3(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z))
-    expect(corners.every((q) => inFrame(c, q, 1))).toBe(true)
+  // the grey shape at the left edge was the station's OWN ice bucket, cropped by the frame on
+  // the tube in its stand: every object of the station is wholly in frame or wholly out
+  it('every object of the station is wholly in or wholly out of the frame at the start', () => at(23, (st, { cam }) => {
+    const c = cam(0), cropped = []
+    for (const o of st.group.children) {
+      if (!o.userData?.spec || !shown(o) || o.userData.offBench) continue
+      // its drawn vertices in front of the camera: some in frame and some out = cropped
+      const pts = meshesOf(o, (m) => shown(m) && !m.isInstancedMesh).flatMap(verts).map((p) => p.clone().applyMatrix4(c.matrixWorldInverse)).filter((p) => p.z < 0).map((p) => p.applyMatrix4(c.projectionMatrix))
+      const inside = pts.filter((q) => Math.abs(q.x) <= 1 && Math.abs(q.y) <= 1).length
+      if (inside > 0 && inside < pts.length) cropped.push(o.userData.spec)
+    }
+    expect(cropped).toEqual([])
   }))
 })
