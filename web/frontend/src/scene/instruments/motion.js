@@ -106,11 +106,24 @@ import { MAX_ANISO, easeInOut, lerp } from '../util.js'
     // THE READOUT SHOWS ONLY WHAT THE STEP STATES. It used to derive a ×g figure from the
     // animation's spin rate (12,369 ×g for "briefly spin down"). Now: the stated RCF while
     // it runs; a stated-nothing brief spin reads PULSE; at rest the field is blank.
-    var ro={ rcf:null, running:false, drawn:null };
+    var ro={ rcf:null, seconds:null, left:null, running:false, drawn:null };
+    var clock=function(sec){ var t=Math.max(0,Math.ceil(sec)); return Math.floor(t/60)+":"+("0"+(t%60)).slice(-2); };
     function drawReadout(){
-      var key=ro.running+"|"+ro.rcf; if(key===ro.drawn) return; ro.drawn=key;
+      var key=ro.running+"|"+ro.rcf+"|"+ro.seconds+"|"+(ro.left==null?"":Math.ceil(ro.left)); if(key===ro.drawn) return; ro.drawn=key;
       rg.fillStyle="#12161c"; rg.fillRect(0,0,256,128);
       rg.strokeStyle="rgba(90,100,116,0.4)"; rg.lineWidth=3; rg.strokeRect(6,6,244,116);
+      if(ro.seconds!=null){
+        // A STATED TIME: set at rest, counting down while it spins; the stated × g beside it
+        // (none stated: none shown)
+        var live=ro.running && ro.left!=null;
+        rg.fillStyle="#727a85"; rg.font="600 20px 'IBM Plex Sans'"; rg.textAlign="left"; rg.fillText("TIME", 16,34);
+        rg.fillStyle=live?"#8fcabf":"#5f6b78"; rg.font="700 50px 'IBM Plex Mono'"; rg.fillText(clock(live?ro.left:ro.seconds), 14,94);
+        if(ro.rcf!=null){
+          rg.textAlign="right"; rg.fillStyle="#727a85"; rg.font="600 20px 'IBM Plex Sans'"; rg.fillText("× g", 244,34);
+          rg.fillStyle=live?"#8fcabf":"#5f6b78"; rg.font="700 30px 'IBM Plex Mono'"; rg.fillText(Math.round(ro.rcf).toLocaleString()+"", 244,92);
+        }
+        rTex.needsUpdate=true; return;
+      }
       rg.fillStyle="#727a85"; rg.font="600 20px 'IBM Plex Sans'"; rg.textAlign="left"; rg.fillText("SPEED", 16,34);
       rg.textAlign="right";
       if(ro.running && ro.rcf!=null){
@@ -153,6 +166,10 @@ import { MAX_ANISO, easeInOut, lerp } from '../util.js'
     st.rest=0;
     grp.userData.setRestAngle=function(a){ st.rest=a||0; rotor.rotation.y=st.rest; };
     grp.userData.setRcf=function(v){ ro.rcf=(v==null||!isFinite(v))?null:v; ro.drawn=null; drawReadout(); };   // the step's stated ×g, or none
+    // the step's stated spin time (s), or none (then PULSE while it runs); and the time left
+    grp.userData.setTime=function(sec){ ro.seconds=(sec==null||!isFinite(sec)||sec<=0)?null:sec; ro.left=null; ro.drawn=null; drawReadout(); };
+    grp.userData.setTimeLeft=function(sec){ ro.left=(sec==null||!isFinite(sec))?null:Math.max(0,sec); drawReadout(); };
+    grp.userData.readout=function(){ return { mode: ro.seconds!=null ? 'time' : (ro.running ? 'pulse' : 'idle'), seconds: ro.seconds, left: ro.left, rcf: ro.rcf, running: ro.running }; };
     // IMPROVEMENT: explicit lid hook. stationSpin closes it before the rotor spins
     // up and opens it once the rotor stops (no longer auto-coupled to spin).
     grp.userData.setLid=function(open){ st.tLid = open?1:0; };

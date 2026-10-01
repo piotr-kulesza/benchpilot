@@ -21,6 +21,9 @@ import { clamp, easeInOut, lerp } from './util.js'
     var cen=buildCentrifuge();
     st.group.add(cen); placeOnBench(cen); st.updatables.push(cen); st.cen=cen;
     if(cen.userData.setRcf) cen.userData.setRcf(o.rcf);   // the readout shows the stated ×g, or PULSE
+    if(cen.userData.setTime) cen.userData.setTime(o.seconds);   // …and the stated time, counting down while it spins
+    var SPIN_FROM=0.12, SPIN_TO=0.86;
+    function timeLeft(q){ if(o.seconds && cen.userData.setTimeLeft) cen.userData.setTimeLeft(o.seconds*(1-clamp(q,0,1))); }
     var v0=SAMPLE[o.vessel];
     var SOCK=cen.userData.socketFor ? cen.userData.socketFor(v0.userData.spec) : cen.userData.sampleSocket;
     var fits=canPlace(v0, cen, SOCK);
@@ -131,13 +134,13 @@ import { clamp, easeInOut, lerp } from './util.js'
       if(!fits){ cen.userData.setLid(!t.running); cen.userData.setSpin(t.running?24:0); return; }
       if(t.done || t.progress>=1){
         if(phase!=="end"){ phase="end"; endT=0; }
-        endT+=dt;
+        endT+=dt; timeLeft(1);
         cen.userData.setSpin(0);
         dock(); cen.userData.setLid(endT>=0.9);        // rotor stops, lid opens; it stays in its slot
         return;
       }
       if(phase!=="run"){ phase="run"; runT=0; }
-      runT+=dt;
+      runT+=dt; timeLeft(t.progress);
       if(!docked){ inPath(v,1); dock(); }            // (loaded at rest — this only catches a jump)
       cen.userData.setLid(false); cen.userData.setSpin(t.running?24:0);
       if(o.lEnd!=null) v.userData.setLevel(lerp(o.lStart==null?0.5:o.lStart,o.lEnd,easeInOut(clamp(t.progress,0,1))));
@@ -154,12 +157,12 @@ import { clamp, easeInOut, lerp } from './util.js'
       var v=SAMPLE[o.vessel]; v.visible=true;
       if(!fits){                                // a rejected vessel never enters; the rotor runs empty
         restState(v); cen.userData.setLid(!(p>0.26 && p<0.8)); cen.userData.setSpin(p>0.26 && p<0.8 ? 24 : 0);
-      } else if(p<0.12){                        // 1 · LOADED in its slot (lid open); the lid closes
-        if(!docked){ undock(); inPath(v,1); } dock(); cen.userData.setSpin(0); cen.userData.setLid(p<0.04);
-      } else if(p<0.86){                        // 2 · lid closed + SPINNING — the sample rides the rotor
-        dock(); cen.userData.setSpin(24); cen.userData.setLid(false);
+      } else if(p<SPIN_FROM){                   // 1 · LOADED in its slot (lid open); the lid closes
+        if(!docked){ undock(); inPath(v,1); } dock(); cen.userData.setSpin(0); cen.userData.setLid(p<0.04); timeLeft(0);
+      } else if(p<SPIN_TO){                     // 2 · lid closed + SPINNING — the sample rides the rotor; the time counts down
+        dock(); cen.userData.setSpin(24); cen.userData.setLid(false); timeLeft((p-SPIN_FROM)/(SPIN_TO-SPIN_FROM));
       } else {                                  // 3 · rotor stops; lid opens — the tube is still in its slot
-        dock(); cen.userData.setSpin(0); cen.userData.setLid(p>0.93);
+        dock(); cen.userData.setSpin(0); cen.userData.setLid(p>0.93); timeLeft(1);
       }
       if(o.lEnd!=null) v.userData.setLevel(lerp(o.lStart==null?0.5:o.lStart, o.lEnd, easeInOut(clamp(p,0,1))));
     };
