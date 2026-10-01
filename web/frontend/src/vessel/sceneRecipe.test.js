@@ -675,26 +675,23 @@ describe('resolveRecipe — a cell spin is not a microcentrifuge spin', () => {
 })
 
 // Bench-fallback staging: a step that renders on the bench shows only what it STATES —
-// the countdown dial when it is timed, and a bench tag for a stated temperature / room
-// temperature. Nothing for an unstated condition; nothing on an instrument station.
+// a bench tag for a stated temperature / room temperature (never a dial: the timer is in
+// the HUD). Nothing for an unstated condition; nothing on an instrument station.
 describe('benchStaging — only what the step states', () => {
   const st = (text_en, extra = {}) => ({ text_en, ...extra })
   it('room temperature + a timer', () => {
     expect(benchStaging(st('Incubate 15 min at room temperature.', { duration_seconds: 900 }), 'bench'))
-      .toEqual({ tag: 'room temperature', dial: true })
+      .toEqual({ tag: 'room temperature' })
   })
   it('a stated temperature', () => {
     expect(benchStaging(st('Grow in 37°C shaking incubator for 45 min.', { duration_seconds: 2700 }), 'bench'))
-      .toEqual({ tag: '37 °C', dial: true })
+      .toEqual({ tag: '37 °C' })
     expect(benchStaging(st('Final extension: 72°C for 7 min.', { duration_seconds: 420 }), 'bench').tag).toBe('72 °C')
     expect(benchStaging(st('transfer into the liquid nitrogen dewar (vapor phase, below -150°C)'), 'bench').tag).toBe('−150 °C')
   })
-  it('no tag for an unstated condition; no dial without a timer', () => {
-    expect(benchStaging(st('Wait 1 min.', { duration_seconds: 60 }), 'bench')).toEqual({ tag: null, dial: true })
-    expect(benchStaging(st('Record the input cell number and the obtained yield.'), 'bench')).toEqual({ tag: null, dial: false })
-  })
-  it('a spin duration counts as a timer', () => {
-    expect(benchStaging(st('Centrifuge at 200 x g for 5 to 10 minutes.', { spin: { duration_seconds: 300 } }), 'bench').dial).toBe(true)
+  it('no tag for an unstated condition; never a bench dial (the timer lives in the HUD)', () => {
+    expect(benchStaging(st('Wait 1 min.', { duration_seconds: 60 }), 'bench')).toEqual({ tag: null })
+    expect(benchStaging(st('Record the input cell number and the obtained yield.'), 'bench')).toEqual({ tag: null })
   })
   it('an instrument station gets no bench staging', () => {
     expect(benchStaging(st('Incubate 15 min at room temperature.', { duration_seconds: 900 }), 'plate_shaker')).toBe(null)

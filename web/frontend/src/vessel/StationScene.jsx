@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera } from '@react-three/drei'
-import { FogExp2, Color, Vector3, Box3, Group, Mesh, RingGeometry, SphereGeometry, CylinderGeometry, PlaneGeometry, CanvasTexture, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
+import { FogExp2, Color, Vector3, Box3, Group, Mesh, SphereGeometry, CylinderGeometry, PlaneGeometry, CanvasTexture, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
 import { resolveRecipe, stepConditions, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects, exitLiftPoint, pourPlan, removalFor, benchStaging, addSource, sceneStep } from './sceneRecipe.js'
 import { containerContract, transferKind, sideBySide } from './containerContract.js'
@@ -330,50 +330,7 @@ export function computeStationFrame(st) {
 }
 const DEFAULT_FRAME = { center: new Vector3(0, LOOK_Y, 0), radius: R_REF }
 
-// ── the countdown progress DIAL — the one piece of non-diegetic UI in the scene.
-// A FLAT ring on the bench (XZ plane) around the subject's base, sweeping 0→360°
-// clockwise from 12 o'clock as the timer counts down. Unlit (MeshBasic, toneMapped
-// off) so it reads instantly regardless of scene light, and sits proud of the bench
-// so it never z-fights the floor, decal or shadow.
-const DIAL_Y = 0.06          // proud of the bench (decal sits at y≈0.02) — no z-fighting
-const DIAL_MARGIN = 0.38     // the ring clears the subject footprint by this much
-const DIAL_ACCENT = 0x58b6a6 // the demo's teal (matches the UI timer/accent)
-const DIAL_TRACK = 0x2b333d  // dim remaining-track slate
-// RingGeometry authors in the XY plane; rotation.x = -π/2 lays it flat in XZ. After
-// that flatten, XY-angle θ maps to world (cosθ, 0, -sinθ). The dial's TOP (θ=π/2 → -Z)
-// is the FAR side, behind the subject — so a fill starting there is invisible early
-// (it "starts behind the tray"). We start at the FRONT instead (θ=-π/2 → +Z, nearest
-// the camera, clear of the subject) and grow CLOCKWISE (decreasing θ): the arc spans
-// [-π/2 - len, -π/2] with len = fraction·2π, so the leading edge is always visible.
-const DIAL_START = -Math.PI / 2  // front of the dial (nearest the camera)
-function makeBenchDial(radius) {
-  const th = radius * 0.18                       // legible thickness, scales with the dial
-  const rOut = radius, rIn = Math.max(0.06, radius - th)
-  const g = new Group()
-  const trackMat = new MeshBasicMaterial({ color: DIAL_TRACK, transparent: true, opacity: 0.9, toneMapped: false, depthWrite: false })
-  const fillMat = new MeshBasicMaterial({ color: DIAL_ACCENT, transparent: true, opacity: 1, toneMapped: false, depthWrite: false })
-  const track = new Mesh(new RingGeometry(rIn, rOut, 96), trackMat)
-  const fill = new Mesh(new RingGeometry(rIn, rOut, 96, 1, DIAL_START, 0.0001), fillMat)
-  track.rotation.x = -Math.PI / 2
-  fill.rotation.x = -Math.PI / 2
-  track.renderOrder = 1; fill.renderOrder = 2
-  track.userData.fx = 'decal'; fill.userData.fx = 'decal' // a printed ring on the bench, not a solid
-  g.add(track, fill)
-  g.visible = false
-  let cur = -1
-  g.userData.trackMat = trackMat
-  g.userData.fillMat = fillMat
-  g.userData.setFraction = (f) => {
-    f = f < 0 ? 0 : f > 1 ? 1 : f
-    if (Math.abs(f - cur) < 0.004) return // throttle the geometry rebuild
-    cur = f
-    fill.geometry.dispose()
-    const len = Math.max(0.0001, f * Math.PI * 2)
-    fill.geometry = new RingGeometry(rIn, rOut, 96, 1, DIAL_START - len, len)
-    fill.rotation.x = -Math.PI / 2
-  }
-  return g
-}
+// (no countdown dial on the bench: the timer lives in the HUD)
 
 // The ONE sample persists across every step, carrying its contents. Its state at
 // the start of step N is exactly its state at the end of step N-1 (chained). We
@@ -1941,7 +1898,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       // (no station-number decal on the bench: the step number is in the timeline above)
       // BENCH-FALLBACK STAGING: a step that rests on the bare bench (no modelled instrument)
       // shows only what it states — a bench tag for a stated temperature / room temperature,
-      // and (below) the countdown dial at rest when it is timed.
+      // (A timed wait has no bench dial: the countdown lives in the HUD.)
       const staging = BENCH_REST_ACTIONS.has(o.action)
         ? benchStaging(effectiveStep(baseStep, altIdx), o.equipment) : null
       if (staging && staging.tag && !chromeless) {
@@ -1950,21 +1907,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
         scene.add(tag)
         st.benchTag = tag
       }
-      st.restDial = !!(staging && staging.dial)
       collectStationMats(st) // snapshot opacities so the unit fades as one
-      // the countdown DIAL — a flat ring around the subject's base, radius MEASURED from
-      // the frame footprint. Built for every station but shown only when a live timer is
-      // engaged (driven in the frame loop). Added AFTER collectStationMats so the vis-fade
-      // never clobbers the opacity the timer driver sets (paused-dim / done-fade).
-      // the sample vessel is not a station prop, so size the ring to take in ITS footprint
-      // too (a 1.9-wide agar plate hid a tube-sized ring completely)
-      // the ring encircles the SUBJECT's base with a margin proportional to it (a fixed
-      // 0.38 margin drew a 90 mm ring round an 11 mm tube)
-      const r0 = st.frame.footprint.r
-      const dial = makeBenchDial(r0 + Math.max(r0 * 0.6, clearance('bench_gap')))
-      dial.position.set(st.frame.footprint.cx, DIAL_Y, st.frame.footprint.cz)
-      st.group.add(dial)
-      st.dial = dial
       stations.push(st)
     })
     stationsRef.current = stations
@@ -2163,39 +2106,6 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     for (let si = 0; si < stations.length; si++) {
       if (Math.abs(si - ai) > 1) continue
       for (const u of stations[si].updatables) { u.userData?.update?.(dt); ticked++ }
-    }
-
-    // 4b · the countdown DIAL reads the SAME clock as the digits (timerRef.progress ==
-    // elapsedFraction), NOT the choreography p. Shown only on the active station and only
-    // while a timer is engaged (running, paused mid-way, or just completed). Paused dims
-    // vs running; on completion it holds full, then fades out so it isn't left as furniture.
-    {
-      const t = timerRef.current
-      for (const st of stations) {
-        const dial = st.dial
-        if (!dial) continue
-        const isActive = st === act
-        const engaged = isActive && t.hasTimer && (t.running || t.done || t.progress > 0.001)
-        if (!engaged) {
-          // a timed bench-fallback step shows its dial at rest (empty track) — the one cue
-          // on a bare bench that the step is a timed wait
-          if (isActive && st.restDial) { dial.visible = true; dial.userData.setFraction(0); dial.userData.fillMat.opacity = 1; dial.userData.trackMat.opacity = 0.9; st._dialFade = 1; continue }
-          if (dial.visible) dial.visible = false; st._dialFade = 1; continue
-        }
-        dial.visible = true
-        dial.userData.setFraction(t.progress)
-        if (t.done) { // hold full, then fade the whole dial away
-          st._dialFade = Math.max(0, (st._dialFade == null ? 1 : st._dialFade) - dt / 1.3)
-          dial.userData.fillMat.opacity = st._dialFade
-          dial.userData.trackMat.opacity = st._dialFade * 0.9
-          if (st._dialFade <= 0.002) dial.visible = false
-        } else { // running is bright; paused is visibly dimmer (a frozen ring must look frozen)
-          st._dialFade = 1
-          const paused = !t.running
-          dial.userData.fillMat.opacity = paused ? 0.45 : 1
-          dial.userData.trackMat.opacity = paused ? 0.6 : 0.9
-        }
-      }
     }
 
     // 5 · the ONE sample eases toward its world target — glides station→station.
