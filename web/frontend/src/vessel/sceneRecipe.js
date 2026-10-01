@@ -264,6 +264,46 @@ export function findStoreBeforeUseDefects(steps = [], sceneOf = sceneStep) {
   return out
 }
 
+// A STATED VOLUME in microlitres: "350 µl", "1 ml", "10 µl per sample", a range by its lower
+// bound ("30–50 µl" → 30); "one volume" / "1 volume" → { relative: 1 } (of what is there).
+// Anything else — "X µl", "20.7 - X µl", "according to the kit" — is null (not stated).
+const NUM = '(\\d+(?:[.,]\\d+)?)'
+const VOL_RE = new RegExp(`^\\s*${NUM}(?:\\s*[–-]\\s*${NUM})?\\s*(µl|μl|ul|ml|l)\\b`, 'i')
+export function statedMicroliters(v) {
+  const t = String(v ?? '').trim()
+  if (/^(one|1|an?)\s+(equal\s+)?volume\b/i.test(t)) return { relative: 1 }
+  const m = t.match(VOL_RE)
+  if (!m) return null
+  const n = Number(m[1].replace(',', '.')), u = m[3].toLowerCase()
+  return { ul: n * (u === 'ml' ? 1000 : u === 'l' ? 1e6 : 1) }
+}
+// THE SAMPLE'S VOLUME through the line (µL), where the steps state it — null where they do
+// not (the renderer then keeps its stylised level). An add adds each distinct reagent's
+// stated volume ("one volume" doubles what is there); a spin on a spin column sends the
+// liquid through the membrane (the flow-through is discarded: none left above it); an
+// elution carries the column's liquid into the eluate tube; a side preparation does not
+// touch the sample. Returns [{ start, end }] per step.
+export function sampleVolumes(steps = []) {
+  const seq = sampleContainerSequence(steps)
+  let vol = null
+  return steps.map((s, i) => {
+    const start = vol
+    const a = s?.action
+    if (a === 'pour_add') {
+      const seen = new Set(); let add = 0, ok = true
+      for (const r of s.reagents || []) {
+        const nm = r.name_en || r.name || ''; if (seen.has(nm)) continue; seen.add(nm)
+        const q = statedMicroliters(r.volume_en ?? r.volume)
+        if (!q || (q.relative != null && vol == null)) { ok = false; break }
+        add += q.ul != null ? q.ul : vol * q.relative
+      }
+      vol = ok && (s.reagents || []).length ? (vol || 0) + add : null
+    } else if (a === 'centrifuge' && seq[i] === 'spin_column') vol = vol == null ? null : 0
+    else if (a === 'discard') vol = null
+    return { start, end: vol }
+  })
+}
+
 // Steps that NAME an instrument we have no model for — they render on the bench. Not a
 // defect (a missing instrument is honest) but a coverage gap worth seeing, like a
 // `generic` fallback.

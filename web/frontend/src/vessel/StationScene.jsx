@@ -14,7 +14,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera } from '@react-three/drei'
 import { FogExp2, Color, Vector3, Box3, Group, Mesh, SphereGeometry, CylinderGeometry, PlaneGeometry, CanvasTexture, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
-import { resolveRecipe, stepConditions, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects, exitLiftPoint, pourPlan, removalFor, benchStaging, addSource, sceneStep, statesSpin } from './sceneRecipe.js'
+import { resolveRecipe, stepConditions, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects, exitLiftPoint, pourPlan, removalFor, benchStaging, addSource, sceneStep, statesSpin, sampleVolumes, statedMicroliters } from './sceneRecipe.js'
 import { containerContract, transferKind, sideBySide } from './containerContract.js'
 import { reagentName, reagentVolume, effectiveStep, selectAlternative, hasAlternatives } from '../lib/runtime.js'
 import * as demo from '../scene/demoScene.js'
@@ -541,13 +541,19 @@ export function configureStation(st, o) {
   addBenchStands(st)
 }
 function configureStationCore(st, o) {
-  const { action, equipment, container, prevContainer, color, name, vol, seconds, startColor, startLevel, endColor, endLevel, cycles } = o
+  const { action, equipment, container, prevContainer, color, name, vol, seconds, startColor, endColor, cycles } = o
   const C = containerContract(container)
   const vessel = C.vessel
   const S = demo.getSample()
   const FLAT = C.flat
   const SEAT_Y = 0 // every vessel's origin is its base centre: on the bench it is at y=0
   const V = S[vessel], VU = V.userData, VD = dims(C.spec)
+  // LIQUID FOLLOWS THE STATED VOLUME: where the steps state the sample's volume, its level
+  // is the level that holds it in THIS vessel (its own inner profile); otherwise the
+  // stylised level. An elution starts with the eluate tube empty (the liquid is on the column).
+  const levelOf = (v, ul, frac) => (ul != null && v?.userData?.levelFor ? v.userData.levelFor(ul) : frac)
+  const startLevel = action === 'elute' && o.endVol != null ? 0 : levelOf(V, o.startVol, o.startLevel)
+  const endLevel = levelOf(V, o.endVol, o.endLevel)
   // where a pipette delivers into THIS vessel and how deep its tip goes — facts of the built
   // vessel (its builder derives them from dimensions.json), never typed per container
   const MOUTH = VU.mouth || { x: 0, y: VD.height, z: 0, approach: 'top' }
@@ -751,7 +757,11 @@ function configureStationCore(st, o) {
       const draw = { x: dx, y: prep.userData.entry, z: dz }   // the tip goes into the parked tube
       st.drawFrom = new Vector3(draw.x, draw.y, draw.z)       // the pipette is held over it at rest
       const streamColor = prep.userData.mixColor != null ? prep.userData.mixColor : reags[0].color
-      const PREP_FULL = 0.62
+      // the carried mix holds what was made (its stated volume); drawing the stated volume
+      // out of it leaves the rest (80 µl from 80 µl: empty)
+      const PREP_FULL = prep.userData.fullLevel ?? 0.62
+      const drawUl = statedMicroliters(reags[0].vol)?.ul
+      const PREP_LEFT = (prep.userData.fullUl != null && drawUl != null && prep.userData.levelFor) ? prep.userData.levelFor(Math.max(0, prep.userData.fullUl - drawUl)) : 0.1
       st.drawsFromId = o.drawsFrom
       st.drawPos = { x: st.x + dx, y: 0, z: dz } // WORLD seat the carried tube glides to
       st.frameAnchors = [new Vector3(dx - T.width / 2, 0, dz - T.depth / 2), new Vector3(dx + T.width / 2, T.height, dz + T.depth / 2)] // a used source: in frame
@@ -765,7 +775,7 @@ function configureStationCore(st, o) {
         const done = demo.dispenseProgress(p)
         v.userData.setLevel(demo.lerp(startLevel, endLevel, done))
         v.userData.setColor(endColor)
-        prep.userData.setLevel(demo.lerp(PREP_FULL, 0.1, demo.easeInOut(demo.clamp(p, 0, 1)))) // drained as used
+        prep.userData.setLevel(demo.lerp(PREP_FULL, PREP_LEFT, demo.easeInOut(demo.clamp(p / 0.3, 0, 1)))) // drawn from as the tip aspirates
       }
     } else {
       // N reagents → N pipette passes INTO the sample (one per reagent, from its own source).
@@ -810,8 +820,14 @@ function configureStationCore(st, o) {
     // vessel is a SECOND TRAVELLING OBJECT (Stage 36): built ONCE, carried later.
     const reags = (o.reagents && o.reagents.length) ? o.reagents : [{ name, vol, color: endColor }]
     const prepId = o.produces || ('prep_' + Math.round(st.x))
-    const PREP_FULL = 0.62
     const prep = demo.makePrep(prepId, {})
+    // the mix's level follows its reagents' STATED volumes (10 µl + 70 µl → 80 µl), where
+    // every one is stated; otherwise the stylised fill
+    const uls = reags.map((r) => statedMicroliters(r.vol)?.ul ?? null)
+    const stated = uls.every((u) => u != null) && prep.userData.levelFor
+    const totalUl = stated ? uls.reduce((a, b) => a + b, 0) : null
+    const PREP_FULL = stated ? prep.userData.levelFor(totalUl) : 0.62
+    prep.userData.fullLevel = PREP_FULL; prep.userData.fullUl = totalUl
     const PD = dims(prep.userData.spec)
     st.subjectFoot = { hw: PD.width / 2 }
     st.subjectH = PD.height
@@ -848,7 +864,8 @@ function configureStationCore(st, o) {
       if (b.userData.setCap) b.userData.setCap(!(lp > 0.03 && lp < 0.36))
       demo.pipetteRun(st, st.reagents['r' + k].pos, DIP, lp, { color: reags[k].color, fill: 0.8, dipDepth: prep.userData.entry })
       const done = (k + demo.dispenseProgress(lp)) / n
-      prep.userData.setLevel(done * PREP_FULL)
+      if (stated) prep.userData.setLevel(prep.userData.levelFor(uls.slice(0, k).reduce((a, b) => a + b, 0) + demo.dispenseProgress(lp) * uls[k]))
+      else prep.userData.setLevel(done * PREP_FULL)
       prep.userData.setColor(reags[Math.min(k, n - 1)].color)
     }
   } else if (action === 'pipette_mix') {
@@ -995,7 +1012,7 @@ function configureStationCore(st, o) {
         fromKey: prevC2.vessel, toKey: vessel,
         srcDisp: S[prevC2.vessel].userData.mouth, srcEntry: S[prevC2.vessel].userData.entry, dstDisp: MOUTH, dstEntry: ENTRY,
         srcToken: prevContainer, dstToken: container,
-        color: endColor, startLevel, endLevel, name, vol,
+        color: endColor, startLevel: levelOf(S[prevC2.vessel], o.startVol, o.startLevel), endLevel, name, vol,
       })
       st._skipHandoff = true
     } else if (kind === 'place' && prevC2) {
@@ -1357,7 +1374,7 @@ function configureStationCore(st, o) {
         fromKey: prevC3.vessel, toKey: vessel,
         srcDisp: S[prevC3.vessel].userData.mouth, srcEntry: S[prevC3.vessel].userData.entry, dstDisp: MOUTH, dstEntry: ENTRY,
         srcToken: prevContainer, dstToken: container,
-        color: endColor, startLevel, endLevel, name, vol,
+        color: endColor, startLevel: levelOf(S[prevC3.vessel], o.startVol, o.startLevel), endLevel, name, vol,
       })
       st._skipHandoff = true
     } else {
@@ -1683,8 +1700,11 @@ function configurePipetteTransfer(st, S, o) {
 export function lineStateChain(steps, lang, altByStep = {}) {
   let color = INIT_COLOR
   let level = INIT_LEVEL
-  return steps.map((s) => {
-    const eff = hasAlternatives(s) ? selectAlternative(s, altByStep[s.index] || 0) : s
+  // the sample's STATED volume (µL) through the line, where the steps state it (null: not)
+  const effs = steps.map((s) => (hasAlternatives(s) ? selectAlternative(s, altByStep[s.index] || 0) : s))
+  const vols = sampleVolumes(effs)
+  return steps.map((s, i) => withVol(i, (() => {
+    const eff = effs[i]
     const prim = (eff.reagents || []).find((r) => r.volume) || (eff.reagents || [])[0]
     const c = new Color(reagentColor(prim ? reagentName(prim, lang) : null)).getHex()
     const f = resolveRecipe(eff.action).anim.fill
@@ -1700,7 +1720,8 @@ export function lineStateChain(steps, lang, altByStep = {}) {
     color = end.color
     level = end.level
     return { start, end }
-  })
+  })()))
+  function withVol(i, r) { return { start: { ...r.start, vol: vols[i].start }, end: { ...r.end, vol: vols[i].end } } }
 }
 
 // The configureStation options for step i — the ONE mapping from a parsed step to a
@@ -1721,6 +1742,7 @@ export function stationConfig(steps0, i, { containers, stateChain, lang = 'en', 
     opts: {
       action: o.action, equipment: o.equipment, container, prevContainer, color: o.colorHex, name: o.title, vol: o.vol, seconds: o.seconds,
       startColor: o.start.color, startLevel: o.start.level, endColor: o.end.color, endLevel: o.end.level, cycles: o.cycles, reagents: o.reagents,
+      startVol: o.start.vol ?? null, endVol: o.end.vol ?? null,
       drawsFrom: o.drawsFrom, produces: o.produces, text: o.text, tempC: o.tempC, onIce: o.onIce, rcf: o.rcf,
       prevEquipment: eqAt(i - 1), nextEquipment: eqAt(i + 1),
       prevOnIce: i > 0 && !!stepConditions(steps[i - 1]).onIce && (containers[i - 1] || null) === container,

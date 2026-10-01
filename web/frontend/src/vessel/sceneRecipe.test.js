@@ -6,7 +6,7 @@ import {
   findTransferHandoffDefects, findPrepareOnSampleDefects, findTargetDefects, actsOnSample,
   exitLiftPoint, stepConditions, findInstrumentDefects, NAMED_INSTRUMENTS, CONTAINER_TOKENS,
   findUnmodelledInstruments, pourPlan, removalFor, benchStaging, addSource,
-  sceneStep, findStoreBeforeUseDefects,
+  sceneStep, findStoreBeforeUseDefects, statedMicroliters, sampleVolumes,
 } from './sceneRecipe.js'
 import { findVesselRuleDefects, loadVesselRules } from '../../scripts/lib/vesselRules.mjs'
 import { resolveBehavior } from './behavior.js'
@@ -750,5 +750,27 @@ describe('sceneStep — a frozen store the sample is used after is not depicted 
   it('the audit: a frozen store depicted while the sample is used after it is a defect', () => {
     expect(findStoreBeforeUseDefects([keep, nano], (steps, i) => steps[i])).toEqual([{ index: 25, instrument: 'freezer', usedAt: 26 }])
     expect(findStoreBeforeUseDefects([keep, nano])).toEqual([])
+  })
+})
+
+// LIQUID FOLLOWS THE STATED VOLUME: the volumes a protocol states, and the sample's volume
+// through the line where they are all stated (null where they are not).
+describe('statedMicroliters / sampleVolumes', () => {
+  it('reads a stated volume; a range by its lower bound; "one volume" relative; anything else null', () => {
+    expect(statedMicroliters('350 µl')).toEqual({ ul: 350 })
+    expect(statedMicroliters('1 ml')).toEqual({ ul: 1000 })
+    expect(statedMicroliters('30–50 µl')).toEqual({ ul: 30 })
+    expect(statedMicroliters('10 µl per sample')).toEqual({ ul: 10 })
+    expect(statedMicroliters('one volume')).toEqual({ relative: 1 })
+    for (const v of ['X µl', '20.7 - X µl', 'according to the kit instructions', null]) expect(statedMicroliters(v)).toBe(null)
+  })
+  const rna = JSON.parse(readFileSync(fileURLToPath(new URL('../../public/protocols/neutrophil_rna.json', import.meta.url)), 'utf8')).steps
+  const pcr = JSON.parse(readFileSync(fileURLToPath(new URL('../../public/protocols/pcr.json', import.meta.url)), 'utf8')).steps
+  it('neutrophil: 350 µL lysate, doubled by one volume of ethanol, through the column, 30 µL eluted', () => {
+    const v = sampleVolumes(rna), at = (idx) => v[rna.findIndex((s) => s.index === idx)].end
+    expect([at(5), at(7), at(8), at(9), at(10), at(22), at(24), at(26)]).toEqual([350, 700, 700, 0, 350, 30, 30, 30])
+  })
+  it('PCR states no volume it can add ("X µl"): unstated, so its levels are unchanged', () => {
+    expect(sampleVolumes(pcr).every((r) => r.start == null && r.end == null)).toBe(true)
   })
 })

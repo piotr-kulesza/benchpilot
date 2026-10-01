@@ -6,7 +6,7 @@ import { streams } from './rng.js'
 import * as THREE from 'three'
 import { dims } from './dims.js'
 import { makeLabel } from './labels.js'
-import { attachSampleLiquid, innerRadiusFn, liquidMat, liquidProfileGeo, tintGradient } from './liquid.js'
+import { attachSampleLiquid, innerRadiusFn, liquidMat, liquidProfileGeo, tintGradient, levelForVolume } from './liquid.js'
 import { glassMaterial, matFrosted, matPlastic } from './materials.js'
 import { LABEL_GAP, fitArt, fx, slabWithHoles, tagSpec } from './modelKit.js'
 import { COL } from './palette.js'
@@ -149,6 +149,8 @@ import { MAX_ANISO, clamp, easeInOut, lerp, roundRect } from './util.js'
       }
     };
     grp.userData.visual=visual;
+    // the level that holds `ul` µL in THIS tube (its own inner profile, drawn at real size)
+    grp.userData.levelFor=function(ul){ return levelForVolume(innerFn, liqBottom, liqFillMax, ul, 1, 1); };
     // where a pipette delivers: the MOUTH (top centre) and how deep the tip goes in
     grp.userData.mouth={ x:0, y:H, z:0, approach:'top' };
     grp.userData.entry=H*0.32;
@@ -230,6 +232,8 @@ import { MAX_ANISO, clamp, easeInOut, lerp, roundRect } from './util.js'
       }
     };
     var root=fitArt(grp,'spin_column_mini');
+    // the level that holds `ul` µL above the membrane (the cup's inner profile, scaled to world)
+    root.userData.levelFor=function(ul){ var F=root.userData.fit; return levelForVolume(colInnerFn, colBottom, colFillMax, ul, F.sx, F.sy); };
     // the tip stops just below the cup rim, ABOVE the silica bed (membrane at drawing y 0.9)
     root.userData.mouth={ x:0, y:root.userData.fit.toWorld(0,1.56,0).y, z:0, approach:'top' };
     root.userData.entry=root.userData.fit.toWorld(0,1.2,0).y;

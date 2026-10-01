@@ -77,4 +77,19 @@ import { clamp, lerp } from './util.js'
       emissive:COL.lysis, emissiveIntensity:0.12, clearcoat:0.3, clearcoatRoughness:0.4, envMapIntensity:0.6 });
   }
 
-export { tintGradient, innerRadiusFn, liquidProfileGeo, attachSampleLiquid, liquidMat }
+  // THE LEVEL THAT HOLDS A VOLUME: the liquid fills the vessel's inner profile (`innerR`,
+  // drawing units) from y0 up; returns the fill fraction of [y0, yMax] whose volume is `ul`
+  // microlitres — 1 world unit = 100 mm, so 1 world unit³ = 10⁶ mm³ = 10⁶ µL. `sr` / `sy`
+  // scale the drawing's radius / height to world units (1 for a vessel drawn at real size).
+  function levelForVolume(innerR, y0, yMax, ul, sr, sy){
+    sr = sr||1; sy = sy||1;
+    var want = Math.max(0, ul)/1e6, N = 400, dy = (yMax-y0)/N, v = 0;
+    for(var i=0;i<N;i++){
+      var r = innerR(y0+(i+0.5)*dy)*sr, dv = Math.PI*r*r*dy*sy;
+      if(v+dv >= want) return (i + (want-v)/dv)/N;
+      v += dv;
+    }
+    return 1;
+  }
+
+export { tintGradient, innerRadiusFn, liquidProfileGeo, attachSampleLiquid, liquidMat, levelForVolume }
