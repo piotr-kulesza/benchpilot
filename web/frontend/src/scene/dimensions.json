@@ -325,8 +325,9 @@
       "depth": { "mm": 90, "est": "the 40 mm rack + ~25 mm of ice front and back" },
       "height": { "mm": 22, "est": "a shallow pan: its front wall stays below the seated tubes" },
       "wall": { "mm": 3, "est": "moulded pan wall and floor" },
-      "ice_depth": { "mm": 12, "est": "crushed ice packed round the rack's base" },
-      "ice_piece": { "mm": 9, "est": "crushed-ice piece size" },
+      "ice_depth": { "mm": 17, "est": "crushed ice packed round the rack to just under the pan's rim (the rack's 0.2 mL seats floor at 16 mm)" },
+      "ice_piece": { "mm": 6, "est": "crushed-ice piece size (finely crushed, as packed round a cooling rack)" },
+      "ice_pieces": { "count": 1600, "est": "enough 2–3 mm-radius pieces to cover the ~14 000 mm² of pan round the rack in about two layers" },
       "accepts": ["cool_rack"]
     },
     "pipette_p200": {

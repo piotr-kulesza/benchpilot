@@ -136,18 +136,25 @@ export function buildIcePan() {
   })
   // the rack's seat: on the floor, one contact tolerance up (it stands on the floor, never in it)
   addSocket(grp, 'bed', { position: new THREE.Vector3(0, T + clearance('contact_epsilon'), 0), accepts: ['cool_rack'] })
-  // crushed ice packed round the rack's footprint (not under it), to ice_depth
-  const iceMat = new THREE.MeshPhysicalMaterial({ color: 0xd4e2ea, roughness: 0.14, transparent: true, opacity: 0.55, clearcoat: 0.8, envMapIntensity: 1.0, flatShading: true, depthWrite: false })
+  // CRUSHED ICE packed round the rack's footprint (not under it), level to ice_depth: a bed of
+  // small white pieces filling the pan, not a few clear lumps sunk below its rim (90 tries
+  // at 9 mm, 55 % opaque and under the wall's top: from the bench it read as nothing)
+  const iceMat = new THREE.MeshPhysicalMaterial({ color: 0xe8f0f5, roughness: 0.32, transparent: true, opacity: 0.9, clearcoat: 0.6, envMapIntensity: 0.9, flatShading: true })
   const rw = R.width / 2 + 0.002, rd = R.depth / 2 + 0.002, top = T + D.ice_depth
-  for (let i = 0; i < 90; i++) {
-    const cs = D.ice_piece * (0.35 + Math.random() * 0.3)
+  const N = Math.round(D.ice_pieces), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler()
+  const poses = []
+  for (let i = 0; i < N; i++) {
+    const cs = D.ice_piece * (0.3 + Math.random() * 0.22)
     const x = (Math.random() - 0.5) * (W - 2 * T - 2 * cs), z = (Math.random() - 0.5) * (DEP - 2 * T - 2 * cs)
+    const y = top - cs * (0.2 + Math.random() * 1.2), sy = 0.7 + Math.random() * 0.3     // packed: tops at the bed's level, more below
+    e.set(Math.random(), Math.random(), Math.random())
     if (Math.abs(x) < rw + cs && Math.abs(z) < rd + cs) continue           // the rack stands there
-    const cube = new THREE.Mesh(new THREE.IcosahedronGeometry(cs, 0), iceMat)
-    cube.position.set(x, top - cs * (0.3 + Math.random() * 0.6), z)
-    cube.rotation.set(Math.random(), Math.random(), Math.random())
-    cube.castShadow = true; fx(cube, 'granular'); grp.add(cube)
+    poses.push(m4.compose(new THREE.Vector3(x, y, z), q.setFromEuler(e), new THREE.Vector3(cs, cs * sy, cs)).clone())
   }
+  // ONE instanced mesh (a few hundred pieces, one draw call)
+  const ice = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 0), iceMat, poses.length)
+  poses.forEach((m, k) => ice.setMatrixAt(k, m))
+  ice.castShadow = true; ice.receiveShadow = true; fx(ice, 'granular'); grp.add(ice)
   grp.userData.sampleSocket = 'bed'
   grp.userData.holder = true
   return tagSpec(grp, 'ice_pan')

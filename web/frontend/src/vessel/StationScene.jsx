@@ -645,6 +645,13 @@ function configureStationCore(st, o) {
     st.group.updateMatrixWorld(true)
     rack.userData.setCutaway(true)   // CUTAWAY: the reaction is seen in its seat through the strip in front of it
     st.rack = rack
+    // THE ICE IS SEEN: from the rail's 13° the pan's front wall hid the bed and only the
+    // pieces at the frame's edge showed. A higher view (29°) looks down onto the ice packed
+    // round the rack, over the rack's front — not through the ice to the tube — and the frame
+    // takes in the ice bed in front of the reaction's seat
+    st.viewDir = viewDir(0, 0.5)
+    const pb = solidBox(pan, st.group)
+    st.frameAnchors = [...(st.frameAnchors || []), new Vector3(0, pb.max.y, pb.max.z)]   // the pan's front, in line with the seat (at the origin)
     return { rack, pan, seatY: socketY(rack, 'rx').y }
   }
 

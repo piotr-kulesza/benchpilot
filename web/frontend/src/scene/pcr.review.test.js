@@ -3,7 +3,7 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import fs from 'fs'
 import path from 'path'
-import { Vector3, Raycaster, DoubleSide } from 'three'
+import { Vector3, Matrix4, Raycaster, DoubleSide } from 'three'
 import { installHeadless } from './headless.js'
 installHeadless()
 
@@ -18,6 +18,13 @@ beforeAll(async () => {
 
 const POSES = [0, 0.25, 0.54, 0.75, 1]
 const verts = (m) => { m.updateWorldMatrix(true, false); const a = m.geometry.attributes.position, o = []; for (let i = 0; i < a.count; i++) o.push(new Vector3().fromBufferAttribute(a, i).applyMatrix4(m.matrixWorld)); return o }
+// the highest point of each ice piece, world space (an InstancedMesh holds many pieces)
+function pieceCrests(m) {
+  m.updateWorldMatrix(true, false)
+  const a = m.geometry.attributes.position, mats = []
+  if (m.isInstancedMesh) { for (let k = 0; k < m.count; k++) { const im = new Matrix4(); m.getMatrixAt(k, im); mats.push(im.premultiply(m.matrixWorld)) } } else mats.push(m.matrixWorld)
+  return mats.map((M) => { let best = null; for (let i = 0; i < a.count; i++) { const v = new Vector3().fromBufferAttribute(a, i).applyMatrix4(M); if (!best || v.y > best.y) best = v } return best })
+}
 const shown = (o) => { for (let n = o; n; n = n.parent) if (!n.visible) return false; return true }
 const meshesOf = (root, pred) => { const o = []; root.traverse((m) => { if (m.isMesh && pred(m)) o.push(m) }); return o }
 // fraction of `pts` (in frame) hidden from the camera behind any of `occ`
@@ -100,10 +107,11 @@ describe('PCR 1 · crushed ice round the block, in frame, clear of the tube', ()
       const walls = meshesOf(st.group, (m) => shown(m) && !m.userData.fx && isOpaque(m))
       const tube = S.vessels.find((v) => v.visible && v.userData.spec === 'pcr_tube_0_2')
       const tz = tube.getWorldPosition(new Vector3()).z
-      // a piece is seen if its crest is (a crushed-ice bed shows its tops)
-      const crest = (m) => verts(m).reduce((a, b) => (b.y > a.y ? b : a))
-      const seen = ice.filter((m) => { const w = crest(m), q = w.clone().project(c); return Math.abs(q.x) <= 0.95 && Math.abs(q.y) <= 0.95 && hiddenFraction(c, [w], walls) === 0 })
-      const front = seen.filter((m) => m.getWorldPosition(new Vector3()).z > tz).length
+      // a piece is seen if its crest is (a crushed-ice bed shows its tops) — each piece, plain
+      // or one instance of an instanced bed
+      const crests = ice.flatMap(pieceCrests)
+      const seen = crests.filter((w) => { const q = w.clone().project(c); return Math.abs(q.x) <= 0.95 && Math.abs(q.y) <= 0.95 && hiddenFraction(c, [w], walls) === 0 })
+      const front = seen.filter((w) => w.z > tz).length
       const covered = hiddenFraction(c, meshesOf(tube, (m) => shown(m) && !m.userData.fx).flatMap(verts), ice)
       if (seen.length < 40 || front < 15 || covered > 0) out.push({ p, seen: seen.length, front, covered: +covered.toFixed(3) })
     }
