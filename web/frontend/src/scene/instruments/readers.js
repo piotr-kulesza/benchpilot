@@ -9,7 +9,7 @@ import { addSocket } from '../sockets.js'
 import { makeLabel } from '../labels.js'
 import { TEX, matBrushed, matPainted, matPlastic } from '../materials.js'
 import { LABEL_GAP, declareCutaway, fitArt, fx, openTopBox, tagSpec } from '../modelKit.js'
-import { MAX_ANISO, clamp, lerp } from '../util.js'
+import { MAX_ANISO, clamp, easeInOut, lerp } from '../util.js'
 
 
   /* ---------- microplate ABSORBANCE reader (ELISA) — NOT the NanoDrop. A benchtop
@@ -112,14 +112,28 @@ import { MAX_ANISO, clamp, lerp } from '../util.js'
     var label = makeLabel("NanoDrop","A260/280 = 2.0");
     label.position.set(0.4,2.15,0); grp.add(label);
 
-    var st={ prog:0,tProg:0 };
+    var st={ prog:0,tProg:0, arm:0,tArm:0 };
     grp.userData.screenTex=scTex; grp.userData.sg=sg; grp.userData.label=label; grp.userData.st=st;
     grp.userData.setProgress=function(v){ st.tProg=v; };
+    // the sampling ARM lifts to load the pedestal and comes down onto the drop to read
+    grp.userData.setArm=function(open){ st.tArm=open?1:0; };
     grp.userData.update=function(dt){
       st.prog=lerp(st.prog,st.tProg,1-Math.pow(0.01,dt));
+      st.arm=lerp(st.arm,st.tArm,1-Math.pow(0.02,dt));
+      armPivot.rotation.z = 0.12 + easeInOut(st.arm)*1.05;
       drawTrace(sg,st.prog); scTex.needsUpdate=true;
     };
-    return tagSpec(fitArt(grp,'nanodrop'),'nanodrop');
+    var root=fitArt(grp,'nanodrop');
+    // the PEDESTAL's top (world): where a 1–2 µL drop is put — and the drop itself, hidden
+    // until it is pipetted there (the instrument requires one; its volume is not stated)
+    root.userData.pedestalTop=function(){ ped.updateWorldMatrix(true,false); return new THREE.Vector3(0,0.05,0).applyMatrix4(ped.matrixWorld); };
+    root.updateMatrixWorld(true);
+    var dropR=dims('nanodrop').pedestal_drop/2;
+    var drop=new THREE.Mesh(new THREE.SphereGeometry(dropR,14,10,0,Math.PI*2,0,Math.PI/2), new THREE.MeshPhysicalMaterial({ color:0x9fd8e8, roughness:0.15, transparent:true, opacity:0.85, clearcoat:1 }));
+    drop.position.copy(root.worldToLocal(root.userData.pedestalTop())); drop.visible=false; fx(drop,'fluid'); root.add(drop);
+    root.userData.drop=drop;
+    root.userData.setDrop=function(on, color){ drop.visible=!!on; if(color!=null) drop.material.color.set(color); };
+    return tagSpec(root,'nanodrop');
   }
   function drawTrace(g,prog){
     var W=720,H=480,S=2;

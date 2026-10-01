@@ -151,6 +151,7 @@
       "width": { "mm": 254, "src": "nanodrop-one" },
       "depth": { "mm": 203, "src": "nanodrop-one" },
       "height": { "mm": 323, "src": "nanodrop-one" },
+      "pedestal_drop": { "mm": 2.2, "est": "a 1–2 µL drop on the measurement pedestal is ~2 mm across" },
       "accepts": []
     },
     "vortex_mixer": {
