@@ -184,19 +184,38 @@ import { MAX_ANISO, clamp, easeInOut, lerp } from '../util.js'
     innerBack.position.y=FL+(H-FL)/2; fx(innerBack,'decal'); grp.add(innerBack);
     var base = new THREE.Mesh(new THREE.CylinderGeometry(RB,RB,FL,44), innerMat);
     base.position.y=FL/2; grp.add(base);                                 // the insulated floor
-    addSocket(grp,'bed',{ position:new THREE.Vector3(0,FL,0) });
-    // crushed ICE packed to ice_depth, leaving the centre clear for the tube
-    var iceMat=new THREE.MeshPhysicalMaterial({ color:0xd4e2ea, roughness:0.14,
-      transparent:true, opacity:0.55, clearcoat:0.8, envMapIntensity:1.0, flatShading:true, depthWrite:false });
-    // real-size pieces (dims ice_piece), packed to ice_depth — which is BELOW the tube's top
-    var iceTop=FL+D.ice_depth, clearR=T.radius*1.8;
-    for(var ic=0;ic<48;ic++){
-      var a=Math.random()*Math.PI*2, cs=D.ice_piece*(0.35+Math.random()*0.3), rr=clearR+cs+Math.random()*(RB-WALL-clearR-2*cs);
-      var cube=new THREE.Mesh(new THREE.IcosahedronGeometry(cs,0), iceMat);
-      cube.position.set(Math.cos(a)*rr, iceTop-cs*(0.3+Math.random()*0.6), Math.sin(a)*rr);
-      cube.rotation.set(Math.random(),Math.random(),Math.random());
-      cube.castShadow=true; fx(cube,'granular'); grp.add(cube);
+    // CRUSHED ICE FILLS THE TUB to ice_depth (as a bucket is filled for use; the old 30 mm
+    // of 14 mm lumps left the tube on the floor of a 168 mm deep tub, seen through its cut
+    // wall). The tube is PUSHED INTO the ice (ice_sink): the ice it displaced slopes up from
+    // its tip to the surface (ice_crater), so the tip and its contents are seen from above.
+    // A packed bed (a lathe: crater, surface, down the inner wall) under ONE instanced layer
+    // of small pieces (dims ice_piece) — the surface is what is seen.
+    var iceTop=FL+D.ice_depth, sink=D.ice_sink, rC=D.ice_crater, rT=T.radius*1.3;
+    var innerAt=function(y){ return lerp(RB,R,y/H)-WALL; };
+    var surf=function(r){ return r<=rT ? iceTop-sink : r>=rC ? iceTop : iceTop-sink*(1-(r-rT)/(rC-rT)); };
+    addSocket(grp,'bed',{ position:new THREE.Vector3(0,iceTop-sink,0) });   // the tube's tip, pushed into the ice
+    // packed crushed ice reads WHITE between the pieces (a plain matte bed under the scene's
+    // grazing key light read as a grey void)
+    var bedMat=new THREE.MeshStandardMaterial({ color:0xf4f8fb, emissive:0x9aa6b0, emissiveIntensity:0.55, roughness:0.9, metalness:0, envMapIntensity:0.6, side:THREE.DoubleSide });
+    var rIn=innerAt(iceTop)*0.985;                                   // just inside the lining (no z-fighting with it)
+    var bedProf=[new THREE.Vector2(0.0005,iceTop-sink), new THREE.Vector2(rT,iceTop-sink), new THREE.Vector2(rC,iceTop),
+      new THREE.Vector2(rIn,iceTop), new THREE.Vector2(innerAt(FL)*0.985,FL), new THREE.Vector2(0.0005,FL)];
+    var bed=new THREE.Mesh(new THREE.LatheGeometry(bedProf,48), bedMat);
+    bed.receiveShadow=true; fx(bed,'granular'); bed.userData.iceBed=true; grp.add(bed);   // the packed bed, not a piece
+    var iceMat=new THREE.MeshPhysicalMaterial({ color:0xeef4f8, roughness:0.3, transparent:true, opacity:0.9,
+      clearcoat:0.6, envMapIntensity:0.9, flatShading:true });
+    var m4=new THREE.Matrix4(), q4=new THREE.Quaternion(), e4=new THREE.Euler(), poses=[];
+    for(var ic=0;ic<D.ice_pieces;ic++){
+      var cs=D.ice_piece*(0.3+Math.random()*0.22);
+      var a=Math.random()*Math.PI*2, rr=Math.sqrt(Math.random())*(rIn-cs);
+      var sy=0.7+Math.random()*0.3, dy=cs*(0.1+Math.random()*0.6);
+      e4.set(Math.random(),Math.random(),Math.random());
+      if(rr<rT+cs) continue;                                           // the tube stands there
+      poses.push(m4.compose(new THREE.Vector3(Math.cos(a)*rr, surf(rr)-dy, Math.sin(a)*rr), q4.setFromEuler(e4), new THREE.Vector3(cs,cs*sy,cs)).clone());
     }
+    var ice=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,0), iceMat, poses.length);
+    poses.forEach(function(m,k){ ice.setMatrixAt(k,m); });
+    ice.castShadow=true; ice.receiveShadow=true; fx(ice,'granular'); grp.add(ice);
     // faint frost rime on the outer wall
     var frostMat=new THREE.MeshStandardMaterial({ color:0xe1e9ef, roughness:0.9, envMapIntensity:0.4 });
     var frostGeo=new THREE.SphereGeometry(1,6,5);
