@@ -252,7 +252,10 @@ export function frameStation(st) {
     if (c.userData.used) usedProps.union(b)
     if (!c.userData.noFrame || c.userData.used) ctxProps.union(b)
   }
-  for (const a of [...(st.frameAnchors || []), ...anchors]) { usedProps.expandByPoint(a); ctxProps.expandByPoint(a) }
+  for (const a of (st.frameAnchors || [])) { usedProps.expandByPoint(a); ctxProps.expandByPoint(a) }
+  // the dispense anchors hold in every pose — or only where the station says the pipette is
+  // in use (st.pipetteAt(p)): a NanoDrop station opens on the tube in its ice, not on the pedestal
+  const pipAt = (q) => !st.pipetteAt || st.pipetteAt(q)
   // ONE FRAME PER POSE: the camera follows the subject through the step (it may move and
   // zoom; it never rescales) — a tube carried from the bench into a rotor is framed on the
   // bench, then on the rotor, not as a speck in a frame holding the whole path
@@ -261,6 +264,7 @@ export function frameStation(st) {
   const ctxAt = FRAME_POSES.map((q) => { const b = st.contextAt ? st.contextAt(q) : null; return b && !b.isEmpty() ? b.clone().translate(new Vector3(-st.x, 0, 0)) : null })
   st.frames = boxes.map((sb, k) => {
     const used = sb.clone().union(usedProps), context = st.tightFrame ? used.clone() : used.clone().union(ctxProps)
+    if (pipAt(FRAME_POSES[k])) for (const a of anchors) { used.expandByPoint(a); context.expandByPoint(a) }
     if (ctxAt[k]) context.union(ctxAt[k])
     const f = fitFrame(sb, used, context, st.viewDir || null, { macro: !st.instrumentFrame })
     const sc = sb.getCenter(new Vector3()), sz = sb.getSize(new Vector3())
@@ -1455,37 +1459,56 @@ function configureStationCore(st, o) {
         evolve(p)
       }
     } else if (inst === 'nanodrop') {
-      // a NanoDrop reads a 1–2 µL drop on its pedestal — the TUBE stays on the bench beside it
+      // A NANODROP READS A DROP ON ITS PEDESTAL — the TUBE stays on the bench beside it. The
+      // station shows the reading as it is done: the arm lifts, a drop is pipetted from the
+      // tube onto the pedestal (the instrument requires one; its volume is not stated: a
+      // small draw), the arm comes down, the spectrum is read. The NanoDrop is framed whole
+      // while it is used (it was a cropped dark wall beside a tube in a stand).
       const nano = demo.buildNanoDrop()
       st.dev = nano; st.group.add(nano); st.updatables.push(nano)
       const NW = dims('nanodrop').width
       nano.position.set(NW / 2 + GAP + VD.width / 2, 0, 0); placeOnBench(nano)
+      demo.addPipetteRig(st)
+      const draw = { x: MOUTH.x, y: ENTRY, z: MOUTH.z }
+      st.drawFrom = new Vector3(draw.x, draw.y, draw.z)
+      const pedestal = () => { st.group.updateMatrixWorld(true); return st.group.worldToLocal(nano.userData.pedestalTop()) }
       // FROM THE ICE: a sample kept on ice through the step before is TAKEN FROM it — it
       // starts in its ice bucket beside the bench spot, lifts straight up clear of the rim,
       // and is set down beside the NanoDrop before the reading (it used to start on the bench)
       const bucket = o.prevOnIce ? demo.buildIceBucket() : null
-      if (bucket && canPlace(V, bucket, bucket.userData.sampleSocket)) {
+      const fromIce = !!(bucket && canPlace(V, bucket, bucket.userData.sampleSocket))
+      let BS = null, seatP = null, carryY = 0
+      if (fromIce) {
         const BW = dims('ice_bucket_4l').diameter
         st.group.add(bucket); placeOnBench(bucket); st.updatables.push(bucket)
         bucket.position.x = demo.benchSlot(st, BW / 2, -1); st.group.updateMatrixWorld(true)
         st.viewDir = viewDir(0, 0.66)                     // from above: the tube is seen in the ice, the NanoDrop beside it
-        const BS = bucket.userData.sampleSocket, seatP = socketY(bucket, BS), carryY = dims('ice_bucket_4l').height + LIFT
-        const at = (x, y, z) => S.at(S[vessel], st.x + x, y, z)
-        st.enter = () => { seat(0); seatIn(bucket, BS); nano.userData.setProgress?.(0) }
-        st.timeline = (p) => {
-          const v = S[vessel], seg = (a, b) => demo.easeInOut(demo.clamp((p - a) / (b - a), 0, 1))
+        BS = bucket.userData.sampleSocket; seatP = socketY(bucket, BS); carryY = dims('ice_bucket_4l').height + LIFT
+      }
+      const T0 = fromIce ? 0.26 : 0.06                    // the tube is on the bench beside the NanoDrop
+      const READ = 0.66                                    // the arm is down on the drop
+      st.subjectAt = (p) => (p < T0 ? S[vessel] : nano)    // the step's instrument while it is used
+      st.pipetteAt = (p) => p >= T0
+      const at = (x, y, z) => S.at(S[vessel], st.x + x, y, z)
+      st.enter = () => { seat(0); if (fromIce) seatIn(bucket, BS); nano.userData.setProgress?.(0); nano.userData.setArm?.(false); nano.userData.setDrop?.(false); demo.pipRest(st) }
+      st.timeline = (p) => {
+        const v = S[vessel], seg = (a, b) => demo.easeInOut(demo.clamp((p - a) / (b - a), 0, 1))
+        if (fromIce) {
           v.userData.held = p >= 0.04 && p < 0.26
           if (p < 0.04) seatIn(bucket, BS)                                                              // 1 · on ice
           else if (p < 0.12) { clearPlacement(v); at(seatP.x, demo.lerp(seatP.y, carryY, seg(0.04, 0.12)), seatP.z) }  // 2 · straight up out of the ice
           else if (p < 0.2) { clearPlacement(v); const q = seg(0.12, 0.2); at(demo.lerp(seatP.x, 0, q), carryY, demo.lerp(seatP.z, 0, q)) } // 3 · across to the NanoDrop
           else if (p < 0.26) { clearPlacement(v); at(0, demo.lerp(carryY, 0, seg(0.2, 0.26)), 0) }     // 4 · down beside it
-          else seat(0)                                                                                  // 5 · on the bench; the drop is read
-          nano.userData.setProgress?.(demo.easeInOut(demo.clamp((p - 0.26) / 0.6, 0, 1)))
-          evolve(p)
+          else seat(0)                                                                                  // 5 · on the bench
         }
-      } else {
-        st.enter = () => seat(0)
-        st.timeline = (p) => { evolve(p); nano.userData.setProgress?.(demo.easeInOut(demo.clamp(p * 1.4, 0, 1))) }
+        // the arm up; one pipette pass from the tube onto the pedestal; the arm down; the read
+        nano.userData.setArm?.(p > T0 && p < READ)
+        const lp = demo.clamp((p - T0) / (READ - 0.04 - T0), 0, 1)
+        if (p >= T0) demo.pipetteRun(st, draw, pedestal(), lp, { color: endColor, fill: demo.tipFill(''), dipDepth: 0 })
+        else demo.pipRest(st)
+        nano.userData.setDrop?.(lp >= demo.DISPENSE_TO, endColor)
+        nano.userData.setProgress?.(demo.easeInOut(demo.clamp((p - READ - 0.04) / (0.96 - READ - 0.04), 0, 1)))
+        evolve(p)
       }
     } else if (inst === 'inverted_microscope') {
       onStage(demo.buildInvertedMicroscope())
