@@ -1,20 +1,25 @@
 // pcr-review.mjs — every station of ONE bundled protocol at its start, middle and end
 // (p = 0, 0.5, 1), rendered by the REAL runner (dev-only ?pin=<p>), tiled into one
 // contact sheet: dev-shots/sheets/<protocol>_review.png.
-//   node scripts/pcr-review.mjs [protocol=pcr]     (needs `npm run dev` on :4319)
+//   node scripts/pcr-review.mjs [protocol=pcr] [--per N] [--name X]   (needs `npm run dev` on :4319)
+// --per N splits a long protocol across sheets of N stations: <X>_review_1.png, _2, …
+// (--name X: the sheet's name, default the protocol id)
 import puppeteer from 'puppeteer-core'
 import fs from 'fs'
 import path from 'path'
 
 const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const BASE = process.env.BASE || 'http://localhost:4319'
-const proto = process.argv[2] || 'pcr'
+const argv = process.argv.slice(2)
+const opt = (k) => { const i = argv.indexOf('--' + k); return i >= 0 ? argv[i + 1] : null }
+const proto = argv.find((a, i) => !a.startsWith('--') && !(i > 0 && argv[i - 1].startsWith('--'))) || 'pcr'
+const PER = +(opt('per') || 0), NAME = opt('name') || proto
 // the middle is p = 0.54, not 0.5: a multi-reagent set-up (PCR 1, seven passes) is between
 // passes at 0.5 — its pipette cruising above the frame; at 0.54 the middle pass dispenses
 const PS = [0, 0.54, 1]
 const OUT = path.join(process.cwd(), 'dev-shots', `${proto}_review`)
-const SHEET = path.join(process.cwd(), 'dev-shots', 'sheets', `${proto}_review.png`)
-fs.mkdirSync(OUT, { recursive: true }); fs.mkdirSync(path.dirname(SHEET), { recursive: true })
+const SHEETS = path.join(process.cwd(), 'dev-shots', 'sheets')
+fs.mkdirSync(OUT, { recursive: true }); fs.mkdirSync(SHEETS, { recursive: true })
 
 const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new',
   args: ['--no-sandbox', '--use-angle=metal', '--enable-webgl', '--ignore-gpu-blocklist', '--window-size=1500,980'] })
@@ -42,16 +47,24 @@ for (let s = 1; s <= n; s++) {
     console.log('  captured step', s, 'p', p)
   }
 }
-// contact sheet: one row per station, three columns (start · middle · end)
+// contact sheets: one row per station, three columns (start · middle · end); all stations
+// on one sheet, or PER stations a sheet
 const imgs = tiles.map((t) => ({ ...t, b64: fs.readFileSync(t.file).toString('base64') }))
-const html = `<html><body style="margin:0;background:#15181c;font:600 15px system-ui;color:#d8dde3">
-<div style="padding:14px 18px;font-size:19px">${proto} — every station at start · middle · end (p = 0 · 0.54 · 1)</div>
-<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 12px 12px">
-${imgs.map((t) => `<div><div style="padding:4px 2px">station ${t.s} · p=${t.p}</div><img style="width:100%;display:block;border-radius:4px" src="data:image/png;base64,${t.b64}"></div>`).join('')}
-</div></body></html>`
+const groups = []
+for (let a = 1; a <= n; a += PER || n) groups.push([a, Math.min(n, a + (PER || n) - 1)])
 const sp = await browser.newPage()
 await sp.setViewport({ width: 1800, height: 1000 })
-await sp.setContent(html, { waitUntil: 'load' })
-await sp.screenshot({ path: SHEET, fullPage: true })
+for (let g = 0; g < groups.length; g++) {
+  const [a, b] = groups[g]
+  const part = imgs.filter((t) => t.s >= a && t.s <= b)
+  const html = `<html><body style="margin:0;background:#15181c;font:600 15px system-ui;color:#d8dde3">
+<div style="padding:14px 18px;font-size:19px">${proto} — stations ${a}–${b} of ${n} at start · middle · end (p = 0 · 0.54 · 1)</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 12px 12px">
+${part.map((t) => `<div><div style="padding:4px 2px">station ${t.s} · p=${t.p}</div><img style="width:100%;display:block;border-radius:4px" src="data:image/png;base64,${t.b64}"></div>`).join('')}
+</div></body></html>`
+  const SHEET = path.join(SHEETS, groups.length > 1 ? `${NAME}_review_${g + 1}.png` : `${NAME}_review.png`)
+  await sp.setContent(html, { waitUntil: 'load' })
+  await sp.screenshot({ path: SHEET, fullPage: true })
+  console.log('sheet →', SHEET)
+}
 await browser.close()
-console.log('sheet →', SHEET)
