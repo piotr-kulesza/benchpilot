@@ -148,6 +148,10 @@ import { MAX_ANISO, easeInOut, lerp } from '../util.js'
     grp.userData.rotor=rotor; grp.userData.dome=dome; grp.userData.label=label; grp.userData.st=st;
     grp.userData.holders=holders;
     grp.userData.setSpin=function(v){ st.tSpin=v; };
+    // the rotor's REST angle (rad): where it is loaded and where it coasts to. 0 puts slot 2 at
+    // the front and its opposite (the balance's) straight behind the hub, hidden
+    st.rest=0;
+    grp.userData.setRestAngle=function(a){ st.rest=a||0; rotor.rotation.y=st.rest; };
     grp.userData.setRcf=function(v){ ro.rcf=(v==null||!isFinite(v))?null:v; ro.drawn=null; drawReadout(); };   // the step's stated ×g, or none
     // IMPROVEMENT: explicit lid hook. stationSpin closes it before the rotor spins
     // up and opens it once the rotor stops (no longer auto-coupled to spin).
@@ -160,7 +164,7 @@ import { MAX_ANISO, easeInOut, lerp } from '../util.js'
       // sample's slot comes to rest facing the front again, where it was loaded and where it
       // is lifted out — it used to stop wherever it happened to, the tube at the back
       if(st.tSpin===0 && st.spin<2){
-        var home=Math.round(rotor.rotation.y/(Math.PI*2))*Math.PI*2;
+        var home=st.rest+Math.round((rotor.rotation.y-st.rest)/(Math.PI*2))*Math.PI*2;
         rotor.rotation.y=lerp(rotor.rotation.y, home, 1-Math.pow(0.001,dt));
         st.spin=Math.min(st.spin, Math.abs(home-rotor.rotation.y)*2);
       }

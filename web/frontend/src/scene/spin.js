@@ -27,6 +27,10 @@ import { clamp, easeInOut, lerp } from './util.js'
     if(fits && cen.userData.setAdapter) cen.userData.setAdapter(SOCK, /p$/.test(SOCK));   // a PCR tube rides in its adapter
     if(!fits) (st.socketErrors||(st.socketErrors=[])).push({ vessel:v0.userData.spec, host:'microcentrifuge', socket:SOCK });
     if(fits) cen.userData.setCutaway&&cen.userData.setCutaway(true);   // CUTAWAY: the tube is seen in its slot
+    // A PCR tube rides low in its adapter: at the rotor's home angle its balance, straight
+    // behind the hub, was hidden by it. The rotor rests a slot round (45°), so the sample
+    // (front right) and its counterweight (back left) are both seen at start and end.
+    if(fits && /p$/.test(SOCK) && cen.userData.setRestAngle) cen.userData.setRestAngle(Math.PI/4);
     var VH=dims(v0.userData.spec).height, LIFT=clearance('lift');
     var CEN_TOP=dims('microcentrifuge').height;
     // the sample waits on the bench beside the centrifuge (a rejected one stays there)
