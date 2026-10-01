@@ -177,11 +177,22 @@ export function resolveInstrumentFor(action, container, conditions) {
 // centrifuge with conical tubes), not a microcentrifuge spin — unmodelled, so the bench.
 export const CELL_SPIN_MAX_RCF = 1000
 
+// A step NAMES a centrifugation when its text says so (centrifuge / spin / wirować, a ×g or
+// rpm figure) or it states an RCF. "Homogenize the lysate" — an either/or whose default
+// method is a QIAshredder column — names none: no centrifuge appears (a step that names no
+// instrument gets none; the bench).
+const SPIN_WORDS = /centrifug|wirow|\bspin|×\s*g\b|\bx\s*g\b|\brpm\b|\brcf\b/i
+export function statesSpin(step) {
+  if (!step || typeof step !== 'object') return true
+  if (step.spin?.rcf_min != null) return true
+  return SPIN_WORDS.test(`${step.text || ''} ${step.text_en || ''}`)
+}
 export function resolveRecipe(action, ctx) {
   const base = SCENE_RECIPES[action] || SCENE_RECIPES.generic
   if (action === 'centrifuge' && ctx?.spin?.rcf_min != null && ctx.spin.rcf_min < CELL_SPIN_MAX_RCF) {
     return { ...base, equipment: 'bench' }
   }
+  if (action === 'centrifuge' && ctx?.step && !statesSpin(ctx.step)) return { ...base, equipment: 'bench' }
   if (!ctx || !CANDIDATES[action]) return base
   const equipment = resolveInstrumentFor(action, ctx.container, ctx.conditions)
   return equipment === base.equipment ? base : { ...base, equipment }

@@ -14,7 +14,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera } from '@react-three/drei'
 import { FogExp2, Color, Vector3, Box3, Group, Mesh, SphereGeometry, CylinderGeometry, PlaneGeometry, CanvasTexture, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
-import { resolveRecipe, stepConditions, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects, exitLiftPoint, pourPlan, removalFor, benchStaging, addSource, sceneStep } from './sceneRecipe.js'
+import { resolveRecipe, stepConditions, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects, exitLiftPoint, pourPlan, removalFor, benchStaging, addSource, sceneStep, statesSpin } from './sceneRecipe.js'
 import { containerContract, transferKind, sideBySide } from './containerContract.js'
 import { reagentName, reagentVolume, effectiveStep, selectAlternative, hasAlternatives } from '../lib/runtime.js'
 import * as demo from '../scene/demoScene.js'
@@ -1694,7 +1694,7 @@ export function stationConfig(steps0, i, { containers, stateChain, lang = 'en', 
   const prevContainer = i > 0 ? (containers[i - 1] || 'microtube') : null
   const o = stationParams(baseStep, lang, altIdx, stateChain[i], producedInRun, container)
   // the neighbours' instruments (a thermocycler's lid stays down between its program steps)
-  const eqAt = (j) => (j >= 0 && j < steps.length) ? resolveRecipe(effectiveStep(steps[j], altByStep[steps[j].index] || 0).action, { container: containers[j] || 'microtube', conditions: stepConditions(steps[j]), spin: steps[j].spin }).equipment : null
+  const eqAt = (j) => (j >= 0 && j < steps.length) ? resolveRecipe(effectiveStep(steps[j], altByStep[steps[j].index] || 0).action, { container: containers[j] || 'microtube', conditions: stepConditions(steps[j]), spin: steps[j].spin, step: effectiveStep(steps[j], altByStep[steps[j].index] || 0) }).equipment : null
   return {
     o, altIdx, container,
     opts: {
@@ -1718,7 +1718,7 @@ function useContainers(steps) {
 export function stationParams(baseStep, lang, altIdx, chain, producedInRun, container) {
   const step = effectiveStep(baseStep, altIdx) // follow the chosen either/or method
   // the instrument comes from the action + the sample's container + what the step states
-  const { equipment } = resolveRecipe(step.action, { container, conditions: stepConditions(step), spin: step.spin })
+  const { equipment } = resolveRecipe(step.action, { container, conditions: stepConditions(step), spin: step.spin, step })
   // EVERY reagent (name · volume · colour), so a multi-reagent step renders all of them,
   // not just the first. Deduped by name so a conditional volume (the SAME reagent listed
   // as 350 µl / 600 µl variants) stays one bottle, not two.
@@ -1730,7 +1730,9 @@ export function stationParams(baseStep, lang, altIdx, chain, producedInRun, cont
   const primaryName = primary ? reagentName(primary, lang) : null
   const colorHex = new Color(reagentColor(primaryName)).getHex()
   const vol = (primary && reagentVolume(primary, lang)) || ''
-  const title = primaryName || ACTION_LABEL[step.action] || 'Step'
+  // a "centrifuge" that states no spin is on the bench: its title is what the text does
+  const benchSpin = step.action === 'centrifuge' && !statesSpin(step)
+  const title = primaryName || (benchSpin ? (/homogeni/i.test(`${step.text_en || ''} ${step.text || ''}`) ? ACTION_LABEL.homogenize : ACTION_LABEL.generic) : ACTION_LABEL[step.action]) || 'Step'
   const sub = vol || (step.spin?.rcf_min ? `≥ ${step.spin.rcf_min.toLocaleString()} ×g` : '')
   const fill = resolveRecipe(step.action).anim.fill
   const start = chain?.start || { color: INIT_COLOR, level: INIT_LEVEL }
