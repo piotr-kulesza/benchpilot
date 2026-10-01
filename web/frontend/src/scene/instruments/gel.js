@@ -74,8 +74,13 @@ import { MAX_ANISO, clamp, easeInOut, lerp } from '../util.js'
     // tank (0–0.5) and sets it DOWN on the bench there (0.5–1) — to load a gel the lid is off
     // and out of the way, resting on the bench, not hanging in the air over the wells
     var LID_BACK=1.9, LID_DOWN=-(0.96-0.045-0.19);          // lid centre 0.96, half-thickness 0.045; the tank's base at 0.19
+    // THE LEADS ATTACH WITH THE LID: plugged in only while it is seated on the tank. Off it,
+    // they were drawn in the lid's frame to where the supply's sockets had been — lying
+    // across the gel inside the open tank
+    var leads=[];
     grp.userData.setLidLift=function(q, aside){
       var a=clamp(aside||0,0,1), up=clamp(q,0,1)*1.15;
+      for(var i=0;i<leads.length;i++) leads[i].visible = up<=0 && a<=0;
       lidGrp.position.z=-LID_BACK*easeInOut(clamp(a/0.5,0,1));
       lidGrp.position.y=lerp(up, LID_DOWN, easeInOut(clamp((a-0.5)/0.5,0,1)));
     };
@@ -122,8 +127,8 @@ import { MAX_ANISO, clamp, easeInOut, lerp } from '../util.js'
       return fx(new THREE.Mesh(new THREE.TubeGeometry(curve,22,0.028,8,false), matRubber(color)),'cable');
     }
     var jack=function(dx){ return new THREE.Vector3(psu.position.x-PS.width*0.3+dx, PS.height*0.3, PS.depth/2); };
-    lidGrp.add(gelCable(new THREE.Vector3(-0.5,1.1,0.6), jack(0), 0xc0392b));
-    lidGrp.add(gelCable(new THREE.Vector3(-0.2,1.1,0.6), jack(PS.width*0.12), 0x22272e));
+    leads.push(gelCable(new THREE.Vector3(-0.5,1.1,0.6), jack(0), 0xc0392b), gelCable(new THREE.Vector3(-0.2,1.1,0.6), jack(PS.width*0.12), 0x22272e));
+    leads.forEach(function(c){ lidGrp.add(c); });
     // the rig's hooks, on the composite (the TANK is the host of its socket)
     root.userData.label=tankRoot.userData.label;
     root.userData.sockets=tankRoot.userData.sockets; root.userData.sampleSocket='platform';
