@@ -65,6 +65,12 @@ function collectStationMats(st) {
     if (mesh?.material) { const m = mesh.material; if (!seen.has(m)) { seen.add(m); st.mats.push({ m, o: m.opacity == null ? 1 : m.opacity, t: !!m.transparent }) } }
   })
 }
+// a station's fade target at distance d from the rail. `solo`: the active station frames
+// from its own view direction and the dolly has arrived — every other station is out.
+export function stationVisTarget(d, { solo = false, active = false } = {}) {
+  if (solo && !active) return 0
+  return Math.min(1, Math.max(0, 1 - (d - VIS_FULL) / (VIS_GONE - VIS_FULL)))
+}
 function applyStationVis(st) {
   const f = st.vis
   if (f <= 0.006) { // fully out — hide and skip material work
@@ -2154,9 +2160,12 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
 
     // 6 · fade equipment by distance from the rail — active full, neighbours
     // recede into fog, and mid-dolly BOTH stations are visible.
+    // A station framed from its OWN view direction (a three-quarter view) looks along the line,
+    // not across it: at rest a neighbour 8.4 apart stands in its frame edge, half-faded. Once
+    // the dolly has arrived, nothing but the active station is shown.
+    const solo = !!(actCam && actCam.viewDir && !g.active)
     for (const st of stations) {
-      const d = Math.abs(st.x - railX)
-      const tgt = demo.clamp(1 - (d - VIS_FULL) / (VIS_GONE - VIS_FULL), 0, 1)
+      const tgt = stationVisTarget(Math.abs(st.x - railX), { solo, active: st === actCam })
       st.vis = demo.lerp(st.vis, tgt, 1 - Math.pow(0.01, dt))
       if (tgt >= 1 && st.vis > 0.999) st.vis = 1
       if (tgt <= 0 && st.vis < 0.001) st.vis = 0
