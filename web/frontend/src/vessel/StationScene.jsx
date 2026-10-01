@@ -14,7 +14,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera } from '@react-three/drei'
 import { FogExp2, Color, Vector3, Box3, Group, Mesh, RingGeometry, SphereGeometry, CylinderGeometry, PlaneGeometry, CanvasTexture, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
-import { resolveRecipe, stepConditions, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects, exitLiftPoint, pourPlan, removalFor, benchStaging, addSource } from './sceneRecipe.js'
+import { resolveRecipe, stepConditions, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects, exitLiftPoint, pourPlan, removalFor, benchStaging, addSource, sceneStep } from './sceneRecipe.js'
 import { containerContract, transferKind, sideBySide } from './containerContract.js'
 import { reagentName, reagentVolume, effectiveStep, selectAlternative, hasAlternatives } from '../lib/runtime.js'
 import * as demo from '../scene/demoScene.js'
@@ -1148,6 +1148,7 @@ function configureStationCore(st, o) {
   } else if (action === 'cool_ice' || equipment === 'ice_bucket') {
     // ice bucket: the tube stands on the bucket FLOOR (socket), packed round with ice.
     const ice = subject(demo.buildIceBucket())
+    st.dev = ice                                  // the step's instrument (the tube may stand beside it, arriving)
     st.cold = new PointLight(0x5fb8f0, 0, dims('ice_bucket_4l').diameter * 2)
     st.cold.position.set(0, dims('ice_bucket_4l').height + LIFT, 0)
     st.group.add(st.cold)
@@ -1155,10 +1156,33 @@ function configureStationCore(st, o) {
     const ok = fitsSocket(ice, SOCK)
     if (ok) ice.userData.setCutaway?.(true)   // CUTAWAY: the tube is seen in place, in the ice
     const benchX = ok ? 0 : demo.benchSlot(st, VD.width / 2, +1)
-    st.enter = () => { seat(benchX); if (ok) seatIn(ice, SOCK) }
-    st.timeline = (p) => {
-      evolve(p) // holds the carried contents
-      st.cold.intensity = p * 2.6 // cold cast ramps up (monotonic)
+    // ONTO THE ICE: a tube arriving from a station where it was not on ice is SET INTO the
+    // ice here — from its stand beside the bucket, straight up clear of the rim, across,
+    // straight down into its place (it used to start in the ice: it teleported there)
+    const arrive = ok && prevContainer != null && !o.prevOnIce
+    if (arrive) {
+      const bx = demo.benchSlot(st, VD.width / 2, +1)
+      const seatP = socketY(ice, SOCK), carryY = dims('ice_bucket_4l').height + LIFT
+      const at = (x, y, z) => S.at(S[vessel], st.x + x, y, z)
+      st.extraSpots = [...(st.extraSpots || []), { x: bx, z: 0, stand: demo.standFor(C.spec) }]
+      st.enter = () => { seat(bx) }
+      st.timeline = (p) => {
+        const v = S[vessel], seg = (a, b) => demo.easeInOut(demo.clamp((p - a) / (b - a), 0, 1))
+        v.userData.held = p >= 0.06 && p < 0.32
+        if (p < 0.06) { seat(bx) }                                                                      // 1 · in its stand beside the ice
+        else if (p < 0.14) { clearPlacement(v); at(bx, demo.lerp(0, carryY, seg(0.06, 0.14)), 0) }    // 2 · straight up, clear of the rim
+        else if (p < 0.24) { clearPlacement(v); const q = seg(0.14, 0.24); at(demo.lerp(bx, seatP.x, q), carryY, demo.lerp(0, seatP.z, q)) } // 3 · over its place
+        else if (p < 0.32) { clearPlacement(v); at(seatP.x, demo.lerp(carryY, seatP.y, seg(0.24, 0.32)), seatP.z) }                          // 4 · straight down into the ice
+        else seatIn(ice, SOCK)                                                                          // 5 · on ice, and stays there
+        st.cold.intensity = demo.clamp((p - 0.3) / 0.7, 0, 1) * 2.6
+        evolve(p) // holds the carried contents
+      }
+    } else {
+      st.enter = () => { seat(benchX); if (ok) seatIn(ice, SOCK) }
+      st.timeline = (p) => {
+        evolve(p) // holds the carried contents
+        st.cold.intensity = p * 2.6 // cold cast ramps up (monotonic)
+      }
     }
   } else if (action === 'thermocycle' || equipment === 'thermocycler') {
     // PCR: the sample goes into a block WELL socket; the lid closes. The cycled block shows
@@ -1452,8 +1476,33 @@ function configureStationCore(st, o) {
       st.dev = nano; st.group.add(nano); st.updatables.push(nano)
       const NW = dims('nanodrop').width
       nano.position.set(NW / 2 + GAP + VD.width / 2, 0, 0); placeOnBench(nano)
-      st.enter = () => seat(0)
-      st.timeline = (p) => { evolve(p); nano.userData.setProgress?.(demo.easeInOut(demo.clamp(p * 1.4, 0, 1))) }
+      // FROM THE ICE: a sample kept on ice through the step before is TAKEN FROM it — it
+      // starts in its ice bucket beside the bench spot, lifts straight up clear of the rim,
+      // and is set down beside the NanoDrop before the reading (it used to start on the bench)
+      const bucket = o.prevOnIce ? demo.buildIceBucket() : null
+      if (bucket && canPlace(V, bucket, bucket.userData.sampleSocket)) {
+        const BW = dims('ice_bucket_4l').diameter
+        st.group.add(bucket); placeOnBench(bucket); st.updatables.push(bucket)
+        bucket.position.x = demo.benchSlot(st, BW / 2, -1); st.group.updateMatrixWorld(true)
+        bucket.userData.setCutaway?.(true)                 // CUTAWAY: the tube is seen in the ice
+        const BS = bucket.userData.sampleSocket, seatP = socketY(bucket, BS), carryY = dims('ice_bucket_4l').height + LIFT
+        const at = (x, y, z) => S.at(S[vessel], st.x + x, y, z)
+        st.enter = () => { seat(0); seatIn(bucket, BS); nano.userData.setProgress?.(0) }
+        st.timeline = (p) => {
+          const v = S[vessel], seg = (a, b) => demo.easeInOut(demo.clamp((p - a) / (b - a), 0, 1))
+          v.userData.held = p >= 0.04 && p < 0.26
+          if (p < 0.04) seatIn(bucket, BS)                                                              // 1 · on ice
+          else if (p < 0.12) { clearPlacement(v); at(seatP.x, demo.lerp(seatP.y, carryY, seg(0.04, 0.12)), seatP.z) }  // 2 · straight up out of the ice
+          else if (p < 0.2) { clearPlacement(v); const q = seg(0.12, 0.2); at(demo.lerp(seatP.x, 0, q), carryY, demo.lerp(seatP.z, 0, q)) } // 3 · across to the NanoDrop
+          else if (p < 0.26) { clearPlacement(v); at(0, demo.lerp(carryY, 0, seg(0.2, 0.26)), 0) }     // 4 · down beside it
+          else seat(0)                                                                                  // 5 · on the bench; the drop is read
+          nano.userData.setProgress?.(demo.easeInOut(demo.clamp((p - 0.26) / 0.6, 0, 1)))
+          evolve(p)
+        }
+      } else {
+        st.enter = () => seat(0)
+        st.timeline = (p) => { evolve(p); nano.userData.setProgress?.(demo.easeInOut(demo.clamp(p * 1.4, 0, 1))) }
+      }
     } else if (inst === 'inverted_microscope') {
       onStage(demo.buildInvertedMicroscope())
     } else if (inst === 'light_microscope') {
@@ -1678,7 +1727,10 @@ export function lineStateChain(steps, lang, altByStep = {}) {
 
 // The configureStation options for step i — the ONE mapping from a parsed step to a
 // station, shared by the runner's line build and the geometry audit (so they cannot drift).
-export function stationConfig(steps, i, { containers, stateChain, lang = 'en', altByStep = {}, producedInRun }) {
+export function stationConfig(steps0, i, { containers, stateChain, lang = 'en', altByStep = {}, producedInRun }) {
+  // what each station DEPICTS (sceneStep: a frozen store the sample is used after is shown
+  // as on ice now) — the step as parsed stays the runner's text
+  const steps = steps0.map((_, j) => sceneStep(steps0, j))
   const baseStep = steps[i]
   const altIdx = altByStep[baseStep.index] || 0
   const container = containers[i] || 'microtube'
