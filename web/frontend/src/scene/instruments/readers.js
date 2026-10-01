@@ -120,7 +120,7 @@ import { MAX_ANISO, clamp, easeInOut, lerp } from '../util.js'
     grp.userData.update=function(dt){
       st.prog=lerp(st.prog,st.tProg,1-Math.pow(0.01,dt));
       st.arm=lerp(st.arm,st.tArm,1-Math.pow(0.02,dt));
-      armPivot.rotation.z = 0.12 + easeInOut(st.arm)*1.05;
+      armPivot.rotation.z = 0.12 + easeInOut(st.arm)*1.4;
       drawTrace(sg,st.prog); scTex.needsUpdate=true;
     };
     var root=fitArt(grp,'nanodrop');
