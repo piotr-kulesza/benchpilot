@@ -256,8 +256,12 @@ export function frameStation(st) {
   // ONE FRAME PER POSE: the camera follows the subject through the step (it may move and
   // zoom; it never rescales) — a tube carried from the bench into a rotor is framed on the
   // bench, then on the rotor, not as a speck in a frame holding the whole path
-  st.frames = boxes.map((sb) => {
+  // a station may add CONTEXT for one pose (st.contextAt(p), world): shown only while the
+  // subject stays legible — a pipette's cruise between two vessels
+  const ctxAt = FRAME_POSES.map((q) => { const b = st.contextAt ? st.contextAt(q) : null; return b && !b.isEmpty() ? b.clone().translate(new Vector3(-st.x, 0, 0)) : null })
+  st.frames = boxes.map((sb, k) => {
     const used = sb.clone().union(usedProps), context = st.tightFrame ? used.clone() : used.clone().union(ctxProps)
+    if (ctxAt[k]) context.union(ctxAt[k])
     const f = fitFrame(sb, used, context, st.viewDir || null, { macro: !st.instrumentFrame })
     const sc = sb.getCenter(new Vector3()), sz = sb.getSize(new Vector3())
     f.top = sb.max.y
@@ -1532,15 +1536,19 @@ function configureNestMove(st, S, o) {
     S.snapTo(tube, st.x + BX, 0, Z)
     if (p > 0.001) { col.userData.detachCollection?.(st.group); const cg = col.userData.collection; if (cg && st.collSeat) cg.userData.placement = st.collSeat }
     else col.userData.reattachCollection?.()
+    // IN HAND ONLY WHILE IT MOVES: the move is the start of the step (up, across, down by
+    // 0.36) and the column is SEATED in its clean tube for the rest — carried over the whole
+    // step, it hung in the air with nothing holding it at every pose in between
+    const NESTED = 0.36
     let x, y
-    if (p < 0.34) { x = AX; y = demo.lerp(0, CARRY, demo.easeInOut(p / 0.34)) }                 // 1 · straight up
-    else if (p < 0.66) { x = demo.lerp(AX, BX, demo.easeInOut((p - 0.34) / 0.32)); y = CARRY }   // 2 · across, high
-    else { x = BX; y = demo.lerp(CARRY, NEST_Y, demo.easeInOut((p - 0.66) / 0.34)) }             // 3 · down into the tube
+    if (p < 0.1) { x = AX; y = demo.lerp(0, CARRY, demo.easeInOut(p / 0.1)) }                       // 1 · straight up
+    else if (p < 0.24) { x = demo.lerp(AX, BX, demo.easeInOut((p - 0.1) / 0.14)); y = CARRY }        // 2 · across, high
+    else { x = BX; y = demo.lerp(CARRY, NEST_Y, demo.easeInOut(demo.clamp((p - 0.24) / (NESTED - 0.24), 0, 1))) } // 3 · down into the tube
     col.scale.setScalar(1)
     col.userData.setLevel?.(level)
-    col.userData.held = p > 0.001 && p < 0.999
+    col.userData.held = p > 0.001 && p < NESTED
     S.snapTo(col, st.x + x, y, Z)
-    if (p >= 0.999) placeInto(col, tube, 'insert'); else if (p > 0.001) clearPlacement(col); else placeOnBench(col)
+    if (p >= NESTED) placeInto(col, tube, 'insert'); else if (p > 0.001) clearPlacement(col); else placeOnBench(col)
   }
 }
 
@@ -1624,7 +1632,16 @@ function configurePipetteTransfer(st, S, o) {
   demo.addPipetteRig(st)
   // the step acts on the SOURCE while the tip draws from it, then on the destination
   st.subject = () => S[toKey]
-  st.subjectAt = (p) => (p < 0.3 ? S[fromKey] : S[toKey])
+  st.subjectAt = (p) => (p < 0.18 ? S[fromKey] : S[toKey])
+  // THE PIPETTE CARRYING IT IS SEEN: while it travels (the step's 0.2–0.5) the frame takes
+  // in both vessels and the tip at its cruise between them — as
+  // context, so only as far as the subject stays legible (a fixed anchor shrank it)
+  st.contextAt = (p) => {
+    if (p < 0.2 || p > 0.5) return null
+    const cy = demo.cruiseY(st, from, to)
+    return solidBox(S[fromKey]).union(solidBox(S[toKey]))
+      .expandByPoint(new Vector3(st.x + from.x, cy, from.z)).expandByPoint(new Vector3(st.x + to.x, cy, to.z))
+  }
 
   st.enter = () => {
     S.only(toKey)
@@ -1640,7 +1657,8 @@ function configurePipetteTransfer(st, S, o) {
     demo.pipRest(st)
   }
 
-  st.timeline = (p) => {
+  st.timeline = (p0) => {
+    const p = demo.singlePassP(p0)   // one pass: the dispense is the step's middle
     const a = S[fromKey], b = S[toKey]
     a.visible = true; b.visible = true
     S.snapTo(a, st.x + AX, 0, Z)
@@ -1655,7 +1673,7 @@ function configurePipetteTransfer(st, S, o) {
       b.userData.setColor?.(color)
       b.userData.setLevel?.(demo.lerp(0.03, endLevel, q))
     }
-    if (p > 0.98) { a.visible = false; S.only(toKey); S.snapTo(b, st.x + BX, 0, Z) }
+    // the emptied source STAYS where it stood (it used to vanish at the end of the step)
   }
 }
 

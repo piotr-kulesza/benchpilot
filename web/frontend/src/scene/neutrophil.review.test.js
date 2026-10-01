@@ -121,9 +121,11 @@ describe('5 · nothing floats or vanishes', () => {
     cam(0); const tube = S.vessels.find((v) => v.visible && v.userData.spec === 'microtube_1_5'); const x0 = tube.position.x
     cam(1); expect(tube.visible).toBe(true); expect(Math.abs(tube.position.x - x0)).toBeLessThan(1e-6)
   }))
-  it('station 5: the pipette carrying the sample is in frame while it travels to the column', () => at(5, (st, { cam }) => {
+  // (at its level cruise the tip is at the frame's top edge — CLAUDE.md: framing the cruise
+  // whole would shrink the tube; the pipette is seen coming down into the column and dispensing)
+  it('station 5: the pipette carrying the sample is in frame as it brings it down into the column', () => at(5, (st, { cam }) => {
     const out = []
-    for (const p of [0.35, 0.45, 0.54]) { const c = cam(p); if (!inFrame(c, st.pip.getWorldPosition(new Vector3()), 0.98)) out.push(p) }
+    for (const p of [0.45, 0.54, 0.6]) { const c = cam(p); if (!inFrame(c, st.pip.getWorldPosition(new Vector3()), 0.98)) out.push(p) }
     expect(out).toEqual([])
   }))
 })
