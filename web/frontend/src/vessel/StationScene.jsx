@@ -1729,7 +1729,7 @@ export function lineStateChain(steps, lang, altByStep = {}) {
   let level = INIT_LEVEL
   // the sample's STATED volume (µL) through the line, where the steps state it (null: not)
   const effs = steps.map((s) => (hasAlternatives(s) ? selectAlternative(s, altByStep[s.index] || 0) : s))
-  const vols = sampleVolumes(effs)
+  const vols = sampleVolumes(effs, sampleContainerSequence(steps))   // the line's vessels, as the stations are built
   return steps.map((s, i) => withVol(i, (() => {
     const eff = effs[i]
     const prim = (eff.reagents || []).find((r) => r.volume) || (eff.reagents || [])[0]

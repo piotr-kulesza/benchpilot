@@ -283,8 +283,11 @@ export function statedMicroliters(v) {
 // liquid through the membrane (the flow-through is discarded: none left above it); an
 // elution carries the column's liquid into the eluate tube; a side preparation does not
 // touch the sample. Returns [{ start, end }] per step.
-export function sampleVolumes(steps = []) {
-  const seq = sampleContainerSequence(steps)
+// `containers`: the line's sample container per step, when the steps given are the SELECTED
+// alternatives (an alternative may name its own vessel — the QIAshredder column — while the
+// sample stays in the line's vessel)
+export function sampleVolumes(steps = [], containers = null) {
+  const seq = containers || sampleContainerSequence(steps)
   let vol = null
   return steps.map((s, i) => {
     const start = vol

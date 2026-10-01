@@ -108,6 +108,13 @@ describe('4 · liquid follows the stated volume', () => {
   for (const n of [22, 23, 24, 25, 26]) {
     it(`station ${n}: the eluate is 30 µL (30–50 µL, the lower bound)`, () => { const r = vol(n, 1); expect(r.spec).toBe('microtube_1_5'); expect(r.ul).toBeGreaterThan(25); expect(r.ul).toBeLessThan(36) })
   }
+  // the homogenize step (an either/or whose QIAshredder method names a spin column) keeps
+  // the lysate: it was read as a spin THROUGH a column and drained to nothing
+  it('station 3: the 350 µL lysate stays; station 4: one volume of ethanol makes 700 µL', () => {
+    const a = vol(3, 1), b = vol(4, 1)
+    expect(a.ul).toBeGreaterThan(300); expect(a.ul).toBeLessThan(400)
+    expect(b.ul).toBeGreaterThan(620); expect(b.ul).toBeLessThan(780)
+  })
   it('station 7: the column holds 350 µL of RW1 at the end', () => { const r = vol(7, 1); expect(r.ul).toBeGreaterThan(300); expect(r.ul).toBeLessThan(400) })
   it('station 9: the DNase mix is 80 µL (10 + 70)', () => at(9, (st, { cam, S }) => { cam(1); settle(st, S); const ul = liquidMicroliters(st.prep); expect(ul).toBeGreaterThan(68); expect(ul).toBeLessThan(92) }))
 })
