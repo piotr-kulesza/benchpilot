@@ -1471,7 +1471,8 @@ function configureStationCore(st, o) {
       demo.addPipetteRig(st)
       const draw = { x: MOUTH.x, y: ENTRY, z: MOUTH.z }
       st.drawFrom = new Vector3(draw.x, draw.y, draw.z)
-      const pedestal = () => { st.group.updateMatrixWorld(true); return st.group.worldToLocal(nano.userData.pedestalTop()) }
+      // the tip delivers the drop from just above the pedestal (the drop's height), not on it
+      const pedestal = () => { st.group.updateMatrixWorld(true); const q = st.group.worldToLocal(nano.userData.pedestalTop()); q.y += dims('nanodrop').pedestal_drop / 2 + clearance('contact_epsilon'); return q }
       // FROM THE ICE: a sample kept on ice through the step before is TAKEN FROM it — it
       // starts in its ice bucket beside the bench spot, lifts straight up clear of the rim,
       // and is set down beside the NanoDrop before the reading (it used to start on the bench)
