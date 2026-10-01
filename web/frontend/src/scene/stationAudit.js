@@ -162,26 +162,41 @@ export function rivalsOf(st, subject, travellers, cosubjects = []) {
   for (const v of travellers) if (v !== subject) visit(v)
   return out
 }
+// build station i of a protocol headless, framed and entered exactly as the runner does,
+// and hand it to fn(st, { S, opts, cam(p) }) — cam(p) drives it to p and returns the
+// runner's camera there. The station is torn down after.
+function buildStation(scene, S, steps, i, ctx) {
+  demo.undockSample()
+  for (const pr of demo.getPreps()) pr.visible = false
+  const st = { group: new Group(), updatables: [], reagents: {}, pip: null, enter: null, timeline: null, x: 0, cen: null, dev: null, vis: 1, _vstate: -1 }
+  const { opts, o } = stationConfig(steps, i, { ...ctx, lang: 'en' })
+  configureStation(st, opts)
+  st.frame = frameStation(st)                // framed exactly as the runner frames it
+  addStationLabel(st, o.title, o.sub)
+  scene.add(st.group)
+  demo.setSnap(true)
+  st.enter?.()
+  if (st.prep) st.prep.visible = true
+  if (st.drawsFromId && demo.getPrep(st.drawsFromId)) { const pr = demo.getPrep(st.drawsFromId); pr.visible = true; pr.position.set(st.drawPos.x, st.drawPos.y, st.drawPos.z); pr.userData.tPos.copy(pr.position); placeOnBench(pr) }
+  return { st, opts }
+}
+function lineContext(steps) {
+  return { containers: sampleContainerSequence(steps), stateChain: lineStateChain(steps, 'en'), producedInRun: producedInRunOf(steps) }
+}
+export function withStation(protocol, i, fn) {
+  const { scene, S } = setup()
+  const steps = protocol.steps || []
+  const { st, opts } = buildStation(scene, S, steps, i, lineContext(steps))
+  const cam = (p) => { drive(st, S, p); return makeCamera(cameraPose(frameAt(st, p), { push: st.pushCam ? st.pushCam(p) : 0, pushTarget: st.pushTarget })) }
+  try { return fn(st, { S, opts, cam }) } finally { scene.remove(st.group); demo.undockSample() }
+}
 export function auditVisibility(protocol, { poses = VIS_POSES } = {}) {
   const { scene, S } = setup()
   const steps = protocol.steps || []
-  const containers = sampleContainerSequence(steps)
-  const stateChain = lineStateChain(steps, 'en')
-  const producedInRun = producedInRunOf(steps)
+  const ctx = lineContext(steps)
   const stations = []
   for (let i = 0; i < steps.length; i++) {
-    demo.undockSample()
-    for (const pr of demo.getPreps()) pr.visible = false
-    const st = { group: new Group(), updatables: [], reagents: {}, pip: null, enter: null, timeline: null, x: 0, cen: null, dev: null, vis: 1, _vstate: -1 }
-    const { opts, o } = stationConfig(steps, i, { containers, stateChain, lang: 'en', producedInRun })
-    configureStation(st, opts)
-    st.frame = frameStation(st)                // framed exactly as the runner frames it
-    addStationLabel(st, o.title, o.sub)
-    scene.add(st.group)
-    demo.setSnap(true)
-    st.enter?.()
-    if (st.prep) st.prep.visible = true
-    if (st.drawsFromId && demo.getPrep(st.drawsFromId)) { const pr = demo.getPrep(st.drawsFromId); pr.visible = true; pr.position.set(st.drawPos.x, st.drawPos.y, st.drawPos.z); pr.userData.tPos.copy(pr.position); placeOnBench(pr) }
+    const { st, opts } = buildStation(scene, S, steps, i, ctx)
     const record = { index: steps[i].index ?? i, action: opts.action, equipment: opts.equipment, container: opts.container, defects: [] }
     const cosubjects = [...(st.subjectAt ? POSES.map((q) => st.subjectAt(q)) : []), ...(st.cosubjects ? st.cosubjects() : [])]
     for (const p of poses) {
