@@ -2181,10 +2181,10 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
 
     // 6 · fade equipment by distance from the rail — active full, neighbours
     // recede into fog, and mid-dolly BOTH stations are visible.
-    // A station framed from its OWN view direction (a three-quarter view) looks along the line,
-    // not across it: at rest a neighbour 8.4 apart stands in its frame edge, half-faded. Once
-    // the dolly has arrived, nothing but the active station is shown.
-    const solo = !!(actCam && actCam.viewDir && !g.active)
+    // NOTHING OUTSIDE THE CURRENT STATION IS IN FRAME: at rest a neighbour 8.4 apart stood
+    // half-faded in the frame's edge (a three-quarter or top-down view looks along the line).
+    // Once the dolly has arrived, nothing but the active station is shown; mid-dolly, both.
+    const solo = !!(actCam && !g.active)
     for (const st of stations) {
       const tgt = stationVisTarget(Math.abs(st.x - railX), { solo, active: st === actCam })
       st.vis = demo.lerp(st.vis, tgt, 1 - Math.pow(0.01, dt))
