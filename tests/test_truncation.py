@@ -18,7 +18,7 @@ from core.parse import MalformedOutput, OutputTruncated, parse_protocol  # noqa:
 
 FRESH = os.path.join(ROOT, "tests", "fixtures", "fresh_parse")
 TRUNC = open(os.path.join(FRESH, "pmc12207774_methods.RAW.txt"), encoding="utf-8").read()
-GOOD = open(os.path.join(FRESH, "neutrophil_rna.txt"), encoding="utf-8").read()
+GOOD = open(os.path.join(FRESH, "neutrophil_rna__keep_until.txt"), encoding="utf-8").read()   # passes the gate
 MALFORMED = '{"title": "x", "steps": [ {"index": 1,, "action": "pour_add"} ]}'  # balanced, invalid
 
 
