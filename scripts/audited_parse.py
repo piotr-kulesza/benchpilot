@@ -34,7 +34,8 @@ AUDIT = os.path.join(FRONTEND, "scripts", "schema-audit.mjs")
 
 # report fields that are DEFECTS (schema-audit.mjs counts the same ones)
 DEFECT_FIELDS = ("unknownActions", "unknownContainers", "targetDefects", "transferHandoffDefects",
-                 "prepareOnSampleDefects", "instrumentDefects", "parseInvariantDefects")
+                 "prepareOnSampleDefects", "instrumentDefects", "parseInvariantDefects",
+                 "storeBeforeUseDefects")
 
 
 class ParseRejected(RuntimeError):

@@ -220,6 +220,39 @@ export function findInstrumentDefects(steps = [], resolve = realResolve) {
   return out
 }
 
+// A FROZEN STORE IS AN END STATE. A `store` below 0 °C whose own text holds the sample ON
+// ICE ("keep the RNA on ice until measurement, store at −80 °C"), with the sample used by a
+// later step, cannot be the freezer NOW: the freezer now and the NanoDrop next is the very
+// freeze–thaw such a step warns against. The station depicts what happens now — on ice —
+// and the storage (after the later steps) has no station. Nothing else is rewritten: a 4 °C
+// hold, the last thing done to the sample, or a freeze followed only by more cold storage.
+const USES_SAMPLE_AFTER = (s) => s && typeof s === 'object' && actsOnSample(s) && !['store', 'generic', 'prepare'].includes(s.action)
+export function sceneStep(steps, i) {
+  const s = steps[i]
+  if (!s || s.action !== 'store') return s
+  const c = stepConditions(s)
+  if (!(c.tempC != null && c.tempC < 0) || !conditionsFromText(s).onIce) return s
+  if (!steps.slice(i + 1).some(USES_SAMPLE_AFTER)) return s
+  return { ...s, action: 'cool_ice', conditions: { ...(s.conditions || {}), on_ice: true, temperature_c: null, instruments: [] } }
+}
+// The audit: a sub-zero store depicted in an instrument while a later step still uses the
+// sample. `sceneOf` is injectable so the pre-fix behaviour (the step as parsed) can be replayed.
+export function findStoreBeforeUseDefects(steps = [], sceneOf = sceneStep) {
+  const seq = sampleContainerSequence(steps)
+  const out = []
+  steps.forEach((s0, i) => {
+    const s = sceneOf(steps, i)
+    if (!s || s.action !== 'store') return
+    const c = stepConditions(s)
+    if (!(c.tempC != null && c.tempC < 0)) return
+    const instrument = resolveRecipe(s.action, { container: seq[i], conditions: c }).equipment
+    if (instrument === 'bench') return
+    const j = steps.findIndex((t, k) => k > i && USES_SAMPLE_AFTER(t))
+    if (j > i) out.push({ index: s0.index != null ? s0.index : i, instrument, usedAt: steps[j].index != null ? steps[j].index : j })
+  })
+  return out
+}
+
 // Steps that NAME an instrument we have no model for — they render on the bench. Not a
 // defect (a missing instrument is honest) but a coverage gap worth seeing, like a
 // `generic` fallback.

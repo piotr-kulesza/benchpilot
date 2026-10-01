@@ -20,7 +20,7 @@ import {
   resolveRecipe, resolveContainer, resolveRemoval,
   sampleContainerSequence, findTargetDefects,
   findTransferHandoffDefects, findPrepareOnSampleDefects,
-  findInstrumentDefects, findUnmodelledInstruments,
+  findInstrumentDefects, findUnmodelledInstruments, findStoreBeforeUseDefects,
 } from '../src/vessel/sceneRecipe.js'
 import { findVesselRuleDefects, loadVesselRules, ruleEvidence } from './lib/vesselRules.mjs'
 
@@ -108,6 +108,8 @@ for (const meta of wanted) {
     // Hard constraints 1 + 7: an instrument only when the step's stated conditions
     // require it and it takes the sample's vessel — never from the action alone.
     instrumentDefects: findInstrumentDefects(steps),
+    // a frozen store depicted while a later step still uses the sample (freeze–thaw)
+    storeBeforeUseDefects: findStoreBeforeUseDefects(steps),
     unmodelledInstruments: findUnmodelledInstruments(steps),
     aspirateOnlyRemovals: tipDefects,
   }
@@ -122,7 +124,7 @@ for (const meta of wanted) {
   }
   entry.defectCount = entry.unknownActions.length + entry.unknownContainers.length +
     entry.targetDefects.length + entry.transferHandoffDefects.length + entry.prepareOnSampleDefects.length +
-    entry.instrumentDefects.length + entry.parseInvariantDefects.length
+    entry.instrumentDefects.length + entry.parseInvariantDefects.length + entry.storeBeforeUseDefects.length
   report.push(entry)
 }
 
@@ -163,6 +165,7 @@ for (const r of report) {
   // the evidence label keeps a rule that has only ever fired on hand-edited fixtures honest
   show('parse invariant broken', r.parseInvariantDefects, (d) => `${d.rule} (${d.action}, container=${d.container})  [rule evidence: ${EVIDENCE[d.rule]?.kind}]`)
   show('guessed instrument', r.instrumentDefects, (d) => `${d.action} → ${d.instrument} on ${d.container}: ${d.why}`)
+  show('store before use', r.storeBeforeUseDefects, (d) => `stored in the ${d.instrument}, used again at step ${d.usedAt}`)
   show('names an unmodelled instrument → renders as bench', r.unmodelledInstruments, (d) => `${d.action} — ${d.names.join(', ')}`)
   show('removal from an aspirate-only vessel', r.aspirateOnlyRemovals, (d) => `${d.action} from ${d.container} — must aspirate, never tip`)
 }
