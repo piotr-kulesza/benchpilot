@@ -6,6 +6,7 @@ import {
   findTransferHandoffDefects, findPrepareOnSampleDefects, findTargetDefects, actsOnSample,
   exitLiftPoint, stepConditions, findInstrumentDefects, NAMED_INSTRUMENTS, CONTAINER_TOKENS,
   findUnmodelledInstruments, pourPlan, removalFor, benchStaging, addSource,
+  sceneStep, findStoreBeforeUseDefects,
 } from './sceneRecipe.js'
 import { findVesselRuleDefects, loadVesselRules } from '../../scripts/lib/vesselRules.mjs'
 import { resolveBehavior } from './behavior.js'
@@ -722,5 +723,35 @@ describe('pourPlan — a rinse streams from its bottle', () => {
   it('rinse is a pour from the stated reagent', () => {
     expect(pourPlan({ text_en: 'Gently rinse the slide with distilled water for a few seconds.', reagents: [{ volume: null }] }))
       .toEqual({ pour: true, reagentIndex: 0 })
+  })
+})
+
+// A FROZEN STORE IS AN END STATE. "Keep the RNA on ice until measurement, store at −80 °C"
+// with the measurements after it: freezing it now and taking it out for the NanoDrop is
+// the freeze–thaw the step warns against. The station depicts what happens NOW — on ice.
+describe('sceneStep — a frozen store the sample is used after is not depicted as storage', () => {
+  const keep = { index: 25, action: 'store', container: 'eluate_tube', text_en: 'Keep the RNA on ice until measurement, store at −80°C. Avoid repeated freezing and thawing.',
+    conditions: { temperature_c: -80, on_ice: false, instruments: ['freezer'] } }
+  const nano = { index: 26, action: 'measure', container: 'eluate_tube', text_en: 'NanoDrop: A260/280 around 2.0', conditions: { instruments: ['nanodrop'] } }
+  const note = { index: 29, action: 'generic', text_en: 'Neutrophil RNA degrades quickly.', phase: 'notes' }
+  it('used after → on ice now, no freezer', () => {
+    const s = sceneStep([keep, nano], 0)
+    expect(s.action).toBe('cool_ice')
+    expect(stepConditions(s).onIce).toBe(true)
+    expect(resolveRecipe(s.action, { container: 'eluate_tube', conditions: stepConditions(s) }).equipment).not.toBe('freezer')
+  })
+  it('the last thing done to the sample stays a store (a note after it is not a use)', () => {
+    expect(sceneStep([keep, note], 0)).toBe(keep)
+  })
+  it('a 4 °C hold, and a freeze followed only by more cold storage, are untouched', () => {
+    const hold = { action: 'store', text_en: 'Hold at 4°C.', conditions: { temperature_c: 4, instruments: ['thermocycler'] } }
+    const freeze = { action: 'store', text_en: 'Transfer to a -80°C freezer overnight.', conditions: { temperature_c: -80, instruments: ['freezer'] } }
+    const ln2 = { action: 'store', text_en: 'Transfer into liquid nitrogen.', conditions: { temperature_c: -150, instruments: ['liquid_nitrogen'] } }
+    expect(sceneStep([hold, nano], 0)).toBe(hold)
+    expect(sceneStep([freeze, ln2], 0)).toBe(freeze)
+  })
+  it('the audit: a frozen store depicted while the sample is used after it is a defect', () => {
+    expect(findStoreBeforeUseDefects([keep, nano], (steps, i) => steps[i])).toEqual([{ index: 25, instrument: 'freezer', usedAt: 26 }])
+    expect(findStoreBeforeUseDefects([keep, nano])).toEqual([])
   })
 })
