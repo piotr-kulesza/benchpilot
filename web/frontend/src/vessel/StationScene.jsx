@@ -431,6 +431,7 @@ export function configureStation(st, o) {
     if (bottle) {
       stream = new Mesh(new CylinderGeometry(0.035, 0.05, 0.45, 12), new MeshStandardMaterial({ color: reag.color, roughness: 0.3, transparent: true, opacity: 0.8 }))
       stream.position.set(M.x, M.y - 0.22, M.z); stream.visible = false
+      stream.userData.auditKind = 'fluid'   // metadata for the dev collision audit: a stream, not a solid
       st.group.add(stream)
     }
     st.enter = () => {

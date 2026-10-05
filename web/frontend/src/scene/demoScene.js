@@ -259,6 +259,10 @@ export function undockSample(lift = false) {
     geo.setAttribute("color", new THREE.BufferAttribute(col,3));
   }
 
+  // AUDIT KIND (metadata only, never rendered): what a mesh IS for the dev collision audit
+  // (src/dev/collisionAudit.js) — a 'fluid', a 'granular' fill or an 'effect' is not a rigid
+  // solid that others must not pass through
+  function auditKind(o, k){ o.userData.auditKind = k; return o; }
   /* ---- liquid that CONFORMS to its vessel's interior ---------------------
      A vessel's glass is a lathe of a 2D profile (x = radius, y = height). Its
      liquid must obey the SAME contour, not a floating cylinder. `innerRadiusFn`
@@ -504,7 +508,7 @@ export function undockSample(lift = false) {
       color: opts.color||COL.lysis, metalness:0, roughness:0.32, vertexColors:true,
       transparent:false, emissive: opts.color||COL.lysis, emissiveIntensity:0.14,
       clearcoat:0.35, clearcoatRoughness:0.4, envMapIntensity:0.7
-    });
+    }); auditKind(liqMat,'fluid');
     var liq = new THREE.Mesh(new THREE.BufferGeometry(), liqMat);
     liq.visible=false; visual.add(liq);
 
@@ -616,7 +620,7 @@ export function undockSample(lift = false) {
     tip.castShadow=true; grp.add(tip);
 
     var fluidMat = new THREE.MeshPhysicalMaterial({ color:COL.lysis, roughness:0.32,
-      transparent:false, emissive:COL.lysis, emissiveIntensity:0.06, envMapIntensity:0.6 });
+      transparent:false, emissive:COL.lysis, emissiveIntensity:0.06, envMapIntensity:0.6 }); auditKind(fluidMat,'fluid');
     var fluid = new THREE.Mesh(new THREE.CylinderGeometry(0.058,0.016,0.6,24), fluidMat);
     fluid.position.y=-0.18; fluid.scale.y=0.0001; fluid.visible=false; grp.add(fluid);
     var drop = new THREE.Mesh(new THREE.SphereGeometry(0.03,16,12), fluidMat);
@@ -722,6 +726,7 @@ export function undockSample(lift = false) {
     // liquid follows the column cup's inner wall (`ip`), flat-topped at the fill line
     var colInnerFn = innerRadiusFn(ip, 0.90);
     var colBottom  = 0.90, colFillMax = 1.44;
+    auditKind(liqMat,'fluid');
     var liq = new THREE.Mesh(new THREE.BufferGeometry(), liqMat);
     liq.visible=false; grp.add(liq);
 
@@ -822,10 +827,11 @@ export function undockSample(lift = false) {
     // toneMapped bypass. Reads as real water in a stainless bath beside the centrifuge.
     var waterMat=new THREE.MeshPhysicalMaterial({ color:0x93b2c2, roughness:0.16, metalness:0,
       transparent:true, opacity:0.36, clearcoat:0.5, clearcoatRoughness:0.3, envMapIntensity:0.9 });
+    auditKind(waterMat,'fluid');
     var water=new THREE.Mesh(new THREE.BoxGeometry(2.24,SURFY-0.02,1.64), waterMat); water.position.y=(SURFY-0.02)/2+0.05; grp.add(water);
     // faint surface sheen — a reflective meniscus, not a glowing cap
     var surfMat=new THREE.MeshPhysicalMaterial({ color:0xb6ccd6, roughness:0.09, metalness:0.15, transparent:true, opacity:0.3, envMapIntensity:1.1 });
-    var surf=new THREE.Mesh(new THREE.BoxGeometry(2.22,0.02,1.62), surfMat); surf.position.y=SURFY; grp.add(surf);
+    var surf=new THREE.Mesh(new THREE.BoxGeometry(2.22,0.02,1.62), surfMat); surf.position.y=SURFY; auditKind(surf,'fluid'); grp.add(surf);
     // temperature DIAL on the front face (a real water bath's defining control)
     var dialRim=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,0.05,24), matBrushed(0xcfd5db));
     dialRim.rotation.x=Math.PI/2; dialRim.position.set(0.72,0.28,0.92); grp.add(dialRim);
@@ -834,7 +840,7 @@ export function undockSample(lift = false) {
     var needle=new THREE.Mesh(new THREE.BoxGeometry(0.018,0.13,0.008), matPlastic(0x33383e));
     needle.position.set(0.72,0.28,0.965); needle.rotation.z=0.7; grp.add(needle);
     // steam wisps rise ONLY when warm (at rest: none) — very subtle, no colour cast
-    var steamMat=new THREE.MeshBasicMaterial({ color:0xeef2f4, transparent:true, opacity:0.0, depthWrite:false, blending:THREE.AdditiveBlending, fog:false });
+    var steamMat=new THREE.MeshBasicMaterial({ color:0xeef2f4, transparent:true, opacity:0.0, depthWrite:false, blending:THREE.AdditiveBlending, fog:false }); auditKind(steamMat,'effect');
     var wisps=[]; for(var w=0;w<6;w++){ var s=new THREE.Mesh(new THREE.SphereGeometry(0.16,10,8), steamMat.clone());
       s.userData.seed={ x:(Math.random()-0.5)*1.7, z:(Math.random()-0.5)*1.1, off:Math.random(), sp:0.3+Math.random()*0.35 };
       grp.add(s); wisps.push(s); }
@@ -1057,7 +1063,7 @@ export function undockSample(lift = false) {
     // running buffer
     var buf = new THREE.Mesh(new THREE.BoxGeometry(2.5,0.5,1.5),
       new THREE.MeshPhysicalMaterial({ color:0xdfe6c0, roughness:0.3, transparent:true, opacity:0.35, envMapIntensity:0.6 }));
-    buf.position.y=0.5; grp.add(buf);
+    buf.position.y=0.5; auditKind(buf,'fluid'); grp.add(buf);
     // the gel slab (translucent amber) with a row of wells at the top
     var gelMat = new THREE.MeshPhysicalMaterial({ color:0xd8c98a, roughness:0.5, transparent:true, opacity:0.5, envMapIntensity:0.5 });
     var gel = new THREE.Mesh(new THREE.BoxGeometry(2.0,0.14,1.2), gelMat);
@@ -1128,6 +1134,7 @@ export function undockSample(lift = false) {
     // a bed of translucent ice cubes (leaves the centre clear for the tube)
     var iceMat=new THREE.MeshPhysicalMaterial({ color:0xd4e2ea, roughness:0.14,
       transparent:true, opacity:0.55, clearcoat:0.8, envMapIntensity:1.0, flatShading:true, depthWrite:false });
+    auditKind(iceMat,'granular');
     for(var ic=0;ic<12;ic++){
       var a=Math.random()*Math.PI*2, rr=0.16+Math.random()*0.42;
       var cube=new THREE.Mesh(new THREE.IcosahedronGeometry(0.12+Math.random()*0.07,0), iceMat);
@@ -1137,6 +1144,7 @@ export function undockSample(lift = false) {
     }
     // faint frost rime on the outer wall
     var frostMat=new THREE.MeshStandardMaterial({ color:0xe1e9ef, roughness:0.9, envMapIntensity:0.4 });
+    auditKind(frostMat,'effect');
     var frostGeo=new THREE.SphereGeometry(1,6,5);
     for(var fr=0;fr<22;fr++){
       var fm=new THREE.Mesh(frostGeo,frostMat);
@@ -1325,7 +1333,7 @@ export function undockSample(lift = false) {
 
     // fluid inside the barrel (below the piston). Built at unit height, scaled per plunge.
     var fluidMat = new THREE.MeshPhysicalMaterial({ color:COL.lysis, roughness:0.32, transparent:false,
-      emissive:COL.lysis, emissiveIntensity:0.12, envMapIntensity:0.6 });
+      emissive:COL.lysis, emissiveIntensity:0.12, envMapIntensity:0.6 }); auditKind(fluidMat,'fluid');
     var fluid = new THREE.Mesh(new THREE.CylinderGeometry(BR*0.92,BR*0.92,1,32), fluidMat);
     grp.add(fluid);
 
@@ -1575,7 +1583,7 @@ export function undockSample(lift = false) {
     var liqInnerFn=innerRadiusFn(bp,0.90);
     var liq=new THREE.Mesh(liquidProfileGeo(liqInnerFn, 0.02, h*0.55, 40),
       new THREE.MeshPhysicalMaterial({color:col,roughness:0.35,transparent:false,emissive:col,emissiveIntensity:0.11,envMapIntensity:0.7}));
-    grp.add(liq);
+    auditKind(liq,'fluid'); grp.add(liq);
     var cap=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.17,0.22,28), matPlastic(capColor==null?0x2b7f74:capColor));
     cap.position.y=h+0.11; grp.add(cap);
     // coloured neck ring under the cap — reads as a reagent-coded seal
@@ -1953,8 +1961,8 @@ export {
     return st;
   }
   function liquidMat(){
-    return new THREE.MeshPhysicalMaterial({ color:COL.lysis, roughness:0.32, metalness:0,
-      emissive:COL.lysis, emissiveIntensity:0.12, clearcoat:0.3, clearcoatRoughness:0.4, envMapIntensity:0.6 });
+    return auditKind(new THREE.MeshPhysicalMaterial({ color:COL.lysis, roughness:0.32, metalness:0,
+      emissive:COL.lysis, emissiveIntensity:0.12, clearcoat:0.3, clearcoatRoughness:0.4, envMapIntensity:0.6 }), 'fluid');
   }
 
   /* screw-cap cryovial — short PP vial: a SKIRTED CONICAL base so it self-stands,
@@ -2280,7 +2288,7 @@ export {
     // a THIN, translucent cold mist that spills from the bottom door seam and lies low
     // on the bench — it used to be an additive sphere in front of the door, larger than
     // the opening, that rendered as an opaque white disc hiding the freezer
-    var frostMat=new THREE.MeshBasicMaterial({ color:0xdfeaf4, transparent:true, opacity:0.0, depthWrite:false, fog:false });
+    var frostMat=new THREE.MeshBasicMaterial({ color:0xdfeaf4, transparent:true, opacity:0.0, depthWrite:false, fog:false }); auditKind(frostMat,'effect');
     var frost=new THREE.Mesh(new THREE.SphereGeometry(0.5,20,12), frostMat); frost.position.set(0,0.14,1.05); frost.scale.set(1.8,0.22,0.5); grp.add(frost);
     var label=makeLabel("−80 °C",""); label.position.set(0,2.9,0); grp.add(label);
     var st={ door:0, tDoor:0 }; // CLOSED at rest (the store animation opens it)
