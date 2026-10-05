@@ -32,6 +32,10 @@ describe('motion audit', () => {
     const f = auditTrack(tr)
     expect(checks(f)).toEqual(['teleport']); expect(f[0].how).toBe('appears')
   })
+  it('a move from the first frame of a thing known to be at rest before → judged (a real start)', () => {
+    const tr = [at(0), ...Array.from({ length: 40 }, (_, k) => at((k + 1) / 40)), ...rest(1, 10)]
+    expect(checks(auditTrack(tr, { restBefore: true })).sort()).toEqual(['abrupt-start', 'abrupt-stop'])
+  })
   it('a move already under way when the window opens, or still going when it closes, is not judged there', () => {
     const tr = Array.from({ length: 41 }, (_, k) => at(k / 40))
     expect(checks(auditTrack(tr))).toEqual([])

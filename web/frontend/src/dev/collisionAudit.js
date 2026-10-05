@@ -35,25 +35,30 @@ export function bvhOf(geometry) {
 }
 
 const visibleIn = (o) => { for (let n = o; n; n = n.parent) if (!n.visible) return false; return true }
-// a SOLID mesh: a visible, triangulated mesh that is not a sprite, a label, an additive glow
-// or an explicitly declared non-solid (userData.auditSkip)
-export function isSolid(m) {
+// what a mesh IS (userData.auditKind on the mesh, an ancestor or its material — set by the
+// builders, metadata only): 'fluid', 'granular' (ice), 'effect' (steam, mist, frost), or solid
+export function kindOf(m) {
+  for (let n = m; n; n = n.parent) if (n.userData && n.userData.auditKind) return n.userData.auditKind
+  for (const x of [].concat(m.material || [])) if (x && x.userData && x.userData.auditKind) return x.userData.auditKind
+  if ([].concat(m.material || []).some((x) => x && x.blending === 2)) return 'effect'   // AdditiveBlending: a glow
+  if (m.isInstancedMesh) return 'granular'                                              // instanced fills
+  return 'solid'
+}
+// a SOLID mesh: a triangulated mesh, not a sprite, of kind solid (or fluid, when asked — a
+// liquid must stay inside its own vessel, but anything may dip into it)
+export function isSolid(m, { fluids = false } = {}) {
   if (!m.isMesh || m.isSprite || !m.geometry || !m.geometry.attributes.position) return false
-  if (m.isInstancedMesh) return false   // granular fills (ice, bubbles) are not rigid bodies
-  if (m.userData.auditSkip) return false
-  for (let n = m; n; n = n.parent) if (n.userData && n.userData.auditSkip) return false
-  const mats = [].concat(m.material || [])
-  if (mats.some((x) => x && x.blending === 2)) return false   // AdditiveBlending: glow
-  return true
+  const k = kindOf(m)
+  return k === 'solid' || (fluids && k === 'fluid')
 }
 // stopAt: other objects' roots — a vessel docked INTO an instrument (a tube in a rotor slot)
 // is its own object, not part of the instrument
-export function solidMeshes(root, stopAt = null) {
+export function solidMeshes(root, stopAt = null, opts = {}) {
   const out = []
   root.updateWorldMatrix(true, true)
   const walk = (o) => {
     if (o !== root && stopAt && stopAt.has(o)) return
-    if (isSolid(o) && visibleIn(o)) out.push(o)
+    if (isSolid(o, opts) && visibleIn(o)) out.push(o)
     for (const c of o.children) walk(c)
   }
   walk(root)
@@ -187,21 +192,27 @@ export function setPenetration(as, bs) {
 }
 
 // ── b · the gap from a set of meshes to another (0 when touching or crossing) ────────────
-export function gap(as, bs, maxD = 0.05) {
+// Mesh pairs are tried nearest-box first, and the search stops at contact: "does it touch
+// anything" is the question, so the first touching pair answers it.
+function boxGap(a, b) {
+  const dx = Math.max(0, a.min.x - b.max.x, b.min.x - a.max.x), dy = Math.max(0, a.min.y - b.max.y, b.min.y - a.max.y), dz = Math.max(0, a.min.z - b.max.z, b.min.z - a.max.z)
+  return Math.hypot(dx, dy, dz)
+}
+export function gap(as, bs, maxD = 0.05, stopAt = TOL.contact) {
   let best = Infinity
   const t1 = {}, t2 = {}
-  const bb = worldBox(bs).expandByScalar(maxD)
-  for (const a of as) {
-    if (!a.geometry.boundingBox) a.geometry.computeBoundingBox()
-    if (!a.geometry.boundingBox.clone().applyMatrix4(a.matrixWorld).intersectsBox(bb)) continue
-    const bvh = bvhOf(a.geometry)
-    for (const b of bs) {
-      _m.copy(a.matrixWorld).invert().multiply(b.matrixWorld)
-      const sc = scaleOf(a)
-      const r = bvh.closestPointToGeometry(b.geometry, _m, t1, t2, 0, maxD / sc)
-      if (r && r.distance * sc < best) best = r.distance * sc
-      if (best <= 0) return 0
-    }
+  const box = (m) => { if (!m.geometry.boundingBox) m.geometry.computeBoundingBox(); return m.geometry.boundingBox.clone().applyMatrix4(m.matrixWorld) }
+  const A = as.map((m) => [m, box(m)]), B = bs.map((m) => [m, box(m)])
+  const pairs = []
+  for (const [a, ab] of A) for (const [b, bb] of B) { const g = boxGap(ab, bb); if (g <= maxD) pairs.push([g, a, b]) }
+  pairs.sort((x, y) => x[0] - y[0])
+  for (const [g, a, b] of pairs) {
+    if (g >= best) break
+    const sc = scaleOf(a)
+    _m.copy(a.matrixWorld).invert().multiply(b.matrixWorld)
+    const r = bvhOf(a.geometry).closestPointToGeometry(b.geometry, _m, t1, t2, 0, Math.min(maxD, best) / sc)
+    if (r && r.distance * sc < best) best = r.distance * sc
+    if (best <= stopAt) return best
   }
   return best
 }
@@ -261,7 +272,10 @@ export function describe(m) {
   const mat = [].concat(m.material || [])[0]
   return { geo: m.geometry.type, color: mat && mat.color ? '#' + mat.color.getHexString() : null, opacity: mat ? mat.opacity : null, min: r3(b.min), max: r3(b.max), name: m.name || undefined }
 }
-export function auditPose(objects, { benchY = 0, prev = null, checkSweep = true } = {}) {
+// frame: the frame number of this pose; an object FLOATS only after REST_FRAMES unmoved (the top
+// of a carry arc stops for an instant — that is a motion, not a rest)
+export const REST_FRAMES = 30
+export function auditPose(objects, { benchY = 0, prev = null, checkSweep = true, frame = 0 } = {}) {
   const defects = []
   const roots = new Set(objects.map((o) => o.root))
   const items = objects.map((o) => ({ ...o, meshes: solidMeshes(o.root, roots) })).filter((o) => o.meshes.length)
@@ -286,16 +300,18 @@ export function auditPose(objects, { benchY = 0, prev = null, checkSweep = true 
   // a' · a moving part of one object × the rest of it (lid × body), against its first pose
   const first = new Map(prev ? prev.first : [])
   for (const it of items) {
-    const now = snapshot(it.meshes, it.root)
+    it.withFluids = solidMeshes(it.root, roots, { fluids: true })
+    const now = snapshot(it.withFluids, it.root)
     const f = first.get(it.root) || new Map()
     for (const [m, local] of now) if (!f.has(m)) f.set(m, local)
     first.set(it.root, f)
-    if (!prev || !it.moving) continue
+    if (!prev) continue
     const was = prev.parts.get(it.root)
     if (!was) continue
-    const movingParts = it.meshes.filter((m) => was.get(m) && moved(was.get(m), now.get(m), TOL.move))
-    if (!movingParts.length || movingParts.length === it.meshes.length) continue
-    const rest = it.meshes.filter((m) => !movingParts.includes(m))
+    const all = it.withFluids
+    const movingParts = all.filter((m) => was.get(m) && moved(was.get(m), now.get(m), TOL.move))
+    if (!movingParts.length || movingParts.length === all.length) continue
+    const rest = all.filter((m) => !movingParts.includes(m) && kindOf(m) === 'solid')   // a fluid moves through no other fluid
     const { depth, at } = setPenetration(movingParts, rest)
     if (depth <= TOL.depth) continue
     const atFirst = movingParts.map((m) => proxy(m, new Matrix4().multiplyMatrices(it.root.matrixWorld, f.get(m))))
@@ -303,13 +319,21 @@ export function auditPose(objects, { benchY = 0, prev = null, checkSweep = true 
     if (depth > d0 + TOL.depth) defects.push({ check: 'intersect', a: `${it.name} (moving part)`, b: `${it.name} (body)`, depth: depth - d0, meshes: at && at.map(describe) })
   }
   // b · float / sink (objects at rest, not held)
+  const gaps = new Map(), restSince = new Map()
+  for (const it of items) {
+    const was = prev && prev.restSince ? prev.restSince.get(it.root) : undefined
+    restSince.set(it.root, it.moving ? frame : (was != null ? was : -Infinity))
+  }
   for (const it of items) {
     const box = it.box
     if (box.min.y < benchY - TOL.depth) defects.push({ check: 'sunk', a: it.name, b: 'bench', depth: benchY - box.min.y })
-    if (it.held || it.moving) continue
+    if (it.held || it.moving || frame - restSince.get(it.root) < REST_FRAMES) continue
     if (box.min.y <= benchY + TOL.contact) continue                      // on the bench
-    const others = items.filter((o) => o !== it).flatMap((o) => o.meshes)
-    const g = others.length ? gap(it.meshes, others, 0.5) : Infinity
+    // nothing moved since prev: the answer is prev's
+    let g
+    if (prev && prev.gaps && prev.gaps.has(it.root) && !items.some((o) => o.changed)) g = prev.gaps.get(it.root)
+    else { const others = items.filter((o) => o !== it).flatMap((o) => o.meshes); g = others.length ? gap(it.meshes, others, 0.5) : Infinity }
+    gaps.set(it.root, g)
     if (g > TOL.contact) defects.push({ check: 'float', a: it.name, b: g === Infinity ? 'nothing within 0.5' : 'nearest solid', depth: g === Infinity ? box.min.y - benchY : g, box: { min: r3(box.min), max: r3(box.max) } })
   }
   // c · sweep (moving objects, against every other object)
@@ -322,7 +346,7 @@ export function auditPose(objects, { benchY = 0, prev = null, checkSweep = true 
       defects.push({ check: 'sweep', a: it.name, b: owner ? owner.name : '?', depth: s.len, meshes: [describe(s.mesh), describe(s.other)], at: r3(s.at) })
     }
   }
-  const parts = new Map(items.map((it) => [it.root, snapshot(it.meshes, it.root)]))
+  const parts = new Map(items.map((it) => [it.root, snapshot(it.withFluids, it.root)]))
   const count = new Map(items.map((it) => [it.root, it.meshes.length]))
-  return { defects, state: { world, parts, pairs, first, count } }
+  return { defects, state: { world, parts, pairs, first, count, gaps, restSince } }
 }

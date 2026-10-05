@@ -47,7 +47,9 @@ export function moves(sp, still = EASE.still) {
   return out
 }
 
-export function auditTrack(track, { kind = 'object', from = 0, to = track.length - 1 } = {}) {
+// restBefore: the thing was at rest before the window opened (a move from its first frame is a
+// real START, judged), else a move already under way at the first frame is not judged there
+export function auditTrack(track, { kind = 'object', from = 0, to = track.length - 1, restBefore = false } = {}) {
   const findings = []
   const { lin, rot } = speeds(track)
   // pops: visibility flips inside the step window
@@ -62,7 +64,7 @@ export function auditTrack(track, { kind = 'object', from = 0, to = track.length
       if (n < EASE.minFrames) continue
       // a move that runs into the end of the window was cut, not stopped; one that starts at
       // the window's first frame was already moving
-      if (a > from + 1 && sp[a] > EASE.ratio * peak) findings.push({ check: 'abrupt-start', how: `${unit} starts at ${(100 * sp[a] / peak).toFixed(0)}% of peak`, frame: a, peak })
+      if ((restBefore || a > from + 1) && sp[a] > EASE.ratio * peak) findings.push({ check: 'abrupt-start', how: `${unit} starts at ${(100 * sp[a] / peak).toFixed(0)}% of peak`, frame: a, peak })
       if (b < to && sp[b] > EASE.ratio * peak) findings.push({ check: 'abrupt-stop', how: `${unit} stops from ${(100 * sp[b] / peak).toFixed(0)}% of peak`, frame: b, peak })
     }
   }

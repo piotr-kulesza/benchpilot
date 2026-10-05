@@ -27,12 +27,14 @@ const OUT = flag('out', path.join(process.cwd(), 'dev-shots', 'collisions.json')
 const SNAPS = flag('snap', '') ? flag('snap', '').split(',').map((x) => { const [p, s, f] = x.split(':'); return { p, s: Number(s), f: Number(f) } }) : null
 const SNAP_DIR = flag('snapdir', path.join(process.cwd(), 'dev-shots', 'collisions'))
 
-const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new',
+const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new', protocolTimeout: 0,   // a heavy station simulates for minutes
   args: ['--no-sandbox', '--use-angle=metal', '--enable-webgl', '--ignore-gpu-blocklist', '--window-size=1500,980'] })
 const page = await browser.newPage()
 await page.setViewport({ width: 1440, height: 900 })
 const errors = []
 page.on('pageerror', (e) => errors.push(e.message))
+page.on('error', (e) => { console.error('PAGE CRASHED:', e.message); process.exit(3) })   // a crashed renderer never answers an evaluate
+page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()) })
 await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' })
 const index = await page.evaluate(async () => (await fetch('protocols/index.json')).json())
 const SEL = ONLY || SNAPS
@@ -53,7 +55,9 @@ for (const p of protos) {
     const ready = await page.evaluate(() => !!window.__benchLine)
     if (!ready) throw new Error('no window.__benchLine — is this the DEV server on the polish branch?')
     if (s > 1) {
-      // enter the station with the runner's own Next (the sample glides in from the last one)
+      // the station before is FINISHED first (p = 1, settled) — Next is pressed after a step is
+      // done — then entered with the runner's own Next (the sample glides in from it)
+      await page.evaluate(async () => { const d = await import('/src/dev/collisionDriver.js'); d.finishStation(window.__benchLine) })
       const clicked = await page.evaluate(() => {
         const b = [...document.querySelectorAll('button')].find((x) => /^Next/.test(x.textContent.trim()))
         if (!b) return false
@@ -72,7 +76,10 @@ for (const p of protos) {
         if (sn !== SNAPS.filter((o) => o.p === p.id && o.s === s)[0]) {
           const d2 = await deterministic(page, `collision/${p.id}/${s}`, 3000)
           await page.goto(`${BASE}/?run=1&step=${Math.max(1, s - 1)}`, { waitUntil: 'networkidle0' }); await d2.settled()
-          if (s > 1) { await page.evaluate(() => [...document.querySelectorAll('button')].find((x) => /^Next/.test(x.textContent.trim())).click()); await new Promise((r) => setTimeout(r, 400)) }
+          if (s > 1) {
+            await page.evaluate(async () => { const d = await import('/src/dev/collisionDriver.js'); d.finishStation(window.__benchLine) })
+            await page.evaluate(() => [...document.querySelectorAll('button')].find((x) => /^Next/.test(x.textContent.trim())).click()); await new Promise((r) => setTimeout(r, 400))
+          }
           await d2.dispose()
         }
         await page.evaluate(async (hold, f) => {
@@ -95,6 +102,7 @@ for (const p of protos) {
     }, timed ? 4 : 0)
     results.push({ protocol: p.id, station: s, action: st.action, container: st.container, timed, defects })
     const red = defects.filter((d) => d.check)
+    fs.mkdirSync(path.dirname(OUT), { recursive: true }); fs.writeFileSync(OUT, JSON.stringify(results, null, 1))   // after every station
     console.log(`${p.id} ${String(s).padStart(2)} ${(st.action || '?').padEnd(14)} ${red.length ? red.map((d) => `${d.check}:${d.a}×${d.b}=${d.depth.toFixed(3)}`).join('  ') : '✓'}`)
     await det.dispose()
   }

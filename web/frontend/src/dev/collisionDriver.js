@@ -6,7 +6,7 @@
 // the step's progress p forced to rise over the step's window (6.5 s), then lets the sample
 // finish its glide. So the audit sees the trajectories a viewer sees — the sample's glide lag,
 // a lid easing shut — not a set of snapped poses.
-import { auditPose } from './collisionAudit.js'
+import { auditPose, isSolid } from './collisionAudit.js'
 import { auditTrack } from './motionAudit.js'
 import { Vector3, Quaternion } from 'three'
 
@@ -54,8 +54,12 @@ function motionCandidates(line) {
   return out
 }
 const _p = new Vector3(), _q = new Quaternion(), _s = new Vector3()
+// only a thing with a SOLID can teleport (a stream starting, steam rising, a liquid level is
+// not a thing changing place)
+const hasSolid = (root) => { let y = false; root.traverse((o) => { if (!y && isSolid(o)) y = true }); return y }
 function recordMotion(line, tracks) {
   for (const c of motionCandidates(line)) {
+    if (!hasSolid(c.root)) continue
     c.root.updateWorldMatrix(true, false)
     c.root.matrixWorld.decompose(_p, _q, _s)
     let t = tracks.get(c.key)
@@ -73,6 +77,14 @@ function recordMotion(line, tracks) {
 // run the active station's step: `frames` frames at 1/60 s, p = frame / (stepDur·60);
 // audit every `every` frames. Returns the distinct defects (worst depth, first p seen) —
 // collisions and motion.
+// FINISH the station on screen (the one before the audited step): p = 1, then let everything
+// settle — a viewer presses Next after a step is done (a timed one after its countdown)
+export function finishStation(line, seconds = 2.5) {
+  line.hold = true
+  line.pForce = 1
+  for (let k = 0; k < Math.round(seconds * 60); k++) line.step(1 / 60)
+}
+
 // A TIMED step waits at p = 0 until Start is pressed (the runner holds the countdown): `hold`
 // seconds of that rest are run first — what the viewer sees while reading the step.
 // stopAt: stop after that frame (the step is left posed there — for an evidence snapshot)
@@ -89,7 +101,7 @@ export function simulateStation(line, { stepDur = 6.5, tail = 1.5, every = 3, be
       tracks.frame = k; recordMotion(line, tracks)
       if (stopAt != null && k >= stopAt) break
       if (k % every) continue
-      const { defects, state } = auditPose(lineObjects(line), { benchY, prev })
+      const { defects, state } = auditPose(lineObjects(line), { benchY, prev, frame: k })
       prev = state
       for (const d of defects) {
         const key = `${d.check}|${d.a}|${d.b}`
@@ -102,7 +114,7 @@ export function simulateStation(line, { stepDur = 6.5, tail = 1.5, every = 3, be
   // motion: judged over the whole window (the sample's arrival glide included)
   for (const t of tracks.values()) {
     if (t.track.length < 3) continue
-    for (const f of auditTrack(t.track, { kind: t.kind })) {
+    for (const f of auditTrack(t.track, { kind: t.kind, restBefore: t.start === 0 })) {
       const key = `${f.check}|${t.name}|${f.how}`
       if (!seen.has(key)) seen.set(key, { check: f.check, a: t.name, b: f.how, depth: f.peak || 0, p: +Math.min(1, Math.max(0, t.start + f.frame - H) / (stepDur * fps)).toFixed(3), frame: t.start + f.frame, frames: 1 })
     }

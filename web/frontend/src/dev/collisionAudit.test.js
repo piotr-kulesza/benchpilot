@@ -41,9 +41,25 @@ describe('collision audit · goes red on a deliberately overlapped pair', () => 
     expect(penetration(tip(0, 0.1), t)).toBe(0)
     expect(penetration(tip(0.095, 0.2), t)).toBeGreaterThan(TOL.depth)
   })
-  it('a box held 0.2 above the bench, touching nothing → float; held → green', () => {
-    expect(checks(auditPose([obj('B', box(0.2, 0.2, 0.2, 0, 0.3))]))).toEqual(['float'])
-    expect(checks(auditPose([obj('B', box(0.2, 0.2, 0.2, 0, 0.3), true)]))).toEqual([])
+  it('a box held 0.2 above the bench, touching nothing, at rest → float; held, or only paused → green', () => {
+    expect(checks(auditPose([obj('B', box(0.2, 0.2, 0.2, 0, 0.3))], { frame: 60 }))).toEqual(['float'])
+    expect(checks(auditPose([obj('B', box(0.2, 0.2, 0.2, 0, 0.3), true)], { frame: 60 }))).toEqual([])
+    // it was moving at frame 50: at frame 60 it has rested only 10 frames — the top of an arc
+    const b = new Group(); b.add(box(0.2, 0.2, 0.2, 0, 0.3)); b.updateMatrixWorld(true)
+    const r0 = auditPose([obj('B', b)], { frame: 40 }); b.position.x = 0.1; b.updateMatrixWorld(true)
+    const r1 = auditPose([obj('B', b)], { frame: 50, prev: r0.state })
+    expect(checks(auditPose([obj('B', b)], { frame: 60, prev: r1.state }))).toEqual([])
+  })
+  it('fluids, granular fills and effects are not solids; a fluid through its own vessel wall is', () => {
+    const water = box(0.4, 0.4, 0.4); water.userData.auditKind = 'fluid'
+    expect(checks(auditPose([obj('bath water', water), obj('tube', box(0.1, 0.3, 0.1, 0, 0.15))]))).toEqual([])
+    const ice = box(0.4, 0.2, 0.4); ice.material = ice.material.clone(); ice.material.userData.auditKind = 'granular'
+    expect(checks(auditPose([obj('ice', ice), obj('tube', box(0.1, 0.3, 0.1, 0, 0.15))]))).toEqual([])
+    const v = new Group(), wall = tube(), liq = new Mesh(new CylinderGeometry(0.1, 0.1, 0.2, 24), mat); liq.userData.auditKind = 'fluid'
+    liq.position.y = 0.2; v.add(wall); v.add(liq); v.updateMatrixWorld(true)
+    const r0 = auditPose([obj('tube', v)])                                   // the liquid fills the bore
+    liq.scale.set(1.3, 1, 1.3); v.updateMatrixWorld(true)                     // swells through the wall
+    expect(checks(auditPose([obj('tube', v)], { prev: r0.state }))).toContain('intersect')
   })
   it('a box resting on another box is supported → green; one sunk into the bench → sunk', () => {
     expect(checks(auditPose([obj('base', box(0.4, 0.2, 0.4)), obj('top', box(0.2, 0.2, 0.2, 0, 0.3))]))).toEqual([])
