@@ -38,7 +38,12 @@ export function createRngStreams(baseSeed = () => (Math.random() * 4294967296) >
         calls.set(name, k)
         const saved = Math.random
         Math.random = mulberry32((base ^ hash(`${name}#${k}`)) >>> 0)
-        try { return fn.apply(this, args) } finally { Math.random = saved }
+        try {
+          const r = fn.apply(this, args)
+          // name what was built (read by the dev audits: src/dev/collisionDriver.js) — metadata only
+          if (r && r.isObject3D && r.userData && !r.userData.builder) r.userData.builder = name
+          return r
+        } finally { Math.random = saved }
       }
     },
   }

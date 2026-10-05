@@ -1551,7 +1551,12 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
   // ── FRAME LOOP — the demo's animate(): rail-dolly the camera, run the active
   // station's p-timeline, fade equipment by distance from the rail, and glide the
   // one sample along the line. ──
-  useFrame((state, dt) => {
+  // DEV: the collision / motion audit (scripts/collision-audit.mjs, src/dev/collisionDriver.js)
+  // holds this loop and steps the SAME frame function itself with the step's progress forced
+  // (benchLine.pForce) — window.__benchLine exists only in a dev build
+  const benchLine = useRef({ hold: false, pForce: null }).current
+  const lastStateRef = useRef(null)
+  const frame = (state, dt) => {
     dt = Math.min(dt, 0.05)
     const time = state.clock.elapsedTime
     const stations = stationsRef.current
@@ -1628,10 +1633,11 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       const tm = timerRef.current
       if (tm.hasTimer) pRef.current = tm.progress // countdown drives every timed instrument
       else pRef.current = Math.min(pRef.current + dt / STEP_DUR, 1)
+      if (benchLine.pForce != null) pRef.current = benchLine.pForce   // DEV: the audit drives p
       // the centrifuge needs absolute-time dock/lift choreography (a 10-min spin can't
       // glide in for two minutes), so it reads the timer directly; everything else is
       // continuous in p and tracks the countdown just by being fed the elapsed fraction.
-      if (act.driveTimed && tm.hasTimer) act.driveTimed(tm, dt)
+      if (act.driveTimed && tm.hasTimer && benchLine.pForce == null) act.driveTimed(tm, dt)
       else act.timeline?.(pRef.current)
     }
     // 4c · idle instrument animations run ONLY for the active station and its immediate
@@ -1745,7 +1751,21 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       p.active = activeRef.current
       p.p = pRef.current // the active step's animation value, so a probe can see frames where motion did not advance
     }
+  }
+  useFrame((state, dt) => {
+    lastStateRef.current = state
+    if (import.meta.env.DEV && benchLine.hold) return
+    frame(state, dt)
   })
+  if (import.meta.env.DEV && typeof window !== 'undefined') {
+    Object.assign(benchLine, {
+      stations: () => stationsRef.current, active: () => activeRef.current,
+      sample: () => demo.getSample(), preps: () => demo.getPreps(),
+      step: (dt) => frame(lastStateRef.current, dt),
+      render: () => { const s = lastStateRef.current; s.gl.render(s.scene, s.camera) },
+    })
+    window.__benchLine = benchLine
+  }
 
   return (
     <>
