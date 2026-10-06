@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera } from '@react-three/drei'
-import { FogExp2, Color, Vector3, Box3, Group, Mesh, RingGeometry, SphereGeometry, CylinderGeometry, PlaneGeometry, CanvasTexture, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
+import { FogExp2, Color, Vector3, Quaternion, Box3, Group, Mesh, RingGeometry, SphereGeometry, CylinderGeometry, PlaneGeometry, CanvasTexture, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
 import { resolveRecipe, stepConditions, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects, exitLiftPoint, pourPlan, removalFor, benchStaging, addSource } from './sceneRecipe.js'
 import { containerContract, transferKind, sideBySide } from './containerContract.js'
@@ -1291,6 +1291,7 @@ const _travelPrev = new Vector3()
 // in time (it starts from rest and settles; 0.6–1.1 s by length). The seat is read live, so a
 // station that moves the seat during the trip is followed.
 const _tp = [new Vector3(), new Vector3(), new Vector3(), new Vector3()]
+const _qId = new Quaternion()
 function tripPoint(pts, s, out) {
   // the polyline with each inner corner replaced by a quadratic curve through it
   const R = 0.35
@@ -1319,15 +1320,21 @@ function travelTrip(v, dt) {
   const u = v.userData, tr = u.trip
   if (!tr) return false
   const seat = u.tPos
-  _tp[0].copy(tr.from); _tp[1].copy(tr.lift); _tp[2].set(seat.x, Math.max(seat.y, tr.lift.y), seat.z); _tp[3].copy(seat)
+  const pts = tr.out ? [tr.from, tr.out, tr.lift, _tp[2], seat] : [tr.from, tr.lift, _tp[2], seat]
+  _tp[2].set(seat.x, Math.max(seat.y, tr.lift.y), seat.z)
   if (tr.D == null) {
-    const L = _tp[0].distanceTo(_tp[1]) + _tp[1].distanceTo(_tp[2]) + _tp[2].distanceTo(_tp[3])
-    tr.D = Math.min(1.1, Math.max(0.6, 0.4 + L * 0.05))
+    let L = 0; for (let i = 1; i < pts.length; i++) L += pts[i].distanceTo(pts[i - 1])
+    tr.L0 = tr.out ? tr.from.distanceTo(tr.out) / L : 0
+    tr.D = Math.min(1.1, Math.max(0.6, 0.4 + L * 0.05)) + (tr.out ? 0.3 : 0)
   }
   tr.t += dt
-  tripPoint(_tp, smoother(tr.t / tr.D), v.position)
+  const s = smoother(tr.t / tr.D)
+  tripPoint(pts, s, v.position)
+  // leaving a tilted / scaled seat: upright and full size by the end of the first leg
+  if (tr.out) { const k = smoother(tr.L0 > 0 ? s / tr.L0 : 1); v.quaternion.copy(tr.q0).slerp(_qId, k); v.scale.setScalar(tr.s0 + (1 - tr.s0) * k) }
   if (tr.t >= tr.D) {
     v.position.copy(seat); u.trip = null
+    if (tr.out) { v.quaternion.identity(); v.scale.setScalar(1) }
     if (u._goal) { u._goal.copy(seat); u._vel.set(0, 0, 0); u._spring = false }
   }
   return true

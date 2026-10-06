@@ -77,9 +77,16 @@ export function prepAt(id, x, y, z) {
 }
 // DEPART: a TRIP — rise straight up to the clearance height, carry over to above the new seat,
 // lower straight onto it; one eased motion along that path (the frame loop runs it: travelTrip)
-function depart(v) {
-  const lp = exitLiftPoint(v.position, EXIT_CLEAR_Y)
-  v.userData.trip = { from: v.position.clone(), lift: new THREE.Vector3(lp.x, lp.y, lp.z), t: 0, D: null }
+function depart(v, alongAxis = false) {
+  const from = v.position.clone()
+  let out = null
+  if (alongAxis && (v.scale.x !== 1 || Math.abs(v.quaternion.w) < 0.99999)) {
+    // out along its own axis by its own height (its seat's depth), then up
+    const box = new THREE.Box3().setFromObject(v), h = box.getSize(new THREE.Vector3()).y
+    out = from.clone().addScaledVector(new THREE.Vector3(0, 1, 0).applyQuaternion(v.quaternion), h)
+  }
+  const lp = exitLiftPoint(out || from, EXIT_CLEAR_Y)
+  v.userData.trip = { from, out, lift: new THREE.Vector3(lp.x, lp.y, lp.z), q0: v.quaternion.clone(), s0: v.scale.x, t: 0, D: null }
 }
 // If a step change interrupts a spin, the sample may still be parented into a
 // centrifuge rotor slot — return every vessel to the scene (upright, full size).
@@ -92,11 +99,13 @@ export function undockSample(lift = false) {
   for (const v of SAMPLE.vessels) {
     const wasDocked = v.userData.docked
     if (v.parent && v.parent !== scene) scene.attach(v)
-    if (wasDocked) { v.userData.docked = false; v.rotation.set(0, 0, 0); v.scale.setScalar(1) }
     // on a sequential Next EVERY shown vessel departs straight up and arrives from above (it
-    // used to be only a docked one: a tube left the ice bucket sideways through its wall)
-    if (lift && v.visible) depart(v)
-    else v.userData.trip = null
+    // used to be only a docked one: a tube left the ice bucket sideways through its wall). A
+    // DOCKED one (a tilted rotor slot, a well) first slides out along its own axis, turning
+    // upright and back to full size as it goes — it used to jump upright and full-size in place
+    if (wasDocked) v.userData.docked = false
+    if (lift && v.visible) depart(v, wasDocked)
+    else { v.userData.trip = null; if (wasDocked) { v.rotation.set(0, 0, 0); v.scale.setScalar(1) } }
     v.userData.exitLift = null
   }
 }
