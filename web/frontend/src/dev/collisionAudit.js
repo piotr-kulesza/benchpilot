@@ -53,6 +53,12 @@ export function isSolid(m, { fluids = false } = {}) {
 }
 // stopAt: other objects' roots — a vessel docked INTO an instrument (a tube in a rotor slot)
 // is its own object, not part of the instrument
+// granular fills under root (visible): no obstacle, but a support
+function supportOnly(root, stopAt) {
+  const out = []
+  const walk = (o) => { if (o !== root && stopAt.has(o)) return; if (o.isMesh && !o.isSprite && o.geometry && kindOf(o) === 'granular' && visibleIn(o)) out.push(o); for (const c of o.children) walk(c) }
+  walk(root); return out
+}
 export function solidMeshes(root, stopAt = null, opts = {}) {
   const out = []
   root.updateWorldMatrix(true, true)
@@ -316,7 +322,12 @@ export function auditPose(objects, { benchY = 0, prev = null, checkSweep = true,
     if (depth <= TOL.depth) continue
     const atFirst = movingParts.map((m) => proxy(m, new Matrix4().multiplyMatrices(it.root.matrixWorld, f.get(m))))
     const { depth: d0 } = setPenetration(atFirst, rest)
-    if (depth > d0 + TOL.depth) defects.push({ check: 'intersect', a: `${it.name} (moving part)`, b: `${it.name} (body)`, depth: depth - d0, meshes: at && at.map(describe) })
+    if (depth > d0 + TOL.depth) {
+      const d = { check: 'intersect', a: `${it.name} (moving part)`, b: `${it.name} (body)`, depth: depth - d0, meshes: at && at.map(describe), d0 }
+      // the parts, for the driver's end-of-step check against the part's FINAL rest pose
+      Object.defineProperty(d, 'parts', { value: { movingParts, rest, depth }, enumerable: false })
+      defects.push(d)
+    }
   }
   // b · float / sink (objects at rest, not held)
   const gaps = new Map(), restSince = new Map()
@@ -332,7 +343,12 @@ export function auditPose(objects, { benchY = 0, prev = null, checkSweep = true,
     // nothing moved since prev: the answer is prev's
     let g
     if (prev && prev.gaps && prev.gaps.has(it.root) && !items.some((o) => o.changed)) g = prev.gaps.get(it.root)
-    else { const others = items.filter((o) => o !== it).flatMap((o) => o.meshes); g = others.length ? gap(it.meshes, others, 0.5) : Infinity }
+    else {
+      // what can hold it up: every other object's solids AND granular fills (a tube pushed into
+      // crushed ice rests on the ice — which is no obstacle to it, but is its support)
+      const others = items.filter((o) => o !== it).flatMap((o) => [...o.meshes, ...supportOnly(o.root, roots)])
+      g = others.length ? gap(it.meshes, others, 0.5) : Infinity
+    }
     gaps.set(it.root, g)
     if (g > TOL.contact) defects.push({ check: 'float', a: it.name, b: g === Infinity ? 'nothing within 0.5' : 'nearest solid', depth: g === Infinity ? box.min.y - benchY : g, box: { min: r3(box.min), max: r3(box.max) } })
   }

@@ -6,7 +6,7 @@
 // the step's progress p forced to rise over the step's window (6.5 s), then lets the sample
 // finish its glide. So the audit sees the trajectories a viewer sees — the sample's glide lag,
 // a lid easing shut — not a set of snapped poses.
-import { auditPose, isSolid } from './collisionAudit.js'
+import { auditPose, isSolid, setPenetration, TOL } from './collisionAudit.js'
 import { auditTrack } from './motionAudit.js'
 import { Vector3, Quaternion } from 'three'
 
@@ -106,11 +106,19 @@ export function simulateStation(line, { stepDur = 6.5, tail = 1.5, every = 3, be
       for (const d of defects) {
         const key = `${d.check}|${d.a}|${d.b}`
         const was = seen.get(key)
-        if (!was) seen.set(key, { ...d, p: +line.pForce.toFixed(3), pLast: +line.pForce.toFixed(3), frames: 1, frame: k })
-        else { was.frames++; was.pLast = +line.pForce.toFixed(3); if (d.depth > was.depth) { Object.assign(was, d, { p: was.p, pLast: was.pLast, frames: was.frames, frame: was.frame }); was.pWorst = +line.pForce.toFixed(3); was.frameWorst = k } }
+        const keep = (x) => { if (d.parts) Object.defineProperty(x, 'parts', { value: d.parts, enumerable: false, configurable: true, writable: true }); return x }
+        if (!was) seen.set(key, keep({ ...d, p: +line.pForce.toFixed(3), pLast: +line.pForce.toFixed(3), frames: 1, frame: k }))
+        else { was.frames++; was.pLast = +line.pForce.toFixed(3); if (d.depth > was.depth) { Object.assign(was, d, { p: was.p, pLast: was.pLast, frames: was.frames, frame: was.frame }); keep(was); was.pWorst = +line.pForce.toFixed(3); was.frameWorst = k } }
       }
     }
   } finally { line.pForce = null }
+  // a moving part against its FINAL rest pose too (a cap that opens on the first frame was
+  // never seen closed until the end): red only if it went deeper than it rests, either end
+  for (const [key, d] of seen) {
+    if (!d.parts) continue
+    const atEnd = setPenetration(d.parts.movingParts, d.parts.rest).depth
+    if (d.parts.depth <= Math.max(d.d0 || 0, atEnd) + TOL.depth) seen.delete(key)
+  }
   // motion: judged over the whole window (the sample's arrival glide included)
   for (const t of tracks.values()) {
     if (t.track.length < 3) continue
