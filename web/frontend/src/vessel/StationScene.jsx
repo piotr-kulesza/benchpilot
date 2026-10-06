@@ -754,6 +754,7 @@ export function configureStation(st, o) {
     // (the countdown progress dial is built generically for every station below and
     // driven by the real timer — no per-action ring here.)
     let seatFn = () => S.at(S[vessel], st.x, SEAT_Y, 0)
+    let incDev = null
     let motionFn = null
     if (inst === 'plate_shaker') {
       const shaker = demo.buildPlateShaker()
@@ -762,16 +763,20 @@ export function configureStation(st, o) {
       // rests ON them (0.76): at 0.62 the clips stood up through its base
       const onY = (C.footprint && C.footprint.maxX > 1.13) ? 0.76 : 0.62
       seatFn = () => S.at(S[vessel], st.x, onY, 0)
-      motionFn = (p) => { const a = p * 40; shaker.userData.setOrbit(a); S.at(S[vessel], st.x + Math.cos(a) * 0.06, onY, Math.sin(a) * 0.06) }
+      // the orbit speeds up from rest and slows to rest (its angle eased; a linear one started at full speed)
+      motionFn = (p) => { const a = demo.easeInOut(p) * 40; shaker.userData.setOrbit(a); S.at(S[vessel], st.x + Math.cos(a) * 0.06, onY, Math.sin(a) * 0.06) }
     } else if (inst === 'co2_incubator') {
-      const inc = demo.buildCO2Incubator(); inc.position.set(0, 0, -1.1)
+      const inc = demo.buildCO2Incubator(); inc.position.set(0, 0, -1.1); incDev = inc
       st.group.add(inc); st.updatables.push(inc)
-      seatFn = () => { S.at(S[vessel], st.x, 0.66, -1.25); inc.userData.setDoor(false) } // flask on the lower shelf, inside
+      seatFn = () => {   // flask on the lower shelf, inside — it comes in through the door, not the roof
+        S.at(S[vessel], st.x, 0.66, -1.25); inc.userData.setDoor(true)   // open while it is carried in
+        const v = S[vessel]; v.userData.enterVia = (v.userData.enterVia || new Vector3()).set(st.x, 0.66, 1.2)
+      }
       // The DETACHMENT is the whole point of the step but it's small + behind glass.
       // As the step resolves: OPEN the door and PUSH the camera in close on the flask
       // (contract framing 'wide' → a low, close frame) so the detached cells read.
       if (incubating) {
-        motionFn = (p) => { inc.userData.setDoor(p > 0.5) }
+        motionFn = (p) => { inc.userData.setDoor(!!S[vessel].userData.trip || p > 0.5) }   // open while it arrives, then as before
         st.pushCam = (p) => demo.easeInOut(demo.clamp((p - 0.35) / 0.4, 0, 1))
         st.pushTarget = C.framing === 'wide'
           ? { pos: [0, 1.2, 3.7], look: [0, 0.62, -1.25] }   // level, between the shelves, on the flask
@@ -791,6 +796,7 @@ export function configureStation(st, o) {
       if (incubating && v.userData.setMono) v.userData.setMono(1 - demo.easeInOut(demo.clamp((p - 0.3) / 0.5, 0, 1)))
       v.userData.setLevel(evolve(p) + Math.sin(p * 10) * 0.02) // holds carried contents
       if (motionFn) motionFn(p)
+      else if (incDev) incDev.userData.setDoor(!!S[vessel].userData.trip)   // a store: shut once it is in
     }
   } else if (action === 'heat' && equipment === 'water_bath') {
     // WATER BATH — a warm water-filled tub with the tube half-submerged + steam,
@@ -1397,8 +1403,12 @@ function travelTrip(v, dt) {
   const u = v.userData, tr = u.trip
   if (!tr) return false
   const seat = u.tPos
-  const pts = tr.out ? [tr.from, tr.out, tr.lift, _tp[2], seat] : [tr.from, tr.lift, _tp[2], seat]
-  _tp[2].set(seat.x, Math.max(seat.y, tr.lift.y), seat.z)
+  // a seat under an overhead instrument (a camera, an objective) or inside one (an incubator)
+  // is entered from the FRONT: over the front at the clearance height, down there, then in
+  const via = u.enterVia
+  if (via) { _tp[2].set(via.x, Math.max(via.y, tr.lift.y), via.z); _tp[3].copy(via) } else _tp[2].set(seat.x, Math.max(seat.y, tr.lift.y), seat.z)
+  const tail = via ? [_tp[2], _tp[3], seat] : [_tp[2], seat]
+  const pts = tr.out ? [tr.from, tr.out, tr.lift, ...tail] : [tr.from, tr.lift, ...tail]
   if (tr.D == null) {
     let L = 0; for (let i = 1; i < pts.length; i++) L += pts[i].distanceTo(pts[i - 1])
     tr.L0 = tr.out ? tr.from.distanceTo(tr.out) / L : 0
@@ -1410,7 +1420,7 @@ function travelTrip(v, dt) {
   // leaving a tilted / scaled seat: upright and full size by the end of the first leg
   if (tr.out) { const k = smoother(tr.L0 > 0 ? s / tr.L0 : 1); v.quaternion.copy(tr.q0).slerp(_qId, k); v.scale.setScalar(tr.s0 + (1 - tr.s0) * k) }
   if (tr.t >= tr.D) {
-    v.position.copy(seat); u.trip = null
+    v.position.copy(seat); u.trip = null; u.enterVia = null
     if (tr.out) { v.quaternion.identity(); v.scale.setScalar(1) }
     if (u._goal) { u._goal.copy(seat); u._vel.set(0, 0, 0); u._spring = false }
   }
