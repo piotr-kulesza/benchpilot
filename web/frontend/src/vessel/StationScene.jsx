@@ -1286,6 +1286,12 @@ function travel(v, goal, dt) {
   }
 }
 const _travelPrev = new Vector3()
+// is any shown vessel (the sample, a prep) still on its trip here?
+function vesselsArriving() {
+  const S = demo.getSample()
+  if (S && S.vessels.some((v) => v.visible && v.userData.trip)) return true
+  return demo.getPreps().some((v) => v.visible && v.userData.trip)
+}
 // A TRIP (demo.depart): from where the vessel stood, straight up to the clearance height, over
 // to above its seat, straight down onto it — corners rounded, the whole path ONE smootherstep
 // in time (it starts from rest and settles; 0.6–1.1 s by length). The seat is read live, so a
@@ -1731,7 +1737,9 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       if (restartRef.current) { pRef.current = 0; restartRef.current = false }
       const tm = timerRef.current
       if (tm.hasTimer) pRef.current = tm.progress // countdown drives every timed instrument
-      else pRef.current = Math.min(pRef.current + dt / STEP_DUR, 1)
+      // the step's action begins once its vessels have ARRIVED (a trip from the last station takes
+      // up to ~1.1 s): the pipette used to dive into a tube still in the air
+      else if (!vesselsArriving()) pRef.current = Math.min(pRef.current + dt / STEP_DUR, 1)
       if (benchLine.pForce != null) pRef.current = benchLine.pForce   // DEV: the audit drives p
       // the centrifuge needs absolute-time dock/lift choreography (a 10-min spin can't
       // glide in for two minutes), so it reads the timer directly; everything else is
