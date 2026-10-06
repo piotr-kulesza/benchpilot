@@ -15,7 +15,9 @@ import * as THREE from 'three'
 import { resolveScenePreset } from './scenePresets.js'
 import { exitLiftPoint } from '../vessel/sceneRecipe.js'
 import { streams } from './rng.js'
-import { innerRadiusFn, liquidProfileGeo, tubeProfile, collectionProfile, columnCupProfile, bottleProfile } from './liquidShape.js'
+import { mixColor } from '../vessel/liquidLedger.js'
+import { innerRadiusFn, liquidProfileGeo, tubeProfile, collectionProfile, columnCupProfile, bottleProfile,
+  tubeShape, columnShape, collectionShape, linearShape, tipShape, levelFor, volumeAt, bottleStockUl, COLL_Y0, COLL_YMAX } from './liquidShape.js'
 
 // Height (world Y) a sample rises to when it leaves a docked instrument, before it
 // glides on — clears the centrifuge lid (its own lift is y≈2.15) and every other device.
@@ -515,6 +517,13 @@ export function undockSample(lift = false) {
     var state={ level:0,tLevel:0,builtLevel:-1,color:new THREE.Color(opts.color||COL.lysis),tColor:new THREE.Color(opts.color||COL.lysis),H:H,R:R,phase:Math.random()*6.28 };
     grp.userData.state=state; grp.userData.liq=liq; grp.userData.label=label;
     grp.userData.setLevel=function(v){ state.tLevel=clamp(v,0,1); };
+    // VOLUME → LEVEL: the volume, as a share of the tube's nominal capacity, fills that share of
+    // its drawn inner volume (liquidShape.js) — never a level picked by eye
+    var shape=tubeShape(H,R,opts.capacityUl);
+    grp.userData.shape=shape;
+    grp.userData.setCapacity=function(ul){ if(ul>0) shape.capacityUl=ul; };
+    grp.userData.setVolume=function(ul){ grp.userData.volUl=Math.max(0,ul); state.tLevel=levelFor(shape, ul); };
+    grp.userData.drawnUl=function(){ return liq.visible ? volumeAt(shape, state.builtLevel) : 0; };
     grp.userData.setColor=function(hex){ state.tColor.set(hex); };
     grp.userData.setLabel=function(t,s){ if(label) label.userData.update(t,s||"");
       if(grp.userData.gradMat){ grp.userData.gradMat.map.dispose(); grp.userData.gradMat.map=tubeGraphicTex(t); grp.userData.gradMat.needsUpdate=true; } };
@@ -526,7 +535,9 @@ export function undockSample(lift = false) {
       if(lv<0.004){ liq.visible=false; }
       else{
         liq.visible=true;
-        if(Math.abs(lv-state.builtLevel)>0.004){
+        // rebuilt on a 0.004 change — and once more, exactly, when the level has settled
+        if(Math.abs(lv-state.builtLevel)>0.004 || (grp.userData.volUl!=null && lv!==state.builtLevel && Math.abs(state.tLevel-lv)<1e-5)){
+          if(Math.abs(state.tLevel-lv)<1e-5) lv=state.level=state.tLevel;
           state.builtLevel=lv;
           var yTop=liqBottom + lv*(liqFillMax-liqBottom);
           var geo=liquidProfileGeo(innerFn, liqBottom, yTop, 48);
@@ -643,6 +654,10 @@ export function undockSample(lift = false) {
     var st={ fill:0,tFill:0,color:new THREE.Color(COL.lysis),tColor:new THREE.Color(COL.lysis) };
     grp.userData.st=st;
     grp.userData.setFluid=function(v){ st.tFill=clamp(v,0,1); };
+    // the tip drawn to the volume it holds: a P200 tip (its decal), so 10 µl is a sliver, not a full tip
+    var tShape=tipShape();
+    grp.userData.drawnUl=function(){ return fluid.visible ? volumeAt(tShape, st.fill) : 0; };
+    grp.userData.setTipVolume=function(ul){ grp.userData.tipUl=Math.max(0,ul); st.tFill=levelFor(tShape, Math.min(Math.max(ul,0), tShape.capacityUl)); };
     grp.userData.setColor=function(h){ st.tColor.set(h); };
     grp.userData.update=function(dt){
       var prev=st.fill;
@@ -705,22 +720,53 @@ export function undockSample(lift = false) {
     var liq = new THREE.Mesh(new THREE.BufferGeometry(), liqMat);
     liq.visible=false; grp.add(liq);
 
+    // FLOW-THROUGH: the liquid a spin drives through the membrane collects in the collection tube
+    // (its own inner wall, from its floor up — well below the column's tip at 0.86 even at 2 mL)
+    var flowMat = new THREE.MeshPhysicalMaterial({ color:COL.lysis, roughness:0.32,
+      transparent:false, emissive:COL.lysis, emissiveIntensity:0.14, envMapIntensity:0.6 });
+    auditKind(flowMat,'fluid');
+    var flow = new THREE.Mesh(new THREE.BufferGeometry(), flowMat);
+    flow.visible=false; collGrp.add(flow);
+    var flowInnerFn = innerRadiusFn(cp, 0.90), flowShape = collectionShape();
+    var fst={ level:0, tLevel:0, builtLevel:-1, color:new THREE.Color(COL.lysis), tColor:new THREE.Color(COL.lysis) };
+    grp.userData.setFlow=function(ul){ grp.userData.flowUl=Math.max(0,ul); fst.tLevel=levelFor(flowShape, ul); };
+    grp.userData.setFlowColor=function(h){ if(h!=null) fst.tColor.set(h); };
+
     var label = makeLabel("RNeasy column","");
     label.position.set(0,2.4,0); grp.add(label);
 
     var st={ level:0,tLevel:0,builtLevel:-1,color:new THREE.Color(COL.lysis),tColor:new THREE.Color(COL.lysis) };
     grp.userData.liq=liq; grp.userData.label=label; grp.userData.st=st;
     grp.userData.setLevel=function(v){ st.tLevel=clamp(v,0,1); };
+    var cShape=columnShape(); grp.userData.shape=cShape;
+    grp.userData.setVolume=function(ul){ grp.userData.volUl=Math.max(0,ul); st.tLevel=levelFor(cShape, ul); };
+    grp.userData.drawnUl=function(){ return liq.visible ? volumeAt(cShape, st.builtLevel) : 0; };
+    grp.userData.drawnFlowUl=function(){ return flow.visible ? volumeAt(flowShape, fst.builtLevel) : 0; };
     grp.userData.setColor=function(h){ st.tColor.set(h); };
     grp.userData.setLabel=function(t,s){ label.userData.update(t,s||""); };
     grp.userData.update=function(dt){
       var kC=1-Math.pow(0.004,dt);
       st.level=lerp(st.level,st.tLevel,1-Math.pow(0.002,dt));
       st.color.lerp(st.tColor,kC);
-      if(st.level<0.01){ liq.visible=false; }
+      // the flow-through (only ever shown when a spin has put some there)
+      fst.level=lerp(fst.level,fst.tLevel,1-Math.pow(0.002,dt)); fst.color.lerp(fst.tColor,kC);
+      if(fst.level<0.004){ flow.visible=false; }
+      else{
+        flow.visible=true;
+        if(Math.abs(fst.level-fst.builtLevel)>0.004 || (fst.level!==fst.builtLevel && Math.abs(fst.tLevel-fst.level)<1e-5)){
+          if(Math.abs(fst.tLevel-fst.level)<1e-5) fst.level=fst.tLevel;
+          fst.builtLevel=fst.level;
+          var fg=liquidProfileGeo(flowInnerFn, COLL_Y0, COLL_Y0+fst.level*(COLL_YMAX-COLL_Y0), 44);
+          flow.geometry.dispose(); flow.geometry=fg;
+        }
+        flowMat.color.copy(fst.color); flowMat.emissive.copy(fst.color);
+      }
+      if(st.level<0.01 && !(grp.userData.volUl>0)){ liq.visible=false; }
+      else if(st.level<0.004){ liq.visible=false; }
       else{
         liq.visible=true;
-        if(Math.abs(st.level-st.builtLevel)>0.004){
+        if(Math.abs(st.level-st.builtLevel)>0.004 || (grp.userData.volUl!=null && st.level!==st.builtLevel && Math.abs(st.tLevel-st.level)<1e-5)){
+          if(Math.abs(st.tLevel-st.level)<1e-5) st.level=st.tLevel;
           st.builtLevel=st.level;
           var yTop=colBottom + st.level*(colFillMax-colBottom);
           var geo=liquidProfileGeo(colInnerFn, colBottom, yTop, 44);
@@ -1573,6 +1619,7 @@ export function undockSample(lift = false) {
     // DROPS as liquid is drawn (volume conserved with the receiving vessel).
     // setCap(on): on=true seals it; on=false lifts the cap up and tilts it aside.
     var bState={ level:1, tLevel:1, open:0, tOpen:0, capBaseY:h+0.11 };
+    grp.userData.stockUl=bottleStockUl(h);   // what its drawn line holds: level 1 − drawn / stock
     grp.userData.cap=cap;
     grp.userData.setLevel=function(v){ bState.tLevel=clamp(v,0,1); };
     grp.userData.setCap=function(on){ bState.tOpen = on ? 0 : 1; };
@@ -1826,6 +1873,16 @@ export {
     var q=easeInOut(clamp(b,0,1)), H=pipHome();
     return new THREE.Vector3(lerp(at.x,H.x,q), lerp(TRAVEL_Y,H.y,q), lerp(at.z,H.z,q));
   }
+  // the tip: x ∈ [0,1] of this pass's draw. With a stated draw (opts.tipUl) the tip holds exactly
+  // that share of it, and empties on the destination's own (eased) dispense curve, so tip +
+  // destination stay equal to the draw at every frame; without one, the demo's 0.8 tip.
+  function tipTo(pip, x, opts){
+    if(opts.tipUl!=null) pip.userData.setTipVolume(x*opts.tipUl);
+    else pip.userData.setFluid(x*(opts.fill||0.8));
+  }
+  function tipDispensing(p, opts){ return opts.tipUl!=null ? 1-dispenseProgress(p) : 1-clamp((p-DISPENSE_FROM)/(DISPENSE_TO-DISPENSE_FROM),0,1); }
+  // how much of a pass's draw is in the tip at pass progress p (the source drops by the same)
+  function drawProgress(p){ return p<0.26 ? pipDrawFill(p/0.26) : 1; }
   function pipetteRun(st, from, to, p, opts){
     opts=opts||{};
     var pip=st.pip; if(!pip) return;
@@ -1861,13 +1918,13 @@ export {
       if(p<draw){                               // A · out of the stand, into the opened source, draw
         pip.rotation.z=0;
         pip.position.copy(pipPhaseA(from, TRAVEL_Y, p/draw));
-        pip.userData.setFluid(pipDrawFill(p/draw)*(opts.fill||0.8)); pip.userData.setColor(opts.color||COL.lysis);
+        tipTo(pip, pipDrawFill(p/draw), opts); pip.userData.setColor(opts.color||COL.lysis);
       } else if(p<travel){                       // B · cruise HIGH & LEVEL to above the standoff
         var qb=easeInOut((p-draw)/(travel-draw));
         var sx=to.x+ax*dTop, sy=to.y+ay*dTop;
         pip.rotation.z=0;
         pip.position.set(lerp(from.x, sx, qb), TRAVEL_Y, lerp(from.z, to.z, qb));
-        pip.userData.setFluid(opts.fill||0.8);
+        tipTo(pip, 1, opts);
       } else if(p<travel+0.08){                   // B2 · straight down to the standoff, tilting to the cant
         var qd=easeInOut((p-travel)/0.08);
         var rot=TILT*qd;
@@ -1875,14 +1932,14 @@ export {
         var tipY=lerp(TRAVEL_Y-TIP_DROP, sy2, qd);
         pip.position.set(sx2 - Math.sin(rot)*TIP_DROP, tipY + Math.cos(rot)*TIP_DROP, to.z);
         pip.rotation.z=rot;
-        pip.userData.setFluid(opts.fill||0.8);
+        tipTo(pip, 1, opts);
       } else if(p<0.9){                          // C · in along the neck axis into the medium, then back out
         var qc=(p-travel-0.08)/(0.9-travel-0.08);
         // in (0-0.28), HOLD at depth while it dispenses (0.28-0.85), back out (0.85-1):
         // the drop leaves only when the tip is in the medium, never above the vessel
         var s = qc<0.28 ? easeInOut(qc/0.28) : qc<0.85 ? 1 : easeInOut(1-(qc-0.85)/0.15);
         tipAxis(lerp(dTop, -depth, s), TILT);
-        pip.userData.setFluid((1-clamp((p-DISPENSE_FROM)/(DISPENSE_TO-DISPENSE_FROM),0,1))*(opts.fill||0.8));
+        tipTo(pip, tipDispensing(p, opts), opts);
       } else if(p<0.95){                         // C2 · straighten up and rise to cruise height
         var qu=easeInOut((p-0.9)/0.05), r2=TILT*(1-qu);
         var sx3=to.x+ax*dTop, sy3=to.y+ay*dTop;
@@ -1905,12 +1962,12 @@ export {
     if(p<draw){                                 // A · out of the stand, into the opened source, draw
       pos.copy(pipPhaseA(from, TRAVEL_Y, p/draw));
       pip.rotation.z=0;
-      pip.userData.setFluid(pipDrawFill(p/draw)*(opts.fill||0.8)); pip.userData.setColor(opts.color||COL.lysis);
+      tipTo(pip, pipDrawFill(p/draw), opts); pip.userData.setColor(opts.color||COL.lysis);
     } else if(p<travel){                         // B · cruise HIGH & LEVEL over the mouth
       var q2=easeInOut((p-draw)/(travel-draw));
       pos.set(lerp(from.x,to.x,q2), TRAVEL_Y, lerp(from.z,to.z,q2));
       pip.rotation.z=0;
-      pip.userData.setFluid(opts.fill||0.8);
+      tipTo(pip, 1, opts);
     } else if(p<0.95){                           // C · descend STRAIGHT DOWN into the mouth
       // down (p 0.5-0.62), HOLD in the vessel while dispensing (0.62-0.9 — the dispense
       // window 0.68-0.87 inside it), straight up (0.9-0.95): the fluid only drains — and the
@@ -1920,7 +1977,7 @@ export {
                      : lerp(DIP_Y,TRAVEL_Y,easeInOut((p-0.9)/0.05));
       pos.set(to.x, y, to.z);
       pip.rotation.z=0;
-      pip.userData.setFluid((1-clamp((p-DISPENSE_FROM)/(DISPENSE_TO-DISPENSE_FROM),0,1))*(opts.fill||0.8));
+      tipTo(pip, tipDispensing(p, opts), opts);
     } else {                                     // D · level, back home
       pos.copy(pipPhaseD(TRAVEL_Y, to, (p-0.95)/0.05));
       pip.rotation.z=0;
@@ -1961,17 +2018,23 @@ export {
   // Shared liquid state matching buildTube's contract: setLevel/setColor/setLabel +
   // an update() that lerps and calls apply(liq, level, color). Stylized (no
   // transmission, no postprocessing) — reuses the demo's mat* helpers throughout.
-  function attachSampleLiquid(grp, liq, apply, label, level0){
+  function attachSampleLiquid(grp, liq, apply, label, level0, shape){
     var L0=(level0==null?0.35:level0);
     var st={ level:L0, tLevel:L0, color:new THREE.Color(COL.lysis), tColor:new THREE.Color(COL.lysis) };
     grp.userData.label=label||null;
     grp.userData.setLevel=function(v){ st.tLevel=clamp(v,0,1); };
+    // a vessel with a drawn interior takes a VOLUME (its level from its drawn shape — a flask's
+    // drawn interior is deeper than its usual medium layer, so its level may pass 1)
+    if(shape){ grp.userData.shape=shape;
+      grp.userData.setVolume=function(ul){ grp.userData.volUl=Math.max(0,ul); st.tLevel=levelFor(shape, ul); };
+      grp.userData.drawnUl=function(){ return liq.visible===false ? 0 : volumeAt(shape, st.level); }; }
     grp.userData.setColor=function(h){ st.tColor.set(h); };
     grp.userData.setLabel=function(t,s){ if(grp.userData.label) grp.userData.label.userData.update(t,s||""); };
     grp.userData.update=function(dt){
       st.level=lerp(st.level,st.tLevel,1-Math.pow(0.001,dt));
       st.color.lerp(st.tColor,1-Math.pow(0.004,dt));
       apply(liq, st.level, st.color, st);
+      if(grp.userData.volUl!=null && liq.isMesh) liq.visible = st.level>0.0005;   // 0 µl draws nothing
     };
     return st;
   }
@@ -2008,7 +2071,7 @@ export {
     attachSampleLiquid(grp, liq, function(liq,lv,color){
       var h=Math.max(0.02, lv*(bodyH*0.8)); liq.scale.set(1,h,1); liq.position.y=0.28+h/2;
       liq.material.color.copy(color); liq.material.emissive.copy(color);
-    }, label);
+    }, label, null, linearShape(2000, 1));   // a 2 mL cryovial, full at its drawn line
     // CAP (Stage 38): off to pour in, back on after — same as the flask/bottle.
     var cryoCap={ open:0, tOpen:0 };
     grp.userData.setCap=function(on){ cryoCap.tOpen = on ? 0 : 1; };
@@ -2076,7 +2139,7 @@ export {
     attachSampleLiquid(grp, liq, function(liq,lv,color){
       var h=Math.max(0.006, lv*(WELL_D-0.012)); liq.scale.set(1,h,1); liq.position.y=FLOOR_Y+0.004+h/2;
       liq.material.color.copy(color); liq.material.emissive.copy(color);
-    }, label, 0); // empty wells at rest
+    }, label, 0, linearShape(360, 1)); // empty wells at rest; a 360 µl well, full to its rim
     return grp;
   }
 
@@ -2146,7 +2209,7 @@ export {
     var lst=attachSampleLiquid(grp, liq, function(liq,lv,color){
       var h=Math.max(0.008, lv*0.16); liq.scale.set(1,h,1); liq.position.y=0.09+h/2;   // shallow
       liq.material.color.copy(color); liq.material.emissive.copy(color);
-    }, label, 0.42); // a confluent flask at rest holds a shallow layer of medium
+    }, label, 0.42, linearShape(70000, 3.375)); // a confluent flask at rest holds a shallow layer of medium; ≈70 mL T-25, its drawn interior 0.54 deep = 3.375 × the 0.16 layer
     // culture medium is a MUTED rose (phenol-red), not a saturated teal
     lst.color.set(0xcf8791); lst.tColor.set(0xcf8791);
     // contentsState hook: 1 = confluent monolayer (film + flat cells), 0 = detached
@@ -2187,7 +2250,7 @@ export {
     attachSampleLiquid(grp, liq, function(liq,lv,color){
       var h=Math.max(0.008, lv*0.09); liq.scale.set(1,h,1); liq.position.y=0.012+h/2;
       liq.material.color.copy(color); liq.material.emissive.copy(color);
-    }, label, 0); // empty dish at rest
+    }, label, 0, linearShape(80000, 1.42)); // empty dish at rest; ≈80 mL, its drawn interior 0.128 deep = 1.42 × the 0.09 layer
     return grp;
   }
 
@@ -2420,34 +2483,53 @@ export {
       var v=SAMPLE[o.vessel];
       if(o.vlabel) v.userData.setLabel(o.vlabel, o.vsub||"");
       if(o.cStart!=null) v.userData.setColor(o.cStart);
-      v.userData.setLevel(o.lStart);
+      if(o.each!=null && v.userData.setVolume) v.userData.setVolume(o.ulStart); else v.userData.setLevel(o.lStart);
+      if(o.srcTube) o.srcTube.userData.setVolume(o.srcUl);
+      if(o.each!=null){ var b0=st.reagents[o.key].grp; if(b0 && b0.userData.stockUl) b0.userData.setLevel(1); }
       SAMPLE.at(v, st.x, Y, 0);
       pipRest(st);
     };
     st.timeline=function(p){
       var v=SAMPLE[o.vessel];
       var b=st.reagents[o.key].grp;
+      // VOLUMES (o.each): n passes of one tip each; pass k at its own progress lp
+      var n=o.each!=null ? (o.passes||1) : 1, k=Math.min(n-1, Math.floor(p*n)), lp=n>1 ? clamp(p*n-k,0,1) : p;
       // the bottle opens BEFORE the pipette dips in (phase A), stays open while it
       // draws, and closes once the pipette leaves; its level drops as liquid is drawn.
       if(b && b.userData.setCap){
-        b.userData.setCap(!(p>0.03 && p<0.36));
-        b.userData.setLevel(1 - 0.22*clamp(p/0.30,0,1));
+        b.userData.setCap(!(lp>0.03 && lp<0.36));
+        if(o.each!=null) b.userData.setLevel(1 - (k+drawProgress(lp))*o.each/b.userData.stockUl);   // by what was drawn
+        else b.userData.setLevel(1 - 0.22*clamp(p/0.30,0,1));
       }
+      if(o.srcTube) o.srcTube.userData.setVolume(o.srcUl - (k+drawProgress(lp))*o.each);           // a tube source drops as it is drawn
       // the RECEIVING vessel (flask / cryovial) uncaps BEFORE the tip reaches its neck and
       // re-caps once it leaves — a tip through a closed cap is the same lie as through glass.
       if(v.userData.setCap) v.userData.setCap(!(p>0.1 && p<0.95));
       // for an ANGLED neck the dispense point is the neck MOUTH (its own height),
       // NOT the seat plane — otherwise the tip dips onto the flat top face.
       var toY = (disp.approach==='angled' && disp.y!=null) ? disp.y : Y;
-      pipetteRun(st, st.reagents[o.key].pos, {x:disp.x,y:toY,z:disp.z}, p,
-        {color:o.color, fill:0.8, approach:disp.approach, tilt:disp.tilt, depth:disp.depth, dipDepth:o.entry});
-      if(p>DISPENSE_FROM){ var q=dispenseProgress(p);
+      pipetteRun(st, st.reagents[o.key].pos, {x:disp.x,y:toY,z:disp.z}, lp,
+        {color:o.color, fill:0.8, tipUl:o.each, approach:disp.approach, tilt:disp.tilt, depth:disp.depth, dipDepth:o.entry});
+      if(o.each!=null){
+        var added=(k+dispenseProgress(lp))*o.each;
+        if(v.userData.setVolume){ v.userData.setVolume(o.ulStart+added); v.userData.setColor(mixColor(o.cStart, o.ulStart, o.color, added)); }
+        else if(lp>DISPENSE_FROM || k>0){ v.userData.setLevel(lerp(o.lStart,o.lEnd,(k+dispenseProgress(lp))/n)); if(o.cEnd!=null) v.userData.setColor(o.cEnd); }
+      } else if(p>DISPENSE_FROM){ var q=dispenseProgress(p);
         v.userData.setLevel(lerp(o.lStart,o.lEnd,q));
         if(o.cEnd!=null) v.userData.setColor(o.cEnd);
       }
     };
   }
   function stationSpin(st, Y, o){
+    // VOLUMES (o.vol {start,end}; o.flow {start,peak,end,color}): the docked vessel goes from start to
+    // end while the rotor turns; a column's liquid arrives in its collection tube at the same pace;
+    // "discard the flow-through" empties it once the lid is open. Without o.vol: the demo's levels.
+    function amt(v, e){
+      if(o.vol && v.userData.setVolume) v.userData.setVolume(lerp(o.vol.start, o.vol.end, e));
+      else v.userData.setLevel(lerp(o.lStart==null?0.5:o.lStart, o.lEnd==null?(o.lStart==null?0.5:o.lStart):o.lEnd, e));
+      if(o.flow && v.userData.setFlow){ v.userData.setFlow(lerp(o.flow.start, o.flow.peak, e)); v.userData.setFlowColor(e>0 ? o.flow.color : o.flow.startColor); }
+    }
+    function discard(v, e){ if(o.flow && v.userData.setFlow) v.userData.setFlow(lerp(o.flow.peak, o.flow.end, e)); }
     var cen=buildCentrifuge(); cen.position.set(1.4,0,-0.5); cen.scale.setScalar(0.85);
     st.group.add(cen); st.updatables.push(cen); st.cen=cen;
     // IMPROVEMENT over the demo (which spun an EMPTY rotor while the tube sat on the
@@ -2505,7 +2587,7 @@ export {
       var v=SAMPLE[o.vessel];
       if(o.vlabel) v.userData.setLabel(o.vlabel, o.vsub||"");
       if(o.color!=null) v.userData.setColor(o.color);
-      v.userData.setLevel(o.lStart==null?0.5:o.lStart);
+      if(o.vol) amt(v, 0); else v.userData.setLevel(o.lStart==null?0.5:o.lStart);
       undock(); v.scale.setScalar(1); v.rotation.set(0,0,0); v.visible=true;
       SAMPLE.at(v, st.x+lift.x, lift.y, lift.z);        // arrives above the open rotor
       lowerQ=0; lastP=0; restT=0;
@@ -2524,7 +2606,7 @@ export {
       if(!engaged){                               // pre-spin REST — also where Reset returns
         if(phase!=="rest"){ phase="rest"; runT=0; endT=0; }
         cen.userData.setSpin(0); cen.userData.setLid(true);
-        v.userData.setLevel(o.lStart==null?0.5:o.lStart);
+        if(o.vol) amt(v, 0); else v.userData.setLevel(o.lStart==null?0.5:o.lStart);
         // the tube does not wait in the air for Start (bug fix): once it has arrived over the
         // rotor it is lowered into its slot, and rests there with the lid open
         if(docked) return;
@@ -2539,6 +2621,7 @@ export {
         if(!docked){ lowerInto(1); dock(); }
         if(endT<0.9){ cen.userData.setLid(false); }              // still closed while it slows
         else { cen.userData.setLid(true); }                      // lid swings open
+        if(o.vol){ amt(v, 1); if(endT>0.9) discard(v, easeInOut(clamp((endT-0.9)/0.6,0,1))); }   // the flow-through goes once the lid is open
         // the tube STAYS in its slot (bug fix): it used to be lifted out and left hanging in the
         // air; it leaves on the next step, along the slot's axis (undockSample)
         return;
@@ -2554,7 +2637,8 @@ export {
         cen.userData.setLid(false);
         cen.userData.setSpin(t.running?24:0);     // spin while running; decelerate & hold when paused
       }
-      if(o.lEnd!=null) v.userData.setLevel(lerp(o.lStart==null?0.5:o.lStart,o.lEnd,easeInOut(clamp(t.progress,0,1))));
+      if(o.vol) amt(v, easeInOut(clamp(t.progress,0,1)));
+      else if(o.lEnd!=null) v.userData.setLevel(lerp(o.lStart==null?0.5:o.lStart,o.lEnd,easeInOut(clamp(t.progress,0,1))));
     };
     st.timeline=function(p){
       var v=SAMPLE[o.vessel]; v.visible=true;
@@ -2574,8 +2658,9 @@ export {
       } else {                               // 5 · lid opens; the sample STAYS in its slot (it
         cen.userData.setSpin(0); cen.userData.setLid(true);   // leaves on the next step, along the slot axis)
       }
-      if(o.lEnd!=null) v.userData.setLevel(lerp(o.lStart==null?0.5:o.lStart, o.lEnd, easeInOut(clamp(p,0,1))));
+      if(o.vol){ amt(v, easeInOut(clamp((p-0.27)/0.53,0,1))); if(p>0.9) discard(v, easeInOut(clamp((p-0.9)/0.1,0,1))); }   // moves while it spins; discarded once open
+      else if(o.lEnd!=null) v.userData.setLevel(lerp(o.lStart==null?0.5:o.lStart, o.lEnd, easeInOut(clamp(p,0,1))));
     };
   }
 
-export { dispenseProgress, pipetteRun, addStand, addPipetteRig, pipRest, buildSample, addBottle, stationReagent, stationSpin, PIP_STAND, PIP_REST, easeInOut, lerp, clamp }
+export { dispenseProgress, drawProgress, pipetteRun, addStand, addPipetteRig, pipRest, buildSample, addBottle, stationReagent, stationSpin, PIP_STAND, PIP_REST, easeInOut, lerp, clamp }
