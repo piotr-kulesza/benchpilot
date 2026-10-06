@@ -758,8 +758,11 @@ export function configureStation(st, o) {
     if (inst === 'plate_shaker') {
       const shaker = demo.buildPlateShaker()
       st.group.add(shaker); st.updatables.push(shaker)
-      seatFn = () => S.at(S[vessel], st.x, 0.62, 0) // rides the platform
-      motionFn = (p) => { const a = p * 40; shaker.userData.setOrbit(a); S.at(S[vessel], st.x + Math.cos(a) * 0.06, 0.62, Math.sin(a) * 0.06) }
+      // rides the platform — a vessel as wide as the platform's corner clips (a 96-well plate)
+      // rests ON them (0.76): at 0.62 the clips stood up through its base
+      const onY = (C.footprint && C.footprint.maxX > 1.13) ? 0.76 : 0.62
+      seatFn = () => S.at(S[vessel], st.x, onY, 0)
+      motionFn = (p) => { const a = p * 40; shaker.userData.setOrbit(a); S.at(S[vessel], st.x + Math.cos(a) * 0.06, onY, Math.sin(a) * 0.06) }
     } else if (inst === 'co2_incubator') {
       const inc = demo.buildCO2Incubator(); inc.position.set(0, 0, -1.1)
       st.group.add(inc); st.updatables.push(inc)
