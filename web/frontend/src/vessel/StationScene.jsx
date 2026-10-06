@@ -979,11 +979,17 @@ export function configureStation(st, o) {
       const base = st.timeline
       // dispense first (the whole pipette run, withdrawal included, in p 0-0.6), THEN
       // spread (0.62-1): the spreader never sweeps while the tip is still in the plate
+      // it comes DOWN from above the frame onto the agar, sweeps (eased in and out), and goes
+      // back up out of the frame — it used to pop in over the plate, start sweeping at full
+      // speed, hover 0.05 above the agar and be left there
+      const OUT = 12, ON = 0.151
       st.timeline = (p) => {
         base(demo.clamp(p / 0.6, 0, 1))
-        spr.visible = p > 0.62
-        const a = demo.clamp((p - 0.62) / 0.36, 0, 1) * Math.PI * 3 // sweeping circles
-        spr.position.set(Math.cos(a) * 0.42, 0.2, Math.sin(a) * 0.36)
+        spr.visible = p > 0.6 && p < 0.999
+        const e = demo.easeInOut(demo.clamp((p - 0.7) / 0.25, 0, 1)), a = e * Math.PI * 3 // sweeping circles
+        const y = p < 0.7 ? demo.lerp(OUT, ON, demo.easeInOut(demo.clamp((p - 0.6) / 0.1, 0, 1)))
+          : p < 0.95 ? ON : demo.lerp(ON, OUT, demo.easeInOut((p - 0.95) / 0.05))
+        spr.position.set(Math.cos(a) * 0.42, y, Math.sin(a) * 0.36)
         spr.rotation.y = a
       }
     }
@@ -1334,8 +1340,7 @@ function stationParams(baseStep, lang, altIdx, chain, producedInRun, container) 
 }
 
 // TRAVEL — how a vessel (the sample, a prep) moves to its target each frame. A target that
-// moves a little every frame (a timeline carrying the vessel) is FOLLOWED exactly as the demo
-// always did (an exponential chase). A target that JUMPS — the next station's seat, a new seat
+// moves a little every frame (a timeline carrying the vessel) is FOLLOWED exactly. A target that JUMPS — the next station's seat, a new seat
 // mid-step, an exit-lift waypoint — is TRAVELLED to on a critically damped spring: the vessel
 // accelerates from rest and settles, never leaving at full speed, never overshooting.
 // OMEGA 5/s: first-frame speed ≈ 23 % of the move's peak; 95 % of the way in ≈ 0.95 s.
