@@ -74,7 +74,9 @@ const hasVerts = (m) => !!(m.geometry && m.geometry.attributes.position && m.geo
 function worldBox(meshes) {
   const b = new Box3(), t = new Box3()
   for (const m of meshes) {
-    if (!hasVerts(m)) continue   // a liquid emptied this frame if (!m.geometry.boundingBox) m.geometry.computeBoundingBox(); b.union(t.copy(m.geometry.boundingBox).applyMatrix4(m.matrixWorld)) }
+    if (!hasVerts(m)) continue   // a liquid emptied this frame
+    if (!m.geometry.boundingBox) m.geometry.computeBoundingBox(); b.union(t.copy(m.geometry.boundingBox).applyMatrix4(m.matrixWorld))
+  }
   return b
 }
 
