@@ -177,7 +177,7 @@ export function buildLedger(steps, { containers = [], altByStep = {}, colorOf = 
           const knownSum = known.reduce((a, b) => a + (b || 0), 0)
           ul = resolve(r, id, target ? { share: Math.max(0, target - knownSum) / Math.max(1, unknownN) } : {})
         }
-        if (ul) op(pass({ op: 'add', to: id, ul, color: colorOf(nameOf(r)), name: nameOf(r), from: 'bottle', method: methodFor(ul) }))
+        if (ul) op(pass({ op: 'add', to: id, ul, color: colorOf(nameOf(r)), name: nameOf(r), ri: distinct(s.reagents).indexOf(r), from: 'bottle', method: methodFor(ul) }))
       })
     } else if (s.action === 'transfer') {
       const kind = transferKind(prevC, containers[i])
@@ -235,15 +235,15 @@ export function buildLedger(steps, { containers = [], altByStep = {}, colorOf = 
       } else {
         const src = addSource({ text_en: s.text_en, text: s.text, reagents: rs })
         const from = s.draws_from && produced.has(s.draws_from) ? 'prep:' + s.draws_from : src === 'none' ? 'outside' : src === 'sample_tube' ? 'sample_tube' : 'bottle'
-        const adds = rs.map((r) => ({ r, ul: resolve(r, here) })).filter((a) => a.ul)
+        const adds = rs.map((r, ri) => ({ r, ri, ul: resolve(r, here) })).filter((a) => a.ul)
         const pour = adds.some((a) => methodFor(a.ul) === 'pour') ? 'pour' : 'pipette'
-        for (const { r, ul } of adds) {
+        for (const { r, ri, ul } of adds) {
           let u = ul
           if (from.startsWith('prep:')) {
             const have = get(from).ul
             if (u > have + 1e-9) { flag(`${fmt(u)} drawn, but the ${from.slice(5)} mix holds ${fmt(have)} — ${fmt(have)} used`); u = have }
-            op(pass({ op: 'move', from, to: here, ul: u, method: pour, name: nameOf(r) }))
-          } else op(pass({ op: 'add', to: here, ul: u, color: colorOf(nameOf(r)), name: nameOf(r), from, method: from === 'outside' ? 'collect' : pour }))
+            op(pass({ op: 'move', from, to: here, ul: u, method: pour, name: nameOf(r), ri }))
+          } else op(pass({ op: 'add', to: here, ul: u, color: colorOf(nameOf(r)), name: nameOf(r), ri, from, method: from === 'outside' ? 'collect' : pour }))
         }
         // a rinse over a SURFACE runs off: everything on it goes to waste
         if (isSurface(here) && RINSE.test(text) && get(here).ul > 0) op({ op: 'discard', from: here, ul: get(here).ul, why: 'runs off the surface' })

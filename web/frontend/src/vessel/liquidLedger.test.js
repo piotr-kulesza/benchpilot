@@ -8,11 +8,14 @@ import path from 'node:path'
 import { buildLedger, tipPlan, tipUl, TIP_UL, mixColor } from './liquidLedger.js'
 import { sampleContainerSequence } from './sceneRecipe.js'
 import { parseVolume } from '../lib/volume.js'
+import { partitionSteps } from '../lib/runtime.js'
 import { innerRadiusFn, liquidProfileGeo, tubeProfile, tubeShape, levelFor } from '../scene/liquidShape.js'
 
 const DIR = path.resolve(__dirname, '../../public/protocols')
-const PROTOCOLS = fs.readdirSync(DIR).filter((f) => f.endsWith('.json') && f !== 'index.json')
+const FILES = fs.readdirSync(DIR).filter((f) => f.endsWith('.json') && f !== 'index.json')
   .map((f) => ({ id: f.replace('.json', ''), ...JSON.parse(fs.readFileSync(path.join(DIR, f), 'utf8')) }))
+// every protocol twice: all its steps, and the runner's stations (do-ahead preps and notes off the bench)
+const PROTOCOLS = [...FILES, ...FILES.map((p) => ({ ...p, id: p.id + ' (runner)', steps: partitionSteps(p.steps).stations }))]
 const colorOf = (name) => (name ? [...String(name)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) & 0xffffff : 0x02b6a0)
 const ledgerOf = (steps) => buildLedger(steps, { containers: sampleContainerSequence(steps), colorOf })
 const EPS = 1e-6
@@ -123,7 +126,7 @@ describe('the tip — fills to its draw, never more', () => {
 })
 
 describe('neutrophil_rna — the volumes the protocol states', () => {
-  const p = PROTOCOLS.find((x) => x.id === 'neutrophil_rna')
+  const p = FILES.find((x) => x.id === 'neutrophil_rna')
   const L = ledgerOf(p.steps)
   const at = (index) => L.stations.find((s) => s.index === index)
   it('lysis 350 µl, + one volume of ethanol = 700 µl, loaded onto the column', () => {
