@@ -175,6 +175,42 @@ that jumps is reached on a critically damped spring; a timeline's own path is fo
 exactly; a step's clock waits for its vessels to arrive; the pipette waits at its HOME and
 every pass starts and ends there.
 
+### Liquid ledger — every volume from the protocol
+
+`src/vessel/liquidLedger.js` is the ONE source of truth for how much liquid is in every vessel at
+the start and end of every station (`buildLedger(steps, { containers, altByStep, colorOf })`);
+`configureStation` draws only what it says. Every change is an explicit op — `add`, `move`,
+`discard`, `retire` — so a station replays exactly (`liquidLedger.test.js`: conservation,
+continuity n → n+1, doubling, the tip, the neutrophil volumes, every unstated volume flagged).
+
+- Aspirate subtracts from the source, dispense adds to the destination; reagent bottles are
+  unlimited sources (their drawn level still falls by what is drawn, against their stock).
+- A spin of a spin column moves its liquid into the collection tube (`flow`); "discard the
+  flow-through" empties it once the lid is open. Elution moves the column's liquid into the
+  elution tube. Moving the column to a clean tube sets the used collection tube aside.
+- **Volume rules** (`src/lib/volume.js`): exact → that volume; a **range ("30–50 µl") → its
+  midpoint**; "10 µl per sample / per 1 ml X" → the stated amount; "2 mL per 10 cm²" → read
+  against a 25 cm² T-25 (flagged); "one volume" → what the vessel holds; "twice the volume of X"
+  → 2 × the last add of X; a conditional pair (350 / 600 µl) → the first variant (the one the
+  title states). **Unknown ("X µl", "minimal volume", none) → a fixed placeholder: 10 % of the
+  receiving vessel's nominal capacity, flagged.** A mix made on the bench with unstated parts is
+  sized to what the protocol later draws from it. "X" with "A − X" → X = A / 2. A mass or a plate
+  is not a liquid. A pellet starts at 0 µl. `node scripts/liquid-report.mjs` prints every flag.
+- **Level from volume, not height** (`src/scene/liquidShape.js`): a volume, as a share of the
+  vessel's nominal capacity, fills the same share of its DRAWN inner volume (the builder's own
+  lathe profile, or its box/cylinder); `levelFor` inverts it. No vessel is resized.
+- **The pipette is a P200** (its decal): up to 1 mL is pipetted in passes of ≤ 200 µl (a station
+  of P passes lasts `STEP_DUR·(1 + 0.35·(P − 1))`); the tip fills to what it drew and empties on
+  the destination's dispense curve. A reagent is POURED where the scene always poured (≥ 50 mL,
+  or the step says pour / rinse) — the stream lasts volume / 10 mL·s⁻¹; anything else is
+  pipetted, and a mL pipette move is drawn as one pass (no serological pipette is modelled;
+  flagged — a pour there would remove the pipette rig and re-fit the camera). An aspiration to
+  waste passes through the tip, never held.
+- Surfaces (slide, membrane, gel, agar plate) have no drawn interior: their volume is kept, the
+  demo's levels draw them. The dev matrix has no ledger and keeps the demo's levels.
+- `node scripts/liquid-sheet.mjs [--protocol id]` (dev server): every station at start, middle
+  and end, the ledger volume beside what the scene draws (read back through the drawn shape).
+
 ### Regenerating the bundled data
 
 ```bash

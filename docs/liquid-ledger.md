@@ -1,0 +1,335 @@
+
+## neutrophil_rna
+
+- **station 1 (step 4) cool_ice** · tube: 0 µl #b8b2a6 → 0 µl #b8b2a6
+  - ⚑ starts as a pellet: a solid, 0 µl of liquid until the first addition
+- **station 2 (step 5) pour_add** · tube: 0 µl #b8b2a6 → 350 µl #02b6a0
+  - add 350 µl from bottle → tube (pipette, 2 passes)
+  - rule: RLT buffer with 2-mercaptoethanol: conditional volume — the first variant (350 µl) is drawn
+- **station 3 (step 6) centrifuge** · tube: 350 µl #02b6a0 → 350 µl #02b6a0
+- **station 4 (step 7) pour_add** · tube: 350 µl #02b6a0 → 700 µl #11a1c9
+  - add 350 µl from bottle → tube (pipette, 2 passes)
+  - rule: 70% ethanol: one volume → 1 × the 350 µl in the tube
+- **station 5 (step 8) transfer** · column: — → 700 µl #11a1c9 · tube 700 µl #11a1c9 → 0 µl #11a1c9
+  - move 700 µl from tube → column (pipette, 4 passes)
+- **station 6 (step 9) centrifuge** · column: 700 µl #11a1c9 → 0 µl #11a1c9 · flow — → 0 µl #11a1c9
+  - move 700 µl from column → flow (spin)
+  - discard 700 µl from flow — discard the flow-through
+- **station 7 (step 10) pour_add** · column: 0 µl #11a1c9 → 350 µl #5061db
+  - add 350 µl from bottle → column (pipette, 2 passes)
+- **station 8 (step 11) centrifuge** · column: 350 µl #5061db → 0 µl #5061db
+  - move 350 µl from column → flow (spin)
+  - discard 350 µl from flow — discard the flow-through
+- **station 9 (step 3) prepare** · column: 0 µl #5061db → 0 µl #5061db · prep:dnase_mix — → 80 µl #6469c1
+  - add 10 µl from bottle → prep:dnase_mix (pipette, 1 pass)
+  - add 70 µl from bottle → prep:dnase_mix (pipette, 1 pass)
+- **station 10 (step 12) pour_add** · column: 0 µl #5061db → 80 µl #6469c1 · prep:dnase_mix 80 µl #6469c1 → —
+  - move 80 µl from prep:dnase_mix → column (pipette, 1 pass)
+- **station 11 (step 13) incubate_wait** · column: 80 µl #6469c1 → 80 µl #6469c1
+- **station 12 (step 14) pour_add** · column: 80 µl #6469c1 → 430 µl #5462d6
+  - add 350 µl from bottle → column (pipette, 2 passes)
+- **station 13 (step 15) centrifuge** · column: 430 µl #5462d6 → 0 µl #5462d6
+  - move 430 µl from column → flow (spin)
+  - discard 430 µl from flow — discard the flow-through
+- **station 14 (step 16) pour_add** · column: 0 µl #5462d6 → 500 µl #5061db
+  - add 500 µl from bottle → column (pipette, 3 passes)
+- **station 15 (step 17) centrifuge** · column: 500 µl #5061db → 0 µl #5061db · flow 0 µl #5462d6 → 500 µl #5061db
+  - move 500 µl from column → flow (spin)
+- **station 16 (step 18) pour_add** · column: 0 µl #5061db → 500 µl #5061db
+  - add 500 µl from bottle → column (pipette, 3 passes)
+- **station 17 (step 19) centrifuge** · column: 500 µl #5061db → 0 µl #5061db · flow 500 µl #5061db → 1 mL #5061db
+  - move 500 µl from column → flow (spin)
+- **station 18 (step 20) transfer** · tube: 0 µl #11a1c9 → 0 µl #11a1c9 · flow 1 mL #5061db → 0 µl #000000
+  - retire 1 mL from flow
+- **station 19 (step 21) centrifuge** · column: 0 µl #5061db → 0 µl #5061db
+- **station 20 (step 22) pour_add** · column: 0 µl #5061db → 40 µl #12c46c
+  - add 40 µl from bottle → column (pipette, 1 pass)
+  - rule: RNase-free water: conditional volume — the first variant (30–50 µl) is drawn
+  - rule: RNase-free water: 30–50 µl → midpoint 40 µl
+- **station 21 (step 23) incubate_wait** · column: 40 µl #12c46c → 40 µl #12c46c
+- **station 22 (step 24) elute** · elu: — → 40 µl #12c46c · column 40 µl #12c46c → 0 µl #12c46c
+  - move 40 µl from column → elu (spin)
+- **station 23 (step 25) store** · elu: 40 µl #12c46c → 40 µl #12c46c
+- **station 24 (step 26) measure** · elu: 40 µl #12c46c → 40 µl #12c46c
+- **station 25 (step 27) measure** · elu: 40 µl #12c46c → 40 µl #12c46c
+- **station 26 (step 28) measure** · elu: 40 µl #12c46c → 40 µl #12c46c
+
+## transformation
+
+- **station 1 (step 1) cool_ice** · tube: 150 µl #b8b2a6 → 150 µl #b8b2a6
+  - ⚑ starting contents not stated: placeholder 150 µl (10 % of the tube)
+- **station 2 (step 3) pour_add** · tube: 150 µl #b8b2a6 → 188 µl #93b3a5
+  - add 3 µl from bottle → tube (pipette, 1 pass)
+  - add 35 µl from bottle → tube (pipette, 1 pass)
+  - rule: DNA: 1 - 5 µl → midpoint 3 µl
+  - rule: competent cells: 20-50 µL → midpoint 35 µl
+- **station 3 (step 4) incubate_wait** · tube: 188 µl #93b3a5 → 188 µl #93b3a5
+- **station 4 (step 5) heat** · tube: 188 µl #93b3a5 → 188 µl #93b3a5
+- **station 5 (step 6) cool_ice** · tube: 188 µl #93b3a5 → 188 µl #93b3a5
+- **station 6 (step 7) pour_add** · tube: 188 µl #93b3a5 → 813 µl #24b5a1
+  - add 625 µl from bottle → tube (pipette, 4 passes)
+  - rule: LB or SOC media (without antibiotic): 250-1,000 µl → midpoint 625 µl
+- **station 7 (step 8) incubate_wait** · tube: 813 µl #24b5a1 → 813 µl #24b5a1
+- **station 8 (step 9) seed** · agarplate: — → 813 µl #24b5a1 · tube 813 µl #24b5a1 → 0 µl #24b5a1
+  - move 813 µl from tube → agarplate (pipette, 5 passes)
+  - ⚑ "some or all" — all 813 µl moved
+- **station 9 (step 10) incubate_wait** · agarplate: 813 µl #24b5a1 → 813 µl #24b5a1
+
+## pcr
+
+- **station 1 (step 1) prepare** · tube: 150 µl #b8b2a6 → 150 µl #b8b2a6 · prep:pcr_reaction — → 30 µl #26acc1
+  - add 10.3 µl from bottle → prep:pcr_reaction (pipette, 1 pass)
+  - add 1.5 µl from bottle → prep:pcr_reaction (pipette, 1 pass)
+  - add 1.5 µl from bottle → prep:pcr_reaction (pipette, 1 pass)
+  - add 3 µl from bottle → prep:pcr_reaction (pipette, 1 pass)
+  - add 3 µl from bottle → prep:pcr_reaction (pipette, 1 pass)
+  - add 0.3 µl from bottle → prep:pcr_reaction (pipette, 1 pass)
+  - add 10.3 µl from bottle → prep:pcr_reaction (pipette, 1 pass)
+  - ⚑ Template DNA: "X µl" — X is not stated; X = 10.3 µl (half of 20.7 µl), so the pair keeps its stated sum
+  - ⚑ ddH2O: "20.7 - X µl" — X is not stated; X = 10.3 µl (half of 20.7 µl), so the pair keeps its stated sum
+- **station 2 (step 2) pipette_mix** · tube: 150 µl #b8b2a6 → 150 µl #b8b2a6
+  - rule: mixing strokes draw 75 µl (half the volume, at most one tip)
+  - ⚑ starting contents not stated: placeholder 150 µl (10 % of the tube)
+- **station 3 (step 3) centrifuge** · tube: 150 µl #b8b2a6 → 150 µl #b8b2a6
+- **station 4 (step 4) heat** · tube: 150 µl #b8b2a6 → 150 µl #b8b2a6
+- **station 5 (step 5) thermocycle** · tube: 150 µl #b8b2a6 → 150 µl #b8b2a6
+- **station 6 (step 6) heat** · tube: 150 µl #b8b2a6 → 150 µl #b8b2a6
+- **station 7 (step 7) store** · tube: 150 µl #b8b2a6 → 150 µl #b8b2a6
+- **station 8 (step 8) electrophorese** · gel: — → —
+
+## western
+
+- **station 1 (step 1) pipette_mix** · gel: 0 µl #b8b2a6 → 10 µl #02b6a0
+  - add 5 µl from sample_tube → gel (pipette, 1 pass)
+  - add 5 µl from sample_tube → gel (pipette, 1 pass)
+  - ⚑ denatured protein samples: no volume stated — placeholder 5 µl (10 % of the gel)
+  - ⚑ molecular weight ladder: no volume stated — placeholder 5 µl (10 % of the gel)
+- **station 2 (step 2) electrophorese** · gel: 10 µl #02b6a0 → 10 µl #02b6a0
+- **station 3 (step 3) electrophorese** · membrane: — → —
+  - ⚑ cold transfer buffer: no volume stated (not moved by a electrophorese step)
+- **station 4 (step 4) pour_add** · membrane: — → 25 mL #02b6a0
+  - add 25 mL from bottle → membrane (pipette, 1 pass, drawn as one pass)
+  - ⚑ a 25 mL pipette move is drawn as one pass of the P200 (no serological pipette is modelled)
+- **station 5 (step 5) discard** · membrane: 25 mL #02b6a0 → 0 µl #02b6a0
+  - discard 25 mL from membrane — discard
+- **station 6 (step 6) pour_add** · membrane: 0 µl #02b6a0 → 25 mL #5061db
+  - add 25 mL from bottle → membrane (pipette, 1 pass, drawn as one pass)
+  - ⚑ a 25 mL pipette move is drawn as one pass of the P200 (no serological pipette is modelled)
+- **station 7 (step 7) incubate_wait** · membrane: 25 mL #5061db → 25 mL #5061db
+- **station 8 (step 8) pour_add** · membrane: 25 mL #5061db → 40 mL #3381c5
+  - add 15 mL from bottle → membrane (pipette, 1 pass, drawn as one pass)
+  - ⚑ a 15 mL pipette move is drawn as one pass of the P200 (no serological pipette is modelled)
+- **station 9 (step 9) discard** · membrane: 40 mL #3381c5 → 0 µl #3381c5
+  - discard 40 mL from membrane — discard
+- **station 10 (step 10) pour_add** · membrane: 0 µl #3381c5 → 12.5 mL #4072cf
+  - add 2.5 mL from bottle → membrane (pipette, 1 pass, drawn as one pass)
+  - add 10 mL from bottle → membrane (pipette, 1 pass, drawn as one pass)
+  - ⚑ primary antibody: no volume stated — placeholder 2.5 mL (10 % of the membrane)
+  - ⚑ a 2.5 mL pipette move is drawn as one pass of the P200 (no serological pipette is modelled)
+  - ⚑ a 10 mL pipette move is drawn as one pass of the P200 (no serological pipette is modelled)
+- **station 11 (step 11) incubate_wait** · membrane: 12.5 mL #4072cf → 12.5 mL #4072cf
+- **station 12 (step 12) pour_add** · membrane: 12.5 mL #4072cf → 27.5 mL #1e97b5
+  - add 15 mL from bottle → membrane (pipette, 1 pass, drawn as one pass)
+  - ⚑ a 15 mL pipette move is drawn as one pass of the P200 (no serological pipette is modelled)
+- **station 13 (step 13) discard** · membrane: 27.5 mL #1e97b5 → 0 µl #1e97b5
+  - discard 27.5 mL from membrane — discard
+- **station 14 (step 14) pour_add** · membrane: 0 µl #1e97b5 → 12.5 mL #4072cf
+  - add 2.5 mL from bottle → membrane (pipette, 1 pass, drawn as one pass)
+  - add 10 mL from bottle → membrane (pipette, 1 pass, drawn as one pass)
+  - ⚑ HRP-conjugated secondary antibody: no volume stated — placeholder 2.5 mL (10 % of the membrane)
+  - ⚑ a 2.5 mL pipette move is drawn as one pass of the P200 (no serological pipette is modelled)
+  - ⚑ a 10 mL pipette move is drawn as one pass of the P200 (no serological pipette is modelled)
+- **station 15 (step 15) incubate_wait** · membrane: 12.5 mL #4072cf → 12.5 mL #4072cf
+- **station 16 (step 16) pour_add** · membrane: 12.5 mL #4072cf → 27.5 mL #1e97b5
+  - add 15 mL from bottle → membrane (pipette, 1 pass, drawn as one pass)
+  - ⚑ a 15 mL pipette move is drawn as one pass of the P200 (no serological pipette is modelled)
+- **station 17 (step 17) discard** · membrane: 27.5 mL #1e97b5 → 0 µl #1e97b5
+  - discard 27.5 mL from membrane — discard
+- **station 18 (step 18) pour_add** · membrane: 0 µl #1e97b5 → 10 mL #02b6a0
+  - add 10 mL from bottle → membrane (pipette, 1 pass, drawn as one pass)
+  - ⚑ a 10 mL pipette move is drawn as one pass of the P200 (no serological pipette is modelled)
+- **station 19 (step 19) incubate_wait** · membrane: 10 mL #02b6a0 → 10 mL #02b6a0
+- **station 20 (step 20) discard** · membrane: 10 mL #02b6a0 → 0 µl #02b6a0
+  - discard 10 mL from membrane — discard
+
+## passaging
+
+- **station 1 (step 1) measure** · flask: 7 mL #b8b2a6 → 7 mL #b8b2a6
+  - ⚑ starting contents not stated: placeholder 7 mL (10 % of the flask)
+- **station 2 (step 2) discard** · flask: 7 mL #b8b2a6 → 0 µl #b8b2a6
+  - discard 7 mL from flask — discard
+- **station 3 (step 3) pour_add** · flask: 0 µl #b8b2a6 → 5 mL #02b6a0
+  - add 5 mL from bottle → flask (pipette, 1 pass, drawn as one pass)
+  - ⚑ balanced salt solution without calcium and magnesium: "approximately 2 mL per 10 cm2" — read against a 25 cm² T-25 (the flask's area is not stated): 5 mL
+  - ⚑ a 5 mL pipette move is drawn as one pass of the P200 (no serological pipette is modelled)
+- **station 4 (step 4) discard** · flask: 5 mL #02b6a0 → 0 µl #02b6a0
+  - discard 5 mL from flask — discard
+- **station 5 (step 5) pour_add** · flask: 0 µl #02b6a0 → 1.25 mL #02b6a0
+  - add 1.25 mL from bottle → flask (pipette, 1 pass, drawn as one pass)
+  - ⚑ dissociation reagent (trypsin or TrypLE): "approximately 0.5 mL per 10 cm2" — read against a 25 cm² T-25 (the flask's area is not stated): 1.25 mL
+  - ⚑ a 1.25 mL pipette move is drawn as one pass of the P200 (no serological pipette is modelled)
+- **station 6 (step 6) incubate_wait** · flask: 1.25 mL #02b6a0 → 1.25 mL #02b6a0
+- **station 7 (step 7) measure** · flask: 1.25 mL #02b6a0 → 1.25 mL #02b6a0
+- **station 8 (step 8) pour_add** · flask: 1.25 mL #02b6a0 → 3.75 mL #02b6a0
+  - add 2.5 mL from bottle → flask (pipette, 1 pass, drawn as one pass)
+  - rule: complete growth medium: twice the volume of dissociation reagent → 2 × 1.25 mL
+  - ⚑ a 2.5 mL pipette move is drawn as one pass of the P200 (no serological pipette is modelled)
+- **station 9 (step 9) transfer** · tube: — → 3.75 mL #02b6a0 · flask 3.75 mL #02b6a0 → 0 µl #02b6a0
+  - move 3.75 mL from flask → tube (pipette, 1 pass, drawn as one pass)
+  - ⚑ a 3.75 mL pipette move is drawn as one pass of the P200 (no serological pipette is modelled)
+- **station 10 (step 10) centrifuge** · tube: 3.75 mL #02b6a0 → 3.75 mL #02b6a0
+- **station 11 (step 11) pour_add** · tube: 3.75 mL #02b6a0 → 5.25 mL #02b6a0
+  - add 1.5 mL from bottle → tube (pipette, 1 pass, drawn as one pass)
+  - ⚑ complete growth medium: "minimal volume" states no volume — placeholder 1.5 mL (10 % of the tube)
+  - ⚑ a 1.5 mL pipette move is drawn as one pass of the P200 (no serological pipette is modelled)
+- **station 12 (step 12) measure** · slide: — → —
+  - ⚑ Trypan blue: no volume stated (not moved by a measure step)
+- **station 13 (step 13) seed** · flask: 0 µl #02b6a0 → 5.25 mL #02b6a0 · tube 5.25 mL #02b6a0 → 0 µl #02b6a0
+  - move 5.25 mL from tube → flask (pipette, 1 pass, drawn as one pass)
+  - ⚑ the seeded volume is not stated — placeholder 5.25 mL (10 % of the flask, capped at the 5.25 mL in the tube)
+  - ⚑ a 5.25 mL pipette move is drawn as one pass of the P200 (no serological pipette is modelled)
+- **station 14 (step 14) store** · flask: 5.25 mL #02b6a0 → 5.25 mL #02b6a0
+
+## elisa
+
+- **station 1 (step 1) pour_add** · tube: 0 µl #b8b2a6 → 150 µl #02b6a0
+  - add 150 µl from outside → tube (collect)
+  - ⚑ anti-coagulant: no volume stated — placeholder 150 µl (10 % of the tube)
+- **station 2 (step 2) centrifuge** · tube: 150 µl #02b6a0 → 150 µl #02b6a0
+- **station 3 (step 3) transfer** · tube: 150 µl #02b6a0 → 150 µl #02b6a0
+  - rule: nothing moves (same vessel)
+- **station 4 (step 4) prepare** · tube: 150 µl #02b6a0 → 150 µl #02b6a0 · prep:diluted_capture_antibody — → 50 µl #298cbe
+  - add 25 µl from bottle → prep:diluted_capture_antibody (pipette, 1 pass)
+  - add 25 µl from bottle → prep:diluted_capture_antibody (pipette, 1 pass)
+  - ⚑ capture antibody: "1-10 µg/mL" — sized to what the protocol later draws from this mix: 25 µl
+  - ⚑ coating buffer: "no volume" — sized to what the protocol later draws from this mix: 25 µl
+- **station 5 (step 5) pour_add** · wellplate: — → 50 µl #298cbe · prep:diluted_capture_antibody 50 µl #298cbe → —
+  - move 50 µl from prep:diluted_capture_antibody → wellplate (pipette, 1 pass)
+- **station 6 (step 6) incubate_wait** · wellplate: 50 µl #298cbe → 50 µl #298cbe
+- **station 7 (step 7) pour_add** · wellplate: 50 µl #298cbe → 86 µl #397aca
+  - add 36 µl from bottle → wellplate (pipette, 1 pass)
+  - ⚑ wash buffer: no volume stated — placeholder 36 µl (10 % of the wellplate)
+- **station 8 (step 8) discard** · wellplate: 86 µl #397aca → 0 µl #397aca
+  - discard 86 µl from wellplate — discard
+- **station 9 (step 9) pour_add** · wellplate: 0 µl #397aca → 200 µl #5061db
+  - add 200 µl from bottle → wellplate (pipette, 1 pass)
+- **station 10 (step 10) incubate_wait** · wellplate: 200 µl #5061db → 200 µl #5061db
+- **station 11 (step 11) prepare** · wellplate: 200 µl #5061db → 200 µl #5061db · prep:diluted_samples — → 100 µl #5061db
+  - add 100 µl from bottle → prep:diluted_samples (pipette, 1 pass)
+  - ⚑ dilution buffer: "no volume" — sized to what the protocol later draws from this mix: 100 µl
+- **station 12 (step 12) pour_add** · wellplate: 200 µl #5061db → 300 µl #5061db · prep:diluted_samples 100 µl #5061db → —
+  - move 100 µl from prep:diluted_samples → wellplate (pipette, 1 pass)
+- **station 13 (step 13) incubate_wait** · wellplate: 300 µl #5061db → 300 µl #5061db
+- **station 14 (step 14) pour_add** · wellplate: 300 µl #5061db → 336 µl #5061db
+  - add 36 µl from bottle → wellplate (pipette, 1 pass)
+  - ⚑ wash buffer: no volume stated — placeholder 36 µl (10 % of the wellplate)
+- **station 15 (step 15) discard** · wellplate: 336 µl #5061db → 0 µl #5061db
+  - discard 336 µl from wellplate — discard
+- **station 16 (step 16) pour_add** · wellplate: 0 µl #5061db → 100 µl #02b6a0
+  - add 100 µl from bottle → wellplate (pipette, 1 pass)
+- **station 17 (step 17) incubate_wait** · wellplate: 100 µl #02b6a0 → 100 µl #02b6a0
+- **station 18 (step 18) pour_add** · wellplate: 100 µl #02b6a0 → 136 µl #17a0b0
+  - add 36 µl from bottle → wellplate (pipette, 1 pass)
+  - ⚑ wash buffer: no volume stated — placeholder 36 µl (10 % of the wellplate)
+- **station 19 (step 19) discard** · wellplate: 136 µl #17a0b0 → 0 µl #17a0b0
+  - discard 136 µl from wellplate — discard
+- **station 20 (step 20) pour_add** · wellplate: 0 µl #17a0b0 → 100 µl #02b6a0
+  - add 100 µl from bottle → wellplate (pipette, 1 pass)
+- **station 21 (step 21) incubate_wait** · wellplate: 100 µl #02b6a0 → 100 µl #02b6a0
+- **station 22 (step 22) pour_add** · wellplate: 100 µl #02b6a0 → 136 µl #17a0b0
+  - add 36 µl from bottle → wellplate (pipette, 1 pass)
+  - ⚑ wash buffer: no volume stated — placeholder 36 µl (10 % of the wellplate)
+- **station 23 (step 23) discard** · wellplate: 136 µl #17a0b0 → 0 µl #17a0b0
+  - discard 136 µl from wellplate — discard
+- **station 24 (step 24) pour_add** · wellplate: 0 µl #17a0b0 → 75 µl #f2a208
+  - add 75 µl from bottle → wellplate (pipette, 1 pass)
+  - rule: TMB enzyme substrate: 50-100 µL → midpoint 75 µl
+- **station 25 (step 25) incubate_wait** · wellplate: 75 µl #f2a208 → 75 µl #f2a208
+- **station 26 (step 26) pour_add** · wellplate: 75 µl #f2a208 → 175 µl #69ad5f
+  - add 100 µl from bottle → wellplate (pipette, 1 pass)
+- **station 27 (step 27) measure** · wellplate: 175 µl #69ad5f → 175 µl #69ad5f
+
+## agarose_gel
+
+- **station 1 (step 1) pour_add** · flask: 0 µl #b8b2a6 → 100 mL #5061db
+  - add 100 mL from bottle → flask (pour)
+  - rule: Agarose powder: not a liquid — no volume added
+  - ⚑ 100 mL exceeds the drawn flask's nominal 70 mL — drawn full
+- **station 2 (step 2) heat** · flask: 100 mL #5061db → 100 mL #5061db
+- **station 3 (step 3) incubate_wait** · flask: 100 mL #5061db → 100 mL #5061db
+- **station 4 (step 4) pour_add** · flask: 100 mL #5061db → 100.01 mL #5061db
+  - add 10 µl from bottle → flask (pipette, 1 pass)
+  - ⚑ 100.01 mL exceeds the drawn flask's nominal 70 mL — drawn full
+- **station 5 (step 5) pour_add** · gel: — → 100.01 mL #5061db · flask 100.01 mL #5061db → 0 µl #5061db
+  - move 100.01 mL from flask → gel (pour)
+- **station 6 (step 6) incubate_wait** · gel: 100.01 mL #5061db → 100.01 mL #5061db
+- **station 7 (step 7) transfer** · gel: 100.01 mL #5061db → 100.01 mL #5061db
+  - rule: nothing moves (same vessel)
+  - ⚑ 1X TAE buffer: no volume stated (not moved by a transfer step)
+- **station 8 (step 8) pour_add** · tube: — → 150 µl #02b6a0
+  - add 150 µl from bottle → tube (pipette, 1 pass)
+  - ⚑ 6X loading dye: no volume stated — placeholder 150 µl (10 % of the tube)
+- **station 9 (step 9) transfer** · gel: 100.01 mL #5061db → 100.16 mL #5061db · tube 150 µl #02b6a0 → 0 µl #02b6a0
+  - move 150 µl from tube → gel (pipette, 1 pass)
+- **station 10 (step 10) transfer** · gel: 100.16 mL #5061db → 100.16 mL #5061db
+  - rule: nothing moves (same vessel)
+- **station 11 (step 11) electrophorese** · gel: 100.16 mL #5061db → 100.16 mL #5061db
+- **station 12 (step 12) measure** · gel: 100.16 mL #5061db → 100.16 mL #5061db
+
+## cryopreservation
+
+- **station 1 (step 1) generic** · flask: — → —
+  - ⚑ trypsin: no volume stated (not moved by a generic step)
+  - ⚑ complete medium: no volume stated (not moved by a generic step)
+- **station 2 (step 2) centrifuge** · tube: 150 µl #b8b2a6 → 150 µl #b8b2a6
+  - ⚑ starting contents not stated: placeholder 150 µl (10 % of the tube)
+- **station 3 (step 3) discard** · tube: 150 µl #b8b2a6 → 0 µl #b8b2a6
+  - discard 150 µl from tube — discard
+- **station 4 (step 4) pour_add** · tube: 0 µl #b8b2a6 → 150 µl #02b6a0
+  - add 150 µl from bottle → tube (pipette, 1 pass)
+  - ⚑ cold freezing medium: no volume stated — placeholder 150 µl (10 % of the tube)
+- **station 5 (step 5) transfer** · cryovial: — → 150 µl #02b6a0 · tube 150 µl #02b6a0 → 0 µl #02b6a0
+  - move 150 µl from tube → cryovial (pipette, 1 pass)
+  - ⚑ 1 mL stated, but the tube holds 150 µl — 150 µl moved
+- **station 6 (step 6) store** · cryovial: 150 µl #02b6a0 → 150 µl #02b6a0
+- **station 7 (step 7) store** · cryovial: 150 µl #02b6a0 → 150 µl #02b6a0
+
+## gram_stain
+
+- **station 1 (step 1) seed** · slide: 0 µl #b8b2a6 → 100 µl #02b6a0
+  - add 100 µl from bottle → slide (pipette, 1 pass)
+  - ⚑ bacterial culture: no volume stated — placeholder 100 µl (10 % of the slide)
+- **station 2 (step 2) heat** · slide: 100 µl #02b6a0 → 100 µl #02b6a0
+- **station 3 (step 3) stain** · slide: 100 µl #02b6a0 → 200 µl #02b6a0
+  - add 100 µl from bottle → slide (pipette, 1 pass)
+  - ⚑ crystal violet: no volume stated — placeholder 100 µl (10 % of the slide)
+- **station 4 (step 4) incubate_wait** · slide: 200 µl #02b6a0 → 200 µl #02b6a0
+- **station 5 (step 5) pour_add** · slide: 200 µl #02b6a0 → 0 µl #1db5ba
+  - add 100 µl from bottle → slide (pour)
+  - discard 300 µl from slide — runs off the surface
+  - ⚑ distilled water: no volume stated — placeholder 100 µl (10 % of the slide)
+- **station 6 (step 6) stain** · slide: 0 µl #1db5ba → 100 µl #02b6a0
+  - add 100 µl from bottle → slide (pipette, 1 pass)
+  - ⚑ Gram's iodine: no volume stated — placeholder 100 µl (10 % of the slide)
+- **station 7 (step 7) incubate_wait** · slide: 100 µl #02b6a0 → 100 µl #02b6a0
+- **station 8 (step 8) pour_add** · slide: 100 µl #02b6a0 → 0 µl #2bb5c8
+  - add 100 µl from bottle → slide (pour)
+  - discard 200 µl from slide — runs off the surface
+  - ⚑ distilled water: no volume stated — placeholder 100 µl (10 % of the slide)
+- **station 9 (step 9) pour_add** · slide: 0 µl #2bb5c8 → 0 µl #1f8bf2
+  - add 100 µl from bottle → slide (pipette, 1 pass)
+  - discard 100 µl from slide — runs off the surface
+  - ⚑ 95% ethanol: no volume stated — placeholder 100 µl (10 % of the slide)
+- **station 10 (step 10) pour_add** · slide: 0 µl #1f8bf2 → 0 µl #53b4ef
+  - add 100 µl from bottle → slide (pour)
+  - discard 100 µl from slide — runs off the surface
+  - ⚑ distilled water: no volume stated — placeholder 100 µl (10 % of the slide)
+- **station 11 (step 11) stain** · slide: 0 µl #53b4ef → 100 µl #02b6a0
+  - add 100 µl from bottle → slide (pipette, 1 pass)
+  - ⚑ safranin: no volume stated — placeholder 100 µl (10 % of the slide)
+- **station 12 (step 12) incubate_wait** · slide: 100 µl #02b6a0 → 100 µl #02b6a0
+- **station 13 (step 13) pour_add** · slide: 100 µl #02b6a0 → 0 µl #2bb5c8
+  - add 100 µl from bottle → slide (pour)
+  - discard 200 µl from slide — runs off the surface
+  - ⚑ distilled water: no volume stated — placeholder 100 µl (10 % of the slide)
+- **station 14 (step 15) measure** · slide: 0 µl #2bb5c8 → 0 µl #2bb5c8
