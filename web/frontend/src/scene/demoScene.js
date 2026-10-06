@@ -1857,18 +1857,21 @@ export {
   // into the opened bottle → draw while rising. The pass ends by withdrawing straight up and
   // moving level back home. The carry (B) and the dispense hold (DISPENSE_FROM..TO) are where
   // they were.
-  function pipHome(TRAVEL_Y){ return new THREE.Vector3(PIP_REST.x+0.6, TRAVEL_Y, PIP_REST.z); }
+  // HOME is one fixed point (it is also where the idle pipette waits: pipRest), so a pass that
+  // starts late in a step leaves from exactly where the pipette was — never a jump
+  var PIP_HOME_Y=2.4;
+  function pipHome(){ return new THREE.Vector3(PIP_REST.x+0.6, PIP_HOME_Y, PIP_REST.z); }
   function pipPhaseA(from, TRAVEL_Y, a){             // a: 0..1 across phase A → origin position
-    var SRC=from.y+0.72, H=pipHome(TRAVEL_Y);        // SRC: origin with the tip down in the source
-    if(a<0.3){ var q=easeInOut(a/0.3); return new THREE.Vector3(lerp(H.x,from.x,q), TRAVEL_Y, lerp(H.z,from.z,q)); }
+    var SRC=from.y+0.72, H=pipHome();                // SRC: origin with the tip down in the source
+    if(a<0.3){ var q=easeInOut(a/0.3); return new THREE.Vector3(lerp(H.x,from.x,q), lerp(H.y,TRAVEL_Y,q), lerp(H.z,from.z,q)); }
     if(a<0.6){ var q2=easeInOut((a-0.3)/0.3); return new THREE.Vector3(from.x, lerp(TRAVEL_Y,SRC,q2), from.z); }
     var q3=easeInOut((a-0.6)/0.4); return new THREE.Vector3(from.x, lerp(SRC,TRAVEL_Y,q3), from.z);
   }
   function pipDrawFill(a){ return a<0.6 ? 0 : easeInOut((a-0.6)/0.4); }
   // the last stretch: from straight above the mouth, level at cruise height, back home
   function pipPhaseD(TRAVEL_Y, at, b){
-    var q=easeInOut(clamp(b,0,1)), H=pipHome(TRAVEL_Y);
-    return new THREE.Vector3(lerp(at.x,H.x,q), TRAVEL_Y, lerp(at.z,H.z,q));
+    var q=easeInOut(clamp(b,0,1)), H=pipHome();
+    return new THREE.Vector3(lerp(at.x,H.x,q), lerp(TRAVEL_Y,H.y,q), lerp(at.z,H.z,q));
   }
   function pipetteRun(st, from, to, p, opts){
     opts=opts||{};
@@ -1988,13 +1991,15 @@ export {
                           // up behind the top HUD bar during the pour travel arc.
   function addPipetteRig(st){
     addStand(st);
-    var pip = buildPipette(); pip.scale.setScalar(PIP_SCALE); pip.position.set(PIP_REST.x, PIP_REST.y, PIP_REST.z);
+    var pip = buildPipette(); pip.scale.setScalar(PIP_SCALE); pip.position.copy(pipHome());
     pip.userData.noFrame = true;    // the pipette travels high on its arc — never frame it
     st.group.add(pip); st.pip = pip; st.updatables.push(pip);
   }
   // dock this station's resident pipette back in its stand (LOCAL space)
+  // the idle pipette waits at its HOME, held (not in its stand: the stand's arm crosses its own
+  // ring) — the point every pass starts from and returns to
   function pipRest(st){ if(!st.pip) return;
-    st.pip.position.set(PIP_REST.x, PIP_REST.y, PIP_REST.z);
+    st.pip.position.copy(pipHome()); st.pip.rotation.set(0,0,0);
     st.pip.userData.setFluid(0); }
 
   // ─── Stage-8 container vessels (the sample-follow model shows exactly one) ───
