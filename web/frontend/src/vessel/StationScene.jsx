@@ -902,9 +902,14 @@ export function configureStation(st, o) {
         put(DOCK.x, DOCK.y, DOCK.z); rig.userData.setLidLift(0); rig.userData.setVolts(true)
       } else if (p < 0.88) {                           // 7 · volts off, lid off
         put(DOCK.x, DOCK.y, DOCK.z); rig.userData.setVolts(false); rig.userData.setLidLift(seg(0.82, 0.88))
-      } else {                                         // 8 · exit: straight up out of the tank
+      } else if (p < 0.93) {                           // 8 · exit: straight up out of the tank
         const lift = exitLiftPoint({ x: DOCK.x, y: DOCK.y, z: DOCK.z }, CLEAR)
-        put(lift.x, demo.lerp(DOCK.y, lift.y, seg(0.88, 1)), lift.z); rig.userData.setLidLift(1)
+        put(lift.x, demo.lerp(DOCK.y, lift.y, seg(0.88, 0.93)), lift.z); rig.userData.setLidLift(1)
+      } else if (p < 0.97) {                           // 9 · back over its place on the bench, held clear
+        const q = seg(0.93, 0.97); put(demo.lerp(DOCK.x, BENCH.x, q), CLEAR, demo.lerp(DOCK.z, BENCH.z, q)); rig.userData.setLidLift(1)
+      } else {                                         // 10 · set down where it came from (it used to be
+        put(BENCH.x, demo.lerp(CLEAR, SEAT_Y, seg(0.97, 1)), BENCH.z)   // left hanging over the tank); the lid
+        rig.userData.setLidLift(1 - seg(0.97, 1))                         // (with its leads) goes back on
       }
       evolve(demo.clamp((p - 0.40) / 0.42, 0, 1))      // contents change only while running
     }
