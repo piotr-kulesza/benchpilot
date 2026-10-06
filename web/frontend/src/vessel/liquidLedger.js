@@ -18,7 +18,8 @@ import { parseVolume } from '../lib/volume.js'
 import { tubeShape, columnShape, collectionShape, linearShape, tipShape, levelFor, volumeAt } from '../scene/liquidShape.js'
 
 export const TIP_UL = 200              // the pipette is drawn as a P200 (its own decal): one tip holds 200 µl
-export const PIPETTE_MAX_UL = 1000     // up to 1 mL a reagent is pipetted (≤ 5 passes); above, it is poured
+export const PIPETTE_MAX_UL = 1000     // up to 1 mL is pipetted in passes of one tip (≤ 5); a mL pipette move is drawn as one pass
+export const POUR_MIN_UL = 50000       // ≥ 50 mL (or a step that says pour / rinse) is poured from its bottle — as the scene always has
 export const POUR_UL_PER_S = 10000     // a pour runs at 10 mL/s — its stream lasts volume / rate
 export const PLACEHOLDER_FRACTION = 0.1 // an unstated volume: 10 % of the receiving vessel's nominal capacity
 export const FLASK_AREA_CM2 = 25       // "per 10 cm²" is read against a T-25 (est: the drawn T-flask)
@@ -147,7 +148,7 @@ export function buildLedger(steps, { containers = [], altByStep = {}, colorOf = 
       flag(`${nm}: ${v.reason} — placeholder ${fmt(ul)} (10 % of the ${to})`)
       return ul
     }
-    const methodFor = (ul) => (ul > PIPETTE_MAX_UL || /\b(pour|rins)/i.test(text) ? 'pour' : 'pipette')
+    const methodFor = (ul) => (ul >= POUR_MIN_UL || /\b(pour|rins)/i.test(text) ? 'pour' : 'pipette')
     const pass = (o) => {
       if (o.method !== 'pipette') { delete o.passes; return o }
       if (o.ul > PIPETTE_MAX_UL) { flag(`a ${fmt(o.ul)} pipette move is drawn as one pass of the P200 (no serological pipette is modelled)`); return { ...o, passes: 1, serological: true } }
