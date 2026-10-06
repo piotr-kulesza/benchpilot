@@ -1,0 +1,8400 @@
+{
+"transformation|1": {
+"protocol": "transformation",
+"station": 1,
+"action": "cool_ice",
+"container": "microtube",
+"timed": false,
+"defects": []
+},
+"transformation|2": {
+"protocol": "transformation",
+"station": 2,
+"action": "pour_add",
+"container": "microtube",
+"timed": false,
+"defects": []
+},
+"transformation|3": {
+"protocol": "transformation",
+"station": 3,
+"action": "incubate_wait",
+"container": "microtube",
+"timed": true,
+"defects": []
+},
+"transformation|4": {
+"protocol": "transformation",
+"station": 4,
+"action": "heat",
+"container": "microtube",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "WaterBath",
+"b": "sample Tube",
+"depth": 0.32588269718187357,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#6b7580",
+"opacity": 0.8903711249725776,
+"min": [
+24.08,
+0.04,
+-0.82
+],
+"max": [
+26.32,
+0.7,
+0.82
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#ffffff",
+"opacity": 1,
+"min": [
+24.883,
+0.366,
+-0.317
+],
+"max": [
+25.517,
+1.556,
+0.317
+]
+}
+],
+"p": 0,
+"pLast": 1,
+"frames": 144,
+"frame": 51,
+"pWorst": 0,
+"frameWorst": 57
+},
+{
+"check": "sweep",
+"a": "sample Tube",
+"b": "WaterBath",
+"depth": 0.3520948547230809,
+"meshes": [
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+24.861,
+0.389,
+-0.339
+],
+"max": [
+25.539,
+2.089,
+0.339
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#6b7580",
+"opacity": 0.826249942271868,
+"min": [
+24.08,
+0.04,
+-0.82
+],
+"max": [
+26.32,
+0.7,
+0.82
+]
+}
+],
+"at": [
+25.2,
+0.389,
+0
+],
+"p": 0,
+"pLast": 0,
+"frames": 4,
+"frame": 51
+}
+]
+},
+"transformation|5": {
+"protocol": "transformation",
+"station": 5,
+"action": "cool_ice",
+"container": "microtube",
+"timed": true,
+"defects": [
+{
+"check": "intersect",
+"a": "prev \u00b7 WaterBath",
+"b": "sample Tube",
+"depth": 0.32574601664890523,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#6b7580",
+"opacity": 1,
+"min": [
+24.08,
+0.04,
+-0.82
+],
+"max": [
+26.32,
+0.7,
+0.82
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+24.861,
+0.253,
+-0.339
+],
+"max": [
+25.539,
+1.953,
+0.339
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 4,
+"frame": 0,
+"pWorst": 0,
+"frameWorst": 6
+},
+{
+"check": "sweep",
+"a": "sample Tube",
+"b": "prev \u00b7 WaterBath",
+"depth": 0.4181757656827786,
+"meshes": [
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+24.861,
+0.929,
+-0.339
+],
+"max": [
+25.539,
+2.629,
+0.339
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#6b7580",
+"opacity": 1,
+"min": [
+24.08,
+0.04,
+-0.82
+],
+"max": [
+26.32,
+0.7,
+0.82
+]
+}
+],
+"at": [
+25.2,
+0.929,
+0
+],
+"p": 0,
+"pLast": 0,
+"frames": 4,
+"frame": 3,
+"pWorst": 0,
+"frameWorst": 12
+}
+]
+},
+"transformation|6": {
+"protocol": "transformation",
+"station": 6,
+"action": "pour_add",
+"container": "microtube",
+"timed": false,
+"defects": []
+},
+"transformation|7": {
+"protocol": "transformation",
+"station": 7,
+"action": "incubate_wait",
+"container": "microtube",
+"timed": true,
+"defects": []
+},
+"transformation|8": {
+"protocol": "transformation",
+"station": 8,
+"action": "seed",
+"container": "agar_plate",
+"timed": false,
+"defects": []
+},
+"transformation|9": {
+"protocol": "transformation",
+"station": 9,
+"action": "incubate_wait",
+"container": "agar_plate",
+"timed": true,
+"defects": []
+},
+"pcr|1": {
+"protocol": "pcr",
+"station": 1,
+"action": "prepare",
+"container": "microtube",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "pipette (Pipette)",
+"b": "source r0 (Bottle)",
+"depth": 0.03221765004190792,
+"meshes": [
+{
+"geo": "LatheGeometry",
+"color": "#e6eef4",
+"opacity": 0.42,
+"min": [
+2.117,
+1.262,
+0.617
+],
+"max": [
+2.283,
+1.895,
+0.783
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#02b6a0",
+"opacity": 1,
+"min": [
+1.784,
+1.653,
+0.588
+],
+"max": [
+2.188,
+2.007,
+0.928
+]
+}
+],
+"p": 0.018,
+"pLast": 0.018,
+"frames": 1,
+"frame": 6
+},
+{
+"check": "sweep",
+"a": "pipette (Pipette)",
+"b": "source r0 (Bottle)",
+"depth": 0.9784621117217419,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#ffffff",
+"opacity": 1,
+"min": [
+2.16,
+1.514,
+0.66
+],
+"max": [
+2.24,
+1.759,
+0.74
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#02b6a0",
+"opacity": 1,
+"min": [
+1.784,
+1.653,
+0.588
+],
+"max": [
+2.188,
+2.007,
+0.928
+]
+}
+],
+"at": [
+2.172,
+1.514,
+0.691
+],
+"p": 0.018,
+"pLast": 0.018,
+"frames": 1,
+"frame": 6
+},
+{
+"check": "sweep",
+"a": "source r0 (Bottle)",
+"b": "pipette (Pipette)",
+"depth": 0.18242477664438286,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#02b6a0",
+"opacity": 1,
+"min": [
+1.784,
+1.653,
+0.588
+],
+"max": [
+2.188,
+2.007,
+0.928
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#d8dee6",
+"opacity": 1,
+"min": [
+2.16,
+1.917,
+0.66
+],
+"max": [
+2.24,
+2.277,
+0.74
+]
+}
+],
+"at": [
+2.08,
+2.005,
+0.72
+],
+"p": 0.018,
+"pLast": 0.026,
+"frames": 2,
+"frame": 6
+},
+{
+"check": "sweep",
+"a": "source r1 (Bottle)",
+"b": "pipette (Pipette)",
+"depth": 0.1474704909181233,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#02b6a0",
+"opacity": 1,
+"min": [
+2.67,
+1.64,
+0.605
+],
+"max": [
+3.074,
+2.02,
+0.945
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#d8dee6",
+"opacity": 1,
+"min": [
+3.041,
+1.979,
+0.591
+],
+"max": [
+3.259,
+3.059,
+0.809
+]
+}
+],
+"at": [
+2.939,
+2.017,
+0.737
+],
+"p": 0.164,
+"pLast": 0.164,
+"frames": 1,
+"frame": 63
+},
+{
+"check": "sweep",
+"a": "pipette (Pipette)",
+"b": "source r2 (Bottle)",
+"depth": 0.7008583910113306,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#ffffff",
+"opacity": 1,
+"min": [
+4.06,
+1.806,
+0.66
+],
+"max": [
+4.14,
+2.051,
+0.74
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#02b6a0",
+"opacity": 1,
+"min": [
+3.684,
+1.653,
+0.588
+],
+"max": [
+4.088,
+2.007,
+0.928
+]
+}
+],
+"at": [
+4.072,
+1.806,
+0.691
+],
+"p": 0.303,
+"pLast": 0.303,
+"frames": 1,
+"frame": 117
+},
+{
+"check": "sweep",
+"a": "source r2 (Bottle)",
+"b": "pipette (Pipette)",
+"depth": 0.18242477664438286,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#02b6a0",
+"opacity": 1,
+"min": [
+3.684,
+1.653,
+0.588
+],
+"max": [
+4.088,
+2.007,
+0.928
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#e6eef4",
+"opacity": 0.42,
+"min": [
+4.017,
+1.554,
+0.617
+],
+"max": [
+4.183,
+2.188,
+0.783
+]
+}
+],
+"at": [
+3.98,
+2.005,
+0.72
+],
+"p": 0.303,
+"pLast": 0.31,
+"frames": 2,
+"frame": 117
+},
+{
+"check": "sweep",
+"a": "pipette (Pipette)",
+"b": "prep Tube",
+"depth": 1.7936484150049548,
+"meshes": [
+{
+"geo": "LatheGeometry",
+"color": "#e6eef4",
+"opacity": 0.42,
+"min": [
+-1.058,
+2.356,
+0.877
+],
+"max": [
+-0.892,
+2.989,
+1.043
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+0.04,
+0,
+-0.16
+],
+"max": [
+0.76,
+1.7,
+0.56
+]
+}
+],
+"at": [
+-0.975,
+2.356,
+0.96
+],
+"p": 0.426,
+"pLast": 0.71,
+"frames": 2,
+"frame": 165
+},
+{
+"check": "sweep",
+"a": "pipette (Pipette)",
+"b": "source r3 (Bottle)",
+"depth": 1.2354278353603614,
+"meshes": [
+{
+"geo": "LatheGeometry",
+"color": "#e6eef4",
+"opacity": 0.42,
+"min": [
+4.967,
+0.996,
+0.617
+],
+"max": [
+5.133,
+1.63,
+0.783
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#5061db",
+"opacity": 1,
+"min": [
+4.6,
+1.645,
+0.597
+],
+"max": [
+5.005,
+2.015,
+0.937
+]
+}
+],
+"at": [
+4.992,
+1.63,
+0.7
+],
+"p": 0.449,
+"pLast": 0.449,
+"frames": 1,
+"frame": 174
+},
+{
+"check": "sweep",
+"a": "source r3 (Bottle)",
+"b": "pipette (Pipette)",
+"depth": 0.16426153220068024,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#5061db",
+"opacity": 1,
+"min": [
+4.6,
+1.645,
+0.597
+],
+"max": [
+5.005,
+2.015,
+0.937
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#d8dee6",
+"opacity": 1,
+"min": [
+5.01,
+1.651,
+0.66
+],
+"max": [
+5.09,
+2.011,
+0.74
+]
+}
+],
+"at": [
+4.882,
+2.012,
+0.729
+],
+"p": 0.449,
+"pLast": 0.456,
+"frames": 2,
+"frame": 174
+},
+{
+"check": "sweep",
+"a": "pipette (Pipette)",
+"b": "source r4 (Bottle)",
+"depth": 0.7402933355428482,
+"meshes": [
+{
+"geo": "LatheGeometry",
+"color": "#e6eef4",
+"opacity": 0.42,
+"min": [
+5.917,
+1.878,
+0.617
+],
+"max": [
+6.083,
+2.511,
+0.783
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#02b6a0",
+"opacity": 1,
+"min": [
+5.584,
+1.653,
+0.588
+],
+"max": [
+5.988,
+2.007,
+0.928
+]
+}
+],
+"at": [
+6,
+1.878,
+0.7
+],
+"p": 0.587,
+"pLast": 0.587,
+"frames": 1,
+"frame": 228
+},
+{
+"check": "sweep",
+"a": "source r4 (Bottle)",
+"b": "pipette (Pipette)",
+"depth": 0.1824247778784853,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#02b6a0",
+"opacity": 1,
+"min": [
+5.584,
+1.653,
+0.588
+],
+"max": [
+5.988,
+2.007,
+0.928
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#e6eef4",
+"opacity": 0.42,
+"min": [
+5.917,
+1.878,
+0.617
+],
+"max": [
+6.083,
+2.511,
+0.783
+]
+}
+],
+"at": [
+5.88,
+2.005,
+0.72
+],
+"p": 0.587,
+"pLast": 0.595,
+"frames": 2,
+"frame": 228
+},
+{
+"check": "sweep",
+"a": "pipette (Pipette)",
+"b": "source r5 (Bottle)",
+"depth": 1.1543183794337162,
+"meshes": [
+{
+"geo": "LatheGeometry",
+"color": "#e6eef4",
+"opacity": 0.42,
+"min": [
+6.867,
+1.086,
+0.617
+],
+"max": [
+7.033,
+1.719,
+0.783
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#02b6a0",
+"opacity": 1,
+"min": [
+6.5,
+1.645,
+0.597
+],
+"max": [
+6.905,
+2.015,
+0.937
+]
+}
+],
+"at": [
+6.892,
+1.719,
+0.7
+],
+"p": 0.733,
+"pLast": 0.733,
+"frames": 1,
+"frame": 285
+},
+{
+"check": "sweep",
+"a": "source r5 (Bottle)",
+"b": "pipette (Pipette)",
+"depth": 0.16426153257660142,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#02b6a0",
+"opacity": 1,
+"min": [
+6.5,
+1.645,
+0.597
+],
+"max": [
+6.905,
+2.015,
+0.937
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#d8dee6",
+"opacity": 1,
+"min": [
+6.91,
+1.741,
+0.66
+],
+"max": [
+6.99,
+2.101,
+0.74
+]
+}
+],
+"at": [
+6.782,
+2.012,
+0.729
+],
+"p": 0.733,
+"pLast": 0.733,
+"frames": 1,
+"frame": 285
+},
+{
+"check": "sweep",
+"a": "source r6 (Bottle)",
+"b": "pipette (Pipette)",
+"depth": 0.14747049197322437,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#53b4ef",
+"opacity": 1,
+"min": [
+7.42,
+1.64,
+0.605
+],
+"max": [
+7.824,
+2.02,
+0.945
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#d8dee6",
+"opacity": 1,
+"min": [
+7.791,
+1.975,
+0.591
+],
+"max": [
+8.009,
+3.055,
+0.809
+]
+}
+],
+"at": [
+7.689,
+2.017,
+0.737
+],
+"p": 0.879,
+"pLast": 0.879,
+"frames": 1,
+"frame": 342
+},
+{
+"check": "abrupt-start",
+"a": "pipette (Pipette)",
+"b": "move starts at 69% of peak",
+"depth": 1.8395030496476286,
+"p": 0.003,
+"frame": 1,
+"frames": 1
+}
+]
+},
+"pcr|2": {
+"protocol": "pcr",
+"station": 2,
+"action": "pipette_mix",
+"container": null,
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "PipetteStand",
+"b": "prev \u00b7 source r4 (Bottle)",
+"depth": 0.05999999731779099,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#244f78",
+"opacity": 0.5454548223319594,
+"min": [
+5.58,
+0,
+0.53
+],
+"max": [
+7.02,
+0.12,
+1.97
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+5.64,
+0,
+0.34
+],
+"max": [
+6.36,
+1.305,
+1.06
+]
+}
+],
+"p": 0,
+"pLast": 1,
+"frames": 161,
+"frame": 0
+},
+{
+"check": "intersect",
+"a": "PipetteStand",
+"b": "prev \u00b7 source r5 (Bottle)",
+"depth": 0.05999999731779099,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#244f78",
+"opacity": 0.5454548223319594,
+"min": [
+5.58,
+0,
+0.53
+],
+"max": [
+7.02,
+0.12,
+1.97
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+6.59,
+0,
+0.34
+],
+"max": [
+7.31,
+1.305,
+1.06
+]
+}
+],
+"p": 0,
+"pLast": 1,
+"frames": 161,
+"frame": 0
+},
+{
+"check": "intersect",
+"a": "pipette (Pipette)",
+"b": "sample Tube",
+"depth": 0.2618966449361557,
+"meshes": [
+{
+"geo": "LatheGeometry",
+"color": "#e6eef4",
+"opacity": 0.32812988755064754,
+"min": [
+8.317,
+1.35,
+-0.083
+],
+"max": [
+8.483,
+1.984,
+0.083
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+8.061,
+1.612,
+-0.339
+],
+"max": [
+8.739,
+3.312,
+0.339
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 2,
+"frame": 45,
+"pWorst": 0,
+"frameWorst": 48
+},
+{
+"check": "sweep",
+"a": "sample Tube",
+"b": "pipette (Pipette)",
+"depth": 0.9485090799234769,
+"meshes": [
+{
+"geo": "SphereGeometry",
+"color": "#d6e2ea",
+"opacity": 0.42,
+"min": [
+8.285,
+3.003,
+0.026
+],
+"max": [
+8.347,
+3.096,
+0.085
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#d8dee6",
+"opacity": 0.7345670077626745,
+"min": [
+8.291,
+2.365,
+-0.109
+],
+"max": [
+8.509,
+3.445,
+0.109
+]
+}
+],
+"at": [
+8.345,
+3.067,
+0.056
+],
+"p": 0,
+"pLast": 0,
+"frames": 3,
+"frame": 45
+},
+{
+"check": "abrupt-start",
+"a": "pipette (Pipette)",
+"b": "move starts at 100% of peak",
+"depth": 0.013290059879872862,
+"p": 0.169,
+"frame": 66,
+"frames": 1
+},
+{
+"check": "abrupt-stop",
+"a": "pipette (Pipette)",
+"b": "move stops from 100% of peak",
+"depth": 0.013290059879872862,
+"p": 1,
+"frame": 455,
+"frames": 1
+}
+]
+},
+"pcr|3": {
+"protocol": "pcr",
+"station": 3,
+"action": "centrifuge",
+"container": null,
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "prev \u00b7 pipette (Pipette)",
+"b": "sample Tube",
+"depth": 0.09922072601608956,
+"meshes": [
+{
+"geo": "LatheGeometry",
+"color": "#e6eef4",
+"opacity": 0.42,
+"min": [
+8.317,
+1.35,
+-0.083
+],
+"max": [
+8.483,
+1.984,
+0.083
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+8.061,
+1.449,
+-0.339
+],
+"max": [
+8.739,
+3.149,
+0.339
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 2,
+"frame": 15
+},
+{
+"check": "sweep",
+"a": "sample Tube",
+"b": "prev \u00b7 pipette (Pipette)",
+"depth": 0.8978985960662959,
+"meshes": [
+{
+"geo": "TorusGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+9.141,
+3.826,
+-0.347
+],
+"max": [
+9.842,
+3.874,
+0.354
+]
+},
+{
+"geo": "SphereGeometry",
+"color": "#2a323c",
+"opacity": 1,
+"min": [
+8.321,
+3.745,
+-0.079
+],
+"max": [
+8.479,
+3.848,
+0.079
+]
+}
+],
+"at": [
+9.148,
+3.838,
+0.049
+],
+"p": 0,
+"pLast": 0,
+"frames": 3,
+"frame": 15,
+"pWorst": 0,
+"frameWorst": 21
+},
+{
+"check": "intersect",
+"a": "centrifuge (Centrifuge)",
+"b": "sample Tube",
+"depth": 0.2121540603530343,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#a6aeb9",
+"opacity": 0.9890371124972579,
+"min": [
+17.095,
+0.552,
+-1.605
+],
+"max": [
+19.305,
+0.978,
+0.605
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+18.027,
+0.608,
+-0.235
+],
+"max": [
+18.373,
+1.541,
+0.421
+]
+}
+],
+"p": 0.056,
+"pLast": 1,
+"frames": 134,
+"frame": 81,
+"pWorst": 0.072,
+"frameWorst": 87
+},
+{
+"check": "sweep",
+"a": "sample Tube",
+"b": "centrifuge (Centrifuge)",
+"depth": 0.8908024791382949,
+"meshes": [
+{
+"geo": "SphereGeometry",
+"color": "#d6e2ea",
+"opacity": 0.42,
+"min": [
+18.967,
+1.086,
+-0.521
+],
+"max": [
+18.993,
+1.116,
+-0.503
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#252d37",
+"opacity": 1,
+"min": [
+18.413,
+0.624,
+-0.3
+],
+"max": [
+18.745,
+1.212,
+0.033
+]
+}
+],
+"at": [
+18.989,
+1.103,
+-0.51
+],
+"p": 0.056,
+"pLast": 0.879,
+"frames": 82,
+"frame": 81,
+"pWorst": 0.795,
+"frameWorst": 369
+},
+{
+"check": "sweep",
+"a": "centrifuge (Centrifuge)",
+"b": "sample Tube",
+"depth": 0.9118974761136407,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#9ba6b2",
+"opacity": 1,
+"min": [
+17.379,
+0.85,
+-1.321
+],
+"max": [
+19.021,
+0.952,
+0.321
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+18.462,
+0.608,
+-0.689
+],
+"max": [
+19.124,
+1.541,
+-0.332
+]
+}
+],
+"at": [
+18.971,
+0.952,
+-0.741
+],
+"p": 0.279,
+"pLast": 0.879,
+"frames": 79,
+"frame": 168,
+"pWorst": 0.795,
+"frameWorst": 369
+}
+]
+},
+"pcr|4": {
+"protocol": "pcr",
+"station": 4,
+"action": "heat",
+"container": null,
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "prev \u00b7 centrifuge (Centrifuge)",
+"b": "sample Tube",
+"depth": 1.058303729490315,
+"meshes": [
+{
+"geo": "SphereGeometry",
+"color": "#282d36",
+"opacity": 0.5,
+"min": [
+17.163,
+0.97,
+-2.473
+],
+"max": [
+19.237,
+3.287,
+-0.68
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+17.74,
+2.15,
+-0.991
+],
+"max": [
+18.418,
+3.85,
+-0.313
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 10,
+"frame": 0,
+"pWorst": 0,
+"frameWorst": 24
+},
+{
+"check": "sweep",
+"a": "sample Tube",
+"b": "prev \u00b7 centrifuge (Centrifuge)",
+"depth": 0.746185096936923,
+"meshes": [
+{
+"geo": "SphereGeometry",
+"color": "#d6e2ea",
+"opacity": 0.42,
+"min": [
+19.309,
+2.464,
+-0.82
+],
+"max": [
+19.364,
+2.547,
+-0.767
+]
+},
+{
+"geo": "SphereGeometry",
+"color": "#282d36",
+"opacity": 0.5,
+"min": [
+17.163,
+0.97,
+-2.473
+],
+"max": [
+19.237,
+3.287,
+-0.68
+]
+}
+],
+"at": [
+19.336,
+2.547,
+-0.793
+],
+"p": 0,
+"pLast": 0,
+"frames": 10,
+"frame": 3,
+"pWorst": 0,
+"frameWorst": 30
+}
+]
+},
+"pcr|5": {
+"protocol": "pcr",
+"station": 5,
+"action": "thermocycle",
+"container": null,
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "instrument (Thermocycler)",
+"b": "sample Tube",
+"depth": 0.3497907973926102,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#2b2f36",
+"opacity": 1,
+"min": [
+32.35,
+0,
+-0.95
+],
+"max": [
+34.85,
+0.7,
+0.95
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+33.451,
+0.296,
+-0.149
+],
+"max": [
+33.749,
+1.044,
+0.149
+]
+}
+],
+"p": 0,
+"pLast": 0.897,
+"frames": 121,
+"frame": 51,
+"pWorst": 0.867,
+"frameWorst": 399
+},
+{
+"check": "sweep",
+"a": "sample Tube",
+"b": "instrument (Thermocycler)",
+"depth": 0.40433089922139587,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#ffffff",
+"opacity": 1,
+"min": [
+33.461,
+0.581,
+-0.139
+],
+"max": [
+33.739,
+1.104,
+0.139
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#2b2f36",
+"opacity": 0.8262499422718682,
+"min": [
+32.35,
+0,
+-0.95
+],
+"max": [
+34.85,
+0.7,
+0.95
+]
+}
+],
+"at": [
+33.6,
+0.581,
+0.127
+],
+"p": 0,
+"pLast": 0.905,
+"frames": 14,
+"frame": 51
+},
+{
+"check": "float",
+"a": "sample Tube",
+"b": "nearest solid",
+"depth": 0.13000000134110443,
+"box": {
+"min": [
+33.446,
+1,
+-0.154
+],
+"max": [
+33.754,
+1.759,
+0.154
+]
+},
+"p": 1,
+"pLast": 1,
+"frames": 8,
+"frame": 459
+}
+]
+},
+"pcr|6": {
+"protocol": "pcr",
+"station": 6,
+"action": "heat",
+"container": null,
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "prev \u00b7 instrument (Thermocycler)",
+"b": "sample Tube",
+"depth": 0.09929513112696853,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#3a3f47",
+"opacity": 1,
+"min": [
+32.5,
+0.911,
+-0.959
+],
+"max": [
+34.7,
+2.362,
+-0.164
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#ffffff",
+"opacity": 1,
+"min": [
+33.283,
+1.413,
+-0.317
+],
+"max": [
+33.917,
+2.603,
+0.317
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 5,
+"frame": 0,
+"pWorst": 0,
+"frameWorst": 6
+},
+{
+"check": "sweep",
+"a": "sample Tube",
+"b": "prev \u00b7 instrument (Thermocycler)",
+"depth": 0.5211980407224286,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#ffffff",
+"opacity": 1,
+"min": [
+33.713,
+2.405,
+-0.317
+],
+"max": [
+34.347,
+3.595,
+0.317
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#3a3f47",
+"opacity": 1,
+"min": [
+32.5,
+0.911,
+-0.959
+],
+"max": [
+34.7,
+2.362,
+-0.164
+]
+}
+],
+"at": [
+34.258,
+2.405,
+-0.175
+],
+"p": 0,
+"pLast": 0,
+"frames": 5,
+"frame": 3,
+"pWorst": 0,
+"frameWorst": 15
+}
+]
+},
+"pcr|7": {
+"protocol": "pcr",
+"station": 7,
+"action": "store",
+"container": null,
+"timed": false,
+"defects": []
+},
+"pcr|8": {
+"protocol": "pcr",
+"station": 8,
+"action": "electrophorese",
+"container": "gel",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "instrument (GelRig)",
+"b": "sample GelSlab",
+"depth": 0.1385315587919702,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#cdd6de",
+"opacity": 0.5,
+"min": [
+57.5,
+0.2,
+-0.8
+],
+"max": [
+60.1,
+0.9,
+0.8
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#2b3038",
+"opacity": 1,
+"min": [
+55.834,
+0.761,
+-0.455
+],
+"max": [
+57.734,
+0.861,
+0.845
+]
+}
+],
+"p": 0.521,
+"pLast": 1,
+"frames": 51,
+"frame": 255,
+"pWorst": 1,
+"frameWorst": 453
+},
+{
+"check": "sweep",
+"a": "sample GelSlab",
+"b": "instrument (GelRig)",
+"depth": 0.2893168074308323,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#2b3038",
+"opacity": 1,
+"min": [
+57.85,
+0.559,
+-0.65
+],
+"max": [
+59.75,
+0.659,
+0.65
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#2b3038",
+"opacity": 1,
+"min": [
+57.47,
+0.19,
+-0.83
+],
+"max": [
+60.13,
+0.29,
+0.83
+]
+}
+],
+"at": [
+59.75,
+0.559,
+0.65
+],
+"p": 0.521,
+"pLast": 1,
+"frames": 17,
+"frame": 255,
+"pWorst": 0.928,
+"frameWorst": 414
+},
+{
+"check": "sweep",
+"a": "instrument (GelRig)",
+"b": "sample GelSlab",
+"depth": 0.6640832745006979,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#c0392b",
+"opacity": 1,
+"min": [
+58.25,
+1.454,
+0.55
+],
+"max": [
+58.35,
+1.574,
+0.65
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#d8c98a",
+"opacity": 0.5,
+"min": [
+57.153,
+1.313,
+-0.473
+],
+"max": [
+58.853,
+1.473,
+0.627
+]
+}
+],
+"at": [
+58.343,
+1.454,
+0.625
+],
+"p": 0.99,
+"pLast": 0.997,
+"frames": 2,
+"frame": 438
+}
+]
+},
+"agarose_gel|1": {
+"protocol": "agarose_gel",
+"station": 1,
+"action": "pour_add",
+"container": "flask",
+"timed": false,
+"defects": []
+},
+"agarose_gel|2": {
+"protocol": "agarose_gel",
+"station": 2,
+"action": "heat",
+"container": null,
+"timed": false,
+"defects": []
+},
+"agarose_gel|3": {
+"protocol": "agarose_gel",
+"station": 3,
+"action": "incubate_wait",
+"container": null,
+"timed": false,
+"defects": []
+},
+"agarose_gel|4": {
+"protocol": "agarose_gel",
+"station": 4,
+"action": "pour_add",
+"container": null,
+"timed": false,
+"defects": []
+},
+"agarose_gel|5": {
+"protocol": "agarose_gel",
+"station": 5,
+"action": "pour_add",
+"container": "gel",
+"timed": false,
+"defects": []
+},
+"agarose_gel|6": {
+"protocol": "agarose_gel",
+"station": 6,
+"action": "incubate_wait",
+"container": null,
+"timed": true,
+"defects": []
+},
+"agarose_gel|7": {
+"protocol": "agarose_gel",
+"station": 7,
+"action": "transfer",
+"container": "gel",
+"timed": false,
+"defects": []
+},
+"agarose_gel|8": {
+"protocol": "agarose_gel",
+"station": 8,
+"action": "pour_add",
+"container": null,
+"timed": false,
+"defects": []
+},
+"agarose_gel|9": {
+"protocol": "agarose_gel",
+"station": 9,
+"action": "transfer",
+"container": "gel",
+"timed": false,
+"defects": []
+},
+"agarose_gel|10": {
+"protocol": "agarose_gel",
+"station": 10,
+"action": "transfer",
+"container": "gel",
+"timed": false,
+"defects": []
+},
+"agarose_gel|11": {
+"protocol": "agarose_gel",
+"station": 11,
+"action": "electrophorese",
+"container": "gel",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "instrument (GelRig)",
+"b": "sample GelSlab",
+"depth": 0.09999999478459354,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#cdd6de",
+"opacity": 0.5,
+"min": [
+82.7,
+0.2,
+-0.8
+],
+"max": [
+85.3,
+0.9,
+0.8
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#2b3038",
+"opacity": 1,
+"min": [
+83.05,
+0.2,
+-0.65
+],
+"max": [
+84.95,
+0.3,
+0.65
+]
+}
+],
+"p": 0.344,
+"pLast": 1,
+"frames": 66,
+"frame": 186,
+"pWorst": 0.705,
+"frameWorst": 327
+},
+{
+"check": "sweep",
+"a": "sample GelSlab",
+"b": "instrument (GelRig)",
+"depth": 0.23336631915368855,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#2b3038",
+"opacity": 1,
+"min": [
+81.096,
+0.919,
+-0.461
+],
+"max": [
+82.996,
+1.019,
+0.839
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#2b3038",
+"opacity": 0.32,
+"min": [
+82.65,
+0.915,
+-0.85
+],
+"max": [
+85.35,
+1.005,
+0.85
+]
+}
+],
+"at": [
+82.996,
+0.919,
+0.839
+],
+"p": 0.344,
+"pLast": 1,
+"frames": 15,
+"frame": 186,
+"pWorst": 1,
+"frameWorst": 447
+},
+{
+"check": "sweep",
+"a": "instrument (GelRig)",
+"b": "sample GelSlab",
+"depth": 0.6679947964957873,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#c0392b",
+"opacity": 1,
+"min": [
+83.45,
+1.184,
+0.55
+],
+"max": [
+83.55,
+1.304,
+0.65
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#d8c98a",
+"opacity": 0.5,
+"min": [
+81.884,
+1.281,
+-0.428
+],
+"max": [
+83.584,
+1.441,
+0.672
+]
+}
+],
+"at": [
+83.5,
+1.304,
+0.65
+],
+"p": 0.99,
+"pLast": 0.99,
+"frames": 1,
+"frame": 438
+}
+]
+},
+"agarose_gel|12": {
+"protocol": "agarose_gel",
+"station": 12,
+"action": "measure",
+"container": "gel",
+"timed": false,
+"defects": [
+{
+"check": "float",
+"a": "sample GelSlab",
+"b": "nearest solid",
+"depth": 0.024999998882413,
+"box": {
+"min": [
+91.45,
+0.57,
+-0.15
+],
+"max": [
+93.35,
+0.812,
+1.15
+]
+},
+"p": 0.079,
+"pLast": 1,
+"frames": 129,
+"frame": 96
+}
+]
+},
+"cryopreservation|1": {
+"protocol": "cryopreservation",
+"station": 1,
+"action": "generic",
+"container": "flask",
+"timed": false,
+"defects": []
+},
+"cryopreservation|2": {
+"protocol": "cryopreservation",
+"station": 2,
+"action": "centrifuge",
+"container": "tube",
+"timed": true,
+"defects": []
+},
+"cryopreservation|3": {
+"protocol": "cryopreservation",
+"station": 3,
+"action": "discard",
+"container": null,
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "pipette (Pipette)",
+"b": "sample Tube",
+"depth": 0.061573292976924376,
+"meshes": [
+{
+"geo": "LatheGeometry",
+"color": "#e6eef4",
+"opacity": 0.3085181432603233,
+"min": [
+16.717,
+1.35,
+-0.083
+],
+"max": [
+16.883,
+1.984,
+0.083
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+16.461,
+1.412,
+-0.339
+],
+"max": [
+17.139,
+3.112,
+0.339
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 2,
+"frame": 42,
+"pWorst": 0,
+"frameWorst": 45
+},
+{
+"check": "sweep",
+"a": "sample Tube",
+"b": "pipette (Pipette)",
+"depth": 0.8784045686646427,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#e9edf1",
+"opacity": 0.82,
+"min": [
+16.89,
+2.869,
+-0.179
+],
+"max": [
+16.965,
+3.379,
+0.179
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#d8dee6",
+"opacity": 0.6947194494327886,
+"min": [
+16.691,
+2.365,
+-0.109
+],
+"max": [
+16.909,
+3.445,
+0.109
+]
+}
+],
+"at": [
+16.955,
+3.379,
+0.076
+],
+"p": 0,
+"pLast": 0,
+"frames": 3,
+"frame": 42
+}
+]
+},
+"cryopreservation|4": {
+"protocol": "cryopreservation",
+"station": 4,
+"action": "pour_add",
+"container": null,
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "prev \u00b7 pipette (Pipette)",
+"b": "sample Tube",
+"depth": 0.5395085854970936,
+"meshes": [
+{
+"geo": "LatheGeometry",
+"color": "#e6eef4",
+"opacity": 0.42,
+"min": [
+16.717,
+0.85,
+-0.083
+],
+"max": [
+16.883,
+1.484,
+0.083
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+16.461,
+1.39,
+-0.339
+],
+"max": [
+17.139,
+3.09,
+0.339
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 2,
+"frame": 15
+},
+{
+"check": "sweep",
+"a": "sample Tube",
+"b": "prev \u00b7 pipette (Pipette)",
+"depth": 0.8702683862152327,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#ffffff",
+"opacity": 1,
+"min": [
+17.473,
+2.405,
+-0.317
+],
+"max": [
+18.107,
+3.595,
+0.317
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#d8dee6",
+"opacity": 1,
+"min": [
+16.691,
+1.865,
+-0.109
+],
+"max": [
+16.909,
+2.945,
+0.109
+]
+}
+],
+"at": [
+17.512,
+2.405,
+-0.075
+],
+"p": 0,
+"pLast": 0,
+"frames": 3,
+"frame": 15,
+"pWorst": 0,
+"frameWorst": 21
+}
+]
+},
+"cryopreservation|5": {
+"protocol": "cryopreservation",
+"station": 5,
+"action": "transfer",
+"container": "cryovial",
+"timed": false,
+"defects": []
+},
+"cryopreservation|6": {
+"protocol": "cryopreservation",
+"station": 6,
+"action": "store",
+"container": "cryovial",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "instrument (Freezer)",
+"b": "sample Cryovial",
+"depth": 0.5407930009783339,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#d7dbe0",
+"opacity": 1,
+"min": [
+41,
+0,
+-2.3
+],
+"max": [
+43.2,
+2.6,
+-0.7
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#8f2f6a",
+"opacity": 1,
+"min": [
+42.053,
+1.5,
+-1.241
+],
+"max": [
+42.08,
+1.66,
+-1.225
+]
+}
+],
+"p": 0.274,
+"pLast": 1,
+"frames": 77,
+"frame": 162,
+"pWorst": 0.667,
+"frameWorst": 315
+},
+{
+"check": "sweep",
+"a": "sample Cryovial",
+"b": "instrument (Freezer)",
+"depth": 0.12998827147539363,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#8f2f6a",
+"opacity": 1,
+"min": [
+41.599,
+1.796,
+0.559
+],
+"max": [
+41.618,
+1.956,
+0.587
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#e6e9ed",
+"opacity": 1,
+"min": [
+40.994,
+0.05,
+-0.672
+],
+"max": [
+41.867,
+2.55,
+1.329
+]
+}
+],
+"at": [
+41.618,
+1.956,
+0.584
+],
+"p": 0.274,
+"pLast": 0.613,
+"frames": 16,
+"frame": 162,
+"pWorst": 0.282,
+"frameWorst": 165
+},
+{
+"check": "float",
+"a": "sample Cryovial",
+"b": "nearest solid",
+"depth": 0.01999995052814474,
+"box": {
+"min": [
+41.859,
+0.32,
+-1.241
+],
+"max": [
+42.341,
+1.68,
+-0.759
+]
+},
+"p": 0.736,
+"pLast": 1,
+"frames": 47,
+"frame": 342
+}
+]
+},
+"cryopreservation|7": {
+"protocol": "cryopreservation",
+"station": 7,
+"action": "store",
+"container": "cryovial",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "prev \u00b7 instrument (Freezer)",
+"b": "sample Cryovial",
+"depth": 0.5403858595636404,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#d7dbe0",
+"opacity": 1,
+"min": [
+41,
+0,
+-2.3
+],
+"max": [
+43.2,
+2.6,
+-0.7
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#8f2f6a",
+"opacity": 1,
+"min": [
+42.12,
+1.5,
+-1.24
+],
+"max": [
+42.147,
+1.66,
+-1.225
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 5,
+"frame": 0
+},
+{
+"check": "sweep",
+"a": "sample Cryovial",
+"b": "prev \u00b7 instrument (Freezer)",
+"depth": 0.29916943991770784,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#8f2f6a",
+"opacity": 1,
+"min": [
+41.865,
+1.5,
+-0.384
+],
+"max": [
+41.884,
+1.66,
+-0.355
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#aeb8c4",
+"opacity": 1,
+"min": [
+41.25,
+0.3,
+-1.35
+],
+"max": [
+42.95,
+2.4,
+-0.65
+]
+}
+],
+"at": [
+41.876,
+1.66,
+-0.355
+],
+"p": 0,
+"pLast": 0,
+"frames": 4,
+"frame": 6,
+"pWorst": 0,
+"frameWorst": 15
+}
+]
+},
+"elisa|1": {
+"protocol": "elisa",
+"station": 1,
+"action": "pour_add",
+"container": "tube",
+"timed": false,
+"defects": []
+},
+"elisa|2": {
+"protocol": "elisa",
+"station": 2,
+"action": "centrifuge",
+"container": null,
+"timed": true,
+"defects": [
+{
+"check": "intersect",
+"a": "centrifuge (Centrifuge)",
+"b": "sample Tube",
+"depth": 0.21234623073795084,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#a6aeb9",
+"opacity": 1,
+"min": [
+8.695,
+0.552,
+-1.605
+],
+"max": [
+10.905,
+0.978,
+0.605
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+9.627,
+0.608,
+-0.235
+],
+"max": [
+9.973,
+1.541,
+0.421
+]
+}
+],
+"p": 0,
+"pLast": 1,
+"frames": 207,
+"frame": 102,
+"pWorst": 0,
+"frameWorst": 114
+},
+{
+"check": "sweep",
+"a": "sample Tube",
+"b": "centrifuge (Centrifuge)",
+"depth": 0.8965479840582237,
+"meshes": [
+{
+"geo": "SphereGeometry",
+"color": "#d6e2ea",
+"opacity": 0.42,
+"min": [
+10.549,
+1.09,
+-0.59
+],
+"max": [
+10.597,
+1.147,
+-0.556
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#252d37",
+"opacity": 1,
+"min": [
+10.013,
+0.624,
+-0.3
+],
+"max": [
+10.345,
+1.212,
+0.033
+]
+}
+],
+"at": [
+10.59,
+1.121,
+-0.578
+],
+"p": 0,
+"pLast": 0.879,
+"frames": 83,
+"frame": 105,
+"pWorst": 0.795,
+"frameWorst": 549
+},
+{
+"check": "sweep",
+"a": "centrifuge (Centrifuge)",
+"b": "sample Tube",
+"depth": 0.9118974761136412,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#9ba6b2",
+"opacity": 1,
+"min": [
+8.979,
+0.85,
+-1.321
+],
+"max": [
+10.621,
+0.952,
+0.321
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+10.062,
+0.608,
+-0.689
+],
+"max": [
+10.724,
+1.541,
+-0.332
+]
+}
+],
+"at": [
+10.571,
+0.952,
+-0.741
+],
+"p": 0.279,
+"pLast": 0.879,
+"frames": 79,
+"frame": 348,
+"pWorst": 0.795,
+"frameWorst": 549
+}
+]
+},
+"elisa|3": {
+"protocol": "elisa",
+"station": 3,
+"action": "transfer",
+"container": "tube",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "prev \u00b7 centrifuge (Centrifuge)",
+"b": "sample Tube",
+"depth": 0.22056613439692818,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#252d37",
+"opacity": 1,
+"min": [
+9.707,
+0.639,
+-0.162
+],
+"max": [
+9.893,
+1.197,
+0.216
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+9.621,
+0.8,
+-0.16
+],
+"max": [
+9.979,
+1.766,
+0.509
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 5,
+"frame": 0,
+"pWorst": 0,
+"frameWorst": 9
+},
+{
+"check": "sweep",
+"a": "sample Tube",
+"b": "prev \u00b7 centrifuge (Centrifuge)",
+"depth": 0.2566230998511274,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#ffffff",
+"opacity": 1,
+"min": [
+9.603,
+1.16,
+-0.049
+],
+"max": [
+9.997,
+1.984,
+0.551
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#a6aeb9",
+"opacity": 1,
+"min": [
+8.695,
+0.552,
+-1.605
+],
+"max": [
+10.905,
+0.978,
+0.605
+]
+}
+],
+"at": [
+9.8,
+1.165,
+0.309
+],
+"p": 0,
+"pLast": 0,
+"frames": 4,
+"frame": 3,
+"pWorst": 0,
+"frameWorst": 12
+}
+]
+},
+"elisa|4": {
+"protocol": "elisa",
+"station": 4,
+"action": "prepare",
+"container": "tube",
+"timed": false,
+"defects": []
+},
+"elisa|5": {
+"protocol": "elisa",
+"station": 5,
+"action": "pour_add",
+"container": "well_plate",
+"timed": false,
+"defects": []
+},
+"elisa|6": {
+"protocol": "elisa",
+"station": 6,
+"action": "incubate_wait",
+"container": null,
+"timed": true,
+"defects": []
+},
+"elisa|7": {
+"protocol": "elisa",
+"station": 7,
+"action": "pour_add",
+"container": "well_plate",
+"timed": false,
+"defects": []
+},
+"elisa|8": {
+"protocol": "elisa",
+"station": 8,
+"action": "discard",
+"container": null,
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "pipette (Pipette)",
+"b": "sample WellPlate",
+"depth": 0.10560000208616316,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#ffffff",
+"opacity": 0.6332193837090043,
+"min": [
+57.78,
+2.152,
+0.73
+],
+"max": [
+57.86,
+2.397,
+0.81
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#c4ccd6",
+"opacity": 1,
+"min": [
+55.33,
+2.15,
+-0.975
+],
+"max": [
+58.23,
+2.38,
+0.975
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 3,
+"frame": 36
+},
+{
+"check": "sweep",
+"a": "sample WellPlate",
+"b": "pipette (Pipette)",
+"depth": 1.0788709659865532,
+"meshes": [
+{
+"geo": "ExtrudeGeometry",
+"color": "#e3e8ee",
+"opacity": 1,
+"min": [
+55.33,
+2.38,
+-0.975
+],
+"max": [
+58.23,
+2.49,
+0.975
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#e6eef4",
+"opacity": 0.2659521411577818,
+"min": [
+57.737,
+1.9,
+0.687
+],
+"max": [
+57.903,
+2.534,
+0.853
+]
+}
+],
+"at": [
+57.9,
+2.38,
+0.747
+],
+"p": 0,
+"pLast": 0,
+"frames": 1,
+"frame": 36
+}
+]
+},
+"elisa|9": {
+"protocol": "elisa",
+"station": 9,
+"action": "pour_add",
+"container": "well_plate",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "prev \u00b7 pipette (Pipette)",
+"b": "sample WellPlate",
+"depth": 0.11490903121456095,
+"meshes": [
+{
+"geo": "TorusGeometry",
+"color": "#4c6470",
+"opacity": 1,
+"min": [
+57.711,
+2.145,
+0.788
+],
+"max": [
+57.929,
+2.25,
+0.966
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#c4ccd6",
+"opacity": 1,
+"min": [
+57.472,
+2.089,
+-0.975
+],
+"max": [
+60.372,
+2.319,
+0.975
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 3,
+"frame": 12,
+"pWorst": 0,
+"frameWorst": 18
+},
+{
+"check": "sweep",
+"a": "sample WellPlate",
+"b": "prev \u00b7 pipette (Pipette)",
+"depth": 0.8702683862152365,
+"meshes": [
+{
+"geo": "ExtrudeGeometry",
+"color": "#e3e8ee",
+"opacity": 1,
+"min": [
+58.34,
+2.38,
+-0.975
+],
+"max": [
+61.24,
+2.49,
+0.975
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#d8dee6",
+"opacity": 1,
+"min": [
+57.711,
+1.685,
+0.661
+],
+"max": [
+57.929,
+2.765,
+0.879
+]
+}
+],
+"at": [
+58.625,
+2.49,
+0.691
+],
+"p": 0,
+"pLast": 0,
+"frames": 3,
+"frame": 15,
+"pWorst": 0,
+"frameWorst": 21
+}
+]
+},
+"elisa|10": {
+"protocol": "elisa",
+"station": 10,
+"action": "incubate_wait",
+"container": null,
+"timed": true,
+"defects": []
+},
+"elisa|11": {
+"protocol": "elisa",
+"station": 11,
+"action": "prepare",
+"container": "tube",
+"timed": false,
+"defects": []
+},
+"elisa|12": {
+"protocol": "elisa",
+"station": 12,
+"action": "pour_add",
+"container": "well_plate",
+"timed": false,
+"defects": []
+},
+"elisa|13": {
+"protocol": "elisa",
+"station": 13,
+"action": "incubate_wait",
+"container": null,
+"timed": true,
+"defects": []
+},
+"elisa|14": {
+"protocol": "elisa",
+"station": 14,
+"action": "pour_add",
+"container": "well_plate",
+"timed": false,
+"defects": []
+},
+"elisa|15": {
+"protocol": "elisa",
+"station": 15,
+"action": "discard",
+"container": null,
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "pipette (Pipette)",
+"b": "sample WellPlate",
+"depth": 0.10560000208616316,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#ffffff",
+"opacity": 0.6332193837090037,
+"min": [
+116.58,
+2.152,
+0.73
+],
+"max": [
+116.66,
+2.397,
+0.81
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#c4ccd6",
+"opacity": 1,
+"min": [
+114.13,
+2.15,
+-0.975
+],
+"max": [
+117.03,
+2.38,
+0.975
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 3,
+"frame": 36
+},
+{
+"check": "sweep",
+"a": "sample WellPlate",
+"b": "pipette (Pipette)",
+"depth": 1.0788709659865532,
+"meshes": [
+{
+"geo": "ExtrudeGeometry",
+"color": "#e3e8ee",
+"opacity": 1,
+"min": [
+114.13,
+2.38,
+-0.975
+],
+"max": [
+117.03,
+2.49,
+0.975
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#e6eef4",
+"opacity": 0.26595214115778154,
+"min": [
+116.537,
+1.9,
+0.687
+],
+"max": [
+116.703,
+2.534,
+0.853
+]
+}
+],
+"at": [
+116.7,
+2.38,
+0.747
+],
+"p": 0,
+"pLast": 0,
+"frames": 1,
+"frame": 36
+}
+]
+},
+"elisa|16": {
+"protocol": "elisa",
+"station": 16,
+"action": "pour_add",
+"container": "well_plate",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "prev \u00b7 pipette (Pipette)",
+"b": "sample WellPlate",
+"depth": 0.11490903121455784,
+"meshes": [
+{
+"geo": "TorusGeometry",
+"color": "#4c6470",
+"opacity": 1,
+"min": [
+116.511,
+2.145,
+0.788
+],
+"max": [
+116.729,
+2.25,
+0.966
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#c4ccd6",
+"opacity": 1,
+"min": [
+116.272,
+2.089,
+-0.975
+],
+"max": [
+119.172,
+2.319,
+0.975
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 3,
+"frame": 12,
+"pWorst": 0,
+"frameWorst": 18
+},
+{
+"check": "sweep",
+"a": "sample WellPlate",
+"b": "prev \u00b7 pipette (Pipette)",
+"depth": 0.8702683862152363,
+"meshes": [
+{
+"geo": "ExtrudeGeometry",
+"color": "#e3e8ee",
+"opacity": 1,
+"min": [
+117.14,
+2.38,
+-0.975
+],
+"max": [
+120.04,
+2.49,
+0.975
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#d8dee6",
+"opacity": 1,
+"min": [
+116.511,
+1.685,
+0.661
+],
+"max": [
+116.729,
+2.765,
+0.879
+]
+}
+],
+"at": [
+117.425,
+2.49,
+0.691
+],
+"p": 0,
+"pLast": 0,
+"frames": 3,
+"frame": 15,
+"pWorst": 0,
+"frameWorst": 21
+}
+]
+},
+"elisa|17": {
+"protocol": "elisa",
+"station": 17,
+"action": "incubate_wait",
+"container": null,
+"timed": true,
+"defects": []
+},
+"elisa|18": {
+"protocol": "elisa",
+"station": 18,
+"action": "pour_add",
+"container": "well_plate",
+"timed": false,
+"defects": []
+},
+"elisa|19": {
+"protocol": "elisa",
+"station": 19,
+"action": "discard",
+"container": null,
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "pipette (Pipette)",
+"b": "sample WellPlate",
+"depth": 0.10560000208616316,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#ffffff",
+"opacity": 0.6332193837090032,
+"min": [
+150.18,
+2.152,
+0.73
+],
+"max": [
+150.26,
+2.397,
+0.81
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#c4ccd6",
+"opacity": 1,
+"min": [
+147.73,
+2.15,
+-0.975
+],
+"max": [
+150.63,
+2.38,
+0.975
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 3,
+"frame": 36
+},
+{
+"check": "sweep",
+"a": "sample WellPlate",
+"b": "pipette (Pipette)",
+"depth": 1.078870965986539,
+"meshes": [
+{
+"geo": "ExtrudeGeometry",
+"color": "#e3e8ee",
+"opacity": 1,
+"min": [
+147.73,
+2.38,
+-0.975
+],
+"max": [
+150.63,
+2.49,
+0.975
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#e6eef4",
+"opacity": 0.2659521411577813,
+"min": [
+150.137,
+1.9,
+0.687
+],
+"max": [
+150.303,
+2.534,
+0.853
+]
+}
+],
+"at": [
+150.3,
+2.38,
+0.747
+],
+"p": 0,
+"pLast": 0,
+"frames": 1,
+"frame": 36
+}
+]
+},
+"elisa|20": {
+"protocol": "elisa",
+"station": 20,
+"action": "pour_add",
+"container": "well_plate",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "prev \u00b7 pipette (Pipette)",
+"b": "sample WellPlate",
+"depth": 0.11490903121455429,
+"meshes": [
+{
+"geo": "TorusGeometry",
+"color": "#4c6470",
+"opacity": 1,
+"min": [
+150.111,
+2.145,
+0.788
+],
+"max": [
+150.329,
+2.25,
+0.966
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#c4ccd6",
+"opacity": 1,
+"min": [
+149.872,
+2.089,
+-0.975
+],
+"max": [
+152.772,
+2.319,
+0.975
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 3,
+"frame": 12,
+"pWorst": 0,
+"frameWorst": 18
+},
+{
+"check": "sweep",
+"a": "sample WellPlate",
+"b": "prev \u00b7 pipette (Pipette)",
+"depth": 0.8702683862152218,
+"meshes": [
+{
+"geo": "ExtrudeGeometry",
+"color": "#e3e8ee",
+"opacity": 1,
+"min": [
+150.74,
+2.38,
+-0.975
+],
+"max": [
+153.64,
+2.49,
+0.975
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#d8dee6",
+"opacity": 1,
+"min": [
+150.111,
+1.685,
+0.661
+],
+"max": [
+150.329,
+2.765,
+0.879
+]
+}
+],
+"at": [
+151.025,
+2.49,
+0.691
+],
+"p": 0,
+"pLast": 0,
+"frames": 3,
+"frame": 15,
+"pWorst": 0,
+"frameWorst": 21
+}
+]
+},
+"elisa|21": {
+"protocol": "elisa",
+"station": 21,
+"action": "incubate_wait",
+"container": null,
+"timed": true,
+"defects": []
+},
+"elisa|22": {
+"protocol": "elisa",
+"station": 22,
+"action": "pour_add",
+"container": "well_plate",
+"timed": false,
+"defects": []
+},
+"elisa|23": {
+"protocol": "elisa",
+"station": 23,
+"action": "discard",
+"container": null,
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "pipette (Pipette)",
+"b": "sample WellPlate",
+"depth": 0.10560000208616316,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#ffffff",
+"opacity": 0.6332193837090032,
+"min": [
+183.78,
+2.152,
+0.73
+],
+"max": [
+183.86,
+2.397,
+0.81
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#c4ccd6",
+"opacity": 1,
+"min": [
+181.33,
+2.15,
+-0.975
+],
+"max": [
+184.23,
+2.38,
+0.975
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 3,
+"frame": 36
+},
+{
+"check": "sweep",
+"a": "sample WellPlate",
+"b": "pipette (Pipette)",
+"depth": 1.078870965986539,
+"meshes": [
+{
+"geo": "ExtrudeGeometry",
+"color": "#e3e8ee",
+"opacity": 1,
+"min": [
+181.33,
+2.38,
+-0.975
+],
+"max": [
+184.23,
+2.49,
+0.975
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#e6eef4",
+"opacity": 0.2659521411577813,
+"min": [
+183.737,
+1.9,
+0.687
+],
+"max": [
+183.903,
+2.534,
+0.853
+]
+}
+],
+"at": [
+183.9,
+2.38,
+0.747
+],
+"p": 0,
+"pLast": 0,
+"frames": 1,
+"frame": 36
+}
+]
+},
+"elisa|24": {
+"protocol": "elisa",
+"station": 24,
+"action": "pour_add",
+"container": "well_plate",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "prev \u00b7 pipette (Pipette)",
+"b": "sample WellPlate",
+"depth": 0.11490903121455917,
+"meshes": [
+{
+"geo": "TorusGeometry",
+"color": "#4c6470",
+"opacity": 1,
+"min": [
+183.711,
+2.145,
+0.788
+],
+"max": [
+183.929,
+2.25,
+0.966
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#c4ccd6",
+"opacity": 1,
+"min": [
+183.472,
+2.089,
+-0.975
+],
+"max": [
+186.372,
+2.319,
+0.975
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 3,
+"frame": 12,
+"pWorst": 0,
+"frameWorst": 18
+},
+{
+"check": "sweep",
+"a": "sample WellPlate",
+"b": "prev \u00b7 pipette (Pipette)",
+"depth": 0.8702683862152222,
+"meshes": [
+{
+"geo": "ExtrudeGeometry",
+"color": "#e3e8ee",
+"opacity": 1,
+"min": [
+184.34,
+2.38,
+-0.975
+],
+"max": [
+187.24,
+2.49,
+0.975
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#d8dee6",
+"opacity": 1,
+"min": [
+183.711,
+1.685,
+0.661
+],
+"max": [
+183.929,
+2.765,
+0.879
+]
+}
+],
+"at": [
+184.625,
+2.49,
+0.691
+],
+"p": 0,
+"pLast": 0,
+"frames": 3,
+"frame": 15,
+"pWorst": 0,
+"frameWorst": 21
+}
+]
+},
+"elisa|25": {
+"protocol": "elisa",
+"station": 25,
+"action": "incubate_wait",
+"container": null,
+"timed": false,
+"defects": []
+},
+"elisa|26": {
+"protocol": "elisa",
+"station": 26,
+"action": "pour_add",
+"container": "well_plate",
+"timed": false,
+"defects": []
+},
+"elisa|27": {
+"protocol": "elisa",
+"station": 27,
+"action": "measure",
+"container": null,
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "instrument (PlateReader)",
+"b": "sample WellPlate",
+"depth": 0.74,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#d9dde2",
+"opacity": 1,
+"min": [
+216.9,
+0,
+-1
+],
+"max": [
+219.9,
+1.5,
+1
+]
+},
+{
+"geo": "ExtrudeGeometry",
+"color": "#e3e8ee",
+"opacity": 1,
+"min": [
+216.95,
+0.76,
+0.119
+],
+"max": [
+219.85,
+0.87,
+2.069
+]
+}
+],
+"p": 0,
+"pLast": 1,
+"frames": 145,
+"frame": 48,
+"pWorst": 0.39,
+"frameWorst": 213
+},
+{
+"check": "sweep",
+"a": "sample WellPlate",
+"b": "instrument (PlateReader)",
+"depth": 0.5358997474868374,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#c4ccd6",
+"opacity": 1,
+"min": [
+216.95,
+1.219,
+0.925
+],
+"max": [
+219.85,
+1.449,
+2.875
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#d9dde2",
+"opacity": 0.7812616370253508,
+"min": [
+216.9,
+0,
+-1
+],
+"max": [
+219.9,
+1.5,
+1
+]
+}
+],
+"at": [
+219.85,
+1.449,
+0.925
+],
+"p": 0,
+"pLast": 0.659,
+"frames": 32,
+"frame": 48
+},
+{
+"check": "sweep",
+"a": "instrument (PlateReader)",
+"b": "sample WellPlate",
+"depth": 0.23302425973215213,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#6b7480",
+"opacity": 1,
+"min": [
+217.125,
+0.47,
+2.279
+],
+"max": [
+219.675,
+0.59,
+2.359
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#c4ccd6",
+"opacity": 1,
+"min": [
+216.9,
+0.53,
+0.245
+],
+"max": [
+219.9,
+0.59,
+2.295
+]
+}
+],
+"at": [
+219.675,
+0.59,
+2.279
+],
+"p": 0.359,
+"pLast": 0.528,
+"frames": 6,
+"frame": 201
+}
+]
+},
+"gram_stain|1": {
+"protocol": "gram_stain",
+"station": 1,
+"action": "seed",
+"container": "slide",
+"timed": false,
+"defects": []
+},
+"gram_stain|2": {
+"protocol": "gram_stain",
+"station": 2,
+"action": "heat",
+"container": "slide",
+"timed": false,
+"defects": []
+},
+"gram_stain|3": {
+"protocol": "gram_stain",
+"station": 3,
+"action": "stain",
+"container": "slide",
+"timed": false,
+"defects": [
+{
+"check": "float",
+"a": "sample Slide",
+"b": "nearest solid",
+"depth": 0.05299999876320363,
+"box": {
+"min": [
+15.6,
+0.298,
+-0.4
+],
+"max": [
+18,
+0.354,
+0.4
+]
+},
+"p": 0.074,
+"pLast": 1,
+"frames": 131,
+"frame": 90
+}
+]
+},
+"gram_stain|4": {
+"protocol": "gram_stain",
+"station": 4,
+"action": "incubate_wait",
+"container": "slide",
+"timed": true,
+"defects": []
+},
+"gram_stain|5": {
+"protocol": "gram_stain",
+"station": 5,
+"action": "pour_add",
+"container": "slide",
+"timed": false,
+"defects": []
+},
+"gram_stain|6": {
+"protocol": "gram_stain",
+"station": 6,
+"action": "stain",
+"container": "slide",
+"timed": false,
+"defects": [
+{
+"check": "float",
+"a": "sample Slide",
+"b": "nearest solid",
+"depth": 0.05299999876320363,
+"box": {
+"min": [
+40.8,
+0.298,
+-0.4
+],
+"max": [
+43.2,
+0.354,
+0.4
+]
+},
+"p": 0.074,
+"pLast": 1,
+"frames": 131,
+"frame": 90
+}
+]
+},
+"gram_stain|7": {
+"protocol": "gram_stain",
+"station": 7,
+"action": "incubate_wait",
+"container": "slide",
+"timed": true,
+"defects": []
+},
+"gram_stain|8": {
+"protocol": "gram_stain",
+"station": 8,
+"action": "pour_add",
+"container": "slide",
+"timed": false,
+"defects": []
+},
+"gram_stain|9": {
+"protocol": "gram_stain",
+"station": 9,
+"action": "pour_add",
+"container": "slide",
+"timed": false,
+"defects": []
+},
+"gram_stain|10": {
+"protocol": "gram_stain",
+"station": 10,
+"action": "pour_add",
+"container": "slide",
+"timed": false,
+"defects": []
+},
+"gram_stain|11": {
+"protocol": "gram_stain",
+"station": 11,
+"action": "stain",
+"container": "slide",
+"timed": false,
+"defects": [
+{
+"check": "float",
+"a": "sample Slide",
+"b": "nearest solid",
+"depth": 0.05299999876320363,
+"box": {
+"min": [
+82.8,
+0.298,
+-0.4
+],
+"max": [
+85.2,
+0.354,
+0.4
+]
+},
+"p": 0.074,
+"pLast": 1,
+"frames": 131,
+"frame": 90
+}
+]
+},
+"gram_stain|12": {
+"protocol": "gram_stain",
+"station": 12,
+"action": "incubate_wait",
+"container": "slide",
+"timed": true,
+"defects": []
+},
+"gram_stain|13": {
+"protocol": "gram_stain",
+"station": 13,
+"action": "pour_add",
+"container": "slide",
+"timed": false,
+"defects": []
+},
+"gram_stain|14": {
+"protocol": "gram_stain",
+"station": 14,
+"action": "measure",
+"container": "slide",
+"timed": false,
+"defects": []
+},
+"neutrophil_rna|1": {
+"protocol": "neutrophil_rna",
+"station": 1,
+"action": "cool_ice",
+"container": "microtube",
+"timed": false,
+"defects": []
+},
+"neutrophil_rna|2": {
+"protocol": "neutrophil_rna",
+"station": 2,
+"action": "pour_add",
+"container": "microtube",
+"timed": false,
+"defects": []
+},
+"neutrophil_rna|3": {
+"protocol": "neutrophil_rna",
+"station": 3,
+"action": "centrifuge",
+"container": "microtube",
+"timed": true,
+"defects": [
+{
+"check": "intersect",
+"a": "centrifuge (Centrifuge)",
+"b": "sample Tube",
+"depth": 0.21234623073795084,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#a6aeb9",
+"opacity": 1,
+"min": [
+17.095,
+0.552,
+-1.605
+],
+"max": [
+19.305,
+0.978,
+0.605
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+18.027,
+0.608,
+-0.235
+],
+"max": [
+18.373,
+1.541,
+0.421
+]
+}
+],
+"p": 0,
+"pLast": 1,
+"frames": 207,
+"frame": 102,
+"pWorst": 0,
+"frameWorst": 114
+},
+{
+"check": "sweep",
+"a": "sample Tube",
+"b": "centrifuge (Centrifuge)",
+"depth": 0.8852081922677305,
+"meshes": [
+{
+"geo": "SphereGeometry",
+"color": "#d6e2ea",
+"opacity": 0.42,
+"min": [
+18.944,
+1.077,
+-0.461
+],
+"max": [
+18.988,
+1.13,
+-0.43
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#252d37",
+"opacity": 1,
+"min": [
+18.413,
+0.624,
+-0.3
+],
+"max": [
+18.745,
+1.212,
+0.033
+]
+}
+],
+"at": [
+18.982,
+1.107,
+-0.441
+],
+"p": 0,
+"pLast": 0.879,
+"frames": 83,
+"frame": 105,
+"pWorst": 0.795,
+"frameWorst": 549
+},
+{
+"check": "sweep",
+"a": "centrifuge (Centrifuge)",
+"b": "sample Tube",
+"depth": 0.9118974761136407,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#9ba6b2",
+"opacity": 1,
+"min": [
+17.379,
+0.85,
+-1.321
+],
+"max": [
+19.021,
+0.952,
+0.321
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+18.462,
+0.608,
+-0.689
+],
+"max": [
+19.124,
+1.541,
+-0.332
+]
+}
+],
+"at": [
+18.971,
+0.952,
+-0.741
+],
+"p": 0.279,
+"pLast": 0.879,
+"frames": 79,
+"frame": 348,
+"pWorst": 0.795,
+"frameWorst": 549
+}
+]
+},
+"neutrophil_rna|4": {
+"protocol": "neutrophil_rna",
+"station": 4,
+"action": "pour_add",
+"container": "microtube",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "prev \u00b7 centrifuge (Centrifuge)",
+"b": "sample Tube",
+"depth": 0.220566134396928,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#252d37",
+"opacity": 1,
+"min": [
+18.107,
+0.639,
+-0.162
+],
+"max": [
+18.293,
+1.197,
+0.216
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+18.021,
+0.8,
+-0.16
+],
+"max": [
+18.379,
+1.766,
+0.509
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 5,
+"frame": 0,
+"pWorst": 0,
+"frameWorst": 9
+},
+{
+"check": "sweep",
+"a": "sample Tube",
+"b": "prev \u00b7 centrifuge (Centrifuge)",
+"depth": 0.25662309985112697,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#ffffff",
+"opacity": 1,
+"min": [
+18.003,
+1.16,
+-0.049
+],
+"max": [
+18.397,
+1.984,
+0.551
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#a6aeb9",
+"opacity": 1,
+"min": [
+17.095,
+0.552,
+-1.605
+],
+"max": [
+19.305,
+0.978,
+0.605
+]
+}
+],
+"at": [
+18.2,
+1.165,
+0.309
+],
+"p": 0,
+"pLast": 0,
+"frames": 4,
+"frame": 3,
+"pWorst": 0,
+"frameWorst": 12
+}
+]
+},
+"neutrophil_rna|5": {
+"protocol": "neutrophil_rna",
+"station": 5,
+"action": "transfer",
+"container": "spin_column",
+"timed": false,
+"defects": []
+},
+"neutrophil_rna|6": {
+"protocol": "neutrophil_rna",
+"station": 6,
+"action": "centrifuge",
+"container": "spin_column",
+"timed": true,
+"defects": [
+{
+"check": "intersect",
+"a": "centrifuge (Centrifuge)",
+"b": "sample SpinColumn",
+"depth": 0.2123984528647025,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#a6aeb9",
+"opacity": 1,
+"min": [
+42.295,
+0.552,
+-1.605
+],
+"max": [
+44.505,
+0.978,
+0.605
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+43.229,
+0.609,
+-0.233
+],
+"max": [
+43.571,
+1.212,
+0.28
+]
+}
+],
+"p": 0,
+"pLast": 1,
+"frames": 208,
+"frame": 99,
+"pWorst": 0,
+"frameWorst": 111
+},
+{
+"check": "sweep",
+"a": "sample SpinColumn",
+"b": "centrifuge (Centrifuge)",
+"depth": 0.8817645152399934,
+"meshes": [
+{
+"geo": "TorusGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+43.854,
+1.067,
+-0.689
+],
+"max": [
+44.192,
+1.223,
+-0.332
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#252d37",
+"opacity": 1,
+"min": [
+43.613,
+0.624,
+-0.3
+],
+"max": [
+43.945,
+1.212,
+0.033
+]
+}
+],
+"at": [
+44.178,
+1.085,
+-0.562
+],
+"p": 0,
+"pLast": 0.995,
+"frames": 99,
+"frame": 102,
+"pWorst": 0.795,
+"frameWorst": 549
+},
+{
+"check": "sweep",
+"a": "centrifuge (Centrifuge)",
+"b": "sample SpinColumn",
+"depth": 0.9118974761136396,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#9ba6b2",
+"opacity": 1,
+"min": [
+42.579,
+0.85,
+-1.321
+],
+"max": [
+44.221,
+0.952,
+0.321
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+43.664,
+0.609,
+-0.684
+],
+"max": [
+44.183,
+1.212,
+-0.334
+]
+}
+],
+"at": [
+44.171,
+0.952,
+-0.741
+],
+"p": 0.279,
+"pLast": 0.895,
+"frames": 81,
+"frame": 348,
+"pWorst": 0.795,
+"frameWorst": 549
+}
+]
+},
+"neutrophil_rna|7": {
+"protocol": "neutrophil_rna",
+"station": 7,
+"action": "pour_add",
+"container": "spin_column",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "prev \u00b7 centrifuge (Centrifuge)",
+"b": "sample SpinColumn",
+"depth": 0.21814299253599118,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#252d37",
+"opacity": 1,
+"min": [
+43.307,
+0.639,
+-0.162
+],
+"max": [
+43.493,
+1.197,
+0.216
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+43.223,
+0.8,
+-0.158
+],
+"max": [
+43.577,
+1.422,
+0.368
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 5,
+"frame": 0,
+"pWorst": 0,
+"frameWorst": 9
+},
+{
+"check": "sweep",
+"a": "sample SpinColumn",
+"b": "prev \u00b7 centrifuge (Centrifuge)",
+"depth": 0.24049248184817262,
+"meshes": [
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+43.192,
+1.005,
+-0.108
+],
+"max": [
+43.608,
+1.724,
+0.478
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#a6aeb9",
+"opacity": 1,
+"min": [
+42.295,
+0.552,
+-1.605
+],
+"max": [
+44.505,
+0.978,
+0.605
+]
+}
+],
+"at": [
+43.417,
+1.1,
+0.237
+],
+"p": 0,
+"pLast": 0,
+"frames": 4,
+"frame": 3,
+"pWorst": 0,
+"frameWorst": 12
+}
+]
+},
+"neutrophil_rna|8": {
+"protocol": "neutrophil_rna",
+"station": 8,
+"action": "centrifuge",
+"container": "spin_column",
+"timed": true,
+"defects": [
+{
+"check": "intersect",
+"a": "centrifuge (Centrifuge)",
+"b": "sample SpinColumn",
+"depth": 0.2123984528647025,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#a6aeb9",
+"opacity": 1,
+"min": [
+59.095,
+0.552,
+-1.605
+],
+"max": [
+61.305,
+0.978,
+0.605
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+60.029,
+0.609,
+-0.233
+],
+"max": [
+60.371,
+1.212,
+0.28
+]
+}
+],
+"p": 0,
+"pLast": 1,
+"frames": 207,
+"frame": 102,
+"pWorst": 0,
+"frameWorst": 114
+},
+{
+"check": "sweep",
+"a": "sample SpinColumn",
+"b": "centrifuge (Centrifuge)",
+"depth": 0.8817645152399934,
+"meshes": [
+{
+"geo": "TorusGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+60.654,
+1.067,
+-0.689
+],
+"max": [
+60.992,
+1.223,
+-0.332
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#252d37",
+"opacity": 1,
+"min": [
+60.413,
+0.624,
+-0.3
+],
+"max": [
+60.745,
+1.212,
+0.033
+]
+}
+],
+"at": [
+60.978,
+1.085,
+-0.562
+],
+"p": 0,
+"pLast": 0.995,
+"frames": 98,
+"frame": 105,
+"pWorst": 0.795,
+"frameWorst": 549
+},
+{
+"check": "sweep",
+"a": "centrifuge (Centrifuge)",
+"b": "sample SpinColumn",
+"depth": 0.9118974761136396,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#9ba6b2",
+"opacity": 1,
+"min": [
+59.379,
+0.85,
+-1.321
+],
+"max": [
+61.021,
+0.952,
+0.321
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+60.464,
+0.609,
+-0.684
+],
+"max": [
+60.983,
+1.212,
+-0.334
+]
+}
+],
+"at": [
+60.971,
+0.952,
+-0.741
+],
+"p": 0.279,
+"pLast": 0.895,
+"frames": 81,
+"frame": 348,
+"pWorst": 0.795,
+"frameWorst": 549
+}
+]
+},
+"neutrophil_rna|9": {
+"protocol": "neutrophil_rna",
+"station": 9,
+"action": "prepare",
+"container": "microtube",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "prev \u00b7 centrifuge (Centrifuge)",
+"b": "sample SpinColumn",
+"depth": 0.22278282669970428,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#252d37",
+"opacity": 1,
+"min": [
+60.107,
+0.639,
+-0.162
+],
+"max": [
+60.293,
+1.197,
+0.216
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+60.023,
+0.805,
+-0.157
+],
+"max": [
+60.377,
+1.428,
+0.37
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 5,
+"frame": 0,
+"pWorst": 0,
+"frameWorst": 9
+},
+{
+"check": "sweep",
+"a": "sample SpinColumn",
+"b": "prev \u00b7 centrifuge (Centrifuge)",
+"depth": 0.24350204209284027,
+"meshes": [
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+59.99,
+1.012,
+-0.107
+],
+"max": [
+60.41,
+1.736,
+0.482
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#a6aeb9",
+"opacity": 1,
+"min": [
+59.095,
+0.552,
+-1.605
+],
+"max": [
+61.305,
+0.978,
+0.605
+]
+}
+],
+"at": [
+60.217,
+1.107,
+0.24
+],
+"p": 0,
+"pLast": 0,
+"frames": 4,
+"frame": 3,
+"pWorst": 0,
+"frameWorst": 12
+}
+]
+},
+"neutrophil_rna|10": {
+"protocol": "neutrophil_rna",
+"station": 10,
+"action": "pour_add",
+"container": "spin_column",
+"timed": false,
+"defects": []
+},
+"neutrophil_rna|11": {
+"protocol": "neutrophil_rna",
+"station": 11,
+"action": "incubate_wait",
+"container": "spin_column",
+"timed": true,
+"defects": []
+},
+"neutrophil_rna|12": {
+"protocol": "neutrophil_rna",
+"station": 12,
+"action": "pour_add",
+"container": "spin_column",
+"timed": false,
+"defects": []
+},
+"neutrophil_rna|13": {
+"protocol": "neutrophil_rna",
+"station": 13,
+"action": "centrifuge",
+"container": "spin_column",
+"timed": true,
+"defects": [
+{
+"check": "intersect",
+"a": "centrifuge (Centrifuge)",
+"b": "sample SpinColumn",
+"depth": 0.2123984528647025,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#a6aeb9",
+"opacity": 1,
+"min": [
+101.095,
+0.552,
+-1.605
+],
+"max": [
+103.305,
+0.978,
+0.605
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+102.029,
+0.609,
+-0.233
+],
+"max": [
+102.371,
+1.212,
+0.28
+]
+}
+],
+"p": 0,
+"pLast": 1,
+"frames": 207,
+"frame": 102,
+"pWorst": 0,
+"frameWorst": 114
+},
+{
+"check": "sweep",
+"a": "sample SpinColumn",
+"b": "centrifuge (Centrifuge)",
+"depth": 0.881764515239997,
+"meshes": [
+{
+"geo": "TorusGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+102.654,
+1.067,
+-0.689
+],
+"max": [
+102.992,
+1.223,
+-0.332
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#252d37",
+"opacity": 1,
+"min": [
+102.413,
+0.624,
+-0.3
+],
+"max": [
+102.745,
+1.212,
+0.033
+]
+}
+],
+"at": [
+102.978,
+1.085,
+-0.562
+],
+"p": 0,
+"pLast": 0.995,
+"frames": 98,
+"frame": 105,
+"pWorst": 0.795,
+"frameWorst": 549
+},
+{
+"check": "sweep",
+"a": "centrifuge (Centrifuge)",
+"b": "sample SpinColumn",
+"depth": 0.9118974761136418,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#9ba6b2",
+"opacity": 1,
+"min": [
+101.379,
+0.85,
+-1.321
+],
+"max": [
+103.021,
+0.952,
+0.321
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+102.464,
+0.609,
+-0.684
+],
+"max": [
+102.983,
+1.212,
+-0.334
+]
+}
+],
+"at": [
+102.971,
+0.952,
+-0.741
+],
+"p": 0.279,
+"pLast": 0.895,
+"frames": 81,
+"frame": 348,
+"pWorst": 0.795,
+"frameWorst": 549
+}
+]
+},
+"neutrophil_rna|14": {
+"protocol": "neutrophil_rna",
+"station": 14,
+"action": "pour_add",
+"container": "spin_column",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "prev \u00b7 centrifuge (Centrifuge)",
+"b": "sample SpinColumn",
+"depth": 0.21814299253599126,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#252d37",
+"opacity": 1,
+"min": [
+102.107,
+0.639,
+-0.162
+],
+"max": [
+102.293,
+1.197,
+0.216
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+102.023,
+0.8,
+-0.158
+],
+"max": [
+102.377,
+1.422,
+0.368
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 5,
+"frame": 0,
+"pWorst": 0,
+"frameWorst": 9
+},
+{
+"check": "sweep",
+"a": "sample SpinColumn",
+"b": "prev \u00b7 centrifuge (Centrifuge)",
+"depth": 0.24049248184817243,
+"meshes": [
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+101.992,
+1.005,
+-0.108
+],
+"max": [
+102.408,
+1.724,
+0.478
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#a6aeb9",
+"opacity": 1,
+"min": [
+101.095,
+0.552,
+-1.605
+],
+"max": [
+103.305,
+0.978,
+0.605
+]
+}
+],
+"at": [
+102.217,
+1.1,
+0.237
+],
+"p": 0,
+"pLast": 0,
+"frames": 4,
+"frame": 3,
+"pWorst": 0,
+"frameWorst": 12
+}
+]
+},
+"neutrophil_rna|15": {
+"protocol": "neutrophil_rna",
+"station": 15,
+"action": "centrifuge",
+"container": "spin_column",
+"timed": true,
+"defects": [
+{
+"check": "intersect",
+"a": "centrifuge (Centrifuge)",
+"b": "sample SpinColumn",
+"depth": 0.2123984528647025,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#a6aeb9",
+"opacity": 1,
+"min": [
+117.895,
+0.552,
+-1.605
+],
+"max": [
+120.105,
+0.978,
+0.605
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+118.829,
+0.609,
+-0.233
+],
+"max": [
+119.171,
+1.212,
+0.28
+]
+}
+],
+"p": 0,
+"pLast": 1,
+"frames": 207,
+"frame": 102,
+"pWorst": 0,
+"frameWorst": 114
+},
+{
+"check": "sweep",
+"a": "sample SpinColumn",
+"b": "centrifuge (Centrifuge)",
+"depth": 0.881764515239997,
+"meshes": [
+{
+"geo": "TorusGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+119.454,
+1.067,
+-0.689
+],
+"max": [
+119.792,
+1.223,
+-0.332
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#252d37",
+"opacity": 1,
+"min": [
+119.213,
+0.624,
+-0.3
+],
+"max": [
+119.545,
+1.212,
+0.033
+]
+}
+],
+"at": [
+119.778,
+1.085,
+-0.562
+],
+"p": 0,
+"pLast": 0.995,
+"frames": 98,
+"frame": 105,
+"pWorst": 0.795,
+"frameWorst": 549
+},
+{
+"check": "sweep",
+"a": "centrifuge (Centrifuge)",
+"b": "sample SpinColumn",
+"depth": 0.9118974761136418,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#9ba6b2",
+"opacity": 1,
+"min": [
+118.179,
+0.85,
+-1.321
+],
+"max": [
+119.821,
+0.952,
+0.321
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+119.264,
+0.609,
+-0.684
+],
+"max": [
+119.783,
+1.212,
+-0.334
+]
+}
+],
+"at": [
+119.771,
+0.952,
+-0.741
+],
+"p": 0.279,
+"pLast": 0.895,
+"frames": 81,
+"frame": 348,
+"pWorst": 0.795,
+"frameWorst": 549
+}
+]
+},
+"neutrophil_rna|16": {
+"protocol": "neutrophil_rna",
+"station": 16,
+"action": "pour_add",
+"container": "spin_column",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "prev \u00b7 centrifuge (Centrifuge)",
+"b": "sample SpinColumn",
+"depth": 0.21814299253599106,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#252d37",
+"opacity": 1,
+"min": [
+118.907,
+0.639,
+-0.162
+],
+"max": [
+119.093,
+1.197,
+0.216
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+118.823,
+0.8,
+-0.158
+],
+"max": [
+119.177,
+1.422,
+0.368
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 5,
+"frame": 0,
+"pWorst": 0,
+"frameWorst": 9
+},
+{
+"check": "sweep",
+"a": "sample SpinColumn",
+"b": "prev \u00b7 centrifuge (Centrifuge)",
+"depth": 0.2404924818481723,
+"meshes": [
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+118.792,
+1.005,
+-0.108
+],
+"max": [
+119.208,
+1.724,
+0.478
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#a6aeb9",
+"opacity": 1,
+"min": [
+117.895,
+0.552,
+-1.605
+],
+"max": [
+120.105,
+0.978,
+0.605
+]
+}
+],
+"at": [
+119.017,
+1.1,
+0.237
+],
+"p": 0,
+"pLast": 0,
+"frames": 4,
+"frame": 3,
+"pWorst": 0,
+"frameWorst": 12
+}
+]
+},
+"neutrophil_rna|17": {
+"protocol": "neutrophil_rna",
+"station": 17,
+"action": "centrifuge",
+"container": "spin_column",
+"timed": true,
+"defects": [
+{
+"check": "intersect",
+"a": "centrifuge (Centrifuge)",
+"b": "sample SpinColumn",
+"depth": 0.2123984528647025,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#a6aeb9",
+"opacity": 1,
+"min": [
+134.695,
+0.552,
+-1.605
+],
+"max": [
+136.905,
+0.978,
+0.605
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+135.629,
+0.609,
+-0.233
+],
+"max": [
+135.971,
+1.212,
+0.28
+]
+}
+],
+"p": 0,
+"pLast": 1,
+"frames": 207,
+"frame": 102,
+"pWorst": 0,
+"frameWorst": 114
+},
+{
+"check": "sweep",
+"a": "sample SpinColumn",
+"b": "centrifuge (Centrifuge)",
+"depth": 0.881764515239997,
+"meshes": [
+{
+"geo": "TorusGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+136.254,
+1.067,
+-0.689
+],
+"max": [
+136.592,
+1.223,
+-0.332
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#252d37",
+"opacity": 1,
+"min": [
+136.013,
+0.624,
+-0.3
+],
+"max": [
+136.345,
+1.212,
+0.033
+]
+}
+],
+"at": [
+136.578,
+1.085,
+-0.562
+],
+"p": 0,
+"pLast": 0.995,
+"frames": 98,
+"frame": 105,
+"pWorst": 0.795,
+"frameWorst": 549
+},
+{
+"check": "sweep",
+"a": "centrifuge (Centrifuge)",
+"b": "sample SpinColumn",
+"depth": 0.9118974761136376,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#9ba6b2",
+"opacity": 1,
+"min": [
+134.979,
+0.85,
+-1.321
+],
+"max": [
+136.621,
+0.952,
+0.321
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+136.064,
+0.609,
+-0.684
+],
+"max": [
+136.583,
+1.212,
+-0.334
+]
+}
+],
+"at": [
+136.571,
+0.952,
+-0.741
+],
+"p": 0.279,
+"pLast": 0.895,
+"frames": 81,
+"frame": 348,
+"pWorst": 0.795,
+"frameWorst": 549
+}
+]
+},
+"neutrophil_rna|18": {
+"protocol": "neutrophil_rna",
+"station": 18,
+"action": "transfer",
+"container": "tube",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "prev \u00b7 centrifuge (Centrifuge)",
+"b": "sample SpinColumn",
+"depth": 0.22077120961462002,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#252d37",
+"opacity": 1,
+"min": [
+135.707,
+0.639,
+-0.162
+],
+"max": [
+135.893,
+1.197,
+0.216
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+135.623,
+0.803,
+-0.158
+],
+"max": [
+135.977,
+1.426,
+0.369
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 5,
+"frame": 0,
+"pWorst": 0,
+"frameWorst": 9
+},
+{
+"check": "sweep",
+"a": "sample SpinColumn",
+"b": "prev \u00b7 centrifuge (Centrifuge)",
+"depth": 0.24270051521318375,
+"meshes": [
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+135.591,
+1.009,
+-0.107
+],
+"max": [
+136.009,
+1.731,
+0.48
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#a6aeb9",
+"opacity": 1,
+"min": [
+134.695,
+0.552,
+-1.605
+],
+"max": [
+136.905,
+0.978,
+0.605
+]
+}
+],
+"at": [
+135.817,
+1.105,
+0.239
+],
+"p": 0,
+"pLast": 0,
+"frames": 4,
+"frame": 3,
+"pWorst": 0,
+"frameWorst": 12
+}
+]
+},
+"neutrophil_rna|19": {
+"protocol": "neutrophil_rna",
+"station": 19,
+"action": "centrifuge",
+"container": "spin_column",
+"timed": true,
+"defects": [
+{
+"check": "intersect",
+"a": "centrifuge (Centrifuge)",
+"b": "sample SpinColumn",
+"depth": 0.2123984528647025,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#a6aeb9",
+"opacity": 1,
+"min": [
+151.495,
+0.552,
+-1.605
+],
+"max": [
+153.705,
+0.978,
+0.605
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+152.429,
+0.609,
+-0.233
+],
+"max": [
+152.771,
+1.212,
+0.28
+]
+}
+],
+"p": 0,
+"pLast": 1,
+"frames": 208,
+"frame": 99,
+"pWorst": 0,
+"frameWorst": 111
+},
+{
+"check": "sweep",
+"a": "sample SpinColumn",
+"b": "centrifuge (Centrifuge)",
+"depth": 0.881764515239997,
+"meshes": [
+{
+"geo": "TorusGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+153.054,
+1.067,
+-0.689
+],
+"max": [
+153.392,
+1.223,
+-0.332
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#252d37",
+"opacity": 1,
+"min": [
+152.813,
+0.624,
+-0.3
+],
+"max": [
+153.145,
+1.212,
+0.033
+]
+}
+],
+"at": [
+153.378,
+1.085,
+-0.562
+],
+"p": 0,
+"pLast": 0.995,
+"frames": 98,
+"frame": 102,
+"pWorst": 0.795,
+"frameWorst": 549
+},
+{
+"check": "sweep",
+"a": "centrifuge (Centrifuge)",
+"b": "sample SpinColumn",
+"depth": 0.9118974761136376,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#9ba6b2",
+"opacity": 1,
+"min": [
+151.779,
+0.85,
+-1.321
+],
+"max": [
+153.421,
+0.952,
+0.321
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+152.864,
+0.609,
+-0.684
+],
+"max": [
+153.383,
+1.212,
+-0.334
+]
+}
+],
+"at": [
+153.371,
+0.952,
+-0.741
+],
+"p": 0.279,
+"pLast": 0.895,
+"frames": 81,
+"frame": 348,
+"pWorst": 0.795,
+"frameWorst": 549
+}
+]
+},
+"neutrophil_rna|20": {
+"protocol": "neutrophil_rna",
+"station": 20,
+"action": "pour_add",
+"container": "spin_column",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "prev \u00b7 centrifuge (Centrifuge)",
+"b": "sample SpinColumn",
+"depth": 0.21814299253599126,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#252d37",
+"opacity": 1,
+"min": [
+152.507,
+0.639,
+-0.162
+],
+"max": [
+152.693,
+1.197,
+0.216
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+152.423,
+0.8,
+-0.158
+],
+"max": [
+152.777,
+1.422,
+0.368
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 5,
+"frame": 0,
+"pWorst": 0,
+"frameWorst": 9
+},
+{
+"check": "sweep",
+"a": "sample SpinColumn",
+"b": "prev \u00b7 centrifuge (Centrifuge)",
+"depth": 0.24049248184817273,
+"meshes": [
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.28,
+"min": [
+152.392,
+1.005,
+-0.108
+],
+"max": [
+152.808,
+1.724,
+0.478
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#a6aeb9",
+"opacity": 1,
+"min": [
+151.495,
+0.552,
+-1.605
+],
+"max": [
+153.705,
+0.978,
+0.605
+]
+}
+],
+"at": [
+152.617,
+1.1,
+0.237
+],
+"p": 0,
+"pLast": 0,
+"frames": 4,
+"frame": 3,
+"pWorst": 0,
+"frameWorst": 12
+}
+]
+},
+"neutrophil_rna|21": {
+"protocol": "neutrophil_rna",
+"station": 21,
+"action": "incubate_wait",
+"container": "spin_column",
+"timed": true,
+"defects": []
+},
+"neutrophil_rna|22": {
+"protocol": "neutrophil_rna",
+"station": 22,
+"action": "elute",
+"container": "eluate_tube",
+"timed": true,
+"defects": [
+{
+"check": "intersect",
+"a": "centrifuge (Centrifuge)",
+"b": "sample Tube",
+"depth": 0.21245448259180452,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#a6aeb9",
+"opacity": 0.7812616370253508,
+"min": [
+176.695,
+0.552,
+-1.605
+],
+"max": [
+178.905,
+0.978,
+0.605
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+177.659,
+0.649,
+-0.193
+],
+"max": [
+177.941,
+1.299,
+0.294
+]
+}
+],
+"p": 0,
+"pLast": 1,
+"frames": 227,
+"frame": 42,
+"pWorst": 0,
+"frameWorst": 48
+},
+{
+"check": "sweep",
+"a": "sample Tube",
+"b": "centrifuge (Centrifuge)",
+"depth": 0.8820537257015144,
+"meshes": [
+{
+"geo": "TorusGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+178.31,
+1.147,
+-0.661
+],
+"max": [
+178.596,
+1.284,
+-0.361
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#252d37",
+"opacity": 1,
+"min": [
+178.013,
+0.624,
+-0.3
+],
+"max": [
+178.345,
+1.212,
+0.033
+]
+}
+],
+"at": [
+178.581,
+1.155,
+-0.475
+],
+"p": 0,
+"pLast": 0.895,
+"frames": 84,
+"frame": 45,
+"pWorst": 0.795,
+"frameWorst": 549
+},
+{
+"check": "sweep",
+"a": "centrifuge (Centrifuge)",
+"b": "sample Tube",
+"depth": 0.9118974739602951,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#9ba6b2",
+"opacity": 1,
+"min": [
+176.979,
+0.85,
+-1.321
+],
+"max": [
+178.621,
+0.952,
+0.321
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+178.093,
+0.621,
+-0.654
+],
+"max": [
+178.585,
+1.27,
+-0.364
+]
+}
+],
+"at": [
+178.472,
+0.952,
+-0.948
+],
+"p": 0.279,
+"pLast": 0.903,
+"frames": 82,
+"frame": 348,
+"pWorst": 0.795,
+"frameWorst": 549
+}
+]
+},
+"neutrophil_rna|23": {
+"protocol": "neutrophil_rna",
+"station": 23,
+"action": "store",
+"container": "eluate_tube",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "prev \u00b7 centrifuge (Centrifuge)",
+"b": "sample Tube",
+"depth": 0.21247711004894201,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#a6aeb9",
+"opacity": 1,
+"min": [
+176.695,
+0.552,
+-1.605
+],
+"max": [
+178.905,
+0.978,
+0.605
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+177.659,
+0.692,
+-0.175
+],
+"max": [
+177.941,
+1.345,
+0.313
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 5,
+"frame": 0,
+"pWorst": 0,
+"frameWorst": 6
+},
+{
+"check": "sweep",
+"a": "sample Tube",
+"b": "prev \u00b7 centrifuge (Centrifuge)",
+"depth": 0.26957673761817214,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#ffffff",
+"opacity": 1,
+"min": [
+177.618,
+1.148,
+-0.055
+],
+"max": [
+177.982,
+1.786,
+0.433
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#a6aeb9",
+"opacity": 1,
+"min": [
+176.695,
+0.552,
+-1.605
+],
+"max": [
+178.905,
+0.978,
+0.605
+]
+}
+],
+"at": [
+177.8,
+1.152,
+0.282
+],
+"p": 0,
+"pLast": 0,
+"frames": 4,
+"frame": 3,
+"pWorst": 0,
+"frameWorst": 12
+},
+{
+"check": "intersect",
+"a": "instrument (Freezer)",
+"b": "sample Tube",
+"depth": 0.5745718823813778,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#d7dbe0",
+"opacity": 1,
+"min": [
+183.8,
+0,
+-2.3
+],
+"max": [
+186,
+2.6,
+-0.7
+]
+},
+{
+"geo": "TorusGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+184.611,
+1.446,
+-1.276
+],
+"max": [
+185.189,
+1.494,
+-0.698
+]
+}
+],
+"p": 0.274,
+"pLast": 1,
+"frames": 73,
+"frame": 177,
+"pWorst": 0.628,
+"frameWorst": 315
+},
+{
+"check": "sweep",
+"a": "sample Tube",
+"b": "instrument (Freezer)",
+"depth": 0.13032832369617342,
+"meshes": [
+{
+"geo": "TorusGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+184.611,
+1.446,
+-0.65
+],
+"max": [
+185.189,
+1.494,
+-0.072
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#aeb8c4",
+"opacity": 1,
+"min": [
+184.05,
+0.3,
+-1.35
+],
+"max": [
+185.75,
+2.4,
+-0.65
+]
+}
+],
+"at": [
+184.9,
+1.47,
+-0.65
+],
+"p": 0.274,
+"pLast": 0.628,
+"frames": 20,
+"frame": 177,
+"pWorst": 0.544,
+"frameWorst": 282
+},
+{
+"check": "float",
+"a": "sample Tube",
+"b": "nearest solid",
+"depth": 0.010800004005432073,
+"box": {
+"min": [
+184.611,
+0.32,
+-1.289
+],
+"max": [
+185.189,
+1.494,
+-0.711
+]
+},
+"p": 0.736,
+"pLast": 0.736,
+"frames": 1,
+"frame": 357
+}
+]
+},
+"neutrophil_rna|24": {
+"protocol": "neutrophil_rna",
+"station": 24,
+"action": "measure",
+"container": "eluate_tube",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "prev \u00b7 instrument (Freezer)",
+"b": "sample Tube",
+"depth": 0.5730569407597973,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#d7dbe0",
+"opacity": 1,
+"min": [
+183.8,
+0,
+-2.3
+],
+"max": [
+186,
+2.6,
+-0.7
+]
+},
+{
+"geo": "TorusGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+184.611,
+1.446,
+-1.275
+],
+"max": [
+185.189,
+1.494,
+-0.696
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 5,
+"frame": 0,
+"pWorst": 0,
+"frameWorst": 3
+},
+{
+"check": "sweep",
+"a": "sample Tube",
+"b": "prev \u00b7 instrument (Freezer)",
+"depth": 0.3056701056115106,
+"meshes": [
+{
+"geo": "TorusGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+184.611,
+1.446,
+-0.574
+],
+"max": [
+185.189,
+1.494,
+0.005
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#e6e9ed",
+"opacity": 1,
+"min": [
+183.85,
+0.05,
+-0.71
+],
+"max": [
+185.95,
+2.55,
+-0.59
+]
+}
+],
+"at": [
+184.635,
+1.446,
+-0.285
+],
+"p": 0,
+"pLast": 0,
+"frames": 5,
+"frame": 3,
+"pWorst": 0,
+"frameWorst": 15
+}
+]
+},
+"neutrophil_rna|25": {
+"protocol": "neutrophil_rna",
+"station": 25,
+"action": "measure",
+"container": "eluate_tube",
+"timed": false,
+"defects": []
+},
+"neutrophil_rna|26": {
+"protocol": "neutrophil_rna",
+"station": 26,
+"action": "measure",
+"container": "eluate_tube",
+"timed": false,
+"defects": []
+},
+"western|1": {
+"protocol": "western",
+"station": 1,
+"action": "pipette_mix",
+"container": "gel",
+"timed": false,
+"defects": []
+},
+"western|2": {
+"protocol": "western",
+"station": 2,
+"action": "electrophorese",
+"container": "gel",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "instrument (GelRig)",
+"b": "sample GelSlab",
+"depth": 0.09999999478459354,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#cdd6de",
+"opacity": 0.5,
+"min": [
+7.1,
+0.2,
+-0.8
+],
+"max": [
+9.7,
+0.9,
+0.8
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#2b3038",
+"opacity": 1,
+"min": [
+7.45,
+0.2,
+-0.65
+],
+"max": [
+9.35,
+0.3,
+0.65
+]
+}
+],
+"p": 0.344,
+"pLast": 1,
+"frames": 66,
+"frame": 186,
+"pWorst": 0.705,
+"frameWorst": 327
+},
+{
+"check": "sweep",
+"a": "sample GelSlab",
+"b": "instrument (GelRig)",
+"depth": 0.2333663191536901,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#2b3038",
+"opacity": 1,
+"min": [
+5.496,
+0.919,
+-0.461
+],
+"max": [
+7.396,
+1.019,
+0.839
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#2b3038",
+"opacity": 0.32,
+"min": [
+7.05,
+0.915,
+-0.85
+],
+"max": [
+9.75,
+1.005,
+0.85
+]
+}
+],
+"at": [
+7.396,
+0.919,
+0.839
+],
+"p": 0.344,
+"pLast": 1,
+"frames": 15,
+"frame": 186,
+"pWorst": 1,
+"frameWorst": 447
+},
+{
+"check": "sweep",
+"a": "instrument (GelRig)",
+"b": "sample GelSlab",
+"depth": 0.6679947964957873,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#c0392b",
+"opacity": 1,
+"min": [
+7.85,
+1.184,
+0.55
+],
+"max": [
+7.95,
+1.304,
+0.65
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#d8c98a",
+"opacity": 0.5,
+"min": [
+6.284,
+1.281,
+-0.428
+],
+"max": [
+7.984,
+1.441,
+0.672
+]
+}
+],
+"at": [
+7.9,
+1.304,
+0.65
+],
+"p": 0.99,
+"pLast": 0.99,
+"frames": 1,
+"frame": 438
+}
+]
+},
+"western|3": {
+"protocol": "western",
+"station": 3,
+"action": "electrophorese",
+"container": "membrane",
+"timed": false,
+"defects": []
+},
+"western|4": {
+"protocol": "western",
+"station": 4,
+"action": "pour_add",
+"container": "membrane",
+"timed": false,
+"defects": []
+},
+"western|5": {
+"protocol": "western",
+"station": 5,
+"action": "discard",
+"container": "membrane",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "pipette (Pipette)",
+"b": "sample Membrane",
+"depth": 0.012149890692820478,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#ffffff",
+"opacity": 0.6947194494327887,
+"min": [
+33.56,
+2.152,
+-0.04
+],
+"max": [
+33.64,
+2.397,
+0.04
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#f1ece4",
+"opacity": 0.9,
+"min": [
+32.595,
+2.134,
+-0.6
+],
+"max": [
+34.295,
+2.164,
+0.6
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 1,
+"frame": 42
+}
+]
+},
+"western|6": {
+"protocol": "western",
+"station": 6,
+"action": "pour_add",
+"container": "membrane",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "prev \u00b7 pipette (Pipette)",
+"b": "sample Membrane",
+"depth": 0.037204455965324165,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#d8dee6",
+"opacity": 1,
+"min": [
+33.56,
+1.125,
+-0.04
+],
+"max": [
+33.64,
+1.485,
+0.04
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#f1ece4",
+"opacity": 0.9,
+"min": [
+32.75,
+1.387,
+-0.6
+],
+"max": [
+34.45,
+1.417,
+0.6
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 2,
+"frame": 15
+},
+{
+"check": "sweep",
+"a": "sample Membrane",
+"b": "prev \u00b7 pipette (Pipette)",
+"depth": 0.8648925916596946,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#02b6a0",
+"opacity": 0.06500000053999569,
+"min": [
+33.91,
+2.203,
+0.09
+],
+"max": [
+35.21,
+2.211,
+0.15
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#d8dee6",
+"opacity": 1,
+"min": [
+33.491,
+1.485,
+-0.109
+],
+"max": [
+33.709,
+2.565,
+0.109
+]
+}
+],
+"at": [
+33.91,
+2.211,
+0.09
+],
+"p": 0,
+"pLast": 0,
+"frames": 1,
+"frame": 21
+}
+]
+},
+"western|7": {
+"protocol": "western",
+"station": 7,
+"action": "incubate_wait",
+"container": "membrane",
+"timed": true,
+"defects": [
+{
+"check": "float",
+"a": "sample Membrane",
+"b": "nearest solid",
+"depth": 0.025000001676380612,
+"box": {
+"min": [
+49.61,
+0.645,
+-0.6
+],
+"max": [
+51.31,
+0.681,
+0.6
+]
+},
+"p": 0,
+"pLast": 1,
+"frames": 78,
+"frame": 90
+}
+]
+},
+"western|8": {
+"protocol": "western",
+"station": 8,
+"action": "pour_add",
+"container": "membrane",
+"timed": false,
+"defects": []
+},
+"western|9": {
+"protocol": "western",
+"station": 9,
+"action": "discard",
+"container": "membrane",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "pipette (Pipette)",
+"b": "sample Membrane",
+"depth": 0.012149890692820478,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#ffffff",
+"opacity": 0.6947194494327886,
+"min": [
+67.16,
+2.152,
+-0.04
+],
+"max": [
+67.24,
+2.397,
+0.04
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#f1ece4",
+"opacity": 0.9,
+"min": [
+66.195,
+2.134,
+-0.6
+],
+"max": [
+67.895,
+2.164,
+0.6
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 1,
+"frame": 42
+}
+]
+},
+"western|10": {
+"protocol": "western",
+"station": 10,
+"action": "pour_add",
+"container": "membrane",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "prev \u00b7 pipette (Pipette)",
+"b": "sample Membrane",
+"depth": 0.037204455965324144,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#d8dee6",
+"opacity": 1,
+"min": [
+67.16,
+1.125,
+-0.04
+],
+"max": [
+67.24,
+1.485,
+0.04
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#f1ece4",
+"opacity": 0.9,
+"min": [
+66.35,
+1.387,
+-0.6
+],
+"max": [
+68.05,
+1.417,
+0.6
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 2,
+"frame": 15
+},
+{
+"check": "sweep",
+"a": "sample Membrane",
+"b": "prev \u00b7 pipette (Pipette)",
+"depth": 0.8648925916596947,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#02b6a0",
+"opacity": 0.06500000049679604,
+"min": [
+67.51,
+2.203,
+0.09
+],
+"max": [
+68.81,
+2.211,
+0.15
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#d8dee6",
+"opacity": 1,
+"min": [
+67.091,
+1.485,
+-0.109
+],
+"max": [
+67.309,
+2.565,
+0.109
+]
+}
+],
+"at": [
+67.51,
+2.211,
+0.09
+],
+"p": 0,
+"pLast": 0,
+"frames": 1,
+"frame": 21
+}
+]
+},
+"western|11": {
+"protocol": "western",
+"station": 11,
+"action": "incubate_wait",
+"container": "membrane",
+"timed": true,
+"defects": [
+{
+"check": "float",
+"a": "sample Membrane",
+"b": "nearest solid",
+"depth": 0.025000001676380612,
+"box": {
+"min": [
+83.21,
+0.645,
+-0.6
+],
+"max": [
+84.91,
+0.681,
+0.6
+]
+},
+"p": 0,
+"pLast": 1,
+"frames": 78,
+"frame": 90
+}
+]
+},
+"western|12": {
+"protocol": "western",
+"station": 12,
+"action": "pour_add",
+"container": "membrane",
+"timed": false,
+"defects": []
+},
+"western|13": {
+"protocol": "western",
+"station": 13,
+"action": "discard",
+"container": "membrane",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "pipette (Pipette)",
+"b": "sample Membrane",
+"depth": 0.012149890692819146,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#ffffff",
+"opacity": 0.694719449432788,
+"min": [
+100.76,
+2.152,
+-0.04
+],
+"max": [
+100.84,
+2.397,
+0.04
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#f1ece4",
+"opacity": 0.9,
+"min": [
+99.795,
+2.134,
+-0.6
+],
+"max": [
+101.495,
+2.164,
+0.6
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 1,
+"frame": 42
+}
+]
+},
+"western|14": {
+"protocol": "western",
+"station": 14,
+"action": "pour_add",
+"container": "membrane",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "prev \u00b7 pipette (Pipette)",
+"b": "sample Membrane",
+"depth": 0.037204455965324165,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#d8dee6",
+"opacity": 1,
+"min": [
+100.76,
+1.125,
+-0.04
+],
+"max": [
+100.84,
+1.485,
+0.04
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#f1ece4",
+"opacity": 0.9,
+"min": [
+99.95,
+1.387,
+-0.6
+],
+"max": [
+101.65,
+1.417,
+0.6
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 2,
+"frame": 15
+},
+{
+"check": "sweep",
+"a": "sample Membrane",
+"b": "prev \u00b7 pipette (Pipette)",
+"depth": 0.8648925916596947,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#02b6a0",
+"opacity": 0.06500000049679604,
+"min": [
+101.11,
+2.203,
+0.09
+],
+"max": [
+102.41,
+2.211,
+0.15
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#d8dee6",
+"opacity": 1,
+"min": [
+100.691,
+1.485,
+-0.109
+],
+"max": [
+100.909,
+2.565,
+0.109
+]
+}
+],
+"at": [
+101.11,
+2.211,
+0.09
+],
+"p": 0,
+"pLast": 0,
+"frames": 1,
+"frame": 21
+}
+]
+},
+"western|15": {
+"protocol": "western",
+"station": 15,
+"action": "incubate_wait",
+"container": "membrane",
+"timed": true,
+"defects": [
+{
+"check": "float",
+"a": "sample Membrane",
+"b": "nearest solid",
+"depth": 0.025000001676380612,
+"box": {
+"min": [
+116.81,
+0.645,
+-0.6
+],
+"max": [
+118.51,
+0.681,
+0.6
+]
+},
+"p": 0,
+"pLast": 1,
+"frames": 78,
+"frame": 90
+}
+]
+},
+"western|16": {
+"protocol": "western",
+"station": 16,
+"action": "pour_add",
+"container": "membrane",
+"timed": false,
+"defects": []
+},
+"western|17": {
+"protocol": "western",
+"station": 17,
+"action": "discard",
+"container": "membrane",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "pipette (Pipette)",
+"b": "sample Membrane",
+"depth": 0.012149890692818702,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#ffffff",
+"opacity": 0.6947194494327882,
+"min": [
+134.36,
+2.152,
+-0.04
+],
+"max": [
+134.44,
+2.397,
+0.04
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#f1ece4",
+"opacity": 0.9,
+"min": [
+133.395,
+2.134,
+-0.6
+],
+"max": [
+135.095,
+2.164,
+0.6
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 1,
+"frame": 42
+}
+]
+},
+"western|18": {
+"protocol": "western",
+"station": 18,
+"action": "pour_add",
+"container": "membrane",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "prev \u00b7 pipette (Pipette)",
+"b": "sample Membrane",
+"depth": 0.037204455965324165,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#d8dee6",
+"opacity": 1,
+"min": [
+134.36,
+1.125,
+-0.04
+],
+"max": [
+134.44,
+1.485,
+0.04
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#f1ece4",
+"opacity": 0.9,
+"min": [
+133.55,
+1.387,
+-0.6
+],
+"max": [
+135.25,
+1.417,
+0.6
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 2,
+"frame": 15
+},
+{
+"check": "sweep",
+"a": "sample Membrane",
+"b": "prev \u00b7 pipette (Pipette)",
+"depth": 0.8648925916596806,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#02b6a0",
+"opacity": 0.06500000049679604,
+"min": [
+134.71,
+2.203,
+0.09
+],
+"max": [
+136.01,
+2.211,
+0.15
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#d8dee6",
+"opacity": 1,
+"min": [
+134.291,
+1.485,
+-0.109
+],
+"max": [
+134.509,
+2.565,
+0.109
+]
+}
+],
+"at": [
+134.71,
+2.211,
+0.09
+],
+"p": 0,
+"pLast": 0,
+"frames": 1,
+"frame": 21
+}
+]
+},
+"western|19": {
+"protocol": "western",
+"station": 19,
+"action": "incubate_wait",
+"container": "membrane",
+"timed": true,
+"defects": [
+{
+"check": "float",
+"a": "sample Membrane",
+"b": "nearest solid",
+"depth": 0.025000001676380612,
+"box": {
+"min": [
+150.41,
+0.645,
+-0.6
+],
+"max": [
+152.11,
+0.681,
+0.6
+]
+},
+"p": 0,
+"pLast": 1,
+"frames": 78,
+"frame": 90
+}
+]
+},
+"western|20": {
+"protocol": "western",
+"station": 20,
+"action": "discard",
+"container": "membrane",
+"timed": false,
+"defects": []
+},
+"passaging|1": {
+"protocol": "passaging",
+"station": 1,
+"action": "measure",
+"container": "flask",
+"timed": false,
+"defects": []
+},
+"passaging|2": {
+"protocol": "passaging",
+"station": 2,
+"action": "discard",
+"container": "flask",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "pipette (Pipette)",
+"b": "sample Flask",
+"depth": 0.08997689983903134,
+"meshes": [
+{
+"geo": "LatheGeometry",
+"color": "#e6eef4",
+"opacity": 0.32812988755064754,
+"min": [
+9.767,
+1.9,
+0.327
+],
+"max": [
+9.933,
+2.534,
+0.493
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#3f7fd0",
+"opacity": 1,
+"min": [
+9.675,
+1.707,
+0.21
+],
+"max": [
+10.105,
+2.086,
+0.61
+]
+}
+],
+"p": 0,
+"pLast": 1,
+"frames": 77,
+"frame": 42,
+"pWorst": 0,
+"frameWorst": 48
+},
+{
+"check": "sweep",
+"a": "sample Flask",
+"b": "pipette (Pipette)",
+"depth": 0.878404568664639,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#eef2f6",
+"opacity": 0.26,
+"min": [
+9.251,
+2.592,
+0.21
+],
+"max": [
+9.879,
+3.247,
+0.61
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#d8dee6",
+"opacity": 0.6947194494327886,
+"min": [
+9.741,
+2.915,
+0.301
+],
+"max": [
+9.959,
+3.995,
+0.519
+]
+}
+],
+"at": [
+9.829,
+3.051,
+0.49
+],
+"p": 0,
+"pLast": 0,
+"frames": 3,
+"frame": 42
+},
+{
+"check": "sweep",
+"a": "pipette (Pipette)",
+"b": "sample Flask",
+"depth": 0.00918185278106498,
+"meshes": [
+{
+"geo": "LatheGeometry",
+"color": "#e6eef4",
+"opacity": 0.42,
+"min": [
+9.767,
+1.201,
+0.327
+],
+"max": [
+9.933,
+1.835,
+0.493
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#3f7fd0",
+"opacity": 1,
+"min": [
+9.675,
+0.878,
+0.21
+],
+"max": [
+10.105,
+1.257,
+0.61
+]
+}
+],
+"at": [
+9.85,
+1.201,
+0.41
+],
+"p": 0.503,
+"pLast": 0.503,
+"frames": 1,
+"frame": 258
+}
+]
+},
+"passaging|3": {
+"protocol": "passaging",
+"station": 3,
+"action": "pour_add",
+"container": "flask",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "prev \u00b7 pipette (Pipette)",
+"b": "sample Flask",
+"depth": 0.1983641220999223,
+"meshes": [
+{
+"geo": "LatheGeometry",
+"color": "#d8dee6",
+"opacity": 1,
+"min": [
+9.741,
+2.135,
+0.301
+],
+"max": [
+9.959,
+3.215,
+0.519
+]
+},
+{
+"geo": "PlaneGeometry",
+"color": "#bfcbb6",
+"opacity": 0.5,
+"min": [
+7.292,
+2.171,
+-0.63
+],
+"max": [
+9.752,
+2.171,
+0.63
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 9,
+"frame": 0,
+"pWorst": 0,
+"frameWorst": 18
+},
+{
+"check": "sweep",
+"a": "sample Flask",
+"b": "prev \u00b7 pipette (Pipette)",
+"depth": 0.8702683862152327,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#eef2f6",
+"opacity": 0.26,
+"min": [
+10.385,
+2.638,
+0.21
+],
+"max": [
+11.013,
+3.293,
+0.61
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#232a33",
+"opacity": 1,
+"min": [
+9.756,
+3.158,
+0.316
+],
+"max": [
+9.944,
+3.23,
+0.504
+]
+}
+],
+"at": [
+10.738,
+3.257,
+0.33
+],
+"p": 0,
+"pLast": 0,
+"frames": 6,
+"frame": 6,
+"pWorst": 0,
+"frameWorst": 21
+}
+]
+},
+"passaging|4": {
+"protocol": "passaging",
+"station": 4,
+"action": "discard",
+"container": "flask",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "pipette (Pipette)",
+"b": "sample Flask",
+"depth": 0.08997689983903223,
+"meshes": [
+{
+"geo": "LatheGeometry",
+"color": "#e6eef4",
+"opacity": 0.3281298875506475,
+"min": [
+26.567,
+1.9,
+0.327
+],
+"max": [
+26.733,
+2.534,
+0.493
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#3f7fd0",
+"opacity": 1,
+"min": [
+26.475,
+1.707,
+0.21
+],
+"max": [
+26.905,
+2.086,
+0.61
+]
+}
+],
+"p": 0,
+"pLast": 1,
+"frames": 77,
+"frame": 42,
+"pWorst": 0,
+"frameWorst": 48
+},
+{
+"check": "sweep",
+"a": "sample Flask",
+"b": "pipette (Pipette)",
+"depth": 0.8784045686646462,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#eef2f6",
+"opacity": 0.26,
+"min": [
+26.051,
+2.592,
+0.21
+],
+"max": [
+26.679,
+3.247,
+0.61
+]
+},
+{
+"geo": "LatheGeometry",
+"color": "#d8dee6",
+"opacity": 0.6947194494327884,
+"min": [
+26.541,
+2.915,
+0.301
+],
+"max": [
+26.759,
+3.995,
+0.519
+]
+}
+],
+"at": [
+26.629,
+3.051,
+0.49
+],
+"p": 0,
+"pLast": 0,
+"frames": 3,
+"frame": 42
+},
+{
+"check": "sweep",
+"a": "pipette (Pipette)",
+"b": "sample Flask",
+"depth": 0.00918185278106498,
+"meshes": [
+{
+"geo": "LatheGeometry",
+"color": "#e6eef4",
+"opacity": 0.42,
+"min": [
+26.567,
+1.201,
+0.327
+],
+"max": [
+26.733,
+1.835,
+0.493
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#3f7fd0",
+"opacity": 1,
+"min": [
+26.475,
+0.878,
+0.21
+],
+"max": [
+26.905,
+1.257,
+0.61
+]
+}
+],
+"at": [
+26.65,
+1.201,
+0.41
+],
+"p": 0.503,
+"pLast": 0.503,
+"frames": 1,
+"frame": 258
+}
+]
+},
+"passaging|5": {
+"protocol": "passaging",
+"station": 5,
+"action": "pour_add",
+"container": "flask",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "prev \u00b7 pipette (Pipette)",
+"b": "sample Flask",
+"depth": 0.19836412209992402,
+"meshes": [
+{
+"geo": "LatheGeometry",
+"color": "#d8dee6",
+"opacity": 1,
+"min": [
+26.541,
+2.135,
+0.301
+],
+"max": [
+26.759,
+3.215,
+0.519
+]
+},
+{
+"geo": "PlaneGeometry",
+"color": "#bfcbb6",
+"opacity": 0.5,
+"min": [
+24.092,
+2.171,
+-0.63
+],
+"max": [
+26.552,
+2.171,
+0.63
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 9,
+"frame": 0,
+"pWorst": 0,
+"frameWorst": 18
+},
+{
+"check": "sweep",
+"a": "sample Flask",
+"b": "prev \u00b7 pipette (Pipette)",
+"depth": 0.8702683862152327,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#eef2f6",
+"opacity": 0.26,
+"min": [
+27.185,
+2.638,
+0.21
+],
+"max": [
+27.813,
+3.293,
+0.61
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#232a33",
+"opacity": 1,
+"min": [
+26.556,
+3.158,
+0.316
+],
+"max": [
+26.744,
+3.23,
+0.504
+]
+}
+],
+"at": [
+27.538,
+3.257,
+0.33
+],
+"p": 0,
+"pLast": 0,
+"frames": 6,
+"frame": 6,
+"pWorst": 0,
+"frameWorst": 21
+}
+]
+},
+"passaging|6": {
+"protocol": "passaging",
+"station": 6,
+"action": "incubate_wait",
+"container": "flask",
+"timed": true,
+"defects": []
+},
+"passaging|7": {
+"protocol": "passaging",
+"station": 7,
+"action": "measure",
+"container": "flask",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "instrument (InvertedMicroscope)",
+"b": "sample Flask",
+"depth": 0.21333334922790503,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#c4cad2",
+"opacity": 0.8903711249725774,
+"min": [
+50.23,
+1,
+-0.79
+],
+"max": [
+50.57,
+2.9,
+-0.45
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#eef2f6",
+"opacity": 0.26,
+"min": [
+49.05,
+1.42,
+-0.709
+],
+"max": [
+51.75,
+2.02,
+0.791
+]
+}
+],
+"p": 0,
+"pLast": 1,
+"frames": 143,
+"frame": 54,
+"pWorst": 0,
+"frameWorst": 57
+}
+]
+},
+"passaging|8": {
+"protocol": "passaging",
+"station": 8,
+"action": "pour_add",
+"container": "flask",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "prev \u00b7 instrument (InvertedMicroscope)",
+"b": "sample Flask",
+"depth": 0.2582686988455407,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#3a4049",
+"opacity": 1,
+"min": [
+49.45,
+1.31,
+-0.65
+],
+"max": [
+51.35,
+1.39,
+0.65
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#eef2f6",
+"opacity": 0.26,
+"min": [
+50.792,
+1.132,
+0.36
+],
+"max": [
+53.492,
+1.732,
+1.86
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 7,
+"frame": 0,
+"pWorst": 0,
+"frameWorst": 33
+},
+{
+"check": "sweep",
+"a": "sample Flask",
+"b": "prev \u00b7 instrument (InvertedMicroscope)",
+"depth": 0.7911543008276882,
+"meshes": [
+{
+"geo": "PlaneGeometry",
+"color": "#bfcbb6",
+"opacity": 0.5,
+"min": [
+50.912,
+1.184,
+0.48
+],
+"max": [
+53.372,
+1.184,
+1.74
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#3a4049",
+"opacity": 1,
+"min": [
+49.45,
+1.31,
+-0.65
+],
+"max": [
+51.35,
+1.39,
+0.65
+]
+}
+],
+"at": [
+50.912,
+1.184,
+0.48
+],
+"p": 0,
+"pLast": 0,
+"frames": 2,
+"frame": 30,
+"pWorst": 0,
+"frameWorst": 33
+},
+{
+"check": "intersect",
+"a": "PipetteStand",
+"b": "sample Flask",
+"depth": 0.10769187010388892,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#2c608e",
+"opacity": 0.7345670077626745,
+"min": [
+56.17,
+0.1,
+1.14
+],
+"max": [
+56.39,
+3.1,
+1.36
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#eef2f6",
+"opacity": 0.26,
+"min": [
+53.959,
+0.608,
+-0.168
+],
+"max": [
+56.659,
+1.208,
+1.332
+]
+}
+],
+"p": 0,
+"pLast": 0,
+"frames": 4,
+"frame": 42,
+"pWorst": 0,
+"frameWorst": 45
+},
+{
+"check": "sweep",
+"a": "sample Flask",
+"b": "PipetteStand",
+"depth": 0.8176177468981993,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#3f7fd0",
+"opacity": 1,
+"min": [
+55.818,
+1.583,
+0.919
+],
+"max": [
+56.248,
+1.961,
+1.319
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#2c608e",
+"opacity": 0.6947194494327886,
+"min": [
+56.17,
+0.1,
+1.14
+],
+"max": [
+56.39,
+3.1,
+1.36
+]
+}
+],
+"at": [
+56.212,
+1.754,
+1.244
+],
+"p": 0,
+"pLast": 0,
+"frames": 6,
+"frame": 42
+}
+]
+},
+"passaging|9": {
+"protocol": "passaging",
+"station": 9,
+"action": "transfer",
+"container": "tube",
+"timed": false,
+"defects": []
+},
+"passaging|10": {
+"protocol": "passaging",
+"station": 10,
+"action": "centrifuge",
+"container": "tube",
+"timed": true,
+"defects": []
+},
+"passaging|11": {
+"protocol": "passaging",
+"station": 11,
+"action": "pour_add",
+"container": "tube",
+"timed": false,
+"defects": []
+},
+"passaging|12": {
+"protocol": "passaging",
+"station": 12,
+"action": "measure",
+"container": "slide",
+"timed": false,
+"defects": [
+{
+"check": "intersect",
+"a": "instrument (LightMicroscope)",
+"b": "sample Tube",
+"depth": 0.060645326500115004,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#20262e",
+"opacity": 0.9450554073993361,
+"min": [
+92.48,
+1.906,
+0.073
+],
+"max": [
+92.64,
+2.214,
+0.447
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#ffffff",
+"opacity": 1,
+"min": [
+92.083,
+1.514,
+0.263
+],
+"max": [
+92.717,
+2.704,
+0.897
+]
+}
+],
+"p": 0,
+"pLast": 0.028,
+"frames": 9,
+"frame": 45,
+"pWorst": 0.021,
+"frameWorst": 66
+},
+{
+"check": "sweep",
+"a": "sample Tube",
+"b": "instrument (LightMicroscope)",
+"depth": 0.5343334506820956,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#ffffff",
+"opacity": 1,
+"min": [
+92.071,
+2.168,
+0.262
+],
+"max": [
+92.704,
+3.358,
+0.896
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#20262e",
+"opacity": 0.734567007762674,
+"min": [
+92.48,
+1.906,
+0.073
+],
+"max": [
+92.64,
+2.214,
+0.447
+]
+}
+],
+"at": [
+92.591,
+2.168,
+0.375
+],
+"p": 0,
+"pLast": 0.036,
+"frames": 7,
+"frame": 45
+}
+]
+},
+"passaging|13": {
+"protocol": "passaging",
+"station": 13,
+"action": "seed",
+"container": "flask",
+"timed": false,
+"defects": [
+{
+"check": "sweep",
+"a": "sample Slide",
+"b": "PipetteStand",
+"depth": 0.7882426243858146,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#dce6ec",
+"opacity": 0.24,
+"min": [
+96.322,
+0.418,
+0.373
+],
+"max": [
+98.722,
+0.468,
+1.173
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#2c608e",
+"opacity": 0.7812616370253508,
+"min": [
+98.17,
+0.1,
+1.14
+],
+"max": [
+98.39,
+3.1,
+1.36
+]
+}
+],
+"at": [
+98.722,
+0.468,
+1.173
+],
+"p": 0,
+"pLast": 0,
+"frames": 1,
+"frame": 48
+}
+]
+},
+"passaging|14": {
+"protocol": "passaging",
+"station": 14,
+"action": "store",
+"container": "flask",
+"timed": false,
+"defects": [
+{
+"check": "sweep",
+"a": "sample Flask",
+"b": "Group#0",
+"depth": 0.6239802398691232,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#eef2f6",
+"opacity": 0.26,
+"min": [
+107.85,
+0.69,
+-1.041
+],
+"max": [
+110.55,
+1.29,
+0.459
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#dce6ec",
+"opacity": 0.19829998614524852,
+"min": [
+107.672,
+0.25,
+-2.991
+],
+"max": [
+108.443,
+1.95,
+-0.376
+]
+}
+],
+"at": [
+107.85,
+1.29,
+-1.041
+],
+"p": 0,
+"pLast": 0,
+"frames": 3,
+"frame": 51
+},
+{
+"check": "intersect",
+"a": "Group#0",
+"b": "sample Flask",
+"depth": 0.19000001192092908,
+"meshes": [
+{
+"geo": "BoxGeometry",
+"color": "#dce6ec",
+"opacity": 0.2191004854139182,
+"min": [
+107.672,
+0.25,
+-2.991
+],
+"max": [
+108.442,
+1.95,
+-0.376
+]
+},
+{
+"geo": "BoxGeometry",
+"color": "#eef2f6",
+"opacity": 0.26,
+"min": [
+107.85,
+0.69,
+-1.945
+],
+"max": [
+110.55,
+1.29,
+-0.445
+]
+}
+],
+"p": 0,
+"pLast": 1,
+"frames": 143,
+"frame": 54,
+"pWorst": 0,
+"frameWorst": 60
+},
+{
+"check": "sweep",
+"a": "Group#0",
+"b": "sample Flask",
+"depth": 0.5446070206338081,
+"meshes": [
+{
+"geo": "CylinderGeometry",
+"color": "#868f9b",
+"opacity": 0.982624994227187,
+"min": [
+110.577,
+0.45,
+-0.719
+],
+"max": [
+110.696,
+1.75,
+-0.6
+]
+},
+{
+"geo": "CylinderGeometry",
+"color": "#3f7fd0",
+"opacity": 1,
+"min": [
+110.475,
+1.538,
+-1.04
+],
+"max": [
+110.905,
+1.917,
+-0.64
+]
+}
+],
+"at": [
+110.685,
+1.75,
+-0.671
+],
+"p": 0.041,
+"pLast": 0.049,
+"frames": 2,
+"frame": 81
+}
+]
+}
+}
