@@ -2349,7 +2349,8 @@ export {
     grp.userData.label=label;
     grp.userData.setDoor=function(open){ st.tDoor=open?1:0; };
     grp.userData.setFrost=function(a){ frostMat.opacity=clamp(a,0,0.5)*0.4; };  // at most a faint mist
-    grp.userData.update=function(dt){ st.door=lerp(st.door,st.tDoor,1-Math.pow(0.02,dt)); doorPivot.rotation.y=easeInOut(st.door)*1.2; };
+    // the door swings OUT, toward the front (bug fix: +1.2 swung it into the cabinet)
+    grp.userData.update=function(dt){ st.door=lerp(st.door,st.tDoor,1-Math.pow(0.02,dt)); doorPivot.rotation.y=-easeInOut(st.door)*1.2; };
     return grp;
   }
 
