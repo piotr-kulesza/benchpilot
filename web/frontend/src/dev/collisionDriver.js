@@ -99,7 +99,10 @@ export function finishStation(line, seconds = 2.5) {
 // seconds of that rest are run first — what the viewer sees while reading the step.
 const arriving = (line) => { const S = line.sample(); return !!((S && S.vessels.some((v) => v.visible && v.userData.trip)) || line.preps().some((v) => v.visible && v.userData.trip)) }
 // stopAt: stop after that frame (the step is left posed there — for an evidence snapshot)
-export function simulateStation(line, { stepDur = 6.5, tail = 1.5, every = 3, benchY = 0, hold = 0, stopAt = null } = {}) {
+export function simulateStation(line, { stepDur: stepDur0 = 6.5, tail = 1.5, every = 3, benchY = 0, hold = 0, stopAt = null } = {}) {
+  // a station runs for its own duration (a multi-pass pipetting step or a long pour takes longer)
+  let stepDur = stepDur0
+  { const st = line.stations()[line.active()]; if (st && st.duration) stepDur = st.duration }
   const fps = 60, H = Math.round(hold * fps), total = H + Math.round((stepDur + tail) * fps)
   const seen = new Map()
   const tracks = new Map(); tracks.frame = 0
