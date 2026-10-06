@@ -67,8 +67,9 @@ function recordMotion(line, tracks) {
     t.track.push({ pos: _p.toArray(), quat: _q.toArray(), visible: visible(c.root) })
     for (const g of c.root.children) {
       if (!g.isGroup || !g.children.length) continue
-      let tp = tracks.get(g)
-      if (!tp) { tp = { name: `${c.name} · part`, kind: 'part', track: [], start: tracks.frame }; tracks.set(g, tp) }
+      const pk = 'part:' + g.uuid   // a part's own key: a vessel nested in another is also an object
+      let tp = tracks.get(pk)
+      if (!tp) { tp = { name: `${c.name} · part`, kind: 'part', track: [], start: tracks.frame }; tracks.set(pk, tp) }
       tp.track.push({ pos: [0, 0, 0], quat: g.quaternion.toArray(), visible: visible(g) })
     }
   }
@@ -87,18 +88,21 @@ export function finishStation(line, seconds = 2.5) {
 
 // A TIMED step waits at p = 0 until Start is pressed (the runner holds the countdown): `hold`
 // seconds of that rest are run first — what the viewer sees while reading the step.
+const arriving = (line) => { const S = line.sample(); return !!((S && S.vessels.some((v) => v.visible && v.userData.trip)) || line.preps().some((v) => v.visible && v.userData.trip)) }
 // stopAt: stop after that frame (the step is left posed there — for an evidence snapshot)
 export function simulateStation(line, { stepDur = 6.5, tail = 1.5, every = 3, benchY = 0, hold = 0, stopAt = null } = {}) {
   const fps = 60, H = Math.round(hold * fps), total = H + Math.round((stepDur + tail) * fps)
   const seen = new Map()
   const tracks = new Map(); tracks.frame = 0
-  let prev = null
+  let prev = null, run = 0
   line.hold = true
   try {
     for (let k = 0; k <= total; k++) {
       // during a timed step's REST the runner's own logic runs (the countdown not started:
       // driveTimed's rest — what the viewer sees before Start); then p is driven
-      line.pForce = k < H ? null : Math.min(1, (k - H) / (stepDur * fps))
+      // (and, as the runner does, the step's clock waits while a vessel is still arriving)
+      if (k >= H && !arriving(line)) run++
+      line.pForce = k < H ? null : Math.min(1, run / (stepDur * fps))
       line.step(1 / fps)
       tracks.frame = k; recordMotion(line, tracks)
       if (stopAt != null && k >= stopAt) break

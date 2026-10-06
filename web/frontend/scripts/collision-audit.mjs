@@ -40,6 +40,9 @@ const index = await page.evaluate(async () => (await fetch('protocols/index.json
 const SEL = ONLY || SNAPS
 const protos = index.filter((p) => (PROTOCOLS === 'all' || PROTOCOLS.split(',').includes(p.id)) && (!SEL || SEL.some((o) => o.p === p.id)))
 
+// a dev server can stall networkidle0 (a lingering HMR request): fall back to 'load' — the
+// deterministic clock's settled() is what the audit waits on
+const goto = (url) => page.goto(url, { waitUntil: 'networkidle0' }).catch(() => page.goto(url, { waitUntil: 'load', timeout: 60000 }))
 const results = []
 for (const p of protos) {
   const data = await page.evaluate(async (id) => (await fetch(`protocols/${id}.json`)).json(), p.id)
@@ -50,7 +53,7 @@ for (const p of protos) {
   for (let s = 1; s <= stations.length; s++) {
     if (SEL && !SEL.some((o) => o.p === p.id && o.s === s)) continue
     const det = await deterministic(page, `collision/${p.id}/${s}`, 3000)
-    await page.goto(`${BASE}/?run=1&step=${Math.max(1, s - 1)}`, { waitUntil: 'networkidle0' })
+    await goto(`${BASE}/?run=1&step=${Math.max(1, s - 1)}`)
     await det.settled()
     const ready = await page.evaluate(() => !!window.__benchLine)
     if (!ready) throw new Error('no window.__benchLine — is this the DEV server on the polish branch?')
@@ -75,7 +78,7 @@ for (const p of protos) {
       for (const sn of SNAPS.filter((o) => o.p === p.id && o.s === s)) {
         if (sn !== SNAPS.filter((o) => o.p === p.id && o.s === s)[0]) {
           const d2 = await deterministic(page, `collision/${p.id}/${s}`, 3000)
-          await page.goto(`${BASE}/?run=1&step=${Math.max(1, s - 1)}`, { waitUntil: 'networkidle0' }); await d2.settled()
+          await goto(`${BASE}/?run=1&step=${Math.max(1, s - 1)}`); await d2.settled()
           if (s > 1) {
             await page.evaluate(async () => { const d = await import('/src/dev/collisionDriver.js'); d.finishStation(window.__benchLine) })
             await page.evaluate(() => [...document.querySelectorAll('button')].find((x) => /^Next/.test(x.textContent.trim())).click()); await new Promise((r) => setTimeout(r, 400))
