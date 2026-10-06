@@ -1058,7 +1058,7 @@ function configureNestMove(st, S, o) {
   const { columnKey, tubeKey, columnSeatY, tubeSeatY, color, level } = o
   const AX = -0.85, BX = 0.7, Z = 0        // column starts left, the clean tube waits right
   const LIFT = 1.9                          // how high the column rises to clear the rims
-  const NEST_Y = tubeSeatY + 0.42           // seated depth: dropped into the tube's mouth
+  const NEST_Y = tubeSeatY + 0.381          // seated depth: dropped into the tube's mouth, resting on it (0.42 left it 0.04 above)
   const NEST_SCALE = 0.84                   // slims the column so it sits INSIDE the tube, not around it
   // frame both vessels (base → top), never the (absent) pipette rig
   st.frameAnchors = [
