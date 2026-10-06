@@ -1239,6 +1239,55 @@ function configurePipetteTransfer(st, S, o) {
   }
 }
 
+// THE STAND CLEARS THE SEAT: where a vessel this station sets down overlaps the pipette stand's
+// base (a 96-well plate, a flask — or a sample parked beside a prep), the stand moves left just
+// far enough (it stood with its foot under the plate). Nowhere else does it move. Measured from
+// where the station's own enter() seats its vessels (their state is restored after); the stand
+// is excluded from the framing.
+const STAND_R = 0.72
+function clearStand(st) {
+  const stand = st.group.children.find((c) => c.userData && c.userData.builder === 'buildPipetteStand')
+  const S = demo.getSample()
+  if (!stand || !S || !st.enter || !st.pip) return   // pipetting stations only (a dressing stand is never moved)
+  const vessels = [...S.vessels, ...demo.getPreps()]
+  const saved = vessels.map((v) => ({ v, parent: v.parent, docked: v.userData.docked, trip: v.userData.trip, p: v.position.clone(), t: v.userData.tPos ? v.userData.tPos.clone() : null, vis: v.visible, r: v.rotation.clone(), s: v.scale.clone() }))
+  const snap = demo.getSnap ? demo.getSnap() : false
+  let boxes = []
+  try {
+    demo.setSnap(true)
+    st.enter()
+    // where the vessels stand at entry and through the step (a sample set down mid-step too)
+    for (const p of [0, 0.25, 0.5, 0.75, 1]) {
+      if (p > 0) st.timeline?.(p)
+      for (const v of vessels) {
+        if (!v.visible) continue
+        if (v.userData.tPos) v.position.copy(v.userData.tPos)   // where it is going to rest
+        v.updateMatrixWorld(true)
+        const b = new Box3()
+        v.traverse((o) => { if (o.isMesh && !o.isSprite && o.visible) { o.geometry.computeBoundingBox(); b.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld)) } })
+        if (!b.isEmpty() && b.min.y < 0.2) boxes.push(b.translate(new Vector3(-st.x, 0, 0)))   // standing on the bench
+      }
+    }
+  } finally {
+    for (const o of saved) {
+      if (o.v.parent !== o.parent && o.parent) o.parent.add(o.v)          // a station that docked it (a rotor slot)
+      o.v.userData.docked = o.docked; o.v.userData.trip = o.trip
+      o.v.position.copy(o.p); if (o.t) o.v.userData.tPos.copy(o.t); o.v.visible = o.vis; o.v.rotation.copy(o.r); o.v.scale.copy(o.s)
+    }
+    demo.setSnap(snap)
+  }
+  const cz = stand.position.z
+  let x = stand.position.x
+  for (const b of boxes) {
+    const nz = Math.max(b.min.z, Math.min(cz, b.max.z)), dz = Math.abs(cz - nz)
+    if (dz >= STAND_R + 0.02) continue
+    const nx = Math.max(b.min.x, Math.min(x, b.max.x))
+    if (Math.hypot(x - nx, dz) >= STAND_R + 0.02) continue
+    x = Math.min(x, b.min.x - Math.sqrt((STAND_R + 0.02) ** 2 - dz * dz))
+  }
+  stand.position.x = x
+}
+
 function useContainers(steps) {
   return useMemo(() => sampleContainerSequence(steps), [steps])
 }
@@ -1529,6 +1578,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       // station's true content extent in local coords.
       st.frame = computeStationFrame(st)
       st.group.position.set(st.x, 0, 0)
+      clearStand(st)
       // the title sits just ABOVE the thing the step is about — the props' bbox top,
       // centred on it — not over the station origin. Its own half-height (worldH/2)
       // plus a small gap put the plate's BOTTOM edge clear of the subject.
