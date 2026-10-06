@@ -2092,8 +2092,10 @@ export {
     var skirt=new THREE.Mesh(new THREE.BoxGeometry(BX+0.1,0.06,BZ+0.1), matPlastic(0xc4ccd6));
     skirt.position.y=0.03; grp.add(skirt);
     // A1 corner NOTCH — a clipped corner cue (a small dark chamfer at one corner)
-    var notch=new THREE.Mesh(new THREE.BoxGeometry(0.22,BH+0.02,0.22), matPlastic(0x9aa4b0));
-    notch.position.set(-BX/2+0.02,0.17,-BZ/2+0.02); notch.rotation.y=Math.PI/4; grp.add(notch);
+    // (bug fix: BH+0.02 tall centred at 0.17 reached 0.01 below the plate's base, into the bench;
+    // now its foot is the plate's base and its top is where it was, 0.35)
+    var notch=new THREE.Mesh(new THREE.BoxGeometry(0.22,BH+0.01,0.22), matPlastic(0x9aa4b0));
+    notch.position.set(-BX/2+0.02,(BH+0.01)/2,-BZ/2+0.02); notch.rotation.y=Math.PI/4; grp.add(notch);
     // the 8×12 grid, A1 back-left; a dark floor disc at the bottom of every bore
     var deck=new THREE.Shape();
     deck.moveTo(-BX/2,-BZ/2); deck.lineTo(BX/2,-BZ/2); deck.lineTo(BX/2,BZ/2); deck.lineTo(-BX/2,BZ/2); deck.lineTo(-BX/2,-BZ/2);
