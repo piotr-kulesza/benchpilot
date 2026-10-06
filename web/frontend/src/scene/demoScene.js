@@ -80,7 +80,8 @@ export function prepAt(id, x, y, z) {
 function depart(v, alongAxis = false) {
   const from = v.position.clone()
   let out = null
-  if (alongAxis && (v.scale.x !== 1 || Math.abs(v.quaternion.w) < 0.99999)) {
+  if (v.userData.exitOut) { out = v.userData.exitOut.clone(); v.userData.exitOut = null }   // out of an enclosure's opening first
+  else if (alongAxis && (v.scale.x !== 1 || Math.abs(v.quaternion.w) < 0.99999)) {
     // out along its own axis by its own height (its seat's depth), then up
     const box = new THREE.Box3().setFromObject(v), h = box.getSize(new THREE.Vector3()).y
     out = from.clone().addScaledVector(new THREE.Vector3(0, 1, 0).applyQuaternion(v.quaternion), h)
@@ -105,7 +106,7 @@ export function undockSample(lift = false) {
     // upright and back to full size as it goes — it used to jump upright and full-size in place
     if (wasDocked) v.userData.docked = false
     if (lift && v.visible) depart(v, wasDocked)
-    else { v.userData.trip = null; if (wasDocked) { v.rotation.set(0, 0, 0); v.scale.setScalar(1) } }
+    else { v.userData.trip = null; v.userData.exitOut = null; if (wasDocked) { v.rotation.set(0, 0, 0); v.scale.setScalar(1) } }
     v.userData.exitLift = null
   }
 }

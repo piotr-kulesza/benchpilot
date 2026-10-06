@@ -935,6 +935,7 @@ export function configureStation(st, o) {
       evolve(p)
       const v = S[vessel]
       fr.userData.setDoor(p < 0.66)  // open until the vial is seated inside, then close
+      if (p < 0.66) v.userData.exitOut = null
       if (p < 0.14) {                // 1 · door swings open; vial waits on the bench
         S.at(v, st.x + bench.x, bench.y, bench.z)
       } else if (p < 0.42) {         // 2 · approach the opening — hop stays OUT in front of the box
@@ -944,6 +945,8 @@ export function configureStation(st, o) {
         move(v, front, inside, demo.easeInOut((p - 0.42) / 0.24))
       } else {                       // 4 · inside, door closed — deep-cold cast + frost puff
         S.at(v, st.x + inside.x, inside.y, inside.z)
+        // when it leaves, it comes back out through the opening before it rises
+        v.userData.exitOut = (v.userData.exitOut || new Vector3()).set(st.x + front.x, front.y, front.z)
         st.cold.intensity = (p - 0.66) * 5
         fr.userData.setFrost(0.4 * Math.max(0, Math.sin((p - 0.66) * 7)))
       }
