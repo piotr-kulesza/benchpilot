@@ -1830,6 +1830,29 @@ export {
   var DISPENSE_FROM=0.68, DISPENSE_TO=0.87;
   function dispenseProgress(p){ return easeInOut(clamp((p-DISPENSE_FROM)/(DISPENSE_TO-DISPENSE_FROM),0,1)); }
   var TIP_DROP=0.62;                          // tip end below the pipette origin: 0.86 × PIP_SCALE 0.72
+  // A PASS STARTS AND ENDS AT THE PIPETTE'S HOME (bug fix). The pipette used to begin with
+  // its tip already IN the source while the bottle's cap was still on (the cap comes off at
+  // p 0.03), to end parked over the destination — where the sample, lifting out on the next
+  // step, ran into it — and to jump between two passes. It is HELD (it never goes back into
+  // its stand: the stand's arm crosses its own ring), and between passes it waits at HOME:
+  // at cruise height, front-left beside its stand — clear of the sample's seat, the sources'
+  // row and every path a vessel travels along. Phase A: home → level over the source → down
+  // into the opened bottle → draw while rising. The pass ends by withdrawing straight up and
+  // moving level back home. The carry (B) and the dispense hold (DISPENSE_FROM..TO) are where
+  // they were.
+  function pipHome(TRAVEL_Y){ return new THREE.Vector3(PIP_REST.x+0.6, TRAVEL_Y, PIP_REST.z); }
+  function pipPhaseA(from, TRAVEL_Y, a){             // a: 0..1 across phase A → origin position
+    var SRC=from.y+0.72, H=pipHome(TRAVEL_Y);        // SRC: origin with the tip down in the source
+    if(a<0.3){ var q=easeInOut(a/0.3); return new THREE.Vector3(lerp(H.x,from.x,q), TRAVEL_Y, lerp(H.z,from.z,q)); }
+    if(a<0.6){ var q2=easeInOut((a-0.3)/0.3); return new THREE.Vector3(from.x, lerp(TRAVEL_Y,SRC,q2), from.z); }
+    var q3=easeInOut((a-0.6)/0.4); return new THREE.Vector3(from.x, lerp(SRC,TRAVEL_Y,q3), from.z);
+  }
+  function pipDrawFill(a){ return a<0.6 ? 0 : easeInOut((a-0.6)/0.4); }
+  // the last stretch: from straight above the mouth, level at cruise height, back home
+  function pipPhaseD(TRAVEL_Y, at, b){
+    var q=easeInOut(clamp(b,0,1)), H=pipHome(TRAVEL_Y);
+    return new THREE.Vector3(lerp(at.x,H.x,q), TRAVEL_Y, lerp(at.z,H.z,q));
+  }
   function pipetteRun(st, from, to, p, opts){
     opts=opts||{};
     var pip=st.pip; if(!pip) return;
@@ -1862,11 +1885,10 @@ export {
         pip.position.set(tx - Math.sin(rot)*TIP_DROP, ty + Math.cos(rot)*TIP_DROP, tz);
         pip.rotation.z=rot;
       }
-      if(p<draw){                               // A · at the bottle: rise & aspirate
-        var qa=easeInOut(p/draw);
+      if(p<draw){                               // A · out of the stand, into the opened source, draw
         pip.rotation.z=0;
-        pip.position.set(from.x, lerp(from.y+0.72, TRAVEL_Y, qa), from.z);
-        pip.userData.setFluid(qa*(opts.fill||0.8)); pip.userData.setColor(opts.color||COL.lysis);
+        pip.position.copy(pipPhaseA(from, TRAVEL_Y, p/draw));
+        pip.userData.setFluid(pipDrawFill(p/draw)*(opts.fill||0.8)); pip.userData.setColor(opts.color||COL.lysis);
       } else if(p<travel){                       // B · cruise HIGH & LEVEL to above the standoff
         var qb=easeInOut((p-draw)/(travel-draw));
         var sx=to.x+ax*dTop, sy=to.y+ay*dTop;
@@ -1881,13 +1903,22 @@ export {
         pip.position.set(sx2 - Math.sin(rot)*TIP_DROP, tipY + Math.cos(rot)*TIP_DROP, to.z);
         pip.rotation.z=rot;
         pip.userData.setFluid(opts.fill||0.8);
-      } else {                                   // C · in along the neck axis into the medium, then back out
-        var qc=(p-travel-0.08)/(1-travel-0.08);
-        // in (0-0.35), HOLD at depth while it dispenses (0.35-0.7), back out (0.7-1):
+      } else if(p<0.9){                          // C · in along the neck axis into the medium, then back out
+        var qc=(p-travel-0.08)/(0.9-travel-0.08);
+        // in (0-0.28), HOLD at depth while it dispenses (0.28-0.85), back out (0.85-1):
         // the drop leaves only when the tip is in the medium, never above the vessel
-        var s = qc<0.35 ? easeInOut(qc/0.35) : qc<0.7 ? 1 : easeInOut(1-(qc-0.7)/0.3);
+        var s = qc<0.28 ? easeInOut(qc/0.28) : qc<0.85 ? 1 : easeInOut(1-(qc-0.85)/0.15);
         tipAxis(lerp(dTop, -depth, s), TILT);
-        pip.userData.setFluid((1-clamp((qc-0.35)/0.35,0,1))*(opts.fill||0.8));
+        pip.userData.setFluid((1-clamp((p-DISPENSE_FROM)/(DISPENSE_TO-DISPENSE_FROM),0,1))*(opts.fill||0.8));
+      } else if(p<0.95){                         // C2 · straighten up and rise to cruise height
+        var qu=easeInOut((p-0.9)/0.05), r2=TILT*(1-qu);
+        var sx3=to.x+ax*dTop, sy3=to.y+ay*dTop;
+        pip.position.set(sx3 - Math.sin(r2)*TIP_DROP, lerp(sy3,TRAVEL_Y-TIP_DROP,qu) + Math.cos(r2)*TIP_DROP, to.z);
+        pip.rotation.z=r2; pip.userData.setFluid(0);
+      } else {                                   // D · level, back home
+        pip.rotation.z=0;
+        pip.position.copy(pipPhaseD(TRAVEL_Y, {x:to.x+ax*dTop, z:to.z}, (p-0.95)/0.05));
+        pip.userData.setFluid(0);
       }
       return;
     }
@@ -1898,26 +1929,29 @@ export {
     // Never a shared 0.62 tube constant that plunges the tip through the column bed.
     var DIP_Y=to.y+(opts.dipDepth!=null?opts.dipDepth:0.62);  // tip lowered into the mouth
     var pos=new THREE.Vector3();
-    if(p<draw){                                 // A · at the bottle: rise & aspirate
-      var q=easeInOut(p/draw);
-      pos.set(from.x, lerp(from.y+0.72, TRAVEL_Y, q), from.z);
+    if(p<draw){                                 // A · out of the stand, into the opened source, draw
+      pos.copy(pipPhaseA(from, TRAVEL_Y, p/draw));
       pip.rotation.z=0;
-      pip.userData.setFluid(q*(opts.fill||0.8)); pip.userData.setColor(opts.color||COL.lysis);
+      pip.userData.setFluid(pipDrawFill(p/draw)*(opts.fill||0.8)); pip.userData.setColor(opts.color||COL.lysis);
     } else if(p<travel){                         // B · cruise HIGH & LEVEL over the mouth
       var q2=easeInOut((p-draw)/(travel-draw));
       pos.set(lerp(from.x,to.x,q2), TRAVEL_Y, lerp(from.z,to.z,q2));
       pip.rotation.z=0;
       pip.userData.setFluid(opts.fill||0.8);
-    } else {                                     // C · descend STRAIGHT DOWN into the mouth
-      var q3=(p-travel)/(1-travel);
-      // down (0-0.35), HOLD in the vessel while dispensing (0.35-0.7), up (0.7-1): the
-      // fluid only drains — and the drop only shows — while the tip is inside the vessel
-      var y = q3<0.35 ? lerp(TRAVEL_Y,DIP_Y,easeInOut(q3/0.35))
-            : q3<0.7  ? DIP_Y
-                      : lerp(DIP_Y,TRAVEL_Y,easeInOut((q3-0.7)/0.3));
+    } else if(p<0.95){                           // C · descend STRAIGHT DOWN into the mouth
+      // down (p 0.5-0.62), HOLD in the vessel while dispensing (0.62-0.9 — the dispense
+      // window 0.68-0.87 inside it), straight up (0.9-0.95): the fluid only drains — and the
+      // drop only shows — while the tip is inside the vessel
+      var y = p<0.62 ? lerp(TRAVEL_Y,DIP_Y,easeInOut((p-travel)/0.12))
+            : p<0.9  ? DIP_Y
+                     : lerp(DIP_Y,TRAVEL_Y,easeInOut((p-0.9)/0.05));
       pos.set(to.x, y, to.z);
       pip.rotation.z=0;
-      pip.userData.setFluid((1-clamp((q3-0.35)/0.35,0,1))*(opts.fill||0.8));
+      pip.userData.setFluid((1-clamp((p-DISPENSE_FROM)/(DISPENSE_TO-DISPENSE_FROM),0,1))*(opts.fill||0.8));
+    } else {                                     // D · level, back home
+      pos.copy(pipPhaseD(TRAVEL_Y, to, (p-0.95)/0.05));
+      pip.rotation.z=0;
+      pip.userData.setFluid(0);
     }
     pip.position.copy(pos);                 // LOCAL — resident pipette stays at its station
   }

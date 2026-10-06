@@ -318,6 +318,13 @@ function Floor({ totalLen, preset }) {
 // A reagent SOURCE for a multi-reagent pass: normally its own bottle; but when a pour
 // draws from a mixture you prepared earlier, the source is a small filled TUBE (not a
 // bottle from nowhere). Registers st.reagents[key] with the pipette draw point.
+// a multi-reagent station's SOURCES: each opens for its own draw only (from its pass's start —
+// the tip is in it by a tenth of the pass — until the tip has left), every other stays sealed.
+// They were never opened: every draw went in through a closed cap.
+function capSources(st, n, k, lp) {
+  for (let j = 0; j < n; j++) { const b = st.reagents['r' + j] && st.reagents['r' + j].grp; if (b && b.userData.setCap) b.userData.setCap(!(j === k && lp < 0.36)) }
+}
+
 function addReagentSource(st, key, r, k, fromMix) {
   const sx = 2.0 + k * 0.95, sz = 0.7
   if (fromMix) {
@@ -491,12 +498,15 @@ export function configureStation(st, o) {
       st.timeline = (p) => {
         const v = S[vessel]
         if (v.userData.setCap) v.userData.setCap(!(p > 0.1 && p < 0.95)) // uncap to receive
-        demo.pipetteRun(st, new Vector3(draw.x, draw.y, draw.z), { x: disp.x, y: toY, z: disp.z }, p,
+        // the CARRIED prep arrives during the first quarter (its trip from the station that made
+        // it): the pass waits for it — the pipette used to dive in while the tube was in the air
+        const q = demo.clamp((p - 0.25) / 0.75, 0, 1)
+        demo.pipetteRun(st, new Vector3(draw.x, draw.y, draw.z), { x: disp.x, y: toY, z: disp.z }, q,
           { color: streamColor, fill: 0.8, approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: C.entryPoint })
-        const done = demo.dispenseProgress(p)
+        const done = demo.dispenseProgress(q)
         v.userData.setLevel(demo.lerp(startLevel, endLevel, done))
         v.userData.setColor(endColor)
-        prep.userData.setLevel(demo.lerp(PREP_FULL, 0.1, demo.easeInOut(demo.clamp(p, 0, 1)))) // drained as used
+        prep.userData.setLevel(demo.lerp(PREP_FULL, 0.1, demo.easeInOut(demo.clamp(q, 0, 1)))) // drained as used
       }
     } else {
       // N reagents → N pipette passes INTO the sample (one per reagent, from its own source).
@@ -511,6 +521,7 @@ export function configureStation(st, o) {
         const n = reags.length, seg = 1 / n
         const k = Math.min(n - 1, Math.floor(p / seg))
         const lp = demo.clamp((p - k * seg) / seg, 0, 1)
+        capSources(st, n, k, lp)
         demo.pipetteRun(st, st.reagents['r' + k].pos, { x: disp.x, y: toY, z: disp.z }, lp,
           { color: reags[k].color, fill: 0.8, approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: C.entryPoint })
         const done = (k + demo.dispenseProgress(lp)) / n
@@ -554,6 +565,7 @@ export function configureStation(st, o) {
       const n = reags.length, seg = 1 / n
       const k = Math.min(n - 1, Math.floor(p / seg))
       const lp = demo.clamp((p - k * seg) / seg, 0, 1)
+      capSources(st, n, k, lp)
       demo.pipetteRun(st, st.reagents['r' + k].pos, DIP, lp, { color: reags[k].color, fill: 0.8, dipDepth: 0.62 })
       const done = (k + demo.dispenseProgress(lp)) / n
       prep.userData.setLevel(done * PREP_FULL)
