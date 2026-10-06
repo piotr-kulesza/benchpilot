@@ -50,7 +50,7 @@ export function sampleLiquids(line) {
     const b = r && r.grp; if (!b || !b.userData.drawnUl) continue
     put('source ' + k, b, b.userData.drawnUl(), b.userData.drawnColor ? b.userData.drawnColor() : null, b.userData.cavity, b.userData.surfaceY ? b.userData.surfaceY() : null, false)
   }
-  if (st && st.waste && st.waste.userData.wasteUl != null) out.vessels.waste = { ul: st.waste.userData.wasteUl, color: null, tipIn: false, tipBelow: false, spinning: false }
+  if (st && st.waste && st.waste.userData.wasteUl != null) put('waste', st.waste, st.waste.userData.wasteUl, null, st.waste.userData.cavity, null, false)
   if (pip && pip.userData.drawnUl) out.tip = { ul: pip.userData.drawnUl(), color: pip.userData.drawnColor() }
   return out
 }
