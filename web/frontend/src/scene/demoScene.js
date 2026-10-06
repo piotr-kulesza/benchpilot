@@ -524,6 +524,10 @@ export function undockSample(lift = false) {
     grp.userData.setCapacity=function(ul){ if(ul>0) shape.capacityUl=ul; };
     grp.userData.setVolume=function(ul){ grp.userData.volUl=Math.max(0,ul); state.tLevel=levelFor(shape, ul); };
     grp.userData.drawnUl=function(){ return liq.visible ? volumeAt(shape, state.builtLevel) : 0; };
+    // READ-ONLY instrumentation (src/dev/liquidFrames.js): what is drawn, and where
+    grp.userData.drawnColor=function(){ return '#'+liqMat.color.getHexString(); };
+    grp.userData.cavity={ r:R*0.955*0.9, y0:0, y1:H };
+    grp.userData.surfaceY=function(){ return liq.visible ? liqBottom + state.builtLevel*(liqFillMax-liqBottom) : liqBottom; };
     grp.userData.setColor=function(hex){ state.tColor.set(hex); };
     grp.userData.setLabel=function(t,s){ if(label) label.userData.update(t,s||"");
       if(grp.userData.gradMat){ grp.userData.gradMat.map.dispose(); grp.userData.gradMat.map=tubeGraphicTex(t); grp.userData.gradMat.needsUpdate=true; } };
@@ -657,6 +661,7 @@ export function undockSample(lift = false) {
     // the tip drawn to the volume it holds: a P200 tip (its decal), so 10 µl is a sliver, not a full tip
     var tShape=tipShape();
     grp.userData.drawnUl=function(){ return fluid.visible ? volumeAt(tShape, st.fill) : 0; };
+    grp.userData.drawnColor=function(){ return '#'+fluidMat.color.getHexString(); };   // the tip is the origin
     grp.userData.setTipVolume=function(ul){ grp.userData.tipUl=Math.max(0,ul); st.tFill=levelFor(tShape, Math.min(Math.max(ul,0), tShape.capacityUl)); };
     grp.userData.setColor=function(h){ st.tColor.set(h); };
     grp.userData.update=function(dt){
@@ -742,6 +747,13 @@ export function undockSample(lift = false) {
     grp.userData.setVolume=function(ul){ grp.userData.volUl=Math.max(0,ul); st.tLevel=levelFor(cShape, ul); };
     grp.userData.drawnUl=function(){ return liq.visible ? volumeAt(cShape, st.builtLevel) : 0; };
     grp.userData.drawnFlowUl=function(){ return flow.visible ? volumeAt(flowShape, fst.builtLevel) : 0; };
+    grp.userData.drawnColor=function(){ return '#'+liqMat.color.getHexString(); };
+    grp.userData.drawnFlowColor=function(){ return '#'+flowMat.color.getHexString(); };
+    grp.userData.cavity={ r:0.28*0.9, y0:0.86, y1:1.56 };
+    grp.userData.surfaceY=function(){ return liq.visible ? colBottom + st.builtLevel*(colFillMax-colBottom) : colBottom; };
+    grp.userData.collGrp=collGrp;
+    grp.userData.flowCavity={ r:0.32*0.9, y0:0, y1:1.0 };
+    grp.userData.flowSurfaceY=function(){ return flow.visible ? COLL_Y0 + fst.builtLevel*(COLL_YMAX-COLL_Y0) : COLL_Y0; };
     grp.userData.setColor=function(h){ st.tColor.set(h); };
     grp.userData.setLabel=function(t,s){ label.userData.update(t,s||""); };
     grp.userData.update=function(dt){
@@ -1620,6 +1632,10 @@ export function undockSample(lift = false) {
     // setCap(on): on=true seals it; on=false lifts the cap up and tilts it aside.
     var bState={ level:1, tLevel:1, open:0, tOpen:0, capBaseY:h+0.11 };
     grp.userData.stockUl=bottleStockUl(h);   // what its drawn line holds: level 1 − drawn / stock
+    grp.userData.drawnUl=function(){ return bState.level*grp.userData.stockUl; };
+    grp.userData.drawnColor=function(){ return '#'+liq.material.color.getHexString(); };
+    grp.userData.cavity={ r:0.36*0.9, y0:0, y1:h };
+    grp.userData.surfaceY=function(){ return h*0.55*bState.level; };   // the liquid lathe is scaled in y from 0
     grp.userData.cap=cap;
     grp.userData.setLevel=function(v){ bState.tLevel=clamp(v,0,1); };
     grp.userData.setCap=function(on){ bState.tOpen = on ? 0 : 1; };
