@@ -427,7 +427,7 @@ export function configureStation(st, o) {
     // bottle (the bottle's own cap follows the bottle's tilt, so it is hidden and this
     // identical cap — starting exactly on the neck — carries its role)
     let cap = null
-    const CAP_ON = { x: HOME.x, y: 1.3 + 0.11, z: HOME.z }
+    const CAP_ON = { x: HOME.x, y: 1.3 + 0.11 + 0.021, z: HOME.z }   // on the neck's ring (0.021 lower sat in it)
     const CAP_BENCH = { x: HOME.x + 0.6, y: 0.11, z: HOME.z + 0.35 }
     if (bottle) {
       cap = bottle.userData.cap.clone()
