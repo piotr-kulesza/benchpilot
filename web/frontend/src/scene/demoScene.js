@@ -2249,7 +2249,7 @@ export {
     // it. Muted + capped opacity so it reads as a thin smear, never a floating blob.
     var filmMat=new THREE.MeshStandardMaterial({ color:0xc9c4cf, roughness:0.6, transparent:true, opacity:0.0, emissive:0x2a2630, emissiveIntensity:0.03 });
     var film=new THREE.Mesh(new THREE.CircleGeometry(0.32,40), filmMat);
-    film.rotation.x=-Math.PI/2; film.scale.set(1.6,1,0.7); film.position.set(0.35,0.075,0); grp.add(film);
+    film.rotation.x=-Math.PI/2; film.scale.set(1.6,1,0.7); film.position.set(0.35,0.075,0); auditKind(film,'fluid'); grp.add(film);
     var label=makeLabel("","slide"); label.position.set(0,0.55,0); grp.add(label);
     attachSampleLiquid(grp, film, function(f,lv,color){
       f.material.color.copy(color); f.material.emissive.copy(color);
