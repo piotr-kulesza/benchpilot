@@ -156,7 +156,15 @@ export function penetration(a, b) {
   if (!ba.intersectsBox(bb)) return 0
   const region = ba.clone().intersect(bb).expandByScalar(1e-6)
   const ca = isClosed(a.geometry), cb = isClosed(b.geometry)
-  if (ca || cb) return Math.max(cb ? depthInside(a, b, region) : 0, ca ? depthInside(b, a, region) : 0)
+  if (ca || cb) {
+    // wholly INSIDE a see-through closed container (a gel tank drawn as a closed glass box —
+    // its top is open in fact) is where it belongs; crossing its walls still counts
+    if (seeThrough(a) || seeThrough(b)) {
+      _m.copy(a.matrixWorld).invert().multiply(b.matrixWorld)
+      if (!bvhOf(a.geometry).intersectsGeometry(b.geometry, _m)) return 0
+    }
+    return Math.max(cb ? depthInside(a, b, region) : 0, ca ? depthInside(b, a, region) : 0)
+  }
   _m.copy(a.matrixWorld).invert().multiply(b.matrixWorld)        // B local → A local
   if (!bvhOf(a.geometry).intersectsGeometry(b.geometry, _m)) return 0
   // the smaller shell pokes through the larger: how far its MINORITY side lies past it
@@ -269,6 +277,7 @@ export function sweep(meshes, prevWorld, others, cap = 64) {
 // A moving PART of an object (a lid, a cap) is red only when it is deeper in the rest of its
 // object than at its own first-seen pose: a cap seated on its neck overlaps by design.
 const proxy = (m, world) => ({ geometry: m.geometry, matrixWorld: world })
+const seeThrough = (m) => { const mat = [].concat(m.material || [])[0]; return !!mat && mat.transparent && mat.opacity <= 0.6 }
 // closed transparent glass: a see-through box or capped cylinder (a flask's body and neck)
 export function closedGlass(m) {
   const mat = [].concat(m.material || [])[0], t = m.geometry.type, pr = m.geometry.parameters || {}

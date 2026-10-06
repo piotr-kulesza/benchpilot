@@ -96,5 +96,10 @@ describe('collision audit · goes red on a deliberately overlapped pair', () => 
     const r = auditPose([obj('dev', dev), obj('vessel', v)])
     expect(checks(r)).toEqual([])
   })
+  it('wholly inside a see-through closed container is fine; through its wall is not', () => {
+    const tank = box(1, 0.6, 1); tank.material = new MeshStandardMaterial({ transparent: true, opacity: 0.4 })
+    expect(checks(auditPose([obj('tank', tank), obj('gel', box(0.4, 0.1, 0.4, 0, 0.05))]))).toEqual([])
+    expect(checks(auditPose([obj('tank', tank), obj('gel', box(0.4, 0.1, 0.4, 0.45, 0.05))]))).toContain('intersect')
+  })
   it('tolerances are stated', () => { expect(TOL.depth).toBeGreaterThan(0) })
 })
