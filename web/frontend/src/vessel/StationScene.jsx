@@ -888,8 +888,9 @@ export function configureStation(st, o) {
     st.updatables.push(rig)
     st.dev = rig
     rig.userData.showGel(false)
-    const BENCH = { x: -2.9, z: 0.3 }                 // clear of the tank's footprint
-    const DOCK = { x: 0, y: rig.userData.dockY, z: 0 }
+    const BENCH = { x: -3.1, z: 0.3 }                 // clear of the tank's footprint (the gel's tray sits 0.8 off its origin: at −2.9 it stood 0.16 under the tank's edge)
+    // seated ON the tank's floor (its tray hung 0.25 above it in the buffer, its top through the tank's rim)
+    const DOCK = { x: 0, y: rig.userData.dockY - 0.25, z: 0 }
     const CLEAR = rig.userData.rimY + 0.4             // gel base clears the rim on the way in/out
     const put = (x, y, z) => S.at(S[vessel], st.x + x, y, z)
     st.enter = () => { seat(BENCH.x, SEAT_Y, BENCH.z); rig.userData.setLidLift(0); rig.userData.setVolts(false) }
