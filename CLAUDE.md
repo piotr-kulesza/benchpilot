@@ -208,6 +208,17 @@ continuity n → n+1, doubling, the tip, the neutrophil volumes, every unstated 
   waste passes through the tip, never held.
 - Surfaces (slide, membrane, gel, agar plate) have no drawn interior: their volume is kept, the
   demo's levels draw them. The dev matrix has no ledger and keeps the demo's levels.
+- **One clock: a liquid moves only with its transfer.** A volume changes only while the tip is
+  below the source's surface (drawing) or inside the target (dispensing) with the plunger moving,
+  while the vessel rides a turning rotor, or while a stream connects two vessels — and on that
+  motion's own curve (`drawProgress` / `dispenseProgress`, the tip set in the same frame). Builders
+  in volume mode draw their level and colour AS SET, with no easing of their own. A colour is the
+  volume-weighted mix of what flowed in, and changes only during an inflow; the tip carries its
+  source's colour. Every vessel of the line enters a station at the ledger's start (a hidden one
+  too). "Discard the flow-through" is done at the bench, at the next station with the column: it
+  stands aside and the pipette takes the flow-through into a waste beaker, a tip at a time.
+  Proof: `node scripts/liquid-frames.mjs` (dev server) checks every frame of every station and
+  exits 1 on any violation (`src/dev/liquidFrames.js`, proven red by `liquidFrames.test.js`).
 - `node scripts/liquid-sheet.mjs [--protocol id]` (dev server): every station at start, middle
   and end, the ledger volume beside what the scene draws (read back through the drawn shape).
 
