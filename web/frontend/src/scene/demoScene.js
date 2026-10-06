@@ -1618,8 +1618,11 @@ export function undockSample(lift = false) {
       bState.open =lerp(bState.open, bState.tOpen, 1-Math.pow(0.0009,dt));
       liq.scale.y=Math.max(0.001,bState.level);                    // surface drops
       var o=bState.open;
-      cap.position.set(-o*0.52, bState.capBaseY + o*0.42, o*0.14); // lift + slide aside
-      cap.rotation.z = o*1.2;                                       // tilt aside
+      // LIFT FIRST, then slide and tilt aside (bug fix): all three at once swung the cap's
+      // skirt through the neck. Closed (0) and open (1) poses are unchanged.
+      var up=Math.min(1,o/0.35), aside=clamp((o-0.25)/0.75,0,1);
+      cap.position.set(-aside*0.52, bState.capBaseY + up*0.42, aside*0.14); // lift, then slide aside
+      cap.rotation.z = aside*1.2;                                            // tilt aside
     };
     return grp;
   }
