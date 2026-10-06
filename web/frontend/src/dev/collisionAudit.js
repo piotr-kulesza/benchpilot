@@ -70,9 +70,11 @@ export function solidMeshes(root, stopAt = null, opts = {}) {
   walk(root)
   return out
 }
+const hasVerts = (m) => !!(m.geometry && m.geometry.attributes.position && m.geometry.attributes.position.count)
 function worldBox(meshes) {
   const b = new Box3(), t = new Box3()
-  for (const m of meshes) { if (!m.geometry.boundingBox) m.geometry.computeBoundingBox(); b.union(t.copy(m.geometry.boundingBox).applyMatrix4(m.matrixWorld)) }
+  for (const m of meshes) {
+    if (!hasVerts(m)) continue   // a liquid emptied this frame if (!m.geometry.boundingBox) m.geometry.computeBoundingBox(); b.union(t.copy(m.geometry.boundingBox).applyMatrix4(m.matrixWorld)) }
   return b
 }
 
@@ -198,6 +200,7 @@ function minoritySide(a, b) {
 // the deepest crossing between two sets of meshes
 export function setPenetration(as, bs) {
   let worst = 0, at = null
+  as = as.filter(hasVerts); bs = bs.filter(hasVerts)
   const bb = worldBox(bs)
   for (const a of as) {
     if (!a.geometry.boundingBox) a.geometry.computeBoundingBox()
