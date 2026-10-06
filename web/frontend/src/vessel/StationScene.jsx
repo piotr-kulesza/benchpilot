@@ -1007,10 +1007,13 @@ export function configureStation(st, o) {
     const inst = equipment
     // rest the sample on an instrument's stage at its stated height (flat vessels are
     // otherwise pinned to the bench by seat()'s FLAT guard), reading progress ramping.
-    const onStage = (dev, sy, k = 1.3) => {
+    // (dx, dz: where on the stage it rests, clear of the instrument's arm / lens; it leaves
+    // forward off the stage, from under whatever is above it, before it rises)
+    const onStage = (dev, sy, k = 1.3, dx = 0, dz = 0) => {
       st.dev = dev; st.group.add(dev); st.updatables.push(dev)
-      st.enter = () => { seat(0, 0, 0); S.at(S[vessel], st.x, sy, 0); dev.userData.setProgress?.(0) }
-      st.timeline = (p) => { evolve(p); S.at(S[vessel], st.x, sy, 0); dev.userData.setProgress?.(demo.easeInOut(demo.clamp(p * k, 0, 1))) }
+      const out = (v) => { v.userData.exitOut = (v.userData.exitOut || new Vector3()).set(st.x + dx, sy, dz + 1.4) }
+      st.enter = () => { seat(0, 0, 0); S.at(S[vessel], st.x + dx, sy, dz); const v = S[vessel]; v.userData.enterVia = (v.userData.enterVia || new Vector3()).set(st.x + dx, sy, dz + 1.4); dev.userData.setProgress?.(0) }
+      st.timeline = (p) => { evolve(p); S.at(S[vessel], st.x + dx, sy, dz); out(S[vessel]); dev.userData.setProgress?.(demo.easeInOut(demo.clamp(p * k, 0, 1))) }
     }
     if (inst === 'plate_reader') {
       const reader = demo.buildPlateReader()
@@ -1033,10 +1036,10 @@ export function configureStation(st, o) {
       onStage(scope, scope.userData.stageY)
     } else if (inst === 'light_microscope') {
       const scope = demo.buildLightMicroscope()
-      onStage(scope, scope.userData.stageY)
+      onStage(scope, scope.userData.stageY + 0.02, 1.3, 0, 0.58)   // in front of the arm and clear of the objective (its back edge ran 0.3 into the arm), on the stage clips
     } else if (inst === 'uv_transilluminator') {
       const tl = demo.buildUVTransilluminator()
-      onStage(tl, tl.userData.stageY)
+      onStage(tl, tl.userData.stageY, 1.3, 0, 0.5)         // forward, clear of the camera housing behind the stage (it ran 2.7 mm into it)
     } else {
       // no instrument accepts this vessel: hold it AT REST with its readout. A
       // meaningless idle spin would imply a reading is happening when none is.
