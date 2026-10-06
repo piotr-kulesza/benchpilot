@@ -1348,8 +1348,11 @@ function travel(v, goal, dt) {
     v.position.addScaledVector(u._vel, dt)
     if (v.position.distanceToSquared(goal) < 1e-8 && u._vel.lengthSq() < 1e-6) { v.position.copy(goal); u._vel.set(0, 0, 0); u._spring = false }
   } else {
+    // a target that moves a little every frame IS the choreography (the station's timeline eases
+    // it): follow it exactly — the demo's exponential chase lagged behind it and cut its corners
+    // diagonally through rims, lids and walls
     const before = _travelPrev.copy(v.position)
-    v.position.lerp(goal, 1 - Math.pow(0.02, dt))
+    v.position.copy(goal)
     if (dt > 0) u._vel.copy(v.position).sub(before).divideScalar(dt)   // carried into a spring if the target jumps
   }
 }
