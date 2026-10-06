@@ -2489,7 +2489,9 @@ export {
     // tilt — and PARENTED to the holder, so it RIDES the rotor as it spins. The lid
     // closes before the spin and opens once it stops.
     var holder = cen.userData.holders[2];   // a slot facing the camera at rest
-    var SEAT_SCALE=0.6, SEAT_Y=-0.16;        // a small tube fits the slot and clears the closed lid
+    // seated ON the slot's floor (bug fix: at -0.16 it hung 0.15 above it, and the tilted tube's
+    // top crossed the closed lid's dome while it spun)
+    var SEAT_SCALE=0.6, SEAT_Y=-0.31;
     var preSlot={ x:1.4, y:1.42, z:0.03 };   // just above the slot (station-local)
     var lift={ x:1.4, y:2.15, z:0.03 };      // raised clear of the rotor
     var docked=false;
@@ -2509,6 +2511,29 @@ export {
       v.rotation.set(0,0,0); v.scale.setScalar(1);
       v.userData.docked=false; docked=false;
     }
+    // LOWERED INTO THE SLOT, never snapped (bug fix): from the hold point over the rotor to a
+    // point out along the slot's axis — turning to the slot's tilt and taking the seat scale on
+    // the way — then down the axis onto the slot's floor. At q = 1 its world pose IS the docked
+    // pose, so docking changes nothing on screen (it used to jump in place, size and angle).
+    var _sp=new THREE.Vector3(), _sq=new THREE.Quaternion(), _ss=new THREE.Vector3(), _ax=new THREE.Vector3();
+    function seatPose(){
+      cen.updateWorldMatrix(true,true);
+      new THREE.Matrix4().compose(new THREE.Vector3(0,SEAT_Y,0), new THREE.Quaternion(), new THREE.Vector3(SEAT_SCALE,SEAT_SCALE,SEAT_SCALE))
+        .premultiply(holder.matrixWorld).decompose(_sp,_sq,_ss);
+      _ax.set(0,1,0).applyQuaternion(_sq);
+      return { p:_sp.clone(), q:_sq.clone(), s:_ss.x, axis:_ax.clone() };
+    }
+    function lowerInto(q){
+      var v=SAMPLE[o.vessel], sp=seatPose();
+      var L=new THREE.Vector3(st.x+lift.x, lift.y, lift.z), E=sp.p.clone().addScaledVector(sp.axis, 0.9);
+      if(q<0.55){ var a=easeInOut(q/0.55);
+        SAMPLE.snapTo(v, lerp(L.x,E.x,a), lerp(L.y,E.y,a), lerp(L.z,E.z,a));
+        v.quaternion.identity().slerp(sp.q, a); v.scale.setScalar(lerp(1, sp.s, a));
+      } else { var b=easeInOut((q-0.55)/0.45);
+        SAMPLE.snapTo(v, lerp(E.x,sp.p.x,b), lerp(E.y,sp.p.y,b), lerp(E.z,sp.p.z,b));
+        v.quaternion.copy(sp.q); v.scale.setScalar(sp.s);
+      }
+    }
     st.enter=function(){
       SAMPLE.only(o.vessel);
       var v=SAMPLE[o.vessel];
@@ -2517,6 +2542,7 @@ export {
       v.userData.setLevel(o.lStart==null?0.5:o.lStart);
       undock(); v.scale.setScalar(1); v.rotation.set(0,0,0); v.visible=true;
       SAMPLE.at(v, st.x+lift.x, lift.y, lift.z);        // arrives above the open rotor
+      lowerQ=0; lastP=0; restT=0;
       cen.userData.setLabel(o.cenLabel||"Centrifuge", o.cenSub||""); cen.userData.setSpin(0); cen.userData.setLid(true);
     };
     if(o.seconds) st.hud={label:o.hudLabel||"Centrifuge", seconds:o.seconds};
@@ -2525,35 +2551,37 @@ export {
     // as the digits run — 15 s on the clock == 15 s of spin, ten minutes == ten minutes.
     // Entry (dock + lid close) and exit (spin-down + lid open + lift out) use ABSOLUTE time
     // so a long spin doesn't glide in for minutes. t = { hasTimer, running, done, progress }.
-    var phase="rest", runT=0, endT=0;
+    var phase="rest", runT=0, endT=0, restT=0, lowerQ=0, lastP=0;
     st.driveTimed=function(t,dt){
       var v=SAMPLE[o.vessel]; v.visible=true;
       var engaged = t.running || t.done || t.progress>0.0001;
       if(!engaged){                               // pre-spin REST — also where Reset returns
         if(phase!=="rest"){ phase="rest"; runT=0; endT=0; }
-        undock(); cen.userData.setSpin(0); cen.userData.setLid(true);
-        v.scale.setScalar(1); v.rotation.set(0,0,0);
-        SAMPLE.at(v, st.x+lift.x, lift.y, lift.z);
+        cen.userData.setSpin(0); cen.userData.setLid(true);
         v.userData.setLevel(o.lStart==null?0.5:o.lStart);
+        // the tube does not wait in the air for Start (bug fix): once it has arrived over the
+        // rotor it is lowered into its slot, and rests there with the lid open
+        if(docked) return;
+        if(v.userData.trip){ SAMPLE.at(v, st.x+lift.x, lift.y, lift.z); return; }
+        restT+=dt; var qr=clamp(restT/0.9,0,1); lowerInto(qr); if(qr>=1) dock();
         return;
       }
-      if(t.done || t.progress>=1){                // 00:00 — rotor spins DOWN, lid opens, sample lifts out
+      if(t.done || t.progress>=1){                // 00:00 — rotor spins DOWN, lid opens
         if(phase!=="end"){ phase="end"; endT=0; }
         endT+=dt;
         cen.userData.setSpin(0);                  // update() lerps the wheel to a stop
-        if(endT<0.9){ dock(); cen.userData.setLid(false); }      // still closed while it slows
-        else if(endT<1.5){ cen.userData.setLid(true); }          // lid swings open
-        else { undock(); var q=easeInOut(clamp((endT-1.5)/0.6,0,1));
-               SAMPLE.at(v, st.x+lift.x, lerp(preSlot.y,lift.y,q), preSlot.z); }
+        if(!docked){ lowerInto(1); dock(); }
+        if(endT<0.9){ cen.userData.setLid(false); }              // still closed while it slows
+        else { cen.userData.setLid(true); }                      // lid swings open
+        // the tube STAYS in its slot (bug fix): it used to be lifted out and left hanging in the
+        // air; it leaves on the next step, along the slot's axis (undockSample)
         return;
       }
       // RUNNING or PAUSED: lid closed, sample docked, rotor spins for the WHOLE countdown.
       if(phase!=="run"){ phase="run"; runT=0; }
       runT+=dt;
-      var ent=clamp(runT/0.55,0,1);               // quick entry glide, absolute-timed
-      if(ent<1 && !docked){
-        var qe=easeInOut(ent);
-        SAMPLE.at(v, st.x+preSlot.x, lerp(lift.y,preSlot.y,qe), preSlot.z);
+      if(!docked){                               // Start pressed before it was lowered in
+        restT+=dt; var qe=clamp(restT/0.9,0,1); lowerInto(qe); if(qe>=1) dock();
         cen.userData.setLid(true); cen.userData.setSpin(0);
       } else {
         dock();
@@ -2564,22 +2592,21 @@ export {
     };
     st.timeline=function(p){
       var v=SAMPLE[o.vessel]; v.visible=true;
-      if(p<0.18){                            // 1 · glide in, lower toward the slot (lid open)
-        undock();
-        var q=easeInOut(clamp(p/0.16,0,1));
-        SAMPLE.at(v, st.x+preSlot.x, lerp(lift.y,preSlot.y,q), preSlot.z);
+      var dp=Math.max(0,p-lastP); lastP=p;
+      if(p<0.22 && !docked){                 // 1 · arrives over the rotor, then is LOWERED into its slot (lid open)
         cen.userData.setSpin(0); cen.userData.setLid(true);
-      } else if(p<0.26){                     // 2 · seat into the slot; lid closes over it
-        dock(); cen.userData.setSpin(0); cen.userData.setLid(false);
+        if(v.userData.trip){ SAMPLE.at(v, st.x+lift.x, lift.y, lift.z); }
+        else { lowerQ=Math.min(1, lowerQ+dp/0.07); lowerInto(lowerQ); if(lowerQ>=1) dock(); }
+      } else if(p<0.27){                     // 2 · seated; the lid closes over it
+        if(!docked){ lowerInto(1); dock(); }
+        cen.userData.setSpin(0); cen.userData.setLid(false);
       } else if(p<0.80){                     // 3 · lid closed + SPINNING — sample rides the rotor
-        dock(); cen.userData.setSpin(24); cen.userData.setLid(false);
-      } else if(p<0.90){                     // 4 · rotor stops; lid opens
-        cen.userData.setSpin(0); cen.userData.setLid(true);
-      } else {                               // 5 · lift the sample out of the slot
-        undock();
-        var q3=easeInOut((p-0.90)/0.10);
-        SAMPLE.at(v, st.x+lift.x, lerp(preSlot.y,lift.y,q3), preSlot.z);
-        cen.userData.setSpin(0); cen.userData.setLid(true);
+        if(!docked){ lowerInto(1); dock(); }
+        cen.userData.setSpin(24); cen.userData.setLid(false);
+      } else if(p<0.88){                     // 4 · the rotor spins down, the sample riding it
+        cen.userData.setSpin(0); cen.userData.setLid(false);
+      } else {                               // 5 · lid opens; the sample STAYS in its slot (it
+        cen.userData.setSpin(0); cen.userData.setLid(true);   // leaves on the next step, along the slot axis)
       }
       if(o.lEnd!=null) v.userData.setLevel(lerp(o.lStart==null?0.5:o.lStart, o.lEnd, easeInOut(clamp(p,0,1))));
     };
