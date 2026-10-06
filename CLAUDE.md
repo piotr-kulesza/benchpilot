@@ -151,6 +151,30 @@ refreshes the committed baseline to compare against. Ad-hoc captures still live 
 
 Review rubric and the paste-ready audit prompt: `docs/scene-review.md`.
 
+### Collisions and motion — measured, not eyeballed
+
+```bash
+node scripts/collision-audit.mjs [--protocols a,b] [--only proto:station] [--out f.json]   # dev server
+node scripts/collision-audit.mjs --snap proto:station:frame                                 # evidence PNG
+python3 scripts/tile-diff.py approved current                                               # pixel diff of two sets
+```
+
+`src/dev/collisionAudit.js` (pure, three-mesh-bvh; proven red by `collisionAudit.test.js`):
+solids crossing, an object at rest touching nothing or below the bench, a moving object
+sweeping through a surface, a moving part deeper in its own object than at rest.
+`src/dev/motionAudit.js`: a teleport (an isolated jump; a pop in the camera's view) and an
+abrupt start/stop. The driver (`src/dev/collisionDriver.js`) runs the LIVE runner frame by
+frame through `window.__benchLine` (dev builds only): it enters each station with Next, holds a
+timed step at rest (as before Start), drives p, and lets vessels arrive. Builders mark what is
+not a rigid solid with `auditKind` metadata (`'fluid'`, `'granular'`, `'effect'`) — never rendered.
+
+Motion rules the scene now keeps: a vessel leaving a station makes a TRIP (straight up — out
+along its axis first from a tilted seat, out through the front from an enclosure — over, and
+down, or in from the front under an overhead instrument), one smootherstep in time; a target
+that jumps is reached on a critically damped spring; a timeline's own path is followed
+exactly; a step's clock waits for its vessels to arrive; the pipette waits at its HOME and
+every pass starts and ends there.
+
 ### Regenerating the bundled data
 
 ```bash
