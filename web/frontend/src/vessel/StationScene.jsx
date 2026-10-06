@@ -1200,7 +1200,8 @@ export function configureStation(st, o) {
     wrapHandoff(st, S, prevVessel, vessel, startColor, startLevel, containerContract(prevContainer).seat.y - C.seat.y,
       Lq ? { from: ulAt(prevVessel, 'start'), fromColor: colAt(prevVessel, 'start', startColor), to: startUl, toColor: startColor } : null)
   }
-  if (Lq && Lq.flowDiscard) wrapFlowDiscard(st, S, Lq.flowDiscard, colAt('flow', 'start', null))
+  // (the column's seat at this station: a prepare parks the idle sample beside the mix)
+  if (Lq && Lq.flowDiscard) wrapFlowDiscard(st, S, Lq.flowDiscard, colAt('flow', 'start', null), action === 'prepare' ? { x: -2.0, z: -0.1 } : { x: 0, z: 0 })
   // EVERY vessel of the line enters this station holding what the ledger says it holds at its
   // start — not only the one the station shows (a hidden tube kept another station's volume and
   // then drained or filled in view)
@@ -1227,69 +1228,57 @@ export function configureStation(st, o) {
 }
 
 // "DISCARD THE FLOW-THROUGH", at the bench: the column lifts out of its collection tube and
-// stands aside; the collection tube rises, tips over a waste beaker and pours the flow-through
-// off (the stream connects the two, the level falls as it pours); it comes back upright onto its
-// seat and the column goes back into it. Then the station's own action runs on the rest of p.
-// (In the rotor at the last spin the assembly is seated in a tilted slot; this is where a hand
-// pours it off.) The waste stands left of the seat, clear of the stand and the sources.
-function wrapFlowDiscard(st, S, ul, color) {
+// stands aside; the station's own pipette draws the flow-through up from below its surface, one
+// 200 µl tip at a time, and dispenses it into a waste beaker; the column goes back in. Then the
+// station's own action runs on the rest of p. (Seated in the rotor's tilted slot at the last spin,
+// it could not be reached; and a tube tipped past level would show its liquid stuck to its raised
+// bottom, so it is not tipped.) The beaker stands left of the seat, clear of the stand and sources.
+function wrapFlowDiscard(st, S, ul, color, seatLocal) {
   const baseEnter = st.enter, baseTimeline = st.timeline
-  const TD = 4.5                                        // seconds the discard takes
+  if (!st.pip) demo.addPipetteRig(st)                   // (every bench station that receives a column has one)
+  const P = Math.max(1, Math.ceil(ul / TIP_UL - 1e-9)), each = ul / P
+  const COL_S = 1.2                                      // seconds to stand the column aside (and back)
+  const TD = 2 * COL_S + P * STEP_DUR * 0.35             // + one pass per tip
   const dur0 = st.duration || STEP_DUR
   st.duration = dur0 + TD
-  const F = TD / st.duration                            // share of p
+  const F = TD / st.duration                             // share of p
+  const A = COL_S / TD, B = 1 - COL_S / TD               // passes run between A and B of the discard
   const waste = demo.buildWaste(); waste.scale.setScalar(0.8); waste.userData.noFrame = true
   waste.userData.wasteUl = 0
+  waste.userData.cavity = { r: 0.46, y0: 0, y1: 1.0 }    // its inner wall (local; scaled with it)
+  waste.position.set(seatLocal.x - 1.15, 0, seatLocal.z + 0.45)   // stands there from the start (never moved)
   st.group.add(waste); st.waste = waste
-  const stream = new Mesh(new CylinderGeometry(0.03, 0.04, 1, 12), new MeshStandardMaterial({ color: color ?? 0x5061db, roughness: 0.3, transparent: true, opacity: 0.85 }))
-  stream.userData.auditKind = 'fluid'; stream.visible = false
-  st.group.add(stream)
-  st.liquidStreams = [{ mesh: stream, from: 'flow', to: 'waste' }]
-  const col = S.column, coll = col.userData.collGrp
-  const RIM = 0.8, THETA = 1.9, LIFT = 1.0, ASIDE = 0.9  // waste rim (0.8 scaled), tilt, column clearance
+  const col = S.column
+  const LIFT = 1.0, ASIDE = 0.9                          // the column's tip clears the tube's rim; stands right of it
   let seat = null
-  const _m = new Vector3(), _w = new Vector3(), _d = new Vector3()
   st.enter = () => {
     baseEnter && baseEnter()
-    seat = null; waste.userData.wasteUl = 0; stream.visible = false
+    seat = null; waste.userData.wasteUl = 0; col.userData.held = false
     col.userData.reattachCollection?.()
   }
   st.timeline = (p) => {
     if (p >= F) {
-      if (seat) { col.userData.reattachCollection?.(); S.snapTo(col, seat.x, seat.y, seat.z); col.userData.setFlow(0); waste.userData.wasteUl = ul; stream.visible = false; seat = null }
+      if (seat) { col.userData.reattachCollection?.(); S.snapTo(col, seat.x, seat.y, seat.z); col.userData.held = false; col.userData.setFlow(0); waste.userData.wasteUl = ul; demo.pipRest(st); seat = null }
       baseTimeline && baseTimeline((p - F) / (1 - F))
       return
     }
     const q = p / F
-    if (!seat) {                                        // where the column stands (it has arrived)
+    if (q <= 0 && !seat) return                          // still arriving (the step's clock waits for it)
+    if (!seat) {                                         // where the column stands (it has arrived)
       seat = col.userData.tPos.clone()
-      const lx = seat.x - st.x
-      waste.position.set(lx - 1.15, 0, seat.z + 0.45)
-      col.userData.detachCollection?.(st.group)
+      col.userData.detachCollection?.(st.group)          // the collection tube stays on its seat
     }
-    const W = waste.position, cx = seat.x - st.x, cy = seat.y, cz = seat.z
     const seg = (a, b) => demo.easeInOut(demo.clamp((q - a) / (b - a), 0, 1))
-    // the column: up out of the tube, aside; back over, down into it at the end
-    const up = seg(0, 0.1) - seg(0.94, 1), aside = seg(0.1, 0.2) - seg(0.88, 0.94)
-    S.snapTo(col, seat.x + aside * ASIDE, cy + up * LIFT, cz)
-    // the collection tube: up, over the waste, tipped, pouring, back
-    const BASE = { x: W.x + 0.9, y: 1.32 }               // tilted by THETA, its mouth is over the waste, above the rim
-    const rise = seg(0.2, 0.3) - seg(0.8, 0.86), over = seg(0.3, 0.36) - seg(0.76, 0.8), tilt = seg(0.36, 0.46) - seg(0.68, 0.76)
-    coll.position.set(demo.lerp(cx, BASE.x, over), demo.lerp(cy, BASE.y, rise), demo.lerp(cz, W.z, over))
-    coll.rotation.set(0, 0, THETA * tilt)
-    // the pour: only while it is fully tipped — the level falls with the stream, the waste takes it
-    const u = demo.clamp((q - 0.46) / 0.22, 0, 1)
-    col.userData.setFlow(ul * (1 - u)); waste.userData.wasteUl = ul * u
-    stream.visible = q > 0.46 && q < 0.68
-    if (stream.visible) {
-      coll.updateMatrixWorld(true); st.group.updateMatrixWorld(true)
-      _m.set(0, 1.0, 0); coll.localToWorld(_m); st.group.worldToLocal(_m)      // the tube's mouth
-      _w.set(W.x, 0.45, W.z)                                                   // into the beaker
-      _d.subVectors(_w, _m)
-      stream.position.copy(_m).addScaledVector(_d, 0.5)
-      stream.scale.set(1, _d.length(), 1)
-      stream.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), _d.clone().normalize())
-    }
+    const up = seg(0, A / 2) - seg(B + (1 - B) / 2, 1), aside = seg(A / 2, A) - seg(B, B + (1 - B) / 2)
+    S.snapTo(col, seat.x + aside * ASIDE, seat.y + up * LIFT, seat.z)
+    col.userData.held = up > 0                           // out of its tube, it is in the hand
+    if (q < A || q >= B) { demo.pipRest(st); return }
+    const { j, lp } = passAt((q - A) / (B - A), P)
+    const W = waste.position, cx = seat.x - st.x
+    demo.pipetteRun(st, { x: cx, y: seat.y, z: seat.z }, { x: W.x, y: 0, z: W.z }, lp,
+      { color, tipUl: each, srcTip: seat.y + 0.02, dipDepth: 0.5 })   // the tip at the tube's floor (0.018): it draws the last µl
+    col.userData.setFlow(ul - (j + demo.drawProgress(lp)) * each)          // drops as the tip draws
+    waste.userData.wasteUl = (j + demo.dispenseProgress(lp)) * each          // the beaker takes what it gives
   }
 }
 

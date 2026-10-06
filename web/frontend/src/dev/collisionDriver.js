@@ -36,7 +36,7 @@ export function lineObjects(line) {
   const out = stationObjects(line, stations[a])
   if (a > 0) out.push(...stationObjects(line, stations[a - 1], 'prev · '))
   const S = line.sample()
-  if (S) S.vessels.forEach((v, k) => { if (visible(v)) out.push({ name: `sample ${builderOf(v) || k}`, root: v, held: false }) })
+  if (S) S.vessels.forEach((v, k) => { if (visible(v)) out.push({ name: `sample ${builderOf(v) || k}`, root: v, held: !!v.userData.held }) })   // held: lifted out by hand (a column standing aside)
   for (const pv of line.preps()) if (visible(pv) && !out.some((o) => o.root === pv)) out.push({ name: `prep ${builderOf(pv) || ''}`.trim(), root: pv, held: false })
   return out
 }
