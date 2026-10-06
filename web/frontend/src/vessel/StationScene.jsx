@@ -14,6 +14,8 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera } from '@react-three/drei'
 import { FogExp2, Color, Vector3, Quaternion, Box3, Group, Mesh, RingGeometry, SphereGeometry, CylinderGeometry, PlaneGeometry, CanvasTexture, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
+import { buildLedger, mixColor, TIP_UL } from './liquidLedger.js'
+import { tubeShape, volumeAt } from '../scene/liquidShape.js'
 import { resolveRecipe, stepConditions, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects, exitLiftPoint, pourPlan, removalFor, benchStaging, addSource } from './sceneRecipe.js'
 import { containerContract, transferKind, sideBySide } from './containerContract.js'
 import { reagentName, reagentVolume, effectiveStep, selectAlternative, hasAlternatives } from '../lib/runtime.js'
@@ -340,8 +342,14 @@ function addReagentSource(st, key, r, k, fromMix) {
 
 // Build a station for a step. Every action gets a timeline with VISIBLE motion
 // driven by the per-step progress p (0->1): so no station is ever static.
+// a station that runs P pipette passes takes longer than one pass (each pass ≈ 2.3 s)
+const passDuration = (P) => STEP_DUR * Math.max(1, 1 + 0.35 * (P - 1))
+// split station progress p over a list of passes → { j: pass index, lp: its own progress }
+const passAt = (p, P) => { const j = Math.min(P - 1, Math.floor(p * P)); return { j, lp: P > 1 ? demo.clamp(p * P - j, 0, 1) : p } }
+
 export function configureStation(st, o) {
-  const { action, equipment, container, prevContainer, color, name, vol, seconds, startColor, startLevel, endColor, endLevel, cycles } = o
+  const { action, equipment, container, prevContainer, color, name, vol, seconds, startLevel, endLevel, cycles } = o
+  let { startColor, endColor } = o
   // THE CONTRACT: the container owns its geometry facts (vessel geo, flat vs upright,
   // seat height, dispense point, tip-vs-aspirate). No more microtube-shaped defaults.
   const C = containerContract(container)
@@ -355,6 +363,24 @@ export function configureStation(st, o) {
   // vessel ON equipment (bath/ice/rotor/…) still pass their own height to seat().
   const SEAT_Y = C.seat.y
 
+  // ── VOLUMES (liquidLedger.js): what this station's vessels hold, start → end, and the ops
+  // between. A vessel with a drawn interior takes a volume (setVolume); a surface (slide,
+  // membrane, gel, agar) keeps the demo's levels. Without a ledger (the dev matrix): the demo's levels.
+  const Lq = o.liq || null
+  const VOL = !!(Lq && S[vessel] && S[vessel].userData.setVolume)
+  const ulAt = (id, side) => (Lq && Lq[side][id] ? Lq[side][id].ul : 0)
+  const colAt = (id, side, dflt) => (Lq && Lq[side][id] && Lq[side][id].color != null ? Lq[side][id].color : dflt)
+  const startUl = ulAt(vessel, 'start'), endUl = ulAt(vessel, 'end')
+  if (VOL) { startColor = colAt(vessel, 'start', startColor); endColor = colAt(vessel, 'end', endColor) }
+  const amount = (v, ul, level) => { if (Lq && v.userData.setVolume) v.userData.setVolume(ul); else v.userData.setLevel(level) }
+  // a spin column always carries its collection tube's flow-through as the ledger has it
+  const dressFlow = (side) => {
+    const c = S.column
+    if (Lq && c && c.userData.setFlow) { c.userData.setFlow(ulAt('flow', side)); c.userData.setFlowColor(colAt('flow', side, null)) }
+  }
+  // this station's pipette passes: one entry per tip, in order (an op of n passes is n entries)
+  const passList = (ops) => ops.flatMap((op) => Array.from({ length: op.passes || 1 }, () => ({ op, each: op.ul / (op.passes || 1) })))
+
   // seat the travelling sample WITHOUT resetting its contents: it enters at the
   // carried-in (start) state, so it continues from where the last step left it.
   const seat = (x, y, z) => {
@@ -362,7 +388,8 @@ export function configureStation(st, o) {
     const v = S[vessel]
     if (name) v.userData.setLabel(name, vol || '')
     v.userData.setColor(startColor)
-    v.userData.setLevel(startLevel)
+    amount(v, startUl, startLevel)
+    dressFlow('start')
     if (v.userData.setCap) v.userData.setCap(true) // a capped vessel arrives SEALED; a pour opens it
     v.visible = true
     v.rotation.set(0, 0, 0)
@@ -374,10 +401,13 @@ export function configureStation(st, o) {
   // evolve the sample's level (and, past the midpoint, its colour) from the
   // carried-in start toward this step's end, paced by p. Returns the base level
   // so callers can add a surface ripple on top.
-  const evolve = (p) => {
+  // (a surface ripple rides on a demo level only: a volume is a volume)
+  const evolve = (p, ripple = 0) => {
     const v = S[vessel]
-    const base = demo.lerp(startLevel, endLevel, demo.easeInOut(demo.clamp(p, 0, 1)))
-    v.userData.setLevel(base)
+    const e = demo.easeInOut(demo.clamp(p, 0, 1))
+    const base = demo.lerp(startLevel, endLevel, e)
+    if (VOL) v.userData.setVolume(demo.lerp(startUl, endUl, e))
+    else v.userData.setLevel(base + ripple)
     if (p > 0.5) v.userData.setColor(endColor)
     return base
   }
@@ -386,7 +416,13 @@ export function configureStation(st, o) {
   // when the step collects samples from outside the bench, else the reagent's bottle
   const source = (action === 'pour_add' || action === 'pipette_mix')
     ? addSource({ text_en: o.text, reagents: (o.reagents || []).map((r) => ({ name: r.name })) }) : 'bottle'
-  const pour = action === 'pour_add' ? pourPlan({ text_en: o.text, reagents: (o.reagents || []).map((r) => ({ volume: r.vol })) }) : null
+  const pour = action === 'pour_add'
+    ? (Lq ? (() => { const po = Lq.ops.filter((x) => x.method === 'pour'); const fromBottle = po.filter((x) => x.op === 'add' && x.from === 'bottle')
+        return { pour: po.length > 0, reagentIndex: fromBottle.length ? Math.max(0, fromBottle[0].ri ?? 0) : -1, ops: po, bottleOps: fromBottle } })()
+      : pourPlan({ text_en: o.text, reagents: (o.reagents || []).map((r) => ({ volume: r.vol })) }))
+    : null
+  // the ledger's adds into the sample at this station (from a bottle, a carried mix, outside)
+  const addOps = Lq ? Lq.ops.filter((x) => (x.op === 'add' && x.to === vessel) || (x.op === 'move' && x.to === vessel && String(x.from).startsWith('prep:'))) : []
   if (action === 'pour_add' && source === 'none') {
     // COLLECTING samples: the sample arrives from outside the bench (a blood draw) — no
     // bottle and no pipette are invented; the vessel simply receives it
@@ -395,15 +431,24 @@ export function configureStation(st, o) {
   } else if (source === 'sample_tube') {
     // the reagent IS the sample (e.g. "load the denatured protein samples into the wells"):
     // the pipette draws from the samples' own TUBE — a bottle of samples would be invented
-    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: C.entryPoint })
+    const tube = demo.buildTube({ height: 1.7, radius: 0.32, color: endColor, label: '' })
+    // VOLUMES: the samples' tube holds what a 0.6 level draws (the samples' stock is not stated),
+    // or the carried mix's volume when the step draws from one; it drops by what each pass draws
+    const draws = Lq ? addOps : []
+    const P = passList(draws).length
+    const total = draws.reduce((a, x) => a + x.ul, 0)
+    const srcUl = draws.some((x) => String(x.from).startsWith('prep:')) ? ulAt(draws[0].from, 'start') : volumeAt(tubeShape(1.7, 0.32), 0.6)
+    const addColor = draws.length ? draws.reduce((c, x, k) => (k ? mixColor(c, draws.slice(0, k).reduce((a, y) => a + y.ul, 0), x.color, x.ul) : x.color), null) : endColor
+    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: Lq && draws.length ? addColor : endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: C.entryPoint,
+      ...(Lq && P ? { passes: P, each: total / P, ulStart: startUl, srcTube: tube, srcUl } : {}) })
+    if (Lq && P) st.duration = passDuration(P)
     const src = st.reagents.r
     src.grp.visible = false
-    const tube = demo.buildTube({ height: 1.7, radius: 0.32, color: endColor, label: '' })
     tube.position.copy(src.grp.position); tube.userData.noFrame = true
-    tube.userData.setLevel?.(0.6)
+    if (Lq && P) tube.userData.setVolume(srcUl); else tube.userData.setLevel?.(0.6)
     st.group.add(tube); if (tube.userData.update) st.updatables.push(tube)
     const baseTl = st.timeline
-    st.timeline = (p) => { baseTl(p); tube.userData.setLevel?.(demo.lerp(0.6, 0.4, demo.clamp(p / 0.3, 0, 1))) }
+    st.timeline = (p) => { baseTl(p); if (!(Lq && P)) tube.userData.setLevel?.(demo.lerp(0.6, 0.4, demo.clamp(p / 0.3, 0, 1))) }
   } else if (pour && pour.pour) {
     // #13 — a POUR: the stated mL reagent's BOTTLE is tipped into the vessel; no pipette.
     // A pour that states no reagent ("pour the agarose into the casting tray") names no
@@ -413,7 +458,14 @@ export function configureStation(st, o) {
       x: C0.x || 0, z: C0.z || 0,
       y: (C0.approach === 'angled' && C0.y != null) ? C0.y : SEAT_Y + (C0.y != null ? C0.y : 0.9),
     }
-    const reag = pour.reagentIndex >= 0 ? o.reagents[pour.reagentIndex] : null
+    const reag = pour.reagentIndex >= 0 ? (Lq ? { ...o.reagents[pour.reagentIndex], color: pour.bottleOps.reduce((c, x, k) => (k ? mixColor(c, pour.bottleOps.slice(0, k).reduce((a, y) => a + y.ul, 0), x.color, x.ul) : x.color), null) } : o.reagents[pour.reagentIndex]) : null
+    // VOLUMES: the pour holds its tilt for exactly as long as its volume takes at POUR_UL_PER_S
+    // (the rest of the choreography keeps its timing): p is remapped so the stream runs T seconds
+    const T = Lq ? Math.max(Lq.pourSeconds, 1 / 60) : 0
+    const poured = Lq ? pour.ops.reduce((a, x) => a + x.ul, 0) : 0
+    const PRE = 0.5 * STEP_DUR, POST = 0.2 * STEP_DUR
+    if (Lq) st.duration = PRE + T + POST
+    const pourP = (p) => { const t = p * (PRE + T + POST); return t < PRE ? t / STEP_DUR : t < PRE + T ? 0.5 + 0.3 * (t - PRE) / T : 0.8 + (t - PRE - T) / STEP_DUR }
     let bottle = null
     if (reag) {
       demo.addBottle(st, 'pour', '', reag.color, 2.0, 0.7)
@@ -443,13 +495,21 @@ export function configureStation(st, o) {
     }
     st.enter = () => {
       seat(0, SEAT_Y, 0)
-      if (bottle) { bottle.position.set(HOME.x, HOME.y, HOME.z); bottle.rotation.set(0, 0, 0); cap.position.set(CAP_ON.x, CAP_ON.y, CAP_ON.z) }
+      if (bottle) { bottle.position.set(HOME.x, HOME.y, HOME.z); bottle.rotation.set(0, 0, 0); cap.position.set(CAP_ON.x, CAP_ON.y, CAP_ON.z); if (Lq) bottle.userData.setLevel?.(1) }
     }
-    st.timeline = (p) => {
+    // the stream's share poured so far: a constant flow while the bottle is tipped
+    const flowed = (p) => demo.clamp((p - 0.5) / 0.3, 0, 1)
+    const fill = (q) => {
+      const v = S[vessel]
+      if (VOL) { v.userData.setVolume(startUl + (endUl - startUl) * q); v.userData.setColor(mixColor(startColor, startUl, reag ? reag.color : endColor, (endUl - startUl) * q)) }
+      else evolve(q)
+    }
+    st.timeline = (p0) => {
+      const p = Lq ? pourP(p0) : p0
       const v = S[vessel]
       const seg = (a, b) => demo.easeInOut(demo.clamp((p - a) / (b - a), 0, 1))
       if (v.userData.setCap) v.userData.setCap(!(p > 0.2 && p < 0.95)) // a capped vessel opens for the pour
-      if (!bottle) { evolve(seg(0.2, 0.85)); return }
+      if (!bottle) { if (Lq) fill(flowed(p)); else evolve(seg(0.2, 0.85)); return }
       // 0-0.1 · uncap: the cap lifts off the neck, carries over, and is set on the bench
       if (p < 0.03) cap.position.set(CAP_ON.x, demo.lerp(CAP_ON.y, CAP_ON.y + 0.3, seg(0, 0.03)), CAP_ON.z)
       else if (p < 0.07) { const q = seg(0.03, 0.07); cap.position.set(demo.lerp(CAP_ON.x, CAP_BENCH.x, q), CAP_ON.y + 0.3, demo.lerp(CAP_ON.z, CAP_BENCH.z, q)) }
@@ -465,9 +525,10 @@ export function configureStation(st, o) {
       else if (p < 0.88) { x = tiltBase.x; y = tiltBase.y; z = tiltBase.z; rot = TH * (1 - seg(0.8, 0.88)) }
       else { const q = seg(0.88, 1); x = demo.lerp(tiltBase.x, HOME.x, q); z = demo.lerp(tiltBase.z, HOME.z, q); y = demo.lerp(tiltBase.y, HOME.y, q) }
       bottle.position.set(x, y, z); bottle.rotation.set(0, 0, rot)
-      bottle.userData.setLevel?.(1 - 0.3 * seg(0.5, 0.8))      // the bottle empties as it pours
+      if (Lq) bottle.userData.setLevel?.(1 - poured * flowed(p) / bottle.userData.stockUl)   // falls by what it poured
+      else bottle.userData.setLevel?.(1 - 0.3 * seg(0.5, 0.8))      // the bottle empties as it pours
       stream.visible = p >= 0.5 && p < 0.8
-      evolve(seg(0.5, 0.8))                                     // fills only while it pours
+      if (Lq) fill(flowed(p)); else evolve(seg(0.5, 0.8))       // fills only while it pours
     }
   } else if (action === 'pour_add') {
     const reags = o.reagents || []
@@ -479,8 +540,12 @@ export function configureStation(st, o) {
     // the ONE persistent prep vessel this step consumes (Stage 36) — carried here, drawn from.
     const prep = (fromMix && o.drawsFrom) ? demo.getPrep(o.drawsFrom) : null
     if (reags.length <= 1 && !fromMix) {
-      // UNCHANGED single-reagent path: resident pipette rig + bottle; fill ramps in the dispense window.
-      demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: C.entryPoint })
+      // single-reagent path: resident pipette rig + bottle; fill ramps in the dispense window —
+      // with volumes, one pass per tip of the stated draw, the vessel rising by what was dispensed
+      const P = passList(addOps).length, add = addOps[0]
+      demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: add ? add.color : endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: C.entryPoint,
+        ...(Lq && P ? { passes: P, each: add.ul / P, ulStart: startUl } : {}) })
+      if (Lq && P) st.duration = passDuration(P)
       frameAngledPipette(st, C.dispense, 0)
     } else if (prep) {
       // DRAW FROM THE CARRIED MIX (Stage 36). The prep tube was made at its own station and
@@ -494,13 +559,27 @@ export function configureStation(st, o) {
       st.drawsFromId = o.drawsFrom
       st.drawPos = { x: st.x + draw.x, y: 0, z: draw.z } // WORLD seat the carried tube glides to
       demo.addPipetteRig(st)
-      st.enter = () => { seat(0, SEAT_Y, 0); demo.pipRest(st); prep.userData.setLevel(PREP_FULL) }
+      const mv = Lq ? addOps.find((x) => x.from === 'prep:' + o.drawsFrom) : null
+      const P = mv ? mv.passes || 1 : 1, each = mv ? mv.ul / P : 0
+      const prepUl = Lq ? ulAt('prep:' + o.drawsFrom, 'start') : 0
+      if (mv) st.duration = passDuration(P) + 0.25 * STEP_DUR
+      st.enter = () => { seat(0, SEAT_Y, 0); demo.pipRest(st); if (mv) prep.userData.setVolume(prepUl); else prep.userData.setLevel(PREP_FULL) }
       st.timeline = (p) => {
         const v = S[vessel]
         if (v.userData.setCap) v.userData.setCap(!(p > 0.1 && p < 0.95)) // uncap to receive
         // the CARRIED prep arrives during the first quarter (its trip from the station that made
         // it): the pass waits for it — the pipette used to dive in while the tube was in the air
         const q = demo.clamp((p - 0.25) / 0.75, 0, 1)
+        if (mv) {
+          const { j, lp } = passAt(q, P)
+          demo.pipetteRun(st, new Vector3(draw.x, draw.y, draw.z), { x: disp.x, y: toY, z: disp.z }, lp,
+            { color: mv.color, tipUl: each, approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: C.entryPoint })
+          const added = (j + demo.dispenseProgress(lp)) * each
+          if (VOL) { v.userData.setVolume(startUl + added); v.userData.setColor(mixColor(startColor, startUl, mv.color, added)) }
+          else { v.userData.setLevel(demo.lerp(startLevel, endLevel, added / mv.ul)); v.userData.setColor(endColor) }
+          prep.userData.setVolume(prepUl - (j + demo.drawProgress(lp)) * each)   // drops as the tip draws
+          return
+        }
         demo.pipetteRun(st, new Vector3(draw.x, draw.y, draw.z), { x: disp.x, y: toY, z: disp.z }, q,
           { color: streamColor, fill: 0.8, approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: C.entryPoint })
         const done = demo.dispenseProgress(q)
@@ -515,9 +594,22 @@ export function configureStation(st, o) {
       demo.addPipetteRig(st)
       reags.forEach((r, k) => addReagentSource(st, 'r' + k, r, k, fromMix))
       st.enter = () => { seat(0, SEAT_Y, 0); demo.pipRest(st) }
+      const passes = Lq ? passList(addOps) : []
+      if (passes.length) st.duration = passDuration(passes.length)
       st.timeline = (p) => {
         const v = S[vessel]
         if (v.userData.setCap) v.userData.setCap(!(p > 0.1 && p < 0.95)) // uncap for the passes
+        if (passes.length) {
+          const { j, lp } = passAt(p, passes.length), cur = passes[j], k = Math.min(reags.length - 1, cur.op.ri ?? 0)
+          capSources(st, reags.length, k, lp)
+          demo.pipetteRun(st, st.reagents['r' + k].pos, { x: disp.x, y: toY, z: disp.z }, lp,
+            { color: cur.op.color, tipUl: cur.each, approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: C.entryPoint })
+          let ul = startUl, c = startColor
+          for (let i = 0; i <= j; i++) { const a = i < j ? passes[i].each : demo.dispenseProgress(lp) * passes[i].each; c = mixColor(c, ul, passes[i].op.color, a); ul += a }
+          if (VOL) { v.userData.setVolume(ul); v.userData.setColor(c) }
+          else { v.userData.setLevel(demo.lerp(startLevel, endLevel, (j + demo.dispenseProgress(lp)) / passes.length)); v.userData.setColor(reags[k].color) }
+          return
+        }
         const n = reags.length, seg = 1 / n
         const k = Math.min(n - 1, Math.floor(p / seg))
         const lp = demo.clamp((p - k * seg) / seg, 0, 1)
@@ -553,15 +645,28 @@ export function configureStation(st, o) {
     const idleSample = () => {
       S.only(vessel)
       const sv = S[vessel]
-      sv.userData.setColor(startColor); sv.userData.setLevel(startLevel)
+      sv.userData.setColor(startColor); amount(sv, startUl, startLevel)
       sv.visible = true; sv.rotation.set(0, 0, 0); sv.scale.setScalar(1)
       S.snapTo(sv, st.x - 2.0, SEAT_Y, -0.1) // idle beside the prep; never clobber global snap
       return sv
     }
-    st.enter = () => { idleSample(); prep.userData.setLevel(0); prep.userData.setColor(reags[0].color); demo.pipRest(st) }
+    const pid = 'prep:' + prepId
+    const passes = Lq ? passList(Lq.ops.filter((x) => x.op === 'add' && x.to === pid)) : null
+    if (passes && passes.length) st.duration = passDuration(passes.length)
+    st.enter = () => { idleSample(); if (passes) prep.userData.setVolume(0); else prep.userData.setLevel(0); prep.userData.setColor(reags[0].color); demo.pipRest(st) }
     st.timeline = (p) => {
       const sv = S[vessel]
-      sv.userData.setColor(startColor); sv.userData.setLevel(startLevel) // untouched, held
+      sv.userData.setColor(startColor); amount(sv, startUl, startLevel) // untouched, held
+      if (passes) {
+        if (!passes.length) { capSources(st, reags.length, -1, 1); return }   // nothing liquid to add (a plate warming up)
+        const { j, lp } = passAt(p, passes.length), cur = passes[j], k = Math.min(reags.length - 1, cur.op.ri ?? 0)
+        capSources(st, reags.length, k, lp)
+        demo.pipetteRun(st, st.reagents['r' + k].pos, DIP, lp, { color: cur.op.color, tipUl: cur.each, dipDepth: 0.62 })
+        let ul = 0, c = null
+        for (let i = 0; i <= j; i++) { const a = i < j ? passes[i].each : demo.dispenseProgress(lp) * passes[i].each; c = mixColor(c, ul, passes[i].op.color, a); ul += a }
+        prep.userData.setVolume(ul); if (c != null) prep.userData.setColor(c)
+        return
+      }
       const n = reags.length, seg = 1 / n
       const k = Math.min(n - 1, Math.floor(p / seg))
       const lp = demo.clamp((p - k * seg) / seg, 0, 1)
@@ -586,9 +691,11 @@ export function configureStation(st, o) {
         const dip = Math.sin(cp * Math.PI) // 0→1→0, CONTINUOUS across the reset (no jump)
         pip.position.set(0, demo.lerp(TOP, BOT, dip), 0)
         pip.userData.setColor(endColor)
-        pip.userData.setFluid((1 - dip) * 0.6) // draw up when raised, expel when plunged
+        if (VOL) { const held = (Lq.mixUl || 0) * dip; pip.userData.setTipVolume(held); S[vessel].userData.setVolume(startUl - held) }   // drawn at the bottom of each stroke, back on the way up
+        else pip.userData.setFluid((1 - dip) * 0.6) // draw up when raised, expel when plunged
       }
-      S[vessel].userData.setLevel(evolve(p) + Math.sin(p * 26) * 0.02) // surface ripple over carried level
+      if (VOL) return
+      evolve(p, Math.sin(p * 26) * 0.02) // surface ripple over carried level
     }
   } else if (action === 'vortex_mix') {
     if (FLAT) {
@@ -633,7 +740,7 @@ export function configureStation(st, o) {
       const cp = (p * passes) % 1
       syr.userData.setPlunge(cp < 0.5 ? cp * 2 : (1 - cp) * 2) // press down then draw up
       syr.userData.setColor(endColor)
-      S[vessel].userData.setLevel(evolve(p) + Math.sin(p * 34) * 0.02) // agitation ripple over carried level
+      evolve(p, Math.sin(p * 34) * 0.02) // agitation ripple over carried level
     }
   } else if (action === 'discard') {
     // remove liquid — motion follows the CURRENT container: a tube TIPS into the
@@ -653,7 +760,8 @@ export function configureStation(st, o) {
         if (st.pip) {
           st.pip.position.set(dx, demo.lerp(hiY, loY, demo.easeInOut(demo.clamp(p * 1.4, 0, 1))), dz)
           st.pip.userData.setColor(endColor)
-          st.pip.userData.setFluid(demo.easeInOut(demo.clamp(p, 0, 1)) * 0.7)
+          if (Lq) st.pip.userData.setTipVolume(Math.min(TIP_UL, startUl) * Math.sin(Math.PI * demo.easeInOut(demo.clamp(p, 0, 1))))   // in transit, never held
+          else st.pip.userData.setFluid(demo.easeInOut(demo.clamp(p, 0, 1)) * 0.7)
         }
         evolve(p) // drain (no tipping)
       }
@@ -687,6 +795,7 @@ export function configureStation(st, o) {
         columnKey: prevC2.vessel, tubeKey: vessel,
         columnSeatY: prevC2.seat.y, tubeSeatY: SEAT_Y,
         color: startColor, level: startLevel, // the column KEEPS its carried contents
+        vols: Lq ? { column: ulAt(prevC2.vessel, 'start'), columnColor: colAt(prevC2.vessel, 'start', startColor), tube: ulAt(vessel, 'start'), flow: ulAt('flow', 'start'), flowColor: colAt('flow', 'start', null) } : null,
       })
       st._skipHandoff = true // the nest IS the transition; no lift/settle swap or fill
     } else if (kind === 'contents' && prevC2) {
@@ -700,7 +809,10 @@ export function configureStation(st, o) {
         srcDisp: prevC2.dispense, dstDisp: C.dispense, dstEntry: C.entryPoint,
         srcToken: prevContainer, dstToken: container,
         color: endColor, startLevel, endLevel, name, vol,
+        move: Lq ? Lq.ops.find((x) => x.op === 'move' && x.from === prevC2.vessel && x.to === vessel) || null : null,
+        vols: Lq ? { a: ulAt(prevC2.vessel, 'start'), aColor: colAt(prevC2.vessel, 'start', startColor), b: ulAt(vessel, 'start'), bColor: colAt(vessel, 'start', null) } : null,
       })
+      if (Lq && st.passes) st.duration = passDuration(st.passes)
       st._skipHandoff = true // the pipette run IS the transition; no lift/settle swap
     } else if (kind === 'place' && prevC2) {
       // A gel or membrane on either side (#5): nothing is pipetted. Both vessels rest side
@@ -736,12 +848,16 @@ export function configureStation(st, o) {
         `container move (prev=${prevContainer}, to=${container}) — rendering a rest, not a fill. ` +
         `If this should MOVE the sample, its container/nestsIn contract is wrong.`)
       st.enter = () => seat(0, SEAT_Y, 0)
-      st.timeline = () => { S[vessel].userData.setLevel(startLevel) } // hold — never fill on a transfer
+      st.timeline = () => { amount(S[vessel], startUl, startLevel) } // hold — never fill on a transfer
     }
   } else if (equipment === 'centrifuge' || action === 'elute') {
     // benchtop centrifuge, rotor spins over p (verbatim stationSpin). The sample
     // arrives at its carried level and spins down to the chained end level.
-    demo.stationSpin(st, BT, { vessel, vlabel: name || '', vsub: vol || '', color: endColor, lStart: startLevel, lEnd: endLevel, cenLabel: 'Centrifuge', cenSub: vol || '', seconds })
+    const toFlow = Lq ? Lq.ops.filter((x) => x.op === 'move' && x.to === 'flow').reduce((a, x) => a + x.ul, 0) : 0
+    demo.stationSpin(st, BT, { vessel, vlabel: name || '', vsub: vol || '', color: endColor, lStart: startLevel, lEnd: endLevel, cenLabel: 'Centrifuge', cenSub: vol || '', seconds,
+      ...(VOL ? { vol: { start: startUl, end: endUl },
+        flow: vessel === 'column' ? { start: ulAt('flow', 'start'), peak: ulAt('flow', 'start') + toFlow, end: ulAt('flow', 'end'), startColor: colAt('flow', 'start', null),
+          color: mixColor(colAt('flow', 'start', null), ulAt('flow', 'start'), startColor, toFlow) } : null } : {}) })
   } else if ((action === 'incubate_wait' && equipment !== 'ice_bucket') || (action === 'store' && equipment === 'co2_incubator')) {
     // EQUIPMENT CONTRACT: the instrument was resolved from the container AND the step's
     // stated conditions (resolveRecipe) — a tube BLOCK only when one is named, a plate
@@ -794,7 +910,7 @@ export function configureStation(st, o) {
       // contentsState (passaging hero): during a flask incubation the adherent
       // MONOLAYER visibly DETACHES (trypsinisation) — confluent → cleared.
       if (incubating && v.userData.setMono) v.userData.setMono(1 - demo.easeInOut(demo.clamp((p - 0.3) / 0.5, 0, 1)))
-      v.userData.setLevel(evolve(p) + Math.sin(p * 10) * 0.02) // holds carried contents
+      evolve(p, Math.sin(p * 10) * 0.02) // holds carried contents
       if (motionFn) motionFn(p)
       else if (incDev) incDev.userData.setDoor(!!S[vessel].userData.trip)   // a store: shut once it is in
     }
@@ -831,7 +947,7 @@ export function configureStation(st, o) {
         b.scale.setScalar(0.4 + yy)
         b.visible = !FLAT // bubbles only rise when a tube is dipped in
       }
-      S[vessel].userData.setLevel(evolve(p) + Math.sin(p * 12) * 0.02) // holds carried contents
+      evolve(p, Math.sin(p * 12) * 0.02) // holds carried contents
     }
   } else if (action === 'cool_ice' || equipment === 'ice_bucket') {
     // ice bucket + a cold cast that deepens with p (frost creep) + a faint shiver.
@@ -1069,7 +1185,8 @@ export function configureStation(st, o) {
   // actions that run their own vessel choreography stay excluded.
   const custom = (action === 'store' && equipment === 'freezer') || equipment === 'centrifuge'
   if (prevVessel && prevVessel !== vessel && !custom && !st._skipHandoff) {
-    wrapHandoff(st, S, prevVessel, vessel, startColor, startLevel, containerContract(prevContainer).seat.y - C.seat.y)
+    wrapHandoff(st, S, prevVessel, vessel, startColor, startLevel, containerContract(prevContainer).seat.y - C.seat.y,
+      Lq ? { from: ulAt(prevVessel, 'start'), fromColor: colAt(prevVessel, 'start', startColor), to: startUl, toColor: startColor } : null)
   }
   hideLabels(st.group)
 }
@@ -1080,7 +1197,11 @@ export function configureStation(st, o) {
 // and never filling, NO pipette rig, and the column lifts → travels over → lowers into the
 // tube's mouth (the destination's drop-in approach). At p=1 the column sits in the tube.
 function configureNestMove(st, S, o) {
-  const { columnKey, tubeKey, columnSeatY, tubeSeatY, color, level } = o
+  const { columnKey, tubeKey, columnSeatY, tubeSeatY, color, level, vols } = o
+  // VOLUMES: the column keeps what it holds; the clean tube holds what the ledger says (nothing);
+  // the used collection tube left on the bench keeps its flow-through
+  const colAmt = (col) => { if (vols) { col.userData.setVolume?.(vols.column); col.userData.setColor?.(vols.columnColor) } else col.userData.setLevel?.(level) }
+  const tubeAmt = (tube) => { if (vols && tube.userData.setVolume) tube.userData.setVolume(vols.tube); else tube.userData.setLevel?.(0) }
   const AX = -0.85, BX = 0.7, Z = 0        // column starts left, the clean tube waits right
   const LIFT = 1.9                          // how high the column rises to clear the rims
   const NEST_Y = tubeSeatY + 0.381          // seated depth: dropped into the tube's mouth, resting on it (0.42 left it 0.04 above)
@@ -1098,8 +1219,9 @@ function configureNestMove(st, S, o) {
     col.visible = true; tube.visible = true
     col.rotation.set(0, 0, 0); tube.rotation.set(0, 0, 0)
     col.scale.setScalar(1)
-    col.userData.setColor?.(color); col.userData.setLevel?.(level) // column keeps its bed contents
-    tube.userData.setLevel?.(0)                                    // fresh clean tube — empty
+    col.userData.setColor?.(color); colAmt(col)                    // column keeps its bed contents
+    tubeAmt(tube)                                                  // fresh clean tube — empty
+    if (vols && col.userData.setFlow) { col.userData.setFlow(vols.flow); col.userData.setFlowColor(vols.flowColor) }
     S.snapTo(col, st.x + AX, columnSeatY, Z)
     S.snapTo(tube, st.x + BX, tubeSeatY, Z)
   }
@@ -1107,7 +1229,7 @@ function configureNestMove(st, S, o) {
   st.timeline = (p) => {
     const col = S[columnKey], tube = S[tubeKey]
     col.visible = true; tube.visible = true
-    tube.userData.setLevel?.(0)              // the clean tube NEVER fills — no liquid moves
+    tubeAmt(tube)                            // the clean tube NEVER fills — no liquid moves
     S.snapTo(tube, st.x + BX, tubeSeatY, Z)
     // the COLUMN moves, its used collection tube does not: from the first lift the
     // collection tube stays standing on the bench where the assembly was
@@ -1123,7 +1245,7 @@ function configureNestMove(st, S, o) {
       x = BX; y = demo.lerp(columnSeatY + LIFT, NEST_Y, e); sc = demo.lerp(1, NEST_SCALE, e)
     }
     col.scale.setScalar(sc)
-    col.userData.setLevel?.(level)           // contents unchanged the whole way
+    colAmt(col)                              // contents unchanged the whole way
     S.snapTo(col, st.x + x, y, Z)
   }
 }
@@ -1135,7 +1257,11 @@ function configureNestMove(st, S, o) {
 // so the swap is crisp and the frame-loop glide never fights it.
 // fromDy: the OLD vessel's own seat height relative to the new one's (a gel sits at 0, a membrane
 // at −0.025: the gel used to be lowered to the membrane's seat, into the bench)
-function wrapHandoff(st, S, fromKey, toKey, color, level, fromDy = 0) {
+function wrapHandoff(st, S, fromKey, toKey, color, level, fromDy = 0, vols = null) {
+  // VOLUMES: each vessel carries its OWN contents (the old one what it holds, the new one what it
+  // starts with) — the incoming vessel used to arrive already holding the old one's level
+  const oldAmt = (ov) => { if (vols && ov.userData.setVolume) { ov.userData.setVolume(vols.from); ov.userData.setColor?.(vols.fromColor) } else { ov.userData.setColor?.(color); ov.userData.setLevel?.(level) } }
+  const newAmt = (nv) => { if (vols && nv.userData.setVolume) { nv.userData.setVolume(vols.to); nv.userData.setColor?.(vols.toColor) } else { nv.userData.setColor?.(color); nv.userData.setLevel?.(level) } }
   const baseEnter = st.enter
   const baseTimeline = st.timeline
   const TR = 0.26   // fraction of the step spent on the hand-off
@@ -1151,8 +1277,7 @@ function wrapHandoff(st, S, fromKey, toKey, color, level, fromDy = 0) {
     const ov = S[fromKey]
     ov.visible = true                    // the OLD vessel carries the incoming contents in
     ov.rotation.set(0, 0, 0)
-    ov.userData.setColor?.(color)
-    ov.userData.setLevel?.(level)
+    oldAmt(ov)
     S.snapTo(ov, st._seat.x, st._seat.y + fromDy, st._seat.z)
     nv.visible = false                   // hide the new one until it descends
     st._handoff = true
@@ -1169,8 +1294,7 @@ function wrapHandoff(st, S, fromKey, toKey, color, level, fromDy = 0) {
       } else {                           // new vessel comes straight down from above the frame (insert)
         ov.visible = false; nv.visible = true
         const down = demo.easeInOut((q - 0.5) / 0.5)
-        nv.userData.setColor?.(color)
-        nv.userData.setLevel?.(level)
+        newAmt(nv)
         S.snapTo(nv, st._seat.x, st._seat.y + (1 - down) * OUT, st._seat.z)
       }
     } else {
@@ -1195,7 +1319,11 @@ function wrapHandoff(st, S, fromKey, toKey, color, level, fromDy = 0) {
 // only once the tip is dispensing (the same dispense window as a reagent add); the colour
 // travels with it. We reveal both vessels, then lock to the destination.
 function configurePipetteTransfer(st, S, o) {
-  const { fromKey, toKey, srcSeatY, dstSeatY, srcDisp, dstDisp, dstEntry, color, startLevel, endLevel, name, vol } = o
+  const { fromKey, toKey, srcSeatY, dstSeatY, srcDisp, dstDisp, dstEntry, color, startLevel, endLevel, name, vol, move, vols } = o
+  // VOLUMES: the stated move in passes of one tip — the source drops as each tip draws, the
+  // destination rises as it dispenses (a mL move is one pass: no serological pipette is modelled)
+  const P = move ? move.passes || 1 : 0, each = move ? move.ul / P : 0
+  if (move) st.passes = P
   // spaced by each vessel's FOOTPRINT (a flask is 3 units long with its neck), never by
   // tube-sized constants — a microtube beside a flask used to stand inside its neck
   const { AX, BX, srcFoot, dstFoot } = sideBySide(o.srcToken, o.dstToken)
@@ -1221,8 +1349,13 @@ function configurePipetteTransfer(st, S, o) {
     a.visible = true; b.visible = true
     a.rotation.set(0, 0, 0); b.rotation.set(0, 0, 0)
     if (name) a.userData.setLabel?.(name, vol || '')
-    a.userData.setColor?.(color); a.userData.setLevel?.(startLevel)
-    b.userData.setColor?.(color); b.userData.setLevel?.(0.03)
+    if (vols) {
+      a.userData.setColor?.(vols.aColor); if (a.userData.setVolume) a.userData.setVolume(vols.a); else a.userData.setLevel?.(startLevel)
+      if (vols.bColor != null) b.userData.setColor?.(vols.bColor); if (b.userData.setVolume) b.userData.setVolume(vols.b); else b.userData.setLevel?.(0.03)
+    } else {
+      a.userData.setColor?.(color); a.userData.setLevel?.(startLevel)
+      b.userData.setColor?.(color); b.userData.setLevel?.(0.03)
+    }
     S.snapTo(a, st.x + AX, srcSeatY, Z)
     S.snapTo(b, st.x + BX, dstSeatY, Z)
     demo.pipRest(st)
@@ -1239,6 +1372,18 @@ function configurePipetteTransfer(st, S, o) {
     // a capped vessel (cryovial, flask) opens before the tip reaches it and closes after —
     // a tip through a closed cap is a lie (the source while it is drawn from, the
     // destination while it is dispensed into)
+    if (move && vols) {
+      const { j, lp } = passAt(p, P)
+      S[fromKey].userData.setCap?.(!(lp > 0.01 && lp < 0.32))
+      S[toKey].userData.setCap?.(!(p > 0.4 / P && p < 1 - 0.03 / P))
+      demo.pipetteRun(st, from, to, lp, { color: move.color, tipUl: Math.min(each, TIP_UL), approach: dstDisp?.approach, tilt: dstDisp?.tilt, depth: dstDisp?.depth, dipDepth: dstEntry })
+      const drawn = (j + demo.drawProgress(lp)) * each, given = (j + demo.dispenseProgress(lp)) * each
+      if (a.userData.setVolume) a.userData.setVolume(vols.a - drawn); else a.userData.setLevel?.(demo.lerp(startLevel, 0.03, drawn / move.ul))
+      if (b.userData.setVolume) { b.userData.setVolume(vols.b + given); b.userData.setColor?.(mixColor(vols.bColor, vols.b, move.color, given)) }
+      else if (given > 0) { b.userData.setColor?.(color); b.userData.setLevel?.(demo.lerp(0.03, endLevel, given / move.ul)) }
+      if (p > 0.98) S.snapTo(b, st.x + BX, dstSeatY, Z)
+      return
+    }
     S[fromKey].userData.setCap?.(!(p > 0.01 && p < 0.32))
     S[toKey].userData.setCap?.(!(p > 0.4 && p < 0.97))
     demo.pipetteRun(st, from, to, p, { color, fill: 0.8, approach: dstDisp?.approach, tilt: dstDisp?.tilt, depth: dstDisp?.depth, dipDepth: dstEntry })
@@ -1478,6 +1623,9 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     })
   }, [steps, lang, altByStep])
 
+  // THE LIQUID LEDGER: every vessel's volume at the start and end of every station (liquidLedger.js)
+  const ledger = useMemo(() => buildLedger(steps, { containers, altByStep, colorOf: (n) => new Color(reagentColor(n)).getHex() }), [steps, containers, altByStep])
+
   // Camera-rail + line state — refs so the frame loop reads them without a re-render.
   const stationsRef = useRef(null)
   const railXRef = useRef(0)
@@ -1570,6 +1718,8 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
   useEffect(() => {
     if (!demo.getSample()) return undefined
     demo.initPreps() // dispose any prior run's carried mixtures before rebuilding the line
+    // a tube the text sizes ("a 15 mL conical tube") is that tube's nominal capacity
+    demo.getSample().tube.userData.setCapacity?.(ledger.capacity.tube)
     // A transfer whose destination container == the previous container never actually
     // moves the sample — the parse omitted the destination and it carried forward.
     // Warn loudly; a silent fallback is exactly how the "load column" defect hid.
@@ -1596,6 +1746,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
         action: o.action, equipment: o.equipment, container, prevContainer, color: o.colorHex, name: o.title, vol: o.vol, seconds: o.seconds,
         startColor: o.start.color, startLevel: o.start.level, endColor: o.end.color, endLevel: o.end.level, cycles: o.cycles, reagents: o.reagents,
         drawsFrom: o.drawsFrom, produces: o.produces, text: o.text,
+        liq: ledger.stations[i],
       })
       // MEASURE the framing from the equipment now — group is still at the origin and
       // carries only the instrument (not the label/decal added below), so this is the
@@ -1719,7 +1870,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       stationsRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scene, stateChain, containers])
+  }, [scene, stateChain, containers, ledger])
 
   // ── STEP CHANGE: dolly the camera + glide the sample. NEVER rebuild a station. ──
   useEffect(() => {
@@ -1831,7 +1982,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       if (tm.hasTimer) pRef.current = tm.progress // countdown drives every timed instrument
       // the step's action begins once its vessels have ARRIVED (a trip from the last station takes
       // up to ~1.1 s): the pipette used to dive into a tube still in the air
-      else if (!vesselsArriving()) pRef.current = Math.min(pRef.current + dt / STEP_DUR, 1)
+      else if (!vesselsArriving()) pRef.current = Math.min(pRef.current + dt / (act.duration || STEP_DUR), 1)   // a multi-pass or long pour takes longer
       if (benchLine.pForce != null) pRef.current = benchLine.pForce   // DEV: the audit drives p
       // the centrifuge needs absolute-time dock/lift choreography (a 10-min spin can't
       // glide in for two minutes), so it reads the timer directly; everything else is
