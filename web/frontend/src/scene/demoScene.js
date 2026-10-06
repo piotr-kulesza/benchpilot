@@ -1991,7 +1991,9 @@ export {
                           // up behind the top HUD bar during the pour travel arc.
   function addPipetteRig(st){
     addStand(st);
-    var pip = buildPipette(); pip.scale.setScalar(PIP_SCALE); pip.position.copy(pipHome());
+    // built where it always stood (a station not yet entered looks as approved); entering puts it
+    // at its HOME (pipRest) in the same frame the pass begins, as it used to jump to the source
+    var pip = buildPipette(); pip.scale.setScalar(PIP_SCALE); pip.position.set(PIP_REST.x, PIP_REST.y, PIP_REST.z);
     pip.userData.noFrame = true;    // the pipette travels high on its arc — never frame it
     st.group.add(pip); st.pip = pip; st.updatables.push(pip);
   }

@@ -1269,21 +1269,21 @@ function clearStand(st) {
   const vessels = [...S.vessels, ...demo.getPreps()]
   const saved = vessels.map((v) => ({ v, parent: v.parent, docked: v.userData.docked, trip: v.userData.trip, p: v.position.clone(), t: v.userData.tPos ? v.userData.tPos.clone() : null, vis: v.visible, r: v.rotation.clone(), s: v.scale.clone() }))
   const snap = demo.getSnap ? demo.getSnap() : false
+  const pipPos = st.pip.position.clone(), pipRot = st.pip.rotation.clone()   // enter() puts it at its home: restore the build pose
   let boxes = []
   try {
     demo.setSnap(true)
     st.enter()
-    // where the vessels stand at entry and through the step (a sample set down mid-step too)
-    for (const p of [0, 0.25, 0.5, 0.75, 1]) {
-      if (p > 0) st.timeline?.(p)
-      for (const v of vessels) {
-        if (!v.visible) continue
-        if (v.userData.tPos) v.position.copy(v.userData.tPos)   // where it is going to rest
-        v.updateMatrixWorld(true)
-        const b = new Box3()
-        v.traverse((o) => { if (o.isMesh && !o.isSprite && o.visible) { o.geometry.computeBoundingBox(); b.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld)) } })
-        if (!b.isEmpty() && b.min.y < 0.2) boxes.push(b.translate(new Vector3(-st.x, 0, 0)))   // standing on the bench
-      }
+    // where the station seats its vessels: the shown ones, and one it seats but shows only later
+    // (a hand-off's incoming vessel) — by its target, if that is on this station
+    for (const v of vessels) {
+      const t = v.userData.tPos
+      if (!v.visible && !(t && Math.abs(t.x - st.x) < SPACING / 2)) continue
+      if (t) v.position.copy(t)                                  // where it is going to rest
+      v.updateMatrixWorld(true)
+      const b = new Box3()
+      v.traverse((o) => { if (o.isMesh && !o.isSprite && o.geometry) { o.geometry.computeBoundingBox(); b.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld)) } })
+      if (!b.isEmpty() && b.min.y < 0.2) boxes.push(b.translate(new Vector3(-st.x, 0, 0)))   // standing on the bench
     }
   } finally {
     for (const o of saved) {
@@ -1292,6 +1292,7 @@ function clearStand(st) {
       o.v.position.copy(o.p); if (o.t) o.v.userData.tPos.copy(o.t); o.v.visible = o.vis; o.v.rotation.copy(o.r); o.v.scale.copy(o.s)
     }
     demo.setSnap(snap)
+    st.pip.position.copy(pipPos); st.pip.rotation.copy(pipRot); st.pip.userData.setFluid?.(0)
   }
   const cz = stand.position.z
   let x = stand.position.x
