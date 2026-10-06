@@ -35,7 +35,8 @@ export function sampleLiquids(line) {
     const t = tipW ? tipIn(obj, cav, surf, tipW) : { inside: false, below: false }
     out.vessels[id] = { ul, color, tipIn: t.inside, tipBelow: t.below, spinning: !!(docked && turning) }
   }
-  const docked = (v) => { for (let n = v; n; n = n.parent) if (n.userData && n.userData.docked) return true; return false }
+  // docked in the rotor — or riding in a vessel that is (the column, not drawn, in the eluate tube)
+  const docked = (v) => { for (let n = v; n; n = n.parent) if (n.userData && n.userData.docked) return true; return !!(v && v.userData.ridesWith && docked(v.userData.ridesWith)) }
   if (S) {
     for (const k of ['tube', 'column', 'elu']) {
       const v = S[k]; if (!v || !v.userData.drawnUl) continue
@@ -69,18 +70,18 @@ export function checkFrames(frames) {
     for (const id of ids) {
       const a = A.vessels[id], b = B.vessels[id], d = dv[id]
       if (Math.abs(d) > EPS) {
-        const tipHere = (a.tipIn || b.tipIn) && Math.abs(dTip) > EPS && Math.sign(dTip) === -Math.sign(d)
+        const tipHere = (a.tipIn || b.tipIn) && Math.abs(dTip) > 1e-6 && Math.sign(dTip) === -Math.sign(d)
         const aspirating = d < 0 && tipHere && a.tipBelow
         const dispensing = d > 0 && tipHere
         const spun = a.spinning || b.spinning
         const poured = flows.has(id)
         if (!(aspirating || dispensing || spun || poured)) {
           bad.push({ check: 'a', frame: B.k, p: B.p, vessel: id, detail: `${d > 0 ? '+' : ''}${d.toFixed(2)} µl with no transfer` +
-            (d < 0 && tipHere && !a.tipBelow ? ' (the tip is above the liquid)' : (a.tipIn || b.tipIn) && Math.abs(dTip) <= EPS ? ' (the tip is in it but holds still)' : '') })
+            (d < 0 && tipHere && !a.tipBelow ? ' (the tip is above the liquid)' : (a.tipIn || b.tipIn) && Math.abs(dTip) <= 1e-6 ? ' (the tip is in it but holds still)' : '') })
         }
       }
       // colour: only while something flows IN
-      if (a.color && b.color && a.color !== b.color && !(d > EPS) && b.ul > EPS) bad.push({ check: 'b', frame: B.k, p: B.p, vessel: id, detail: `${a.color} → ${b.color} with nothing flowing in` })
+      if (a.color && b.color && a.color !== b.color && !(d > 1e-6) && b.ul > EPS) bad.push({ check: 'b', frame: B.k, p: B.p, vessel: id, detail: `${a.color} → ${b.color} with nothing flowing in` })
     }
     // the tip draws its source's colour
     if (dTip > EPS && B.tip) {

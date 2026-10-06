@@ -380,6 +380,17 @@ export function configureStation(st, o) {
   }
   // this station's pipette passes: one entry per tip, in order (an op of n passes is n entries)
   const passList = (ops) => ops.flatMap((op) => Array.from({ length: op.passes || 1 }, () => ({ op, each: op.ul / (op.passes || 1) })))
+  // each source bottle falls by exactly what its tips have drawn so far (the draw's own curve)
+  const drawSources = (passes, j, lp) => {
+    const drawn = {}
+    passes.forEach((ps, i) => { if (i <= j) { const k = 'r' + (ps.op.ri ?? 0); drawn[k] = (drawn[k] || 0) + ps.each * (i < j ? 1 : demo.drawProgress(lp)) } })
+    for (const [k, r] of Object.entries(st.reagents)) {
+      const b = r && r.grp
+      if (b && b.userData.stockUl) { b.userData.snapLevel = true; b.userData.setLevel(1 - (drawn[k] || 0) / b.userData.stockUl) }
+    }
+  }
+  // the tip goes below a bottle's drawn line (0.1 under it)
+  const bottleTip = (k) => { const b = st.reagents[k] && st.reagents[k].grp; return b && b.userData.surfaceY ? b.userData.surfaceY() - 0.1 : null }
 
   // seat the travelling sample WITHOUT resetting its contents: it enters at the
   // carried-in (start) state, so it continues from where the last step left it.
@@ -406,9 +417,8 @@ export function configureStation(st, o) {
     const v = S[vessel]
     const e = demo.easeInOut(demo.clamp(p, 0, 1))
     const base = demo.lerp(startLevel, endLevel, e)
-    if (VOL) v.userData.setVolume(demo.lerp(startUl, endUl, e))
-    else v.userData.setLevel(base + ripple)
-    if (p > 0.5) v.userData.setColor(endColor)
+    if (VOL) v.userData.setVolume(demo.lerp(startUl, endUl, e))   // (its colour is its contents': set on entry, changed only by an inflow)
+    else { v.userData.setLevel(base + ripple); if (p > 0.5) v.userData.setColor(endColor) }
     return base
   }
 
@@ -417,7 +427,7 @@ export function configureStation(st, o) {
   const source = (action === 'pour_add' || action === 'pipette_mix')
     ? addSource({ text_en: o.text, reagents: (o.reagents || []).map((r) => ({ name: r.name })) }) : 'bottle'
   const pour = action === 'pour_add'
-    ? (Lq ? (() => { const po = Lq.ops.filter((x) => x.method === 'pour'); const fromBottle = po.filter((x) => x.op === 'add' && x.from === 'bottle')
+    ? (Lq ? (() => { const po = Lq.ops.filter((x) => x.method === 'pour' && x.op !== 'discard'); const fromBottle = po.filter((x) => x.op === 'add' && x.from === 'bottle')
         return { pour: po.length > 0, reagentIndex: fromBottle.length ? Math.max(0, fromBottle[0].ri ?? 0) : -1, ops: po, bottleOps: fromBottle } })()
       : pourPlan({ text_en: o.text, reagents: (o.reagents || []).map((r) => ({ volume: r.vol })) }))
     : null
@@ -573,7 +583,7 @@ export function configureStation(st, o) {
         if (mv) {
           const { j, lp } = passAt(q, P)
           demo.pipetteRun(st, new Vector3(draw.x, draw.y, draw.z), { x: disp.x, y: toY, z: disp.z }, lp,
-            { color: mv.color, tipUl: each, approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: C.entryPoint })
+            { color: mv.color, tipUl: each, srcTip: 0.035, approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: C.entryPoint })
           const added = (j + demo.dispenseProgress(lp)) * each
           if (VOL) { v.userData.setVolume(startUl + added); v.userData.setColor(mixColor(startColor, startUl, mv.color, added)) }
           else { v.userData.setLevel(demo.lerp(startLevel, endLevel, added / mv.ul)); v.userData.setColor(endColor) }
@@ -602,8 +612,9 @@ export function configureStation(st, o) {
         if (passes.length) {
           const { j, lp } = passAt(p, passes.length), cur = passes[j], k = Math.min(reags.length - 1, cur.op.ri ?? 0)
           capSources(st, reags.length, k, lp)
+          drawSources(passes, j, lp)
           demo.pipetteRun(st, st.reagents['r' + k].pos, { x: disp.x, y: toY, z: disp.z }, lp,
-            { color: cur.op.color, tipUl: cur.each, approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: C.entryPoint })
+            { color: cur.op.color, tipUl: cur.each, srcTip: bottleTip('r' + k), approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: C.entryPoint })
           let ul = startUl, c = startColor
           for (let i = 0; i <= j; i++) { const a = i < j ? passes[i].each : demo.dispenseProgress(lp) * passes[i].each; c = mixColor(c, ul, passes[i].op.color, a); ul += a }
           if (VOL) { v.userData.setVolume(ul); v.userData.setColor(c) }
@@ -661,7 +672,8 @@ export function configureStation(st, o) {
         if (!passes.length) { capSources(st, reags.length, -1, 1); return }   // nothing liquid to add (a plate warming up)
         const { j, lp } = passAt(p, passes.length), cur = passes[j], k = Math.min(reags.length - 1, cur.op.ri ?? 0)
         capSources(st, reags.length, k, lp)
-        demo.pipetteRun(st, st.reagents['r' + k].pos, DIP, lp, { color: cur.op.color, tipUl: cur.each, dipDepth: 0.62 })
+        drawSources(passes, j, lp)
+        demo.pipetteRun(st, st.reagents['r' + k].pos, DIP, lp, { color: cur.op.color, tipUl: cur.each, srcTip: bottleTip('r' + k), dipDepth: 0.62 })
         let ul = 0, c = null
         for (let i = 0; i <= j; i++) { const a = i < j ? passes[i].each : demo.dispenseProgress(lp) * passes[i].each; c = mixColor(c, ul, passes[i].op.color, a); ul += a }
         prep.userData.setVolume(ul); if (c != null) prep.userData.setColor(c)
@@ -856,8 +868,8 @@ export function configureStation(st, o) {
     const toFlow = Lq ? Lq.ops.filter((x) => x.op === 'move' && x.to === 'flow').reduce((a, x) => a + x.ul, 0) : 0
     demo.stationSpin(st, BT, { vessel, vlabel: name || '', vsub: vol || '', color: endColor, lStart: startLevel, lEnd: endLevel, cenLabel: 'Centrifuge', cenSub: vol || '', seconds,
       ...(VOL ? { vol: { start: startUl, end: endUl },
-        flow: vessel === 'column' ? { start: ulAt('flow', 'start'), peak: ulAt('flow', 'start') + toFlow, end: ulAt('flow', 'end'), startColor: colAt('flow', 'start', null),
-          color: mixColor(colAt('flow', 'start', null), ulAt('flow', 'start'), startColor, toFlow) } : null } : {}) })
+        flow: vessel === 'column' ? { start: ulAt('flow', 'start'), peak: ulAt('flow', 'start') + toFlow, end: ulAt('flow', 'end'), startColor: colAt('flow', 'start', null), srcColor: startColor } : null,
+        src: vessel !== 'column' && Lq.ops.some((x) => x.op === 'move' && x.from === 'column' && x.to === vessel) ? { obj: S.column, start: ulAt('column', 'start') } : null } : {}) })
   } else if ((action === 'incubate_wait' && equipment !== 'ice_bucket') || (action === 'store' && equipment === 'co2_incubator')) {
     // EQUIPMENT CONTRACT: the instrument was resolved from the container AND the step's
     // stated conditions (resolveRecipe) — a tube BLOCK only when one is named, a plate
@@ -1188,7 +1200,97 @@ export function configureStation(st, o) {
     wrapHandoff(st, S, prevVessel, vessel, startColor, startLevel, containerContract(prevContainer).seat.y - C.seat.y,
       Lq ? { from: ulAt(prevVessel, 'start'), fromColor: colAt(prevVessel, 'start', startColor), to: startUl, toColor: startColor } : null)
   }
+  if (Lq && Lq.flowDiscard) wrapFlowDiscard(st, S, Lq.flowDiscard, colAt('flow', 'start', null))
+  // EVERY vessel of the line enters this station holding what the ledger says it holds at its
+  // start — not only the one the station shows (a hidden tube kept another station's volume and
+  // then drained or filled in view)
+  if (Lq) {
+    const enter0 = st.enter
+    st.enter = () => {
+      for (const id of ['tube', 'column', 'elu']) {
+        const v = S[id]; if (!v || !v.userData.setVolume) continue
+        v.userData.setVolume(ulAt(id, 'start')); if (Lq.start[id] && Lq.start[id].color != null) v.userData.setColor(Lq.start[id].color)
+      }
+      if (S.column && S.column.userData.setFlow) { S.column.userData.setFlow(ulAt('flow', 'start')); S.column.userData.setFlowColor(colAt('flow', 'start', null)) }
+      // a mix not yet made (or already used up) holds nothing here
+      for (const pv of demo.getPreps()) if (pv.userData.setVolume && pv.userData.prepId && !Lq.start['prep:' + pv.userData.prepId]) pv.userData.setVolume(0)
+      for (const [id, v] of Object.entries(Lq.start)) {
+        if (!id.startsWith('prep:')) continue
+        const pv = demo.getPrep(id.slice(5)); if (pv && pv.userData.setVolume) { pv.userData.setVolume(v.ul); if (v.color != null) pv.userData.setColor(v.color) }
+      }
+      // during an elution the column (not drawn) rides in the eluate tube it drains into
+      if (S.column) S.column.userData.ridesWith = (action === 'elute' && vessel !== 'column') ? S[vessel] : null
+      enter0 && enter0()
+    }
+  }
   hideLabels(st.group)
+}
+
+// "DISCARD THE FLOW-THROUGH", at the bench: the column lifts out of its collection tube and
+// stands aside; the collection tube rises, tips over a waste beaker and pours the flow-through
+// off (the stream connects the two, the level falls as it pours); it comes back upright onto its
+// seat and the column goes back into it. Then the station's own action runs on the rest of p.
+// (In the rotor at the last spin the assembly is seated in a tilted slot; this is where a hand
+// pours it off.) The waste stands left of the seat, clear of the stand and the sources.
+function wrapFlowDiscard(st, S, ul, color) {
+  const baseEnter = st.enter, baseTimeline = st.timeline
+  const TD = 4.5                                        // seconds the discard takes
+  const dur0 = st.duration || STEP_DUR
+  st.duration = dur0 + TD
+  const F = TD / st.duration                            // share of p
+  const waste = demo.buildWaste(); waste.scale.setScalar(0.8); waste.userData.noFrame = true
+  waste.userData.wasteUl = 0
+  st.group.add(waste); st.waste = waste
+  const stream = new Mesh(new CylinderGeometry(0.03, 0.04, 1, 12), new MeshStandardMaterial({ color: color ?? 0x5061db, roughness: 0.3, transparent: true, opacity: 0.85 }))
+  stream.userData.auditKind = 'fluid'; stream.visible = false
+  st.group.add(stream)
+  st.liquidStreams = [{ mesh: stream, from: 'flow', to: 'waste' }]
+  const col = S.column, coll = col.userData.collGrp
+  const RIM = 0.8, THETA = 1.9, LIFT = 1.0, ASIDE = 0.9  // waste rim (0.8 scaled), tilt, column clearance
+  let seat = null
+  const _m = new Vector3(), _w = new Vector3(), _d = new Vector3()
+  st.enter = () => {
+    baseEnter && baseEnter()
+    seat = null; waste.userData.wasteUl = 0; stream.visible = false
+    col.userData.reattachCollection?.()
+  }
+  st.timeline = (p) => {
+    if (p >= F) {
+      if (seat) { col.userData.reattachCollection?.(); S.snapTo(col, seat.x, seat.y, seat.z); col.userData.setFlow(0); waste.userData.wasteUl = ul; stream.visible = false; seat = null }
+      baseTimeline && baseTimeline((p - F) / (1 - F))
+      return
+    }
+    const q = p / F
+    if (!seat) {                                        // where the column stands (it has arrived)
+      seat = col.userData.tPos.clone()
+      const lx = seat.x - st.x
+      waste.position.set(lx - 1.15, 0, seat.z + 0.45)
+      col.userData.detachCollection?.(st.group)
+    }
+    const W = waste.position, cx = seat.x - st.x, cy = seat.y, cz = seat.z
+    const seg = (a, b) => demo.easeInOut(demo.clamp((q - a) / (b - a), 0, 1))
+    // the column: up out of the tube, aside; back over, down into it at the end
+    const up = seg(0, 0.1) - seg(0.94, 1), aside = seg(0.1, 0.2) - seg(0.88, 0.94)
+    S.snapTo(col, seat.x + aside * ASIDE, cy + up * LIFT, cz)
+    // the collection tube: up, over the waste, tipped, pouring, back
+    const BASE = { x: W.x + 0.9, y: 1.32 }               // tilted by THETA, its mouth is over the waste, above the rim
+    const rise = seg(0.2, 0.3) - seg(0.8, 0.86), over = seg(0.3, 0.36) - seg(0.76, 0.8), tilt = seg(0.36, 0.46) - seg(0.68, 0.76)
+    coll.position.set(demo.lerp(cx, BASE.x, over), demo.lerp(cy, BASE.y, rise), demo.lerp(cz, W.z, over))
+    coll.rotation.set(0, 0, THETA * tilt)
+    // the pour: only while it is fully tipped — the level falls with the stream, the waste takes it
+    const u = demo.clamp((q - 0.46) / 0.22, 0, 1)
+    col.userData.setFlow(ul * (1 - u)); waste.userData.wasteUl = ul * u
+    stream.visible = q > 0.46 && q < 0.68
+    if (stream.visible) {
+      coll.updateMatrixWorld(true); st.group.updateMatrixWorld(true)
+      _m.set(0, 1.0, 0); coll.localToWorld(_m); st.group.worldToLocal(_m)      // the tube's mouth
+      _w.set(W.x, 0.45, W.z)                                                   // into the beaker
+      _d.subVectors(_w, _m)
+      stream.position.copy(_m).addScaledVector(_d, 0.5)
+      stream.scale.set(1, _d.length(), 1)
+      stream.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), _d.clone().normalize())
+    }
+  }
 }
 
 // A NEST move (Stage-18): "transfer the column to a clean tube". You pick up the spin
@@ -1376,7 +1478,7 @@ function configurePipetteTransfer(st, S, o) {
       const { j, lp } = passAt(p, P)
       S[fromKey].userData.setCap?.(!(lp > 0.01 && lp < 0.32))
       S[toKey].userData.setCap?.(!(p > 0.4 / P && p < 1 - 0.03 / P))
-      demo.pipetteRun(st, from, to, lp, { color: move.color, tipUl: Math.min(each, TIP_UL), approach: dstDisp?.approach, tilt: dstDisp?.tilt, depth: dstDisp?.depth, dipDepth: dstEntry })
+      demo.pipetteRun(st, from, to, lp, { color: move.color, tipUl: Math.min(each, TIP_UL), srcTip: srcSeatY + 0.035, approach: dstDisp?.approach, tilt: dstDisp?.tilt, depth: dstDisp?.depth, dipDepth: dstEntry })
       const drawn = (j + demo.drawProgress(lp)) * each, given = (j + demo.dispenseProgress(lp)) * each
       if (a.userData.setVolume) a.userData.setVolume(vols.a - drawn); else a.userData.setLevel?.(demo.lerp(startLevel, 0.03, drawn / move.ul))
       if (b.userData.setVolume) { b.userData.setVolume(vols.b + given); b.userData.setColor?.(mixColor(vols.bColor, vols.b, move.color, given)) }
