@@ -47,7 +47,7 @@ export function kindOf(m) {
 // a SOLID mesh: a triangulated mesh, not a sprite, of kind solid (or fluid, when asked — a
 // liquid must stay inside its own vessel, but anything may dip into it)
 export function isSolid(m, { fluids = false } = {}) {
-  if (!m.isMesh || m.isSprite || !m.geometry || !m.geometry.attributes.position) return false
+  if (!m.isMesh || m.isSprite || !m.geometry || !m.geometry.attributes.position || !m.geometry.attributes.position.count) return false
   const k = kindOf(m)
   return k === 'solid' || (fluids && k === 'fluid')
 }
@@ -150,6 +150,8 @@ function depthInside(a, b, region) {
 // lid sunk into a body). Coplanar faces that merely touch score 0. Two OPEN shells that cross
 // have no inside to measure: their depth is the smallest extent of their boxes' overlap.
 export function penetration(a, b) {
+  // (a liquid's geometry can be emptied mid-step: nothing to measure)
+  if (!a.geometry.attributes.position || !b.geometry.attributes.position || !a.geometry.attributes.position.count || !b.geometry.attributes.position.count) return 0
   if (!a.geometry.boundingBox) a.geometry.computeBoundingBox()
   if (!b.geometry.boundingBox) b.geometry.computeBoundingBox()
   const ba = a.geometry.boundingBox.clone().applyMatrix4(a.matrixWorld), bb = b.geometry.boundingBox.clone().applyMatrix4(b.matrixWorld)
