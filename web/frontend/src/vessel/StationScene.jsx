@@ -836,7 +836,8 @@ export function configureStation(st, o) {
     st.timeline = (p) => {
       evolve(p) // holds the carried contents
       st.cold.intensity = p * 2.6 // cold cast ramps up (monotonic)
-      S[vessel].rotation.z = Math.sin(p * 30) * 0.02 // faint cold shiver
+      // faint cold shiver — its amplitude eases in (a sine from p 0 started at full speed)
+      S[vessel].rotation.z = Math.sin(p * 30) * 0.02 * demo.easeInOut(demo.clamp(p / 0.1, 0, 1))
     }
   } else if (action === 'thermocycle') {
     // PCR: the sample sits in the thermocycler; the lid closes; it cycles hot↔cool
