@@ -2453,7 +2453,9 @@ export {
   }
   function stationReagent(st, Y, o){
     addPipetteRig(st);
-    addBottle(st, o.key, o.blabel, o.color, 2.0, 0.7);
+    // an ANGLED pass (a flask's canted neck) tilts the pipette's body out over where the bottle
+    // stood: the bottle stands 0.3 further forward, clear of it
+    addBottle(st, o.key, o.blabel, o.color, 2.0, (o.dispense && o.dispense.approach==='angled') ? 1.0 : 0.7);
     // CONTRACT: the container tells the pipette WHERE to dispense (a tube: dead
     // centre; a well: one off-centre well; a flask: at the canted neck). Default =
     // centre (the microtube), so nothing regresses when a container omits it.
