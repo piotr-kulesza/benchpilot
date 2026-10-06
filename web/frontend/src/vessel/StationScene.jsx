@@ -1220,7 +1220,9 @@ function configurePipetteTransfer(st, S, o) {
       b.userData.setColor?.(color)
       b.userData.setLevel?.(demo.lerp(0.03, endLevel, q))
     }
-    if (p > 0.98) { a.visible = false; S.only(toKey); S.snapTo(b, st.x + BX, dstSeatY, Z) }
+    // the emptied source STAYS where it stands to the end of the step (it used to vanish at
+    // p 0.98, in full view); the next step's entry puts it away as the camera leaves
+    if (p > 0.98) S.snapTo(b, st.x + BX, dstSeatY, Z)
   }
 }
 
