@@ -19,6 +19,7 @@
 import { Box3, Vector3, Matrix4, Ray, Triangle, Quaternion } from 'three'
 import { MeshBVH } from 'three-mesh-bvh'
 
+export const UNMEASURED = { n: 0 }   // mesh pairs skipped because a geometry was mid-rebuild
 export const TOL = {
   // world units. Scale yardstick: the 1.5 mL tube (≈ 40 mm) is ≈ 0.93 units tall here, so
   // 0.01 ≈ 0.4 mm — below what a viewer can see at any of the runner's framings
@@ -207,7 +208,12 @@ export function setPenetration(as, bs) {
   for (const a of as) {
     if (!a.geometry.boundingBox) a.geometry.computeBoundingBox()
     if (!a.geometry.boundingBox.clone().applyMatrix4(a.matrixWorld).intersectsBox(bb)) continue
-    for (const b of bs) { const d = penetration(a, b); if (d > worst) { worst = d; at = [a, b] } }
+    for (const b of bs) {
+      // a geometry rebuilt this frame (a plate's wells being aspirated) can leave a cached BVH
+      // stale: that pair is skipped this frame (counted in UNMEASURED) and measured on the next
+      let d = 0; try { d = penetration(a, b) } catch { UNMEASURED.n++ }
+      if (d > worst) { worst = d; at = [a, b] }
+    }
   }
   return { depth: worst, at }
 }
