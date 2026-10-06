@@ -679,7 +679,11 @@ export function undockSample(lift = false) {
       drop.visible=dispensing;
       if(dispensing){ var t=performance.now()*0.006; drop.position.y=-0.9-Math.sin(t)*0.01; drop.scale.y=1.3+Math.sin(t*1.3)*0.15; }
       if(st.fill<0.01){ fluid.visible=false; }
-      else{ fluid.visible=true; var h=st.fill*0.66; fluid.scale.y=h/0.6; fluid.position.y=-0.8+h/2; }
+      else{ fluid.visible=true; var h=st.fill*0.66; fluid.scale.y=h/0.6; fluid.position.y=-0.8+h/2;
+        // the liquid stays INSIDE the tip (bug fix): its top is as wide as the tip's inner cone
+        // at the fill line, less 8 % (the frustum was 0.058 wide at any fill — through the
+        // wall of a tip that is 0.014 + 0.06·h wide there); its foot then sits inside too
+        var w=0.92*(0.014+0.06*h)/0.058; fluid.scale.x=w; fluid.scale.z=w; }
     };
     return grp;
   }
