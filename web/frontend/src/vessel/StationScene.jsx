@@ -1052,7 +1052,7 @@ export function configureStation(st, o) {
   // actions that run their own vessel choreography stay excluded.
   const custom = (action === 'store' && equipment === 'freezer') || equipment === 'centrifuge'
   if (prevVessel && prevVessel !== vessel && !custom && !st._skipHandoff) {
-    wrapHandoff(st, S, prevVessel, vessel, startColor, startLevel)
+    wrapHandoff(st, S, prevVessel, vessel, startColor, startLevel, containerContract(prevContainer).seat.y - C.seat.y)
   }
   hideLabels(st.group)
 }
@@ -1116,11 +1116,17 @@ function configureNestMove(st, S, o) {
 // descends into its seat (insert motion) — the two halves of one transition. Then the
 // station's real action runs on the remapped remainder. Uses snapTo (position == tPos)
 // so the swap is crisp and the frame-loop glide never fights it.
-function wrapHandoff(st, S, fromKey, toKey, color, level) {
+// fromDy: the OLD vessel's own seat height relative to the new one's (a gel sits at 0, a membrane
+// at −0.025: the gel used to be lowered to the membrane's seat, into the bench)
+function wrapHandoff(st, S, fromKey, toKey, color, level, fromDy = 0) {
   const baseEnter = st.enter
   const baseTimeline = st.timeline
   const TR = 0.26   // fraction of the step spent on the hand-off
-  const LIFT = 2.0  // vertical travel of the swap (kept low so it never clips the HUD)
+  // NOTHING POPS IN VIEW: the old vessel rises straight up and on out of the top of the frame;
+  // the new one comes down from above the frame straight onto the seat (they used to swap in
+  // place at the top of a short lift — one vanishing, the other appearing). Straight up and
+  // down: nothing stands over a seat
+  const OUT = 12.0
   st.enter = () => {
     baseEnter && baseEnter()             // seats the NEW vessel at its target + sets its state
     const nv = S[toKey]
@@ -1130,7 +1136,7 @@ function wrapHandoff(st, S, fromKey, toKey, color, level) {
     ov.rotation.set(0, 0, 0)
     ov.userData.setColor?.(color)
     ov.userData.setLevel?.(level)
-    S.snapTo(ov, st._seat.x, st._seat.y, st._seat.z)
+    S.snapTo(ov, st._seat.x, st._seat.y + fromDy, st._seat.z)
     nv.visible = false                   // hide the new one until it descends
     st._handoff = true
   }
@@ -1139,17 +1145,16 @@ function wrapHandoff(st, S, fromKey, toKey, color, level) {
       const q = p / TR
       const ov = S[fromKey]
       const nv = S[toKey]
-      if (q < 0.5) {                     // old vessel lifts up & aside (remove)
+      if (q < 0.5) {                     // old vessel rises straight up, out of the frame (remove)
         ov.visible = true; nv.visible = false
-        const e = demo.easeInOut(q / 0.5)
-        S.snapTo(ov, st._seat.x, st._seat.y + e * LIFT, st._seat.z)
-        ov.rotation.z = e * 0.5
-      } else {                           // new vessel settles down into the seat (insert)
+        const up = demo.easeInOut(q / 0.5)
+        S.snapTo(ov, st._seat.x, st._seat.y + fromDy + up * OUT, st._seat.z)
+      } else {                           // new vessel comes straight down from above the frame (insert)
         ov.visible = false; nv.visible = true
-        const e = demo.easeInOut((q - 0.5) / 0.5)
+        const down = demo.easeInOut((q - 0.5) / 0.5)
         nv.userData.setColor?.(color)
         nv.userData.setLevel?.(level)
-        S.snapTo(nv, st._seat.x, st._seat.y + (1 - e) * LIFT, st._seat.z)
+        S.snapTo(nv, st._seat.x, st._seat.y + (1 - down) * OUT, st._seat.z)
       }
     } else {
       if (st._handoff) {                 // hand-off done — lock to the new vessel, run the action
