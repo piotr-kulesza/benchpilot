@@ -15,6 +15,7 @@ import * as THREE from 'three'
 import { resolveScenePreset } from './scenePresets.js'
 import { exitLiftPoint } from '../vessel/sceneRecipe.js'
 import { streams } from './rng.js'
+import { innerRadiusFn, liquidProfileGeo, tubeProfile, collectionProfile, columnCupProfile, bottleProfile } from './liquidShape.js'
 
 // Height (world Y) a sample rises to when it leaves a docked instrument, before it
 // glides on — clears the centrifuge lid (its own lift is y≈2.15) and every other device.
@@ -284,31 +285,7 @@ export function undockSample(lift = false) {
      `liquidProfileGeo` revolves the inner profile from the vessel bottom up to
      the fill line and caps it FLAT there — wide where the vessel is wide,
      narrow where it tapers, no dome. */
-  function innerRadiusFn(profPts, inset){
-    inset = (inset==null)?0.9:inset;
-    return function(y){
-      if(y<=profPts[0].y) return profPts[0].x*inset;
-      for(var i=1;i<profPts.length;i++){
-        if(y<=profPts[i].y){
-          var a=profPts[i-1], b=profPts[i], t=(y-a.y)/((b.y-a.y)||1);
-          return (a.x+(b.x-a.x)*t)*inset;
-        }
-      }
-      return profPts[profPts.length-1].x*inset;
-    };
-  }
-  function liquidProfileGeo(innerR, y0, yTop, seg){
-    seg = seg||48;
-    if(yTop <= y0+0.001) yTop = y0+0.001;
-    var steps=16, pts=[], i;
-    pts.push(new THREE.Vector2(0.0006, y0));                 // centre of the bottom
-    for(i=0;i<=steps;i++){
-      var y=y0+(yTop-y0)*(i/steps);
-      pts.push(new THREE.Vector2(Math.max(innerR(y),0.0008), y));   // follow the inner wall
-    }
-    pts.push(new THREE.Vector2(0.0006, yTop));               // flat top at the fill line
-    return new THREE.LatheGeometry(pts, seg);
-  }
+  // innerRadiusFn / liquidProfileGeo live in ./liquidShape.js (shared with the volume → level rule)
 
   /* ============================================================
      0b · SHARED PROCEDURAL PBR MAPS  (built once, reused everywhere)
@@ -477,20 +454,7 @@ export function undockSample(lift = false) {
     var visual = new THREE.Group(); grp.add(visual);
 
     var glassMat = glassMaterial();
-    var prof = [
-      new THREE.Vector2(0.0, 0.0),           // rounded bell bottom (was a sharp point)
-      new THREE.Vector2(R*0.22, H*0.010),
-      new THREE.Vector2(R*0.42, H*0.038),
-      new THREE.Vector2(R*0.60, H*0.088),
-      new THREE.Vector2(R*0.75, H*0.155),
-      new THREE.Vector2(R*0.87, H*0.245),
-      new THREE.Vector2(R*0.93, H*0.34),
-      new THREE.Vector2(R*0.955, H*0.45),
-      new THREE.Vector2(R*0.955, H*0.90),
-      new THREE.Vector2(R*0.985, H*0.945),
-      new THREE.Vector2(R*1.06, H*0.985),
-      new THREE.Vector2(R*1.05, H)
-    ];
+    var prof = tubeProfile(H, R);   // rounded bell bottom … flared rim (liquidShape.js)
     var wall = new THREE.Mesh(new THREE.LatheGeometry(prof, 64), glassMat);
     wall.castShadow=true; visual.add(wall);
     var rim = new THREE.Mesh(new THREE.TorusGeometry(R*1.02,0.024,12,48), glassMat);
@@ -705,11 +669,7 @@ export function undockSample(lift = false) {
     var frostMat = matFrosted(0xe2e9f0); frostMat.opacity=0.5;
     var whiteMat = matPlastic(0xe6ebf0);
     // rounded U-shaped bottom (was a sharp cone tip)
-    var cp=[
-      new THREE.Vector2(0.0,0.0), new THREE.Vector2(0.075,0.012), new THREE.Vector2(0.145,0.05),
-      new THREE.Vector2(0.21,0.12), new THREE.Vector2(0.265,0.22), new THREE.Vector2(0.30,0.36),
-      new THREE.Vector2(0.32,0.60), new THREE.Vector2(0.32,0.98), new THREE.Vector2(0.335,1.0)
-    ];
+    var cp=collectionProfile();
     // the COLLECTION TUBE is its own group: a spin column is a two-part assembly, and
     // "transfer the column to a clean tube" moves the column ONLY — the used collection
     // tube stays on the bench (detachCollection / reattachCollection)
@@ -724,10 +684,7 @@ export function undockSample(lift = false) {
       if(collGrp.parent!==grp){ grp.add(collGrp); }
       collGrp.position.set(0,0,0); collGrp.rotation.set(0,0,0); collGrp.scale.setScalar(1);
     };
-    var ip=[
-      new THREE.Vector2(0.14,0.86), new THREE.Vector2(0.2,0.9), new THREE.Vector2(0.27,1.02),
-      new THREE.Vector2(0.28,1.5), new THREE.Vector2(0.3,1.56)
-    ];
+    var ip=columnCupProfile();
     var cup = new THREE.Mesh(new THREE.LatheGeometry(ip,48), frostMat); grp.add(cup);
     var flange = new THREE.Mesh(new THREE.TorusGeometry(0.29,0.028,12,44), whiteMat);
     flange.rotation.x=Math.PI/2; flange.position.y=1.5; grp.add(flange);
@@ -1589,11 +1546,7 @@ export function undockSample(lift = false) {
   function buildBottle(col, labelText, h, capColor){
     var grp=new THREE.Group(); h=h||1.3;
     var glass=glassMaterial(); glass.opacity=0.24;
-    var bp=[
-      new THREE.Vector2(0.001,0), new THREE.Vector2(0.34,0.02), new THREE.Vector2(0.36,0.08),
-      new THREE.Vector2(0.36,h*0.72), new THREE.Vector2(0.3,h*0.82), new THREE.Vector2(0.16,h*0.9),
-      new THREE.Vector2(0.15,h), new THREE.Vector2(0.155,h+0.005)
-    ];
+    var bp=bottleProfile(h);
     var body=new THREE.Mesh(new THREE.LatheGeometry(bp,44), glass);
     body.castShadow=true; grp.add(body);
     // liquid revolved from the bottle's inner profile (`bp`) — fills the wide body,
