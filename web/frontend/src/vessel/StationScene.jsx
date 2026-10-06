@@ -1242,6 +1242,84 @@ function stationParams(baseStep, lang, altIdx, chain, producedInRun, container) 
            text: step.text_en || step.text || '' }
 }
 
+// TRAVEL — how a vessel (the sample, a prep) moves to its target each frame. A target that
+// moves a little every frame (a timeline carrying the vessel) is FOLLOWED exactly as the demo
+// always did (an exponential chase). A target that JUMPS — the next station's seat, a new seat
+// mid-step, an exit-lift waypoint — is TRAVELLED to on a critically damped spring: the vessel
+// accelerates from rest and settles, never leaving at full speed, never overshooting.
+// OMEGA 5/s: first-frame speed ≈ 23 % of the move's peak; 95 % of the way in ≈ 0.95 s.
+const TRAVEL_JUMP = 0.12   // a target that moves farther than this in one frame jumped
+const TRAVEL_OMEGA = 5
+function travel(v, goal, dt) {
+  const u = v.userData
+  if (!u._goal) { u._goal = goal.clone(); u._vel = new Vector3(); u._spring = false }
+  if (u._goal.distanceToSquared(goal) > TRAVEL_JUMP * TRAVEL_JUMP) {
+    // the target jumped: travel to it — unless the vessel was SNAPPED onto it (a jump between
+    // stations places it), which carries no motion
+    if (v.position.distanceToSquared(goal) < 1e-10) { u._vel.set(0, 0, 0); u._spring = false } else u._spring = true
+  }
+  u._goal.copy(goal)
+  if (u._spring) {
+    const k = TRAVEL_OMEGA * TRAVEL_OMEGA, c = 2 * TRAVEL_OMEGA
+    u._vel.x += (k * (goal.x - v.position.x) - c * u._vel.x) * dt
+    u._vel.y += (k * (goal.y - v.position.y) - c * u._vel.y) * dt
+    u._vel.z += (k * (goal.z - v.position.z) - c * u._vel.z) * dt
+    v.position.addScaledVector(u._vel, dt)
+    if (v.position.distanceToSquared(goal) < 1e-8 && u._vel.lengthSq() < 1e-6) { v.position.copy(goal); u._vel.set(0, 0, 0); u._spring = false }
+  } else {
+    const before = _travelPrev.copy(v.position)
+    v.position.lerp(goal, 1 - Math.pow(0.02, dt))
+    if (dt > 0) u._vel.copy(v.position).sub(before).divideScalar(dt)   // carried into a spring if the target jumps
+  }
+}
+const _travelPrev = new Vector3()
+// A TRIP (demo.depart): from where the vessel stood, straight up to the clearance height, over
+// to above its seat, straight down onto it — corners rounded, the whole path ONE smootherstep
+// in time (it starts from rest and settles; 0.6–1.1 s by length). The seat is read live, so a
+// station that moves the seat during the trip is followed.
+const _tp = [new Vector3(), new Vector3(), new Vector3(), new Vector3()]
+function tripPoint(pts, s, out) {
+  // the polyline with each inner corner replaced by a quadratic curve through it
+  const R = 0.35
+  const seq = []
+  for (let i = 0; i < pts.length; i++) {
+    if (i === 0 || i === pts.length - 1) { seq.push(['p', pts[i]]); continue }
+    const a = pts[i - 1], c = pts[i], b = pts[i + 1]
+    const ra = Math.min(R, a.distanceTo(c) / 2), rb = Math.min(R, c.distanceTo(b) / 2)
+    const p0 = c.clone().addScaledVector(a.clone().sub(c).normalize(), ra), p2 = c.clone().addScaledVector(b.clone().sub(c).normalize(), rb)
+    seq.push(['q', p0, c, p2])
+  }
+  // sample to a dense polyline, then walk s of its length
+  const poly = []
+  for (const e of seq) {
+    if (e[0] === 'p') poly.push(e[1].clone())
+    else for (let k = 0; k <= 8; k++) { const t = k / 8, u = 1 - t; poly.push(new Vector3().addScaledVector(e[1], u * u).addScaledVector(e[2], 2 * u * t).addScaledVector(e[3], t * t)) }
+  }
+  let L = 0; const seg = []
+  for (let i = 1; i < poly.length; i++) { const d = poly[i].distanceTo(poly[i - 1]); seg.push(d); L += d }
+  let r = s * L
+  for (let i = 0; i < seg.length; i++) { if (r <= seg[i] || i === seg.length - 1) return out.copy(poly[i]).lerp(poly[i + 1], seg[i] > 0 ? Math.min(1, r / seg[i]) : 1), L; r -= seg[i] }
+  return out.copy(poly[poly.length - 1])
+}
+const smoother = (t) => { t = Math.min(1, Math.max(0, t)); return t * t * t * (t * (t * 6 - 15) + 10) }
+function travelTrip(v, dt) {
+  const u = v.userData, tr = u.trip
+  if (!tr) return false
+  const seat = u.tPos
+  _tp[0].copy(tr.from); _tp[1].copy(tr.lift); _tp[2].set(seat.x, Math.max(seat.y, tr.lift.y), seat.z); _tp[3].copy(seat)
+  if (tr.D == null) {
+    const L = _tp[0].distanceTo(_tp[1]) + _tp[1].distanceTo(_tp[2]) + _tp[2].distanceTo(_tp[3])
+    tr.D = Math.min(1.1, Math.max(0.6, 0.4 + L * 0.05))
+  }
+  tr.t += dt
+  tripPoint(_tp, smoother(tr.t / tr.D), v.position)
+  if (tr.t >= tr.D) {
+    v.position.copy(seat); u.trip = null
+    if (u._goal) { u._goal.copy(seat); u._vel.set(0, 0, 0); u._spring = false }
+  }
+  return true
+}
+
 export default function StationScene({ protocol, activeIndex = 0, lang = 'en', altByStep = {}, timerRef: timerProp, chromeless = false }) {
   ensureMaps()
   // the one scene preset (surfaces + backdrop + fog + lights as one coherent set)
@@ -1693,9 +1771,9 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     // the next seat — so the sample never teleports and never drags through the lid.
     const S = demo.getSample()
     if (S) for (const v of S.vessels) {
-      if (!v.userData.docked) {
+      if (!v.userData.docked && !travelTrip(v, dt)) {
         const goal = v.userData.exitLift || v.userData.tPos
-        v.position.lerp(goal, 1 - Math.pow(0.02, dt))
+        travel(v, goal, dt)
         if (v.userData.exitLift && v.position.distanceTo(v.userData.exitLift) < 0.06) {
           v.userData.exitLift = null // cleared the instrument — glide on to the seat
         }
@@ -1705,7 +1783,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     // 5b · prep vessels ride the SAME rails: each prepared mixture is CARRIED to the
     // station that draws from it, gliding exactly like the sample — never teleporting.
     for (const pv of demo.getPreps()) {
-      if (pv.visible) pv.position.lerp(pv.userData.tPos, 1 - Math.pow(0.02, dt))
+      if (pv.visible && !travelTrip(pv, dt)) travel(pv, pv.userData.tPos, dt)
       pv.userData.update?.(dt)
     }
 

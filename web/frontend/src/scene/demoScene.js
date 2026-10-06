@@ -18,7 +18,7 @@ import { streams } from './rng.js'
 
 // Height (world Y) a sample rises to when it leaves a docked instrument, before it
 // glides on — clears the centrifuge lid (its own lift is y≈2.15) and every other device.
-const EXIT_CLEAR_Y = 2.15
+export const EXIT_CLEAR_Y = 2.15
 
 let renderer = null
 export function setRenderer(r) { renderer = r }
@@ -69,8 +69,17 @@ export function setPrepVisible(id, vis) { const v = PREPS[id]; if (v) v.visible 
 // like S.at for the sample.
 export function prepAt(id, x, y, z) {
   const v = PREPS[id]; if (!v) return
+  // a prep CARRIED to a new place (a glide, not a snap) leaves straight up and comes down onto
+  // its new seat — never cutting sideways through what stands around it
+  if (!SNAP_SAMPLE && v.visible && v.position.distanceToSquared(new THREE.Vector3(x, y, z)) > 0.0025) depart(v)
   v.userData.tPos.set(x, y, z)
-  if (SNAP_SAMPLE) v.position.set(x, y, z)
+  if (SNAP_SAMPLE) { v.position.set(x, y, z); v.userData.trip = null }
+}
+// DEPART: a TRIP — rise straight up to the clearance height, carry over to above the new seat,
+// lower straight onto it; one eased motion along that path (the frame loop runs it: travelTrip)
+function depart(v) {
+  const lp = exitLiftPoint(v.position, EXIT_CLEAR_Y)
+  v.userData.trip = { from: v.position.clone(), lift: new THREE.Vector3(lp.x, lp.y, lp.z), t: 0, D: null }
 }
 // If a step change interrupts a spin, the sample may still be parented into a
 // centrifuge rotor slot — return every vessel to the scene (upright, full size).
@@ -83,17 +92,12 @@ export function undockSample(lift = false) {
   for (const v of SAMPLE.vessels) {
     const wasDocked = v.userData.docked
     if (v.parent && v.parent !== scene) scene.attach(v)
-    if (wasDocked) {
-      v.userData.docked = false; v.rotation.set(0, 0, 0); v.scale.setScalar(1)
-      if (lift) {
-        const lp = exitLiftPoint(v.position, EXIT_CLEAR_Y)
-        v.userData.exitLift = (v.userData.exitLift || new THREE.Vector3()).set(lp.x, lp.y, lp.z)
-      } else {
-        v.userData.exitLift = null
-      }
-    } else {
-      v.userData.exitLift = null
-    }
+    if (wasDocked) { v.userData.docked = false; v.rotation.set(0, 0, 0); v.scale.setScalar(1) }
+    // on a sequential Next EVERY shown vessel departs straight up and arrives from above (it
+    // used to be only a docked one: a tube left the ice bucket sideways through its wall)
+    if (lift && v.visible) depart(v)
+    else v.userData.trip = null
+    v.userData.exitLift = null
   }
 }
 
