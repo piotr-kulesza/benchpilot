@@ -60,6 +60,7 @@ export function makePrep(id, opts = {}) {
   if (PREPS[id]) return PREPS[id]
   const v = buildTube(opts)
   v.userData.noFrame = true
+  v.userData.prepId = id
   v.userData.tPos = v.position.clone()
   if (scene) scene.add(v)
   PREPS[id] = v
@@ -533,14 +534,17 @@ export function undockSample(lift = false) {
       if(grp.userData.gradMat){ grp.userData.gradMat.map.dispose(); grp.userData.gradMat.map=tubeGraphicTex(t); grp.userData.gradMat.needsUpdate=true; } };
     grp.userData.update=function(dt){
       var kL=1-Math.pow(0.001,dt), kC=1-Math.pow(0.004,dt);
-      state.level=lerp(state.level,state.tLevel,kL);
-      state.color.lerp(state.tColor,kC);
+      // a VOLUME is drawn as set, this frame — the transfer that sets it is the only clock (no
+      // easing of its own, which kept a level moving after the tip had left)
+      if(grp.userData.volUl!=null){ state.level=state.tLevel; state.color.copy(state.tColor); }
+      else { state.level=lerp(state.level,state.tLevel,kL); state.color.lerp(state.tColor,kC); }
       var lv=state.level;
-      if(lv<0.004){ liq.visible=false; }
+      // (a volume hides only at 0 µl: the 0.004 threshold dropped ~0.5 µl in and out of sight)
+      if(grp.userData.volUl!=null ? !(grp.userData.volUl>1e-9) : lv<0.004){ liq.visible=false; }
       else{
         liq.visible=true;
         // rebuilt on a 0.004 change — and once more, exactly, when the level has settled
-        if(Math.abs(lv-state.builtLevel)>0.004 || (grp.userData.volUl!=null && lv!==state.builtLevel && Math.abs(state.tLevel-lv)<1e-5)){
+        if(Math.abs(lv-state.builtLevel)>0.004 || (grp.userData.volUl!=null && lv!==state.builtLevel)){
           if(Math.abs(state.tLevel-lv)<1e-5) lv=state.level=state.tLevel;
           state.builtLevel=lv;
           var yTop=liqBottom + lv*(liqFillMax-liqBottom);
@@ -666,13 +670,13 @@ export function undockSample(lift = false) {
     grp.userData.setColor=function(h){ st.tColor.set(h); };
     grp.userData.update=function(dt){
       var prev=st.fill;
-      st.fill=lerp(st.fill,st.tFill,1-Math.pow(0.002,dt));
-      st.color.lerp(st.tColor,1-Math.pow(0.004,dt));
+      if(grp.userData.tipUl!=null){ st.fill=st.tFill; st.color.copy(st.tColor); }   // the tip holds what the plunger drew, this frame
+      else { st.fill=lerp(st.fill,st.tFill,1-Math.pow(0.002,dt)); st.color.lerp(st.tColor,1-Math.pow(0.004,dt)); }
       fluidMat.color.copy(st.color); fluidMat.emissive.copy(st.color);
       var dispensing = st.tFill<prev-0.0002 && st.fill>0.03;
       drop.visible=dispensing;
       if(dispensing){ var t=performance.now()*0.006; drop.position.y=-0.9-Math.sin(t)*0.01; drop.scale.y=1.3+Math.sin(t*1.3)*0.15; }
-      if(st.fill<0.01){ fluid.visible=false; }
+      if(grp.userData.tipUl!=null ? !(grp.userData.tipUl>1e-9) : st.fill<0.01){ fluid.visible=false; }
       else{ fluid.visible=true; var h=st.fill*0.66; fluid.scale.y=h/0.6; fluid.position.y=-0.8+h/2;
         // the liquid stays INSIDE the tip (bug fix): its top is as wide as the tip's inner cone
         // at the fill line, less 8 % (the frustum was 0.058 wide at any fill — through the
@@ -758,27 +762,25 @@ export function undockSample(lift = false) {
     grp.userData.setLabel=function(t,s){ label.userData.update(t,s||""); };
     grp.userData.update=function(dt){
       var kC=1-Math.pow(0.004,dt);
-      st.level=lerp(st.level,st.tLevel,1-Math.pow(0.002,dt));
-      st.color.lerp(st.tColor,kC);
+      if(grp.userData.volUl!=null){ st.level=st.tLevel; st.color.copy(st.tColor); }
+      else { st.level=lerp(st.level,st.tLevel,1-Math.pow(0.002,dt)); st.color.lerp(st.tColor,kC); }
       // the flow-through (only ever shown when a spin has put some there)
-      fst.level=lerp(fst.level,fst.tLevel,1-Math.pow(0.002,dt)); fst.color.lerp(fst.tColor,kC);
-      if(fst.level<0.004){ flow.visible=false; }
+      if(grp.userData.flowUl!=null){ fst.level=fst.tLevel; fst.color.copy(fst.tColor); }
+      else { fst.level=lerp(fst.level,fst.tLevel,1-Math.pow(0.002,dt)); fst.color.lerp(fst.tColor,kC); }
+      if(grp.userData.flowUl!=null ? !(grp.userData.flowUl>1e-9) : fst.level<0.004){ flow.visible=false; }
       else{
         flow.visible=true;
-        if(Math.abs(fst.level-fst.builtLevel)>0.004 || (fst.level!==fst.builtLevel && Math.abs(fst.tLevel-fst.level)<1e-5)){
-          if(Math.abs(fst.tLevel-fst.level)<1e-5) fst.level=fst.tLevel;
+        if(Math.abs(fst.level-fst.builtLevel)>0.004 || fst.level!==fst.builtLevel){
           fst.builtLevel=fst.level;
           var fg=liquidProfileGeo(flowInnerFn, COLL_Y0, COLL_Y0+fst.level*(COLL_YMAX-COLL_Y0), 44);
           flow.geometry.dispose(); flow.geometry=fg;
         }
         flowMat.color.copy(fst.color); flowMat.emissive.copy(fst.color);
       }
-      if(st.level<0.01 && !(grp.userData.volUl>0)){ liq.visible=false; }
-      else if(st.level<0.004){ liq.visible=false; }
+      if(grp.userData.volUl!=null ? !(grp.userData.volUl>1e-9) : st.level<0.01){ liq.visible=false; }
       else{
         liq.visible=true;
-        if(Math.abs(st.level-st.builtLevel)>0.004 || (grp.userData.volUl!=null && st.level!==st.builtLevel && Math.abs(st.tLevel-st.level)<1e-5)){
-          if(Math.abs(st.tLevel-st.level)<1e-5) st.level=st.tLevel;
+        if(Math.abs(st.level-st.builtLevel)>0.004 || (grp.userData.volUl!=null && st.level!==st.builtLevel)){
           st.builtLevel=st.level;
           var yTop=colBottom + st.level*(colFillMax-colBottom);
           var geo=liquidProfileGeo(colInnerFn, colBottom, yTop, 44);
@@ -1640,7 +1642,7 @@ export function undockSample(lift = false) {
     grp.userData.setLevel=function(v){ bState.tLevel=clamp(v,0,1); };
     grp.userData.setCap=function(on){ bState.tOpen = on ? 0 : 1; };
     grp.userData.update=function(dt){
-      bState.level=lerp(bState.level,bState.tLevel,1-Math.pow(0.02,dt));
+      bState.level = grp.userData.snapLevel ? bState.tLevel : lerp(bState.level,bState.tLevel,1-Math.pow(0.02,dt));
       bState.open =lerp(bState.open, bState.tOpen, 1-Math.pow(0.0009,dt));
       liq.scale.y=Math.max(0.001,bState.level);                    // surface drops
       var o=bState.open;
@@ -1898,7 +1900,22 @@ export {
   }
   function tipDispensing(p, opts){ return opts.tipUl!=null ? 1-dispenseProgress(p) : 1-clamp((p-DISPENSE_FROM)/(DISPENSE_TO-DISPENSE_FROM),0,1); }
   // how much of a pass's draw is in the tip at pass progress p (the source drops by the same)
-  function drawProgress(p){ return p<0.26 ? pipDrawFill(p/0.26) : 1; }
+  // WITH A STATED DRAW the plunger draws only while the tip is DOWN in the source, below its
+  // surface (the demo drew while rising out of it, and dipped only to from.y + 0.72 — above the
+  // liquid of a bottle or a draining tube): over the source (0–0.3 of phase A), down to opts.srcTip
+  // (0.3–0.5), hold and draw (0.5–0.78), up full (0.78–1). drawProgress is that same curve: the
+  // source drops exactly as the tip fills.
+  function drawCurve(a){ return a<0.5 ? 0 : a<0.78 ? easeInOut((a-0.5)/0.28) : 1; }
+  function drawProgress(p){ return p<0.26 ? drawCurve(p/0.26) : 1; }
+  function pipPhaseAV(from, TRAVEL_Y, a, srcTip){
+    var H=pipHome();
+    if(a<0.3){ var q=easeInOut(a/0.3); return new THREE.Vector3(lerp(H.x,from.x,q), lerp(H.y,TRAVEL_Y,q), lerp(H.z,from.z,q)); }
+    if(a<0.5) return new THREE.Vector3(from.x, lerp(TRAVEL_Y,srcTip,easeInOut((a-0.3)/0.2)), from.z);
+    if(a<0.78) return new THREE.Vector3(from.x, srcTip, from.z);
+    return new THREE.Vector3(from.x, lerp(srcTip,TRAVEL_Y,easeInOut((a-0.78)/0.22)), from.z);
+  }
+  var phaseA=function(from, TRAVEL_Y, a, opts){ return opts.tipUl!=null && opts.srcTip!=null ? pipPhaseAV(from, TRAVEL_Y, a, opts.srcTip) : pipPhaseA(from, TRAVEL_Y, a); };
+  var drawFill=function(a, opts){ return opts.tipUl!=null && opts.srcTip!=null ? drawCurve(a) : pipDrawFill(a); };
   function pipetteRun(st, from, to, p, opts){
     opts=opts||{};
     var pip=st.pip; if(!pip) return;
@@ -1933,8 +1950,8 @@ export {
       }
       if(p<draw){                               // A · out of the stand, into the opened source, draw
         pip.rotation.z=0;
-        pip.position.copy(pipPhaseA(from, TRAVEL_Y, p/draw));
-        tipTo(pip, pipDrawFill(p/draw), opts); pip.userData.setColor(opts.color||COL.lysis);
+        pip.position.copy(phaseA(from, TRAVEL_Y, p/draw, opts));
+        tipTo(pip, drawFill(p/draw, opts), opts); pip.userData.setColor(opts.color||COL.lysis);
       } else if(p<travel){                       // B · cruise HIGH & LEVEL to above the standoff
         var qb=easeInOut((p-draw)/(travel-draw));
         var sx=to.x+ax*dTop, sy=to.y+ay*dTop;
@@ -1976,9 +1993,9 @@ export {
     var DIP_Y=to.y+(opts.dipDepth!=null?opts.dipDepth:0.62);  // tip lowered into the mouth
     var pos=new THREE.Vector3();
     if(p<draw){                                 // A · out of the stand, into the opened source, draw
-      pos.copy(pipPhaseA(from, TRAVEL_Y, p/draw));
+      pos.copy(phaseA(from, TRAVEL_Y, p/draw, opts));
       pip.rotation.z=0;
-      tipTo(pip, pipDrawFill(p/draw), opts); pip.userData.setColor(opts.color||COL.lysis);
+      tipTo(pip, drawFill(p/draw, opts), opts); pip.userData.setColor(opts.color||COL.lysis);
     } else if(p<travel){                         // B · cruise HIGH & LEVEL over the mouth
       var q2=easeInOut((p-draw)/(travel-draw));
       pos.set(lerp(from.x,to.x,q2), TRAVEL_Y, lerp(from.z,to.z,q2));
@@ -2047,8 +2064,8 @@ export {
     grp.userData.setColor=function(h){ st.tColor.set(h); };
     grp.userData.setLabel=function(t,s){ if(grp.userData.label) grp.userData.label.userData.update(t,s||""); };
     grp.userData.update=function(dt){
-      st.level=lerp(st.level,st.tLevel,1-Math.pow(0.001,dt));
-      st.color.lerp(st.tColor,1-Math.pow(0.004,dt));
+      if(grp.userData.volUl!=null){ st.level=st.tLevel; st.color.copy(st.tColor); }
+      else { st.level=lerp(st.level,st.tLevel,1-Math.pow(0.001,dt)); st.color.lerp(st.tColor,1-Math.pow(0.004,dt)); }
       apply(liq, st.level, st.color, st);
       if(grp.userData.volUl!=null && liq.isMesh) liq.visible = st.level>0.0005;   // 0 µl draws nothing
     };
@@ -2501,7 +2518,7 @@ export {
       if(o.cStart!=null) v.userData.setColor(o.cStart);
       if(o.each!=null && v.userData.setVolume) v.userData.setVolume(o.ulStart); else v.userData.setLevel(o.lStart);
       if(o.srcTube) o.srcTube.userData.setVolume(o.srcUl);
-      if(o.each!=null){ var b0=st.reagents[o.key].grp; if(b0 && b0.userData.stockUl) b0.userData.setLevel(1); }
+      if(o.each!=null){ var b0=st.reagents[o.key].grp; if(b0 && b0.userData.stockUl){ b0.userData.snapLevel=true; b0.userData.setLevel(1); } }
       SAMPLE.at(v, st.x, Y, 0);
       pipRest(st);
     };
@@ -2524,8 +2541,10 @@ export {
       // for an ANGLED neck the dispense point is the neck MOUTH (its own height),
       // NOT the seat plane — otherwise the tip dips onto the flat top face.
       var toY = (disp.approach==='angled' && disp.y!=null) ? disp.y : Y;
+      // the tip goes below the source's surface: 0.1 under a bottle's drawn line, near a tube's floor
+      var srcTip = o.each==null ? null : o.srcTube ? 0.035 : (b && b.userData.surfaceY ? b.userData.surfaceY()-0.1 : null);
       pipetteRun(st, st.reagents[o.key].pos, {x:disp.x,y:toY,z:disp.z}, lp,
-        {color:o.color, fill:0.8, tipUl:o.each, approach:disp.approach, tilt:disp.tilt, depth:disp.depth, dipDepth:o.entry});
+        {color:o.color, fill:0.8, tipUl:o.each, srcTip:srcTip, approach:disp.approach, tilt:disp.tilt, depth:disp.depth, dipDepth:o.entry});
       if(o.each!=null){
         var added=(k+dispenseProgress(lp))*o.each;
         if(v.userData.setVolume){ v.userData.setVolume(o.ulStart+added); v.userData.setColor(mixColor(o.cStart, o.ulStart, o.color, added)); }
@@ -2543,9 +2562,9 @@ export {
     function amt(v, e){
       if(o.vol && v.userData.setVolume) v.userData.setVolume(lerp(o.vol.start, o.vol.end, e));
       else v.userData.setLevel(lerp(o.lStart==null?0.5:o.lStart, o.lEnd==null?(o.lStart==null?0.5:o.lStart):o.lEnd, e));
-      if(o.flow && v.userData.setFlow){ v.userData.setFlow(lerp(o.flow.start, o.flow.peak, e)); v.userData.setFlowColor(e>0 ? o.flow.color : o.flow.startColor); }
+      if(o.flow && v.userData.setFlow){ var mv=(o.flow.peak-o.flow.start)*e; v.userData.setFlow(o.flow.start+mv); v.userData.setFlowColor(mixColor(o.flow.startColor, o.flow.start, o.flow.srcColor, mv)); }
+      if(o.vol && o.src) o.src.obj.userData.setVolume(o.src.start-(lerp(o.vol.start, o.vol.end, e)-o.vol.start));   // what the eluate gains, the column loses
     }
-    function discard(v, e){ if(o.flow && v.userData.setFlow) v.userData.setFlow(lerp(o.flow.peak, o.flow.end, e)); }
     var cen=buildCentrifuge(); cen.position.set(1.4,0,-0.5); cen.scale.setScalar(0.85);
     st.group.add(cen); st.updatables.push(cen); st.cen=cen;
     // IMPROVEMENT over the demo (which spun an EMPTY rotor while the tube sat on the
@@ -2637,7 +2656,7 @@ export {
         if(!docked){ lowerInto(1); dock(); }
         if(endT<0.9){ cen.userData.setLid(false); }              // still closed while it slows
         else { cen.userData.setLid(true); }                      // lid swings open
-        if(o.vol){ amt(v, 1); if(endT>0.9) discard(v, easeInOut(clamp((endT-0.9)/0.6,0,1))); }   // the flow-through goes once the lid is open
+        if(o.vol) amt(v, 1);   // the flow-through stays in its tube: it is poured off at the bench (the next station)
         // the tube STAYS in its slot (bug fix): it used to be lifted out and left hanging in the
         // air; it leaves on the next step, along the slot's axis (undockSample)
         return;
@@ -2674,7 +2693,7 @@ export {
       } else {                               // 5 · lid opens; the sample STAYS in its slot (it
         cen.userData.setSpin(0); cen.userData.setLid(true);   // leaves on the next step, along the slot axis)
       }
-      if(o.vol){ amt(v, easeInOut(clamp((p-0.27)/0.53,0,1))); if(p>0.9) discard(v, easeInOut(clamp((p-0.9)/0.1,0,1))); }   // moves while it spins; discarded once open
+      if(o.vol) amt(v, easeInOut(clamp((p-0.27)/0.53,0,1)));   // moves only while the rotor turns
       else if(o.lEnd!=null) v.userData.setLevel(lerp(o.lStart==null?0.5:o.lStart, o.lEnd, easeInOut(clamp(p,0,1))));
     };
   }

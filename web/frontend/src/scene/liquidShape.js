@@ -32,7 +32,7 @@ export function innerRadiusFn(profPts, inset){
 export var PROFILE_STEPS = 16;
 export function liquidProfileGeo(innerR, y0, yTop, seg){
   seg = seg||48;
-  if(yTop <= y0+0.001) yTop = y0+0.001;
+  if(yTop <= y0+1e-5) yTop = y0+1e-5;   // (was 0.001: a floor that held 0.7 µl in a column's wide cup)
   var steps=PROFILE_STEPS, pts=[], i;
   pts.push(new THREE.Vector2(0.0006, y0));                 // centre of the bottom
   for(i=0;i<=steps;i++){
@@ -88,7 +88,7 @@ export function bottleProfile(h){
 // (a stack of frustums), as a perfect solid of revolution. The drawn mesh is a 44–48-gon, which
 // scales every volume by one constant — it cancels in every fraction below.
 export function latheVolume(innerR, y0, yTop){
-  if(yTop <= y0+0.001) yTop = y0+0.001;
+  if(yTop <= y0+1e-5) yTop = y0+1e-5;
   var v=0, steps=PROFILE_STEPS, ya=y0, ra=Math.max(innerR(y0),0.0008);
   for(var i=1;i<=steps;i++){
     var yb=y0+(yTop-y0)*(i/steps), rb=Math.max(innerR(yb),0.0008);
