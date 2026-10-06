@@ -96,7 +96,9 @@ export function simulateStation(line, { stepDur = 6.5, tail = 1.5, every = 3, be
   line.hold = true
   try {
     for (let k = 0; k <= total; k++) {
-      line.pForce = Math.min(1, Math.max(0, k - H) / (stepDur * fps))
+      // during a timed step's REST the runner's own logic runs (the countdown not started:
+      // driveTimed's rest — what the viewer sees before Start); then p is driven
+      line.pForce = k < H ? null : Math.min(1, (k - H) / (stepDur * fps))
       line.step(1 / fps)
       tracks.frame = k; recordMotion(line, tracks)
       if (stopAt != null && k >= stopAt) break
@@ -107,8 +109,8 @@ export function simulateStation(line, { stepDur = 6.5, tail = 1.5, every = 3, be
         const key = `${d.check}|${d.a}|${d.b}`
         const was = seen.get(key)
         const keep = (x) => { if (d.parts) Object.defineProperty(x, 'parts', { value: d.parts, enumerable: false, configurable: true, writable: true }); return x }
-        if (!was) seen.set(key, keep({ ...d, p: +line.pForce.toFixed(3), pLast: +line.pForce.toFixed(3), frames: 1, frame: k }))
-        else { was.frames++; was.pLast = +line.pForce.toFixed(3); if (d.depth > was.depth) { Object.assign(was, d, { p: was.p, pLast: was.pLast, frames: was.frames, frame: was.frame }); keep(was); was.pWorst = +line.pForce.toFixed(3); was.frameWorst = k } }
+        if (!was) seen.set(key, keep({ ...d, p: +(line.pForce || 0).toFixed(3), pLast: +(line.pForce || 0).toFixed(3), frames: 1, frame: k }))
+        else { was.frames++; was.pLast = +(line.pForce || 0).toFixed(3); if (d.depth > was.depth) { Object.assign(was, d, { p: was.p, pLast: was.pLast, frames: was.frames, frame: was.frame }); keep(was); was.pWorst = +(line.pForce || 0).toFixed(3); was.frameWorst = k } }
       }
     }
   } finally { line.pForce = null }

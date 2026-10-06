@@ -1241,7 +1241,7 @@ export function undockSample(lift = false) {
     var numTex=new THREE.CanvasTexture(numC); numTex.anisotropy=MAX_ANISO;
     var numPlate=new THREE.Mesh(new THREE.CircleGeometry(0.82,44),
       new THREE.MeshBasicMaterial({ map:numTex, transparent:true, depthWrite:false }));
-    numPlate.rotation.x=-Math.PI/2; numPlate.position.y=0.05; rotor.add(numPlate);
+    numPlate.rotation.x=-Math.PI/2; numPlate.position.y=0.05; auditKind(numPlate,'effect'); rotor.add(numPlate);   // a printed decal, not a solid
     grp.add(rotor);
 
     var rc=document.createElement("canvas"); rc.width=256; rc.height=128; var rg=rc.getContext("2d");
