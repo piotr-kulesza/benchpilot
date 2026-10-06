@@ -367,7 +367,7 @@ export function configureStation(st, o) {
     v.visible = true
     v.rotation.set(0, 0, 0)
     v.scale.setScalar(1) // clear any per-station scale (e.g. the thermocycler's shrunk tube)
-    S.at(v, st.x + x, FLAT ? 0 : y, z)
+    S.at(v, st.x + x, FLAT ? SEAT_Y : y, z)   // a flat vessel rests on the bench at its contract seat (0 left a membrane / slide resting on nothing)
     return v
   }
 
@@ -602,7 +602,7 @@ export function configureStation(st, o) {
         evolve(p)
         v.rotation.set(0, 0, 0) // stay flat on the bench
         const a = p * 40
-        S.at(v, st.x + Math.cos(a) * 0.05, 0, Math.sin(a) * 0.05)
+        S.at(v, st.x + Math.cos(a) * 0.05, SEAT_Y, Math.sin(a) * 0.05)
       }
     } else {
       // a real VORTEX MIXER; the tube presses into its rubber cup and shakes.
