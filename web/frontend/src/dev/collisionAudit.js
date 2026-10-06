@@ -269,6 +269,11 @@ export function sweep(meshes, prevWorld, others, cap = 64) {
 // A moving PART of an object (a lid, a cap) is red only when it is deeper in the rest of its
 // object than at its own first-seen pose: a cap seated on its neck overlaps by design.
 const proxy = (m, world) => ({ geometry: m.geometry, matrixWorld: world })
+// closed transparent glass: a see-through box or capped cylinder (a flask's body and neck)
+export function closedGlass(m) {
+  const mat = [].concat(m.material || [])[0], t = m.geometry.type, pr = m.geometry.parameters || {}
+  return !!mat && mat.transparent && mat.opacity <= 0.4 && (t === 'BoxGeometry' || (t === 'CylinderGeometry' && !pr.openEnded))
+}
 // a mesh, named well enough to find it in its builder: geometry type, size, colour, where
 const r3 = (v) => v.toArray().map((x) => +x.toFixed(3))
 export function describe(m) {
@@ -298,8 +303,11 @@ export function auditPose(objects, { benchY = 0, prev = null, checkSweep = true,
     const A = items[i], B = items[j]
     const key = A.root.uuid < B.root.uuid ? `${A.root.uuid}|${B.root.uuid}` : `${B.root.uuid}|${A.root.uuid}`
     let r
+    // a HELD tool in closed transparent glassware (a flask's box body or capped neck) is the dip
+    // itself: that glass has no modelled opening, so its mouth cannot be told from its wall
+    const am = B.held ? A.meshes.filter((m) => !closedGlass(m)) : A.meshes, bm = A.held ? B.meshes.filter((m) => !closedGlass(m)) : B.meshes
     if (!A.changed && !B.changed && prev && prev.pairs.has(key)) r = prev.pairs.get(key)
-    else r = A.box.intersectsBox(B.box) ? setPenetration(A.meshes, B.meshes) : { depth: 0, at: null }
+    else r = A.box.intersectsBox(B.box) && am.length && bm.length ? setPenetration(am, bm) : { depth: 0, at: null }
     pairs.set(key, r)
     if (r.depth > TOL.depth) defects.push({ check: 'intersect', a: A.name, b: B.name, depth: r.depth, meshes: r.at && r.at.map(describe) })
   }
@@ -332,12 +340,17 @@ export function auditPose(objects, { benchY = 0, prev = null, checkSweep = true,
   // b · float / sink (objects at rest, not held)
   const gaps = new Map(), restSince = new Map()
   for (const it of items) {
+    // a thing that was not there (or not visible) in prev has just APPEARED: it starts its rest now
     const was = prev && prev.restSince ? prev.restSince.get(it.root) : undefined
-    restSince.set(it.root, it.moving ? frame : (was != null ? was : -Infinity))
+    const fresh = prev && was === undefined
+    restSince.set(it.root, it.moving || fresh ? frame : (was != null ? was : -Infinity))
   }
   for (const it of items) {
     const box = it.box
-    if (box.min.y < benchY - TOL.depth) defects.push({ check: 'sunk', a: it.name, b: 'bench', depth: benchY - box.min.y })
+    if (box.min.y < benchY - TOL.depth) {
+      const low = it.meshes.reduce((lo, m) => { const b = worldBox([m]); return !lo || b.min.y < lo.b ? { m, b: b.min.y } : lo }, null)
+      defects.push({ check: 'sunk', a: it.name, b: 'bench', depth: benchY - box.min.y, meshes: [describe(low.m)] })
+    }
     if (it.held || it.moving || frame - restSince.get(it.root) < REST_FRAMES) continue
     if (box.min.y <= benchY + TOL.contact) continue                      // on the bench
     // nothing moved since prev: the answer is prev's
@@ -355,7 +368,8 @@ export function auditPose(objects, { benchY = 0, prev = null, checkSweep = true,
   // c · sweep (moving objects, against every other object)
   if (prev && checkSweep) for (const it of items) {
     if (!it.moving) continue
-    const others = items.filter((o) => o !== it).flatMap((o) => o.meshes)
+    // (a held tool moving into closed glassware is the dip — as for intersections)
+    const others = items.filter((o) => o !== it).flatMap((o) => it.held ? o.meshes.filter((m) => !closedGlass(m)) : o.meshes)
     const s = sweep(it.meshes, prev.world, others)
     if (s) {
       const owner = items.find((o) => o.meshes.includes(s.other))

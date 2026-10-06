@@ -32,6 +32,10 @@ describe('motion audit', () => {
     const f = auditTrack(tr)
     expect(checks(f)).toEqual(['teleport']); expect(f[0].how).toBe('appears')
   })
+  it('appearing OFF screen (and travelling in) → green', () => {
+    const tr = [...rest(0, 5).map((p) => ({ ...p, visible: false, inView: false })), ...rest(0, 5).map((p) => ({ ...p, inView: false }))]
+    expect(checks(auditTrack(tr))).toEqual([])
+  })
   it('a move from the first frame of a thing known to be at rest before → judged (a real start)', () => {
     const tr = [at(0), ...Array.from({ length: 40 }, (_, k) => at((k + 1) / 40)), ...rest(1, 10)]
     expect(checks(auditTrack(tr, { restBefore: true })).sort()).toEqual(['abrupt-start', 'abrupt-stop'])

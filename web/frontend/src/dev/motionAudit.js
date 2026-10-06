@@ -53,8 +53,9 @@ export function auditTrack(track, { kind = 'object', from = 0, to = track.length
   const findings = []
   const { lin, rot } = speeds(track)
   // pops: visibility flips inside the step window
+  // (in the camera's view: a thing appearing off screen and travelling in is seen travelling)
   for (let i = Math.max(1, from); i <= to; i++) {
-    if (track[i].visible !== track[i - 1].visible) findings.push({ check: 'teleport', how: track[i].visible ? 'appears' : 'vanishes', frame: i })
+    if (track[i].visible !== track[i - 1].visible && (track[i].visible ? track[i].inView : track[i - 1].inView) !== false) findings.push({ check: 'teleport', how: track[i].visible ? 'appears' : 'vanishes', frame: i })
   }
   for (const [sp, unit] of [[lin, 'move'], [rot, 'turn']]) {
     for (const [a, b] of moves(sp)) {

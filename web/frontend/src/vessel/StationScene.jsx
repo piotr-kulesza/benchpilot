@@ -806,6 +806,7 @@ export function configureStation(st, o) {
     const SURF = 0.66 // water-surface height (matches buildWaterBath SURFY)
     st.bubbles = streams.wrap('heatBubbles', () => Array.from({ length: 8 }, () => {
       const b = new Mesh(new SphereGeometry(0.045, 10, 8), new MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, roughness: 0.1 }))
+      b.userData.auditKind = 'effect'   // metadata for the dev collision audit: a bubble, not a solid
       b.userData.seed = { x: (Math.random() - 0.5) * 1.6, z: (Math.random() - 0.5) * 1.0, off: Math.random(), sp: 0.5 + Math.random() }
       st.group.add(b)
       return b
@@ -1938,6 +1939,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       sample: () => demo.getSample(), preps: () => demo.getPreps(),
       step: (dt) => frame(lastStateRef.current, dt),
       render: () => { const s = lastStateRef.current; s.gl.render(s.scene, s.camera) },
+      camera: () => lastStateRef.current && lastStateRef.current.camera,
     })
     window.__benchLine = benchLine
   }

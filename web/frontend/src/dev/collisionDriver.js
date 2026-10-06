@@ -8,7 +8,7 @@
 // a lid easing shut — not a set of snapped poses.
 import { auditPose, isSolid, setPenetration, TOL } from './collisionAudit.js'
 import { auditTrack } from './motionAudit.js'
-import { Vector3, Quaternion } from 'three'
+import { Vector3, Quaternion, Frustum, Matrix4, Box3 } from 'three'
 
 const visible = (o) => { for (let n = o; n; n = n.parent) if (!n.visible) return false; return true }
 const builderOf = (o) => (o.userData && o.userData.builder ? o.userData.builder.replace(/^build/, '') : null)
@@ -26,7 +26,8 @@ export function stationObjects(line, st, prefix = '') {
     if (c.isSprite || c.isLight || c === st.label || c === st.dial || !visible(c)) return
     const b = builderOf(c), r = role.get(c)
     const name = r ? `${r}${b ? ` (${b})` : ''}` : (b || c.name || `${c.type}#${i}`)
-    out.push({ name: prefix + name, root: c, held: c === st.pip })
+    // held: the pipette, and a source bottle while it pours (tilted, in hand)
+    out.push({ name: prefix + name, root: c, held: c === st.pip || (r === 'source pour' && Math.abs(c.rotation.z) > 0.01) })
   })
   return out
 }
@@ -57,6 +58,13 @@ const _p = new Vector3(), _q = new Quaternion(), _s = new Vector3()
 // only a thing with a SOLID can teleport (a stream starting, steam rising, a liquid level is
 // not a thing changing place)
 const hasSolid = (root) => { let y = false; root.traverse((o) => { if (!y && isSolid(o)) y = true }); return y }
+// is it in the camera's view? (a thing that appears OFF screen and travels in is seen travelling)
+const _fr = new Frustum(), _pm = new Matrix4(), _bx = new Box3()
+function inView(line, root) {
+  const cam = line.camera && line.camera(); if (!cam) return true
+  cam.updateMatrixWorld(); _pm.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse); _fr.setFromProjectionMatrix(_pm)
+  _bx.setFromObject(root); return _bx.isEmpty() || _fr.intersectsBox(_bx)
+}
 function recordMotion(line, tracks) {
   for (const c of motionCandidates(line)) {
     if (!hasSolid(c.root)) continue
@@ -64,13 +72,14 @@ function recordMotion(line, tracks) {
     c.root.matrixWorld.decompose(_p, _q, _s)
     let t = tracks.get(c.key)
     if (!t) { t = { name: c.name, kind: 'object', track: [], start: tracks.frame }; tracks.set(c.key, t) }
-    t.track.push({ pos: _p.toArray(), quat: _q.toArray(), visible: visible(c.root) })
+    const vis = visible(c.root)
+    t.track.push({ pos: _p.toArray(), quat: _q.toArray(), visible: vis, inView: vis ? inView(line, c.root) : (t.track.length ? t.track[t.track.length - 1].inView : true) })
     for (const g of c.root.children) {
       if (!g.isGroup || !g.children.length) continue
       const pk = 'part:' + g.uuid   // a part's own key: a vessel nested in another is also an object
       let tp = tracks.get(pk)
       if (!tp) { tp = { name: `${c.name} · part`, kind: 'part', track: [], start: tracks.frame }; tracks.set(pk, tp) }
-      tp.track.push({ pos: [0, 0, 0], quat: g.quaternion.toArray(), visible: visible(g) })
+      tp.track.push({ pos: [0, 0, 0], quat: g.quaternion.toArray(), visible: visible(g), inView: t.track[t.track.length - 1].inView })   // a part is in view when its object is
     }
   }
 }
