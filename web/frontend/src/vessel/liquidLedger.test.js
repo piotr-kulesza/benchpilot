@@ -135,10 +135,12 @@ describe('neutrophil_rna — the volumes the protocol states', () => {
     expect(at(8).end.column.ul).toBeCloseTo(700, 6)
     expect(ulIn(at(8).end, 'tube')).toBeCloseTo(0, 6)
   })
-  it('a spin moves the column into its collection tube; "discard the flow-through" empties it', () => {
+  it('a spin moves the column into its collection tube; "discard the flow-through" pours it off at the bench next', () => {
     expect(at(9).ops.some((o) => o.op === 'move' && o.from === 'column' && o.to === 'flow' && Math.abs(o.ul - 700) < EPS)).toBe(true)
     expect(ulIn(at(9).end, 'column')).toBeCloseTo(0, 6)
-    expect(ulIn(at(9).end, 'flow')).toBeCloseTo(0, 6)
+    expect(ulIn(at(9).end, 'flow')).toBeCloseTo(700, 6)
+    expect(at(10).ops[0]).toMatchObject({ op: 'discard', from: 'flow', to: 'waste' })
+    expect(ulIn(at(10).end, 'flow')).toBeCloseTo(0, 6)
     expect(at(17).end.flow.ul).toBeCloseTo(500, 6)            // "Centrifuge 15 s." — kept
     expect(at(19).end.flow.ul).toBeCloseTo(1000, 6)
   })

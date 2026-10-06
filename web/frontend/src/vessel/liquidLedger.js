@@ -105,6 +105,7 @@ export function buildLedger(steps, { containers = [], altByStep = {}, colorOf = 
     void s0
   }
 
+  let pendingDiscard = false
   const stations = eff.map((s, i) => {
     const rec = { index: s.index, action: s.action, vessel: vesselAt(i), start: snap(), end: null, ops: [], flags: i === Math.max(first, 0) ? [...initFlags] : [], notes: [] }
     const flag = (t) => rec.flags.push(t)
@@ -119,6 +120,11 @@ export function buildLedger(steps, { containers = [], altByStep = {}, colorOf = 
     }
     const text = `${s.text_en || ''} ${s.text || ''}`
     const here = rec.vessel
+    if (pendingDiscard && m.column && s.action !== 'centrifuge' && s.action !== 'elute' && get('flow').ul > 0) {
+      op({ op: 'discard', from: 'flow', ul: get('flow').ul, method: 'pour', to: 'waste', why: 'the flow-through, poured off (discarded at the last spin)' })
+      rec.flowDiscard = rec.ops[rec.ops.length - 1].ul
+      pendingDiscard = false
+    }
     const prevV = i > 0 ? vesselAt(i - 1) : null
     const prevC = i > 0 ? (containers[i - 1] || 'microtube') : null
 
@@ -211,7 +217,9 @@ export function buildLedger(steps, { containers = [], altByStep = {}, colorOf = 
             op({ op: 'move', from: 'column', to: 'flow', ul: get('column').ul, method: 'spin' })
           }
         }
-        if (DISCARD_FLOW.test(text) && get('flow').ul > 0) op({ op: 'discard', from: 'flow', ul: get('flow').ul, why: 'discard the flow-through' })
+        // "discard the flow-through": poured off into the waste at the bench — the column is in the
+        // rotor until the next station, so it happens at the start of the next station with the column
+        if (DISCARD_FLOW.test(text) && get('flow').ul > 0) pendingDiscard = true
       }
     } else if (s.action === 'discard') {
       op({ op: 'discard', from: here, ul: get(here).ul, why: 'discard' })
@@ -258,7 +266,7 @@ export function buildLedger(steps, { containers = [], altByStep = {}, colorOf = 
       if (Math.abs(m[k].ul) < 1e-9) m[k].ul = 0
       if (shapeOf(k) && m[k].ul > cap(k) * (shapeOf(k).full > 1 ? 1 : 1) + 1e-6 && rec.ops.some((o) => o.to === k)) flag(`${fmt(m[k].ul)} exceeds the drawn ${k}'s nominal ${fmt(cap(k))} — drawn full`)
     }
-    rec.pourSeconds = rec.ops.filter((o) => o.method === 'pour').reduce((a, o) => a + o.ul, 0) / POUR_UL_PER_S
+    rec.pourSeconds = rec.ops.filter((o) => o.method === 'pour' && o.op !== 'discard').reduce((a, o) => a + o.ul, 0) / POUR_UL_PER_S
     rec.passes = rec.ops.filter((o) => o.method === 'pipette').reduce((a, o) => a + (o.passes || 1), 0)
     rec.end = snap()
     return rec
