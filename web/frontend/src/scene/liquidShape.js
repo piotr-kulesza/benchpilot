@@ -144,7 +144,9 @@ export function collectionShape(){
 export function linearShape(capacityUl, full){
   return { capacityUl:capacityUl, full:full, volAt:function(lv){ return lv; } };
 }
-export function tipShape(){ return { capacityUl:200, full:1, volAt:tipVolumeAtFill }; }
+// a P200's tip holds 200 µl, a P1000's 1000 µl: the P1000 is the same pipette drawn larger, so its
+// tip's drawn volume follows the same curve of its fill — only the nominal capacity differs
+export function tipShape(capacityUl){ return { capacityUl:capacityUl||200, full:1, volAt:tipVolumeAtFill }; }
 // a reagent bottle: its liquid is one lathe scaled in height, so volume ∝ scale; its drawn line
 // (0.55 h) holds the share of 250 mL that the drawn volume below the line is of the drawn volume
 // below the shoulder (0.72 h)

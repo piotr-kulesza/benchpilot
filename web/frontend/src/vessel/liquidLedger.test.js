@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
-import { buildLedger, tipPlan, tipUl, TIP_UL, mixColor } from './liquidLedger.js'
+import { buildLedger, tipPlan, tipUl, TIP_UL, mixColor, capacityOf } from './liquidLedger.js'
 import { sampleContainerSequence } from './sceneRecipe.js'
 import { parseVolume } from '../lib/volume.js'
 import { partitionSteps } from '../lib/runtime.js'
@@ -112,13 +112,16 @@ describe('the tip — fills to its draw, never more', () => {
     }
   })
   for (const p of PROTOCOLS) {
-    it(`${p.id}: every pipetted pass draws at most one tip (${TIP_UL} µl), and the tip holds no more than it drew`, () => {
+    it(`${p.id}: every pipetted pass uses the pipette its volume calls for, within its capacity; the tip holds what it drew`, () => {
       for (const st of ledgerOf(p.steps).stations) {
         for (const op of st.ops.filter((o) => o.method === 'pipette')) {
-          expect(op.passes, `${p.id} step ${st.index}`).toBeGreaterThanOrEqual(1)
+          const at = `${p.id} step ${st.index}`
           const each = op.ul / op.passes
-          if (!op.serological) expect(each, `${p.id} step ${st.index}`).toBeLessThanOrEqual(TIP_UL + EPS)
-          expect(tipUl(tipPlan(Math.min(each, TIP_UL)).fill)).toBeLessThanOrEqual(each * 1.02 + EPS)
+          // ≤ 200 µl one P200 pass; 201–1000 µl ONE P1000 pass; more: as few P1000 passes as hold it
+          expect(op.passes, at).toBe(op.ul <= 1000 + EPS ? 1 : Math.ceil(op.ul / 1000 - 1e-9))
+          expect(op.pipette, at).toBe(each <= 200 + EPS ? 'P200' : 'P1000')
+          expect(each, at).toBeLessThanOrEqual(capacityOf(op.pipette) + EPS)
+          expect(tipUl(tipPlan(each, op.pipette).fill, op.pipette)).toBeLessThanOrEqual(each * 1.02 + EPS)
         }
       }
     })
