@@ -60,8 +60,11 @@ if (!BASE) {
 function expectedPasses(data) {
   const stations = partitionSteps(data.steps).stations
   const L = buildLedger(stations, { containers: sampleContainerSequence(stations) })
-  return { stations, L, expect: L.stations.map((rec) => rec.ops.flatMap((o) => {
-    const piped = ((o.op === 'add' || o.op === 'move') && o.method === 'pipette') || (o.op === 'discard' && o.from === 'flow')
+  // the vessels a station RETIRES (a used collection tube set aside, a mix used up): gone at the next
+  // boundary, not a jump
+  const retired = L.stations.map((rec) => rec.ops.filter((o) => o.op === 'retire').map((o) => o.from))
+  return { stations, L, retired, expect: L.stations.map((rec) => rec.ops.flatMap((o) => {
+    const piped = (o.op === 'add' || o.op === 'move' || o.op === 'discard') && o.method === 'pipette'
     return piped && !o.guess ? passesFor(o.ul) : []
   })) }
 }
@@ -80,7 +83,7 @@ const report = []
 let redStations = 0, allStations = 0, redProtocols = 0
 const t0 = Date.now()
 async function runJob(job) {
-  const { stations, expect } = expectedPasses(job.data)
+  const { stations, expect, retired } = expectedPasses(job.data)
   const page = await browser.newPage()
   await page.setViewport({ width: 1440, height: 900 })
   const errors = []
@@ -108,11 +111,11 @@ async function runJob(job) {
       const clicked = await page.evaluate(() => { const b = [...document.querySelectorAll('button')].find((x) => /^Next/.test(x.textContent.trim())); if (b) b.click(); return !!b })
       if (!clicked) { rows.push({ station: s, red: ['no Next button'] }); break }
       await page.waitForFunction((i) => window.__benchLine.active() === i, { timeout: 10000, polling: 20 }, s - 1).catch(() => {})
-      boundary = await page.evaluate(async (end) => {
+      boundary = await page.evaluate(async (end, except) => {
         const P = await import('/src/dev/protocolCheck.js'), line = window.__benchLine
         line.hold = true; line.pForce = null; window.__clockAdd(1000 / 60); line.step(1 / 60)
-        return P.checkBoundary(end, P.sampleLiquids(line))
-      }, end)
+        return P.checkBoundary(end, P.sampleLiquids(line), except)
+      }, end, retired[s - 2] || [])
     }
     if (ONLY && !ONLY.includes(s)) {
       await page.evaluate(async () => { const d = await import('/src/dev/collisionDriver.js'); d.finishStation(window.__benchLine) })
@@ -135,7 +138,7 @@ async function runJob(job) {
     if (r.liquid && r.liquid.length) red.push(`liquid (${[...new Set(r.liquid.map((b) => b.check))].join(',')}) ×${r.liquid.length}: ${r.liquid[0].vessel} ${r.liquid[0].detail}`)
     if (r.speed && r.speed.length) { const w = r.speed.sort((a, b) => b.ratio - a.ratio)[0]; red.push(`speed ×${r.speed.length} objects: ${w.label} ${w.peak} u/s = ×${w.ratio} of the cap (frame ${w.peakFrame}, p ${w.peakP})`) }
     if (r.teleports && r.teleports.length) red.push(`teleport ×${r.teleports.length}: ${r.teleports[0].object} ${r.teleports[0].kind} ${r.teleports[0].dist}`)
-    if (r.camera && (r.camera.over || r.camera.teleports.length)) red.push(`camera ${r.camera.over ? `×${r.camera.ratio} of its cap` : ''}${r.camera.teleports.length ? ` jump ${r.camera.teleports[0].dist}` : ''}`)
+    if (r.camera && (r.camera.over || r.camera.teleports.length)) red.push(`camera ${r.camera.over ? `×${r.camera.ratio} of its cap (frame ${r.camera.peakFrame})` : ''}${r.camera.teleports.length ? ` jump ${r.camera.teleports[0].dist}` : ''}`)
     if (r.collisions && r.collisions.length) red.push(`collision ×${r.collisions.length}: ${r.collisions.map((c) => `${c.check}:${c.a}×${c.b}=${(+c.depth).toFixed(3)}`).slice(0, 2).join('  ')}`)
     if (r.motionAudit && r.motionAudit.length) red.push(`motion ×${r.motionAudit.length}: ${r.motionAudit.map((c) => `${c.check}:${c.a}`).slice(0, 2).join('  ')}`)
     if (r.pipette && r.pipette.overCount) red.push(`capacity: a ${r.pipette.over[0].kind} tip held ${r.pipette.over[0].ul} µl`)

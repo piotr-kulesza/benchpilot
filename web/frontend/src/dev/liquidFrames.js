@@ -21,7 +21,9 @@ function tipIn(obj, cav, surfaceY, tipW) {
   if (!obj || !cav) return { inside: false, below: false }
   obj.updateWorldMatrix(true, false)
   _l.copy(tipW); obj.worldToLocal(_l)
-  const inside = Math.hypot(_l.x, _l.z) <= cav.r + 1e-3 && _l.y >= cav.y0 - 1e-3 && _l.y <= cav.y1 + 0.02
+  // a round cavity (r, y0..y1) — or a vessel that is its own box (a flask, a dish, a plate)
+  const inside = cav.box ? (_l.x >= cav.box.min.x - 1e-3 && _l.x <= cav.box.max.x + 1e-3 && _l.z >= cav.box.min.z - 1e-3 && _l.z <= cav.box.max.z + 1e-3 && _l.y >= cav.box.min.y - 1e-3 && _l.y <= cav.box.max.y + 0.02)
+    : Math.hypot(_l.x, _l.z) <= cav.r + 1e-3 && _l.y >= cav.y0 - 1e-3 && _l.y <= cav.y1 + 0.02
   return { inside, below: inside && surfaceY != null && _l.y <= surfaceY + 0.005 }
 }
 
@@ -39,14 +41,17 @@ export function sampleLiquids(line) {
   // docked in the rotor — or riding in a vessel that is (the column, not drawn, in the eluate tube)
   const docked = (v) => { for (let n = v; n; n = n.parent) if (n.userData && n.userData.docked) return true; return !!(v && v.userData.ridesWith && docked(v.userData.ridesWith)) }
   if (S) {
-    for (const k of ['tube', 'column', 'elu']) {
+    // every vessel of the sample with a drawn volume (a tube, the column, the eluate tube, a flask,
+    // a plate, a dish, a cryovial …), by its key — a pour's stream names the same key
+    for (const k of Object.keys(S).filter((key) => key !== 'active' && S.vessels.includes(S[key]))) {
       const v = S[k]; if (!v || !v.userData.drawnUl) continue
       put(k, v, v.userData.drawnUl(), v.userData.drawnColor ? v.userData.drawnColor() : null, v.userData.cavity, v.userData.surfaceY ? v.userData.surfaceY() : null, docked(v))
     }
     const c = S.column
     if (c && c.userData.drawnFlowUl) put('flow', c.userData.collGrp, c.userData.drawnFlowUl(), c.userData.drawnFlowColor(), c.userData.flowCavity, c.userData.flowSurfaceY(), docked(c.userData.collGrp))
   }
-  line.preps().forEach((pv, i) => { if (pv.userData.drawnUl) put('prep' + i, pv, pv.userData.drawnUl(), pv.userData.drawnColor(), pv.userData.cavity, pv.userData.surfaceY(), false) })
+  // a carried mix by its ledger id ('prep:<id>'), so a boundary can except what the ledger retires
+  line.preps().forEach((pv, i) => { if (pv.userData.drawnUl) put(pv.userData.prepId ? 'prep:' + pv.userData.prepId : 'prep' + i, pv, pv.userData.drawnUl(), pv.userData.drawnColor(), pv.userData.cavity, pv.userData.surfaceY(), false) })
   if (st) for (const [k, r] of Object.entries(st.reagents || {})) {
     const b = r && r.grp; if (!b || !b.userData.drawnUl) continue
     put('source ' + k, b, b.userData.drawnUl(), b.userData.drawnColor ? b.userData.drawnColor() : null, b.userData.cavity, b.userData.surfaceY ? b.userData.surfaceY() : null, false)

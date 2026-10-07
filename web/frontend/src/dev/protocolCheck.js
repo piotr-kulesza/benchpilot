@@ -101,7 +101,7 @@ export function createMotionTracker(line, { fps = 60 } = {}) {
   const st = new Map()                 // mesh → { pts, d1 (last frame's displacement), last visible pts, label }
   const speed = new Map()              // label → { peak, frames over, firstFrame }
   const teleports = []
-  let cam = null, camPeak = 0, camOver = 0, camD = [0, 0]
+  let cam = null, camPeak = 0, camOver = 0, camD = [0, 0], camPeakFrame = null
   const camTele = []
   const over = (label, v, k) => {
     let s = speed.get(label); if (!s) { s = { label, peak: 0, over: 0, frame: null }; speed.set(label, s) }
@@ -141,7 +141,7 @@ export function createMotionTracker(line, { fps = 60 } = {}) {
           const d = p.distanceTo(cam)
           if (isolatedJump(camD[0], camD[1], d, 0.5)) camTele.push({ frame: k - 1, dist: +camD[1].toFixed(3) })
           camD = [camD[1], d]
-          const v = d * fps; if (v > camPeak) camPeak = v; if (v > camCap) camOver++
+          const v = d * fps; if (v > camPeak) { camPeak = v; camPeakFrame = k } if (v > camCap) camOver++
         }
         cam = p
       }
@@ -151,7 +151,7 @@ export function createMotionTracker(line, { fps = 60 } = {}) {
       return {
         speed: [...speed.values()].filter((s) => s.over).map((s) => ({ ...s, peak: +s.peak.toFixed(2), ratio: +(s.peak / (cap / SPEED_TOL)).toFixed(2) })),
         peak: Math.max(0, ...[...speed.values()].map((s) => s.peak)) / (cap / SPEED_TOL),
-        teleports, camera: { peak: +camPeak.toFixed(2), ratio: +(camPeak / (camCap / SPEED_TOL)).toFixed(2), over: camOver, teleports: camTele },
+        teleports, camera: { peak: +camPeak.toFixed(2), ratio: +(camPeak / (camCap / SPEED_TOL)).toFixed(2), over: camOver, peakFrame: camPeakFrame, teleports: camTele },
       }
     },
   }

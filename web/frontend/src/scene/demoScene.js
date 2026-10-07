@@ -35,6 +35,10 @@ let SNAP_SAMPLE = false
 let SAMPLE = null
 export function setScene(s) { scene = s }
 export function setSnap(v) { SNAP_SAMPLE = v }
+export function getSnap() { return SNAP_SAMPLE }
+// a vessel's size at its seat (a rotor slot, a PCR well, a reader's drawer): reached by its trip from
+// where it was — snapped only when the line snaps (a jump between stations)
+export function seatScale(v, s) { v.userData.tScale = s; if (SNAP_SAMPLE || !v.userData.trip) v.scale.setScalar(s) }   // (no trip: it is only just shown)
 export function initSample() { SAMPLE = buildSample(); return SAMPLE }
 export function getSample() { return SAMPLE }
 
@@ -175,6 +179,21 @@ export function undockSample(lift = false) {
   // per unit of x (in the builder's own frame); capChase then never steps x further in one frame than
   // that speed allows (scaled by the builder's size in the world). The chase keeps its own curve.
   var _mpA=new THREE.Vector3(), _mpS=new THREE.Vector3();
+  // HOLLOW where a vessel goes (bug fixes: liners, tanks and blocks were SOLID boxes, so anything
+  // set in them stood inside a solid). openBox: a box with no top — five planes (a liner, a tank's
+  // inside). boxWithHole: a solid box with a vertical square shaft (half-sizes hx, hz) through it at
+  // (ox, oz) — four slabs around the shaft; the outside unchanged.
+  function openBox(w,h,d,mat){
+    var g=new THREE.Group(), add=function(pw,ph,x,y,z,rx,ry){ var m=new THREE.Mesh(new THREE.PlaneGeometry(pw,ph),mat); m.position.set(x,y,z); m.rotation.set(rx||0,ry||0,0); g.add(m); };
+    add(w,h, 0,0,-d/2); add(w,h, 0,0,d/2); add(d,h, -w/2,0,0, 0,Math.PI/2); add(d,h, w/2,0,0, 0,Math.PI/2); add(w,d, 0,-h/2,0, -Math.PI/2,0);
+    return g;
+  }
+  function boxWithHole(w,h,d,hx,hz,mat,ox,oz){
+    ox=ox||0; oz=oz||0;
+    var g=new THREE.Group(), slab=function(x0,x1,z0,z1){ if(x1-x0<1e-4||z1-z0<1e-4) return; var m=new THREE.Mesh(new THREE.BoxGeometry(x1-x0,h,z1-z0),mat); m.position.set((x0+x1)/2,0,(z0+z1)/2); m.castShadow=true; m.receiveShadow=true; g.add(m); };
+    slab(-w/2,ox-hx,-d/2,d/2); slab(ox+hx,w/2,-d/2,d/2); slab(ox-hx,ox+hx,-d/2,oz-hz); slab(ox-hx,ox+hx,oz+hz,d/2);
+    return g;
+  }
   function measureParam(grp, parts, apply, x0){
     var N=60, prev=null, k=0;
     grp.updateMatrixWorld(true);
@@ -902,7 +921,7 @@ export function undockSample(lift = false) {
       side.position.set(-1.15+sw*2.3, WALL/2, 0); side.castShadow=true; grp.add(side); }
     // muted stainless inner liner (NOT a teal glow)
     var innerMat=new THREE.MeshStandardMaterial({ color:0x6b7580, roughness:0.5, metalness:0.25, side:THREE.DoubleSide });
-    var inner=new THREE.Mesh(new THREE.BoxGeometry(2.24,SURFY,1.64), innerMat); inner.position.y=SURFY/2+0.04; grp.add(inner);
+    var inner=openBox(2.24,SURFY,1.64,innerMat); inner.position.y=SURFY/2+0.04; grp.add(inner);   // OPEN liner (a tube stands in the water, not in a solid)
     // WATER — RESTRAINED: a muted blue-grey, mostly transparent, NO emissive glow, NO
     // toneMapped bypass. Reads as real water in a stainless bath beside the centrifuge.
     var waterMat=new THREE.MeshPhysicalMaterial({ color:0x93b2c2, roughness:0.16, metalness:0,
@@ -946,10 +965,19 @@ export function undockSample(lift = false) {
      readout. setDrawer(out) / setOD(v). */
   function buildPlateReader(){
     var grp=new THREE.Group();
-    var body=new THREE.Mesh(new THREE.BoxGeometry(3.0,1.5,2.0), matPainted(0xd9dde2,0.5));
-    body.position.y=0.75; body.castShadow=true; body.receiveShadow=true; grp.add(body);
-    var slot=new THREE.Mesh(new THREE.BoxGeometry(2.5,0.34,0.14), new THREE.MeshStandardMaterial({ color:0x181d23, roughness:0.8, side:THREE.DoubleSide }));
-    slot.position.set(0,0.55,1.0); grp.add(slot);
+    // the drawer runs into a TUNNEL (bug fix): the body was a solid box, and the slot a closed dark box,
+    // so a plate on the drawer rode into solid — and, 0.34 tall, through the face above the 0.34 slot.
+    // Slabs around a tunnel the plate fits (x ±1.475, y 0.46–0.92, back to z −0.85), lined dark.
+    var bodyMat=matPainted(0xd9dde2,0.5), TX=1.475, TY0=0.46, TY1=0.92, TZ0=-0.85;
+    var bslab=function(x0,x1,y0,y1,z0,z1){ var m=new THREE.Mesh(new THREE.BoxGeometry(x1-x0,y1-y0,z1-z0), bodyMat);
+      m.position.set((x0+x1)/2,(y0+y1)/2,(z0+z1)/2); m.castShadow=true; m.receiveShadow=true; grp.add(m); };
+    bslab(-1.5,1.5, 0,TY0, -1,1); bslab(-1.5,1.5, TY1,1.5, -1,1);
+    bslab(-1.5,-TX, TY0,TY1, -1,1); bslab(TX,1.5, TY0,TY1, -1,1); bslab(-TX,TX, TY0,TY1, -1,TZ0);
+    var slotMat=new THREE.MeshStandardMaterial({ color:0x181d23, roughness:0.8, side:THREE.DoubleSide });
+    // an open box opens at its top (+y): turned +90° about x it opens to the FRONT (+z) — its depth
+    // along z, its height along y
+    var slot=openBox(2*TX-0.004, 1-TZ0, TY1-TY0-0.004, slotMat);
+    slot.rotation.x=Math.PI/2; slot.position.set(0,(TY0+TY1)/2,(1+TZ0)/2); grp.add(slot);
     var tray=new THREE.Mesh(new THREE.BoxGeometry(2.55,0.06,1.7), matPlastic(0x8a94a0));
     var trayLip=new THREE.Mesh(new THREE.BoxGeometry(2.55,0.12,0.08), matPlastic(0x6b7480));
     grp.add(tray); grp.add(trayLip);
@@ -960,7 +988,10 @@ export function undockSample(lift = false) {
       dg.fillStyle="#8fcabf"; dg.font="700 42px 'IBM Plex Mono'"; dg.fillText(v.toFixed(2),14,84); dTex.needsUpdate=true; }
     drawOD(0);
     var disp=new THREE.Mesh(new THREE.PlaneGeometry(0.8,0.44), new THREE.MeshBasicMaterial({map:dTex,transparent:true}));
-    disp.position.set(0.95,1.06,1.01); grp.add(disp);
+    disp.position.set(0.95,1.2,1.01); grp.add(disp);   // above the drawer's tunnel
+    // what the drawer takes: the tunnel's width (less a margin), the tray's depth inside its front lip,
+    // the tray's top and the tunnel's ceiling — a vessel is seated to fit (StationScene)
+    grp.userData.drawer={ w:2*TX-0.06, d:1.7-0.16, topY:0.53, ceil:TY1 };
     var label=makeLabel("Plate reader",""); label.position.set(0,1.95,0); grp.add(label);
     var pst={ draw:1, tDraw:1 };
     grp.userData.label=label;
@@ -1046,15 +1077,23 @@ export function undockSample(lift = false) {
     var grp = new THREE.Group();
     var shell = matAnodized(0x2b2f36);
     var shellTop = matBrushed(0xb8bec6); shellTop.roughness=0.42;
-    var base = new THREE.Mesh(new THREE.BoxGeometry(2.5,0.7,1.9), shell);
-    base.position.y=0.35; base.castShadow=true; base.receiveShadow=true; grp.add(base);
-    var deck = new THREE.Mesh(new THREE.BoxGeometry(2.3,0.06,1.5), shellTop);
+    // the SAMPLE WELL (bug fix): the sample tube is sunk at the block's centre (its base at 0.08, its
+    // cap near the block top) — through a solid base, deck and block. A square shaft (±0.17) through
+    // all three, lined like the other bores: the outside unchanged.
+    var WELL=0.17;
+    var base = boxWithHole(2.5,0.7,1.9,WELL,WELL,shell);
+    base.position.y=0.35; grp.add(base);
+    var wellFloor = new THREE.Mesh(new THREE.BoxGeometry(2*WELL,0.06,2*WELL), shell); wellFloor.position.set(0,0.03,0); grp.add(wellFloor);
+    var deck = boxWithHole(2.3,0.06,1.5,WELL,WELL,shellTop,0,-0.05);
     deck.position.set(0,0.72,0.05); grp.add(deck);
     // raised heated BLOCK proud of the deck (avoids coplanar z-fighting) with a
     // 2×6 array of recessed well bores sunk into it.
     var boreMat = new THREE.MeshStandardMaterial({ color:0x1b2128, metalness:0.4, roughness:0.7, side:THREE.DoubleSide });
-    var block = new THREE.Mesh(new THREE.BoxGeometry(1.95,0.12,1.05), matAnodized(0x23272e));
+    var block = boxWithHole(1.95,0.12,1.05,WELL,WELL,matAnodized(0x23272e));
     block.position.set(0,0.81,0.0); grp.add(block);
+    var wellBore=new THREE.Mesh(new THREE.CylinderGeometry(WELL-0.005,WELL-0.005,0.81,20,1,true), boreMat);
+    wellBore.position.set(0,0.47,0); grp.add(wellBore);
+    var wellBot=new THREE.Mesh(new THREE.CircleGeometry(WELL-0.005,20), boreMat); wellBot.rotation.x=-Math.PI/2; wellBot.position.set(0,0.065,0); grp.add(wellBot);
     for(var wr=0; wr<2; wr++) for(var wc=0; wc<6; wc++){
       var bx=-0.75+wc*0.3, bz=-0.24+wr*0.48;
       var bore=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.085,0.28,16,1,true), boreMat);
@@ -1122,8 +1161,10 @@ export function undockSample(lift = false) {
     // material order is +x,-x,+y,-y,+z,-z: the +y face gets an invisible material, so a
     // gel inside is seen from above through the (clear) lid and the buffer only.
     var noTop = new THREE.MeshBasicMaterial({ visible:false });
-    var tank = new THREE.Mesh(new THREE.BoxGeometry(2.6,0.7,1.6), [tankMat,tankMat,noTop,tankMat,tankMat,tankMat]);
-    tank.position.y=0.55; tank.castShadow=true; grp.add(tank);
+    // (an OPEN box — five faces, as drawn: it was a closed box with an invisible top, a solid the
+    // docked gel stood inside)
+    var tank = openBox(2.6,0.7,1.6,tankMat);
+    tank.position.y=0.55; grp.add(tank);
     var frameMat = matPlastic(0x2b3038);
     // base + top rim frames so the tank reads as a solid moulded vessel, not a haze
     var tbase = new THREE.Mesh(new THREE.BoxGeometry(2.66,0.1,1.66), frameMat); tbase.position.y=0.24; grp.add(tbase);
@@ -1193,6 +1234,7 @@ export function undockSample(lift = false) {
     grp.userData.showGel=function(on){ gel.visible=!!on; };
     grp.userData.dockY=0.45;
     grp.userData.rimY=0.9;                 // the tank's top rim — a docked gel lifts clear of it
+    grp.userData.floorY=0.295;             // the tank's floor: the top of its base frame (0.19–0.29), where a docked gel rests
     grp.userData.setLidLift=function(q){ lidGrp.position.y=clamp(q,0,1)*1.15; };  // straight up, leads with it
     grp.userData.setVolts=function(on){ drawV(on?100:0); };
     grp.userData.update=function(){};
@@ -1265,8 +1307,12 @@ export function undockSample(lift = false) {
     for(var vv=0;vv<20;vv++){ var va=vv/20*Math.PI*2;
       var vent=new THREE.Mesh(new THREE.BoxGeometry(0.045,0.24,0.03), cfVent);
       vent.position.set(Math.cos(va)*1.40,0.4,Math.sin(va)*1.40); vent.rotation.y=-va; grp.add(vent); }
-    var body = new THREE.Mesh(new THREE.CylinderGeometry(1.25,1.3,0.5,56), shell);
+    // the upper shell is a RING around the bowl (bug fix): it was a SOLID cylinder filling the bowl —
+    // its top face hid the rotor, and every tube seated in a slot stood inside solid metal
+    var body = new THREE.Mesh(new THREE.CylinderGeometry(1.25,1.3,0.5,56,1,true), shell);
     body.position.y=0.9; grp.add(body);
+    var bodyTop = new THREE.Mesh(new THREE.RingGeometry(1.15,1.25,56), shell);
+    bodyTop.rotation.x=-Math.PI/2; bodyTop.position.y=1.15; grp.add(bodyTop);
     var lipRing = new THREE.Mesh(new THREE.TorusGeometry(1.24,0.05,16,60), shellDk);
     lipRing.rotation.x=Math.PI/2; lipRing.position.y=1.14; grp.add(lipRing);
     var ringT = new THREE.Mesh(new THREE.TorusGeometry(1.2,0.072,16,60), trim);
@@ -1282,8 +1328,15 @@ export function undockSample(lift = false) {
     var rotor = new THREE.Group(); rotor.position.y=1.08;
     var rotorMat = matBrushed(0x9ba6b2);
     var hub = new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.4,0.34,32), rotorMat); rotor.add(hub);
-    var disc = new THREE.Mesh(new THREE.CylinderGeometry(0.95,0.85,0.12,44), rotorMat);
-    disc.position.y=-0.02; rotor.add(disc);
+    // the rotor disc has a HOLE for each slot (bug fix): a tube seated in a slot passed through
+    // solid metal. The slots are wide enough for what they hold (a microtube or a spin column
+    // seated at 0.6 is 0.19–0.20 across its body; the slots were 0.11)
+    var SLOT_R=0.215, discShape=new THREE.Shape(); discShape.absarc(0,0,0.95,0,Math.PI*2,false);
+    for(var hk=0;hk<8;hk++){ var ha=hk/8*Math.PI*2, hole=new THREE.Path(); hole.absarc(Math.cos(ha)*0.62, -Math.sin(ha)*0.62, SLOT_R+0.02, 0, Math.PI*2, true); discShape.holes.push(hole); }
+    var discGeo=new THREE.ExtrudeGeometry(discShape,{ depth:0.12, bevelEnabled:false, curveSegments:44 });
+    discGeo.rotateX(-Math.PI/2); discGeo.translate(0,-0.08,0);
+    var disc = new THREE.Mesh(discGeo, rotorMat);
+    disc.position.y=0; rotor.add(disc);
     var nut = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.14,0.12,6), matBrushed(0x828d99));
     nut.position.y=0.2; rotor.add(nut);
     var slotMat = new THREE.MeshStandardMaterial({ color:0x252d37, metalness:0.5, roughness:0.5, envMapIntensity:0.6 });
@@ -1291,8 +1344,8 @@ export function undockSample(lift = false) {
     for(var k=0;k<8;k++){
       var a=k/8*Math.PI*2;
       var holder=new THREE.Group();
-      var slot=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.09,0.62,20,1,true), slotMat); holder.add(slot);
-      var slotBot=new THREE.Mesh(new THREE.SphereGeometry(0.09,16,10,0,Math.PI*2,Math.PI*0.5,Math.PI*0.5),slotMat);
+      var slot=new THREE.Mesh(new THREE.CylinderGeometry(SLOT_R,SLOT_R-0.03,0.62,24,1,true), slotMat); holder.add(slot);
+      var slotBot=new THREE.Mesh(new THREE.SphereGeometry(SLOT_R-0.03,18,10,0,Math.PI*2,Math.PI*0.5,Math.PI*0.5),slotMat);
       slotBot.position.y=-0.31; holder.add(slotBot);
       holder.position.set(Math.cos(a)*0.62,0.0,Math.sin(a)*0.62);
       // clean fixed-angle rotor: every slot tilts outward by the SAME angle around its tangential axis
@@ -2038,6 +2091,26 @@ export {
     // then descend into the mouth, dispense, and withdraw.
     var draw=0.26, travel=0.50;                 // phase boundaries
     var TRAVEL_Y=Math.max(from.y,to.y)+2.0;     // cruise altitude, above every vessel
+    // an ANGLED SOURCE (a T-flask's canted neck, drawn from): the mirror of the angled destination —
+    // over the neck's standoff at cruise height, down to it tilting to the neck's cant, IN along
+    // the neck's axis to the medium, hold and draw, back OUT along the axis, straighten and rise.
+    // The same shares of the pass as a straight draw (to source · into · draw · out).
+    var SRC_ANG = opts.srcApproach==='angled';
+    var sTilt = opts.srcTilt!=null?opts.srcTilt:-0.62, sDepth = opts.srcDepth!=null?opts.srcDepth:0.95, sTop = opts.srcStandoff!=null?opts.srcStandoff:0.75;
+    var sax=Math.sin(-sTilt), say=Math.cos(-sTilt);
+    var srcTopX = SRC_ANG ? from.x+sax*sTop : from.x;   // where the pipette stands over the source at cruise height
+    function srcAxisPose(d, rot){ var tx=from.x+sax*d, ty=from.y+say*d; pip.position.set(tx - Math.sin(rot)*TIP_DROP, ty + Math.cos(rot)*TIP_DROP, from.z); pip.rotation.z=rot; }
+    function angledDraw(a){
+      var H=pipHome(), sy=from.y+say*sTop;
+      if(a<0.3){ var q=easeInOut(a/0.3); pip.rotation.z=0; pip.position.set(lerp(H.x,srcTopX,q), lerp(H.y,TRAVEL_Y,q), lerp(H.z,from.z,q)); return; }
+      if(a<0.4){ var q1=easeInOut((a-0.3)/0.1), r1=sTilt*q1, tipY=lerp(TRAVEL_Y-TIP_DROP, sy, q1);
+        pip.position.set(srcTopX - Math.sin(r1)*TIP_DROP, tipY + Math.cos(r1)*TIP_DROP, from.z); pip.rotation.z=r1; return; }
+      if(a<0.5){ srcAxisPose(lerp(sTop, -sDepth, easeInOut((a-0.4)/0.1)), sTilt); return; }
+      if(a<0.78){ srcAxisPose(-sDepth, sTilt); return; }
+      if(a<0.89){ srcAxisPose(lerp(-sDepth, sTop, easeInOut((a-0.78)/0.11)), sTilt); return; }
+      var q2=easeInOut((a-0.89)/0.11), r2=sTilt*(1-q2);
+      pip.position.set(srcTopX - Math.sin(r2)*TIP_DROP, lerp(sy, TRAVEL_Y-TIP_DROP, q2) + Math.cos(r2)*TIP_DROP, from.z); pip.rotation.z=r2;
+    }
 
     if(opts.approach==='angled'){
       // A T-FLASK's canted neck (Stage-12 #3): `to` IS the neck MOUTH; the tip must
@@ -2064,14 +2137,14 @@ export {
       pip.userData.phase = p<draw ? phaseAName(p/draw, opts) : p<travel ? 'travel' : p<travel+0.08 ? 'descent'
         : p<0.9 ? ((p-travel-0.08)/(0.9-travel-0.08)<0.28 ? 'descent' : (p-travel-0.08)/(0.9-travel-0.08)<0.85 ? 'dispense' : 'lift') : p<0.95 ? 'lift' : 'return';
       if(p<draw){                               // A · out of the stand, into the opened source, draw
-        pip.rotation.z=0;
-        pip.position.copy(phaseA(from, TRAVEL_Y, p/draw, opts));
+        if(SRC_ANG) angledDraw(p/draw);
+        else { pip.rotation.z=0; pip.position.copy(phaseA(from, TRAVEL_Y, p/draw, opts)); }
         tipTo(pip, drawFill(p/draw, opts), opts); pip.userData.setColor(opts.color||COL.lysis);
       } else if(p<travel){                       // B · cruise HIGH & LEVEL to above the standoff
         var qb=easeInOut((p-draw)/(travel-draw));
         var sx=to.x+ax*dTop, sy=to.y+ay*dTop;
         pip.rotation.z=0;
-        pip.position.set(lerp(from.x, sx, qb), TRAVEL_Y, lerp(from.z, to.z, qb));
+        pip.position.set(lerp(srcTopX, sx, qb), TRAVEL_Y, lerp(from.z, to.z, qb));
         tipTo(pip, 1, opts);
       } else if(p<travel+0.08){                   // B2 · straight down to the standoff, tilting to the cant
         var qd=easeInOut((p-travel)/0.08);
@@ -2109,12 +2182,12 @@ export {
     var pos=new THREE.Vector3();
     pip.userData.phase = p<draw ? phaseAName(p/draw, opts) : p<travel ? 'travel' : p<0.62 ? 'descent' : p<0.9 ? 'dispense' : p<0.95 ? 'lift' : 'return';
     if(p<draw){                                 // A · out of the stand, into the opened source, draw
-      pos.copy(phaseA(from, TRAVEL_Y, p/draw, opts));
-      pip.rotation.z=0;
+      if(SRC_ANG){ angledDraw(p/draw); pos.copy(pip.position); }
+      else { pos.copy(phaseA(from, TRAVEL_Y, p/draw, opts)); pip.rotation.z=0; }
       tipTo(pip, drawFill(p/draw, opts), opts); pip.userData.setColor(opts.color||COL.lysis);
     } else if(p<travel){                         // B · cruise HIGH & LEVEL over the mouth
       var q2=easeInOut((p-draw)/(travel-draw));
-      pos.set(lerp(from.x,to.x,q2), TRAVEL_Y, lerp(from.z,to.z,q2));
+      pos.set(lerp(srcTopX,to.x,q2), TRAVEL_Y, lerp(from.z,to.z,q2));
       pip.rotation.z=0;
       tipTo(pip, 1, opts);
     } else if(p<0.95){                           // C · descend STRAIGHT DOWN into the mouth
@@ -2186,8 +2259,27 @@ export {
     if(shape){ grp.userData.shape=shape;
       grp.userData.setVolume=function(ul){ grp.userData.volUl=Math.max(0,ul); st.tLevel=levelFor(shape, ul); };
       grp.userData.drawnUl=function(){ return liq.visible===false ? 0 : volumeAt(shape, st.level); }; }
+    // a SURFACE (slide, membrane, gel, agar plate) has no drawn interior: the demo's levels draw it,
+    // and the volume it holds (as a film) is KEPT — so every µl the tip gives it is still counted
+    else { grp.userData.keepVolume=function(ul){ grp.userData.keptUl=Math.max(0,ul); };
+      grp.userData.drawnUl=function(){ return grp.userData.keptUl||0; }; }
     grp.userData.setColor=function(h){ st.tColor.set(h); };
     grp.userData.setLabel=function(t,s){ if(grp.userData.label) grp.userData.label.userData.update(t,s||""); };
+    // WHERE ITS LIQUID IS (read by the liquid checker: is a tip in this vessel, below its surface?):
+    // a vessel without a drawn round cavity (a flask, a dish, a plate, a cryovial, a surface) is its
+    // own box, and its surface is the top of its drawn liquid — both in the vessel's own frame
+    if(!grp.userData.cavity){
+      var _cb=null, _lb=new THREE.Box3(), _m=new THREE.Matrix4();
+      Object.defineProperty(grp.userData,'cavity',{ configurable:true, enumerable:false, get:function(){
+        if(!_cb){ _cb=new THREE.Box3(); var inv=new THREE.Matrix4().copy(grp.matrixWorld).invert();
+          grp.traverse(function(o){ if(o.isMesh && o.geometry && !o.isSprite && o!==liq){ o.geometry.computeBoundingBox(); _cb.union(_lb.copy(o.geometry.boundingBox).applyMatrix4(_m.multiplyMatrices(inv, o.matrixWorld))); } }); }
+        return { box:_cb }; } });
+      grp.userData.surfaceY=function(){
+        if(!liq || !liq.isMesh || liq.visible===false || !liq.geometry) return null;
+        liq.geometry.computeBoundingBox(); var inv=new THREE.Matrix4().copy(grp.matrixWorld).invert();
+        return _lb.copy(liq.geometry.boundingBox).applyMatrix4(_m.multiplyMatrices(inv, liq.matrixWorld)).max.y;
+      };
+    }
     grp.userData.update=function(dt){
       if(grp.userData.volUl!=null){ st.level=st.tLevel; st.color.copy(st.tColor); }
       else { st.level=lerp(st.level,st.tLevel,1-Math.pow(0.001,dt)); st.color.lerp(st.tColor,1-Math.pow(0.004,dt)); }
@@ -2511,11 +2603,21 @@ export {
     // sample tube is 1.7 tall, and the old 1.5 cavity (box top 2.0) let its rim pass
     // through the top of the closed freezer. Cavity now spans y 0.30-2.40.
     var H=2.6;
-    var box=new THREE.Mesh(new THREE.BoxGeometry(2.2,H,1.6), shell);
-    box.position.y=H/2; box.castShadow=true; box.receiveShadow=true; grp.add(box);
+    // the cabinet is HOLLOW (bug fix): it was a solid box, and its liner a closed box — a stored
+    // vial stood inside two solids (and behind the liner's front face). Five slabs around the same
+    // cavity (x ±0.85, y 0.30–2.40, z −0.30 → the front) and an open-fronted liner: the outside unchanged
+    var CW=0.85, CY0=0.3, CY1=2.4, CZ0=-0.3, FZ=0.8;   // deep enough for a tube with its rim (0.68 across)
+    var slab=function(x0,x1,y0,y1,z0,z1){ var m=new THREE.Mesh(new THREE.BoxGeometry(x1-x0,y1-y0,z1-z0), shell);
+      m.position.set((x0+x1)/2,(y0+y1)/2,(z0+z1)/2); m.castShadow=true; m.receiveShadow=true; grp.add(m); return m; };
+    slab(-1.1,-CW, 0,H, -FZ,FZ); slab(CW,1.1, 0,H, -FZ,FZ);        // sides
+    slab(-CW,CW, 0,CY0, -FZ,FZ); slab(-CW,CW, CY1,H, -FZ,FZ);      // floor, roof
+    slab(-CW,CW, CY0,CY1, -FZ,CZ0);                                // back
     var cavityMat=new THREE.MeshStandardMaterial({ color:0xaeb8c4, roughness:0.5, metalness:0.1, side:THREE.DoubleSide });
-    var cavity=new THREE.Mesh(new THREE.BoxGeometry(1.7,2.1,0.7), cavityMat);
-    cavity.position.set(0,1.35,0.5); grp.add(cavity);
+    var liner=function(w,h,x,y,z,rx,ry){ var m=new THREE.Mesh(new THREE.PlaneGeometry(w,h), cavityMat); m.position.set(x,y,z); m.rotation.set(rx||0,ry||0,0); grp.add(m); };
+    var LW=1.7, LH=2.1, LD=1.1, LZ=0.25, LY=1.35;                   // the liner, open at the front, lining the cavity
+    liner(LW,LH, 0,LY,LZ-LD/2+0.002);                              // back
+    liner(LD,LH, -LW/2+0.002,LY,LZ, 0,Math.PI/2); liner(LD,LH, LW/2-0.002,LY,LZ, 0,Math.PI/2);   // sides
+    liner(LW,LD, 0,LY-LH/2+0.002,LZ, Math.PI/2,0); liner(LW,LD, 0,LY+LH/2-0.002,LZ, Math.PI/2,0); // floor, ceiling
     // hinged door (front)
     var doorPivot=new THREE.Group(); doorPivot.position.set(-1.05,H/2,0.85); grp.add(doorPivot);
     var door=new THREE.Mesh(new THREE.BoxGeometry(2.1,H-0.1,0.12), matPainted(0xe6e9ed,0.5));
@@ -2656,7 +2758,7 @@ export {
       var v=SAMPLE[o.vessel];
       if(o.vlabel) v.userData.setLabel(o.vlabel, o.vsub||"");
       if(o.cStart!=null) v.userData.setColor(o.cStart);
-      if(o.each!=null && v.userData.setVolume) v.userData.setVolume(o.ulStart); else v.userData.setLevel(o.lStart);
+      if(o.each!=null && v.userData.setVolume) v.userData.setVolume(o.ulStart); else { v.userData.setLevel(o.lStart); if(o.each!=null && v.userData.keepVolume) v.userData.keepVolume(o.ulStart); }
       if(o.srcTube) o.srcTube.userData.setVolume(o.srcUl);
       if(o.each!=null){ var b0=st.reagents[o.key].grp; if(b0 && b0.userData.stockUl){ b0.userData.snapLevel=true; b0.userData.setLevel(1); } }
       SAMPLE.at(v, st.x, Y, 0);
@@ -2688,7 +2790,8 @@ export {
       if(o.each!=null){
         var added=(k+dispenseProgress(lp))*o.each;
         if(v.userData.setVolume){ v.userData.setVolume(o.ulStart+added); v.userData.setColor(mixColor(o.cStart, o.ulStart, o.color, added)); }
-        else if(lp>DISPENSE_FROM || k>0){ v.userData.setLevel(lerp(o.lStart,o.lEnd,(k+dispenseProgress(lp))/n)); if(o.cEnd!=null) v.userData.setColor(o.cEnd); }
+        else { if(v.userData.keepVolume) v.userData.keepVolume(o.ulStart+added);
+          if(lp>DISPENSE_FROM || k>0){ v.userData.setLevel(lerp(o.lStart,o.lEnd,(k+dispenseProgress(lp))/n)); if(o.cEnd!=null) v.userData.setColor(o.cEnd); } }
       } else if(lp>DISPENSE_FROM){ var q=dispenseProgress(lp);
         v.userData.setLevel(lerp(o.lStart,o.lEnd,q));
         if(o.cEnd!=null) v.userData.setColor(o.cEnd);

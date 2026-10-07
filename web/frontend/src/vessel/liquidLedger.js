@@ -126,7 +126,8 @@ export function buildLedger(steps, { containers = [], altByStep = {}, colorOf = 
     const text = `${s.text_en || ''} ${s.text || ''}`
     const here = rec.vessel
     if (pendingDiscard && m.column && s.action !== 'centrifuge' && s.action !== 'elute' && get('flow').ul > 0) {
-      op({ op: 'discard', from: 'flow', ul: get('flow').ul, method: 'pour', to: 'waste', why: 'the flow-through, poured off (discarded at the last spin)' })
+      { const u = get('flow').ul, n = passesFor(u)   // pipetted into a waste beaker, in the passes its volume calls for (rule 1)
+        op({ op: 'discard', from: 'flow', ul: u, method: 'pipette', passes: n, pipette: pipetteFor(u / n), to: 'waste', why: 'the flow-through, pipetted off (discarded at the last spin)' }) }
       rec.flowDiscard = rec.ops[rec.ops.length - 1].ul
       pendingDiscard = false
     }
@@ -228,7 +229,9 @@ export function buildLedger(steps, { containers = [], altByStep = {}, colorOf = 
         if (DISCARD_FLOW.test(text) && get('flow').ul > 0) pendingDiscard = true
       }
     } else if (s.action === 'discard') {
-      op({ op: 'discard', from: here, ul: get(here).ul, why: 'discard' })
+      // pipetted into a waste beaker, in the passes its volume calls for (rule 1); nothing to discard → nothing
+      { const u = get(here).ul, n = passesFor(u)
+        if (u > 0) op({ op: 'discard', from: here, ul: u, method: 'pipette', passes: n, pipette: pipetteFor(u / n), to: 'waste', why: 'discard' }) }
     } else if (ADDS.has(s.action)) {
       const rs = distinct(s.reagents)
       const changed = prevV && prevV !== here
