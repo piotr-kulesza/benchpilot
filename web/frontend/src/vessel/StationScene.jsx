@@ -2196,13 +2196,16 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       p.active = activeRef.current
       p.p = pRef.current // the active step's animation value, so a probe can see frames where motion did not advance
     }
+    if (benchLine.onFrame) benchLine.onFrame(dt)   // a probe build's recorder (scripts/pipette-speed.mjs)
   }
   useFrame((state, dt) => {
     lastStateRef.current = state
     if (import.meta.env.DEV && benchLine.hold) return
     frame(state, dt)
   })
-  if (import.meta.env.DEV && typeof window !== 'undefined') {
+  // the line's read hooks: dev builds, and a PROBE build of the app (VITE_BENCH_PROBE=1 — a production
+  // build a script plays like a user and records; never deployed)
+  if ((import.meta.env.DEV || import.meta.env.VITE_BENCH_PROBE) && typeof window !== 'undefined') {
     Object.assign(benchLine, {
       stations: () => stationsRef.current, active: () => activeRef.current,
       sample: () => demo.getSample(), preps: () => demo.getPreps(),

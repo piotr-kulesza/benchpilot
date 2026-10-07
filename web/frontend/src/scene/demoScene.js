@@ -1921,6 +1921,9 @@ export {
   }
   var phaseA=function(from, TRAVEL_Y, a, opts){ return opts.tipUl!=null && opts.srcTip!=null ? pipPhaseAV(from, TRAVEL_Y, a, opts.srcTip) : pipPhaseA(from, TRAVEL_Y, a); };
   var drawFill=function(a, opts){ return opts.tipUl!=null && opts.srcTip!=null ? drawCurve(a) : pipDrawFill(a); };
+  // which part of a pass the pipette is in (read by scripts/pipette-speed.mjs; never drawn)
+  function phaseAName(a, opts){ var v=opts.tipUl!=null && opts.srcTip!=null;
+    return a<0.3 ? 'to source' : v ? (a<0.5 ? 'into source' : a<0.78 ? 'draw' : 'out of source') : (a<0.6 ? 'into source' : 'out of source'); }
   function pipetteRun(st, from, to, p, opts){
     opts=opts||{};
     var pip=st.pip; if(!pip) return;
@@ -1953,6 +1956,8 @@ export {
         pip.position.set(tx - Math.sin(rot)*TIP_DROP, ty + Math.cos(rot)*TIP_DROP, tz);
         pip.rotation.z=rot;
       }
+      pip.userData.phase = p<draw ? phaseAName(p/draw, opts) : p<travel ? 'travel' : p<travel+0.08 ? 'descent'
+        : p<0.9 ? ((p-travel-0.08)/(0.9-travel-0.08)<0.28 ? 'descent' : (p-travel-0.08)/(0.9-travel-0.08)<0.85 ? 'dispense' : 'lift') : p<0.95 ? 'lift' : 'return';
       if(p<draw){                               // A · out of the stand, into the opened source, draw
         pip.rotation.z=0;
         pip.position.copy(phaseA(from, TRAVEL_Y, p/draw, opts));
@@ -1997,6 +2002,7 @@ export {
     // Never a shared 0.62 tube constant that plunges the tip through the column bed.
     var DIP_Y=to.y+(opts.dipDepth!=null?opts.dipDepth:0.62);  // tip lowered into the mouth
     var pos=new THREE.Vector3();
+    pip.userData.phase = p<draw ? phaseAName(p/draw, opts) : p<travel ? 'travel' : p<0.62 ? 'descent' : p<0.9 ? 'dispense' : p<0.95 ? 'lift' : 'return';
     if(p<draw){                                 // A · out of the stand, into the opened source, draw
       pos.copy(phaseA(from, TRAVEL_Y, p/draw, opts));
       pip.rotation.z=0;
@@ -2050,7 +2056,7 @@ export {
   // ring) — the point every pass starts from and returns to
   function pipRest(st){ if(!st.pip) return;
     st.pip.position.copy(pipHome()); st.pip.rotation.set(0,0,0);
-    st.pip.userData.setFluid(0); }
+    st.pip.userData.setFluid(0); st.pip.userData.phase='home'; }
 
   // ─── Stage-8 container vessels (the sample-follow model shows exactly one) ───
   // Shared liquid state matching buildTube's contract: setLevel/setColor/setLabel +
