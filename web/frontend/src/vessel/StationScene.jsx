@@ -14,7 +14,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera } from '@react-three/drei'
 import { FogExp2, Color, Vector3, Quaternion, Box3, Group, Mesh, RingGeometry, SphereGeometry, CylinderGeometry, PlaneGeometry, CanvasTexture, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
-import { ANIMATION_TEMPO } from '../scene/tempo.js'
+import { animationTempo } from '../scene/tempo.js'
 import { buildLedger, mixColor, TIP_UL } from './liquidLedger.js'
 import { tubeShape, volumeAt } from '../scene/liquidShape.js'
 import { resolveRecipe, stepConditions, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects, exitLiftPoint, pourPlan, removalFor, benchStaging, addSource } from './sceneRecipe.js'
@@ -2000,7 +2000,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     dt = Math.min(dt, 0.05)
     // MOTION time: every moving thing below (p, the centrifuge's choreography, builders' update,
     // vessel trips and springs) runs on adt — one knob, scene/tempo.js. The camera keeps dt.
-    const adt = dt / ANIMATION_TEMPO
+    const adt = dt / animationTempo()
     const time = state.clock.elapsedTime
     const stations = stationsRef.current
     if (!stations) return

@@ -13,7 +13,7 @@
 // sampleLiquids(line) reads what is DRAWN (each liquid read back through its drawn shape —
 // builders' drawnUl / drawnColor) plus where the tip is; checkFrames(frames) is pure.
 import { Vector3 } from 'three'
-import { ANIMATION_TEMPO } from '../scene/tempo.js'
+import { animationTempo } from '../scene/tempo.js'
 
 const _t = new Vector3(), _l = new Vector3()
 // is the world point inside a vessel's cavity (its local cylinder r, y0..y1)? and below its surface?
@@ -115,11 +115,11 @@ export function checkBoundary(end, start, except = []) {
 // rest first, then p driven over the station's own duration, waiting for vessels to arrive, then a
 // tail) and sample every frame. Returns { frames, bad }.
 export function runStation(line, { hold = 0, tail = 1.5, keep = 3, stopAt = null } = {}) {
-  // wall time: the scene's motion runs ANIMATION_TEMPO× slower than dt
-  const fps = 60, st = line.stations()[line.active()], dur = ((st && st.duration) || 6.5) * ANIMATION_TEMPO
+  // wall time: the scene's motion runs animationTempo()× slower than dt
+  const fps = 60, st = line.stations()[line.active()], dur = ((st && st.duration) || 6.5) * animationTempo()
   const S = line.sample()
   const arriving = () => !!((S && S.vessels.some((v) => v.visible && v.userData.trip)) || line.preps().some((v) => v.visible && v.userData.trip))
-  const H = Math.round(hold * ANIMATION_TEMPO * fps), total = H + Math.round((dur + tail * ANIMATION_TEMPO) * fps)
+  const H = Math.round(hold * animationTempo() * fps), total = H + Math.round((dur + tail * animationTempo()) * fps)
   const frames = []
   let run = 0
   line.hold = true
