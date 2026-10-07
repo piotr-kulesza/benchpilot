@@ -52,7 +52,14 @@ export function sampleLiquids(line) {
     put('source ' + k, b, b.userData.drawnUl(), b.userData.drawnColor ? b.userData.drawnColor() : null, b.userData.cavity, b.userData.surfaceY ? b.userData.surfaceY() : null, false)
   }
   if (st && st.waste && st.waste.userData.wasteUl != null) put('waste', st.waste, st.waste.userData.wasteUl, null, st.waste.userData.cavity, null, false)
-  if (pip && pip.userData.drawnUl) out.tip = { ul: pip.userData.drawnUl(), color: pip.userData.drawnColor() }
+  // every pipette of the station (a P200 and a P1000): the tip is what they hold together, coloured
+  // by the one holding liquid
+  const pips = st && st.pips ? Object.values(st.pips) : pip ? [pip] : []
+  if (pips.some((x) => x.userData.drawnUl)) {
+    const held = pips.filter((x) => x.userData.drawnUl).map((x) => ({ ul: x.userData.drawnUl(), color: x.userData.drawnColor() }))
+    const full = held.find((h) => h.ul > 0) || (pip && pip.userData.drawnUl ? { color: pip.userData.drawnColor() } : held[0])
+    out.tip = { ul: held.reduce((a, h) => a + h.ul, 0), color: full.color }
+  }
   return out
 }
 
@@ -82,7 +89,8 @@ export function checkFrames(frames) {
         }
       }
       // colour: only while something flows IN
-      if (a.color && b.color && a.color !== b.color && !(d > 1e-6) && b.ul > EPS) bad.push({ check: 'b', frame: B.k, p: B.p, vessel: id, detail: `${a.color} → ${b.color} with nothing flowing in` })
+      // (any inflow at all counts: at the tail of a dispense curve a sub-1e-6 µl step can still tip a colour channel's rounding)
+      if (a.color && b.color && a.color !== b.color && !(d > 1e-12) && b.ul > EPS) bad.push({ check: 'b', frame: B.k, p: B.p, vessel: id, detail: `${a.color} → ${b.color} with nothing flowing in` })
     }
     // the tip draws its source's colour
     if (dTip > EPS && B.tip) {

@@ -16,9 +16,10 @@ import { Vector3 } from 'three'
 import { MAX_SPEED, CAMERA_MAX_SPEED } from '../scene/motionPlan.js'
 import { animationTempo } from '../scene/tempo.js'
 import { sampleLiquids, checkFrames, checkBoundary } from './liquidFrames.js'
-import { simulateStation } from './collisionDriver.js'
+import { simulateStationAsync } from './collisionDriver.js'
 
 export const SPEED_TOL = 1.1
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 export const JUMP = 0.08                 // world units in one frame, isolated (≥ 4× either side) → a teleport
 export const REAPPEAR = 0.05             // hidden, then shown this far from where it was → a teleport
 export const P200_UL = 200, P1000_UL = 1000
@@ -70,13 +71,15 @@ function bodies(line) {
   for (let i = Math.max(0, a - 1); i <= Math.min(sts.length - 1, a + 1); i++) {
     const st = sts[i]
     const role = new Map([[st.pip, 'pipette'], [st.cen, 'centrifuge'], [st.dev, 'instrument'], [st.prep, 'prep'], [st.waste, 'waste']])
-    for (const p of st.pips || []) role.set(p, p.userData.kind || 'pipette')
+    for (const p of Object.values(st.pips || {})) role.set(p, p.userData.kind || 'pipette')
     for (const [k, r] of Object.entries(st.reagents || {})) if (r && r.grp) role.set(r.grp, `bottle ${k}`)
     st.group.children.forEach((c) => { if (c !== st.label && c !== st.dial) add(c, `${i === a ? '' : i < a ? 'prev · ' : 'next · '}${role.get(c) || nameOf(c)}`) })
   }
+  // a vessel docked in a rotor RIDES the spin — the one motion the speed rule excepts
+  const riding = (v) => { for (let n = v.parent; n; n = n.parent) if (n.userData && n.userData.spinPart) return true; return false }
   const S = line.sample()
-  if (S) S.vessels.forEach((v) => add(v, `sample ${nameOf(v)}`))
-  line.preps().forEach((v, k) => add(v, `prep ${k}`))
+  if (S) S.vessels.forEach((v) => { if (!riding(v)) add(v, `sample ${nameOf(v)}`) })
+  line.preps().forEach((v, k) => { if (!riding(v)) add(v, `prep ${k}`) })
   return out
 }
 // the 8 corners of a mesh's geometry box, in the world
@@ -102,7 +105,7 @@ export function createMotionTracker(line, { fps = 60 } = {}) {
   const camTele = []
   const over = (label, v, k) => {
     let s = speed.get(label); if (!s) { s = { label, peak: 0, over: 0, frame: null }; speed.set(label, s) }
-    if (v > s.peak) s.peak = v
+    if (v > s.peak) { s.peak = v; s.peakFrame = k; s.peakP = +((window.__benchperf && window.__benchperf.p) || 0).toFixed(3); const pp = line.stations()[line.active()]; s.peakPhase = pp && pp.pip ? pp.pip.userData.phase : null }
     if (v > cap) { s.over++; if (s.frame == null) s.frame = k }
   }
   return {
@@ -161,7 +164,7 @@ export function createPassTracker(line) {
   return {
     frame(k) {
       const st = line.stations()[line.active()]
-      for (const pip of st.pips || (st.pip ? [st.pip] : [])) {
+      for (const pip of st.pips ? Object.values(st.pips) : st.pip ? [st.pip] : []) {
         const ul = pip.userData.tipUl != null ? pip.userData.tipUl : (pip.userData.drawnUl ? pip.userData.drawnUl() : 0)
         const kind = pip.userData.kind || 'P200', capUl = pip.userData.capacityUl || P200_UL
         if (ul > capUl + 0.5) over.push({ frame: k, kind, ul: +ul.toFixed(1), cap: capUl })
@@ -177,7 +180,7 @@ export function createPassTracker(line) {
 // Run the ACTIVE station on the runner's own clock and check everything. `timed`: the step's
 // countdown in seconds (Start is pressed once its vessels have arrived; a countdown over `fullTo`
 // seconds runs its first and last 10 s and skips the middle — protocol time, not animation).
-export function checkStation(line, { timed = 0, fullTo = 60, tailSec = 2, maxSec = 600, every = 6, clockAdd, startTimer } = {}) {
+export async function checkStation(line, { timed = 0, fullTo = 60, tailSec = 2, maxSec = 600, every = 6, clockAdd, startTimer } = {}) {
   const fps = 60, tempo = animationTempo()
   const motion = createMotionTracker(line, { fps }), passes = createPassTracker(line)
   const liquid = []
@@ -186,14 +189,15 @@ export function checkStation(line, { timed = 0, fullTo = 60, tailSec = 2, maxSec
   const pNow = () => +((window.__benchperf && window.__benchperf.p) || 0)
   let phase = timed ? 'rest' : 'run', restSince = null, settled = null, started = null, jumped = false
   const tail = Math.round(tailSec * tempo * fps)
-  const found = simulateStation(line, { every, real: {
+  const found = await simulateStationAsync(line, { every, real: {
     maxFrames: Math.round(maxSec * fps),
     tick(k) {
       clockAdd(1000 / fps)
       if (phase === 'rest' && !arriving()) {
         if (restSince == null) restSince = k
-        if (k - restSince > Math.round(1.5 * tempo * fps)) { startTimer(); phase = 'count'; started = k }
+        if (k - restSince > Math.round(1.5 * tempo * fps)) { startTimer(); phase = 'count'; started = k; return sleep(120) }
       }
+      if (k % 30 === 0) return sleep(0)            // the runner's React state keeps up (running → done)
       if (phase === 'count' && !jumped && timed > fullTo && k - started > 10 * fps) {
         clockAdd((timed - 20) * 1000); jumped = true; motion.cut(); prevL = null; return 'cut'
       }

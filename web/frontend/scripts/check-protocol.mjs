@@ -133,7 +133,7 @@ async function runJob(job) {
     if (r.error) red.push(`error: ${r.error}`)
     if (boundary.length) red.push(`liquid (d) ×${boundary.length}: ${boundary[0].vessel} ${boundary[0].detail}`)
     if (r.liquid && r.liquid.length) red.push(`liquid (${[...new Set(r.liquid.map((b) => b.check))].join(',')}) ×${r.liquid.length}: ${r.liquid[0].vessel} ${r.liquid[0].detail}`)
-    if (r.speed && r.speed.length) { const w = r.speed.sort((a, b) => b.ratio - a.ratio)[0]; red.push(`speed ×${r.speed.length} objects: ${w.label} ${w.peak} u/s = ×${w.ratio} of the cap`) }
+    if (r.speed && r.speed.length) { const w = r.speed.sort((a, b) => b.ratio - a.ratio)[0]; red.push(`speed ×${r.speed.length} objects: ${w.label} ${w.peak} u/s = ×${w.ratio} of the cap (frame ${w.peakFrame}, p ${w.peakP})`) }
     if (r.teleports && r.teleports.length) red.push(`teleport ×${r.teleports.length}: ${r.teleports[0].object} ${r.teleports[0].kind} ${r.teleports[0].dist}`)
     if (r.camera && (r.camera.over || r.camera.teleports.length)) red.push(`camera ${r.camera.over ? `×${r.camera.ratio} of its cap` : ''}${r.camera.teleports.length ? ` jump ${r.camera.teleports[0].dist}` : ''}`)
     if (r.collisions && r.collisions.length) red.push(`collision ×${r.collisions.length}: ${r.collisions.map((c) => `${c.check}:${c.a}×${c.b}=${(+c.depth).toFixed(3)}`).slice(0, 2).join('  ')}`)
