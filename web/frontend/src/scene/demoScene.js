@@ -1924,6 +1924,49 @@ export {
   // which part of a pass the pipette is in (read by scripts/pipette-speed.mjs; never drawn)
   function phaseAName(a, opts){ var v=opts.tipUl!=null && opts.srcTip!=null;
     return a<0.3 ? 'to source' : v ? (a<0.5 ? 'into source' : a<0.78 ? 'draw' : 'out of source') : (a<0.6 ? 'into source' : 'out of source'); }
+  // THE PASS CLOCK. pipetteRun's p gives each part of a pass a fixed SHARE, whatever its length:
+  // to over the source 0.078, out of it 0.057, the lift out of the vessel 0.05, home 0.05 — the
+  // same time the descent (0.12) takes, or less, for as much of the way or more. So the pipette shot
+  // to the source, into and out of it, and home up to 7.6× as fast as it descends into the vessel
+  // (measured: scripts/pipette-speed.mjs). A PASS PLAN gives each segment of a pass its time from
+  // its OWN length: just enough that it moves no faster than this pass's descent (the speed that
+  // reads right). passClock maps a pass's wall progress t to pipetteRun's p, segment by segment and
+  // linearly — each segment keeps its eased curve, played slower; the descent and the dispense hold
+  // keep their seconds; a pass lasts plan.W × as long. Everything a pass drives — the tip, the
+  // source, the destination, the caps — reads the SAME warped p: a liquid stays on the plunger's clock.
+  var PASS_EDGES=[0.078, 0.13, 0.156, 0.2028, 0.26, 0.5, 0.62, 0.9, 0.95, 1];
+  // the stretch each segment of ONE pass needs (straight approach; pipetteRun's own geometry)
+  function passStretch(from, to, opts){
+    opts=opts||{};
+    var H=pipHome(), TY=Math.max(from.y,to.y)+2.0, DIP=to.y+(opts.dipDepth!=null?opts.dipDepth:0.62);
+    var vol=opts.tipUl!=null && opts.srcTip!=null, SRC=vol ? opts.srcTip : from.y+0.72;
+    var vd=(TY-DIP)/0.12;                                   // the descent: its way per unit of p
+    var k=function(dist, share){ return Math.max(1, Math.abs(dist)/share/vd); };
+    var toSrc=Math.hypot(from.x-H.x, TY-H.y, from.z-H.z), down=TY-SRC;
+    var carry=Math.hypot(to.x-from.x, to.z-from.z), home=Math.hypot(H.x-to.x, H.y-TY, H.z-to.z);
+    var s=[k(toSrc,0.078)];                                  // home → over the source
+    if(vol) s.push(k(down,0.052), 1, 1, k(down,0.0572));     // down 0.078–0.13 · draw · up 0.2028–0.26
+    else { var dn=k(down,0.078), up=k(down,0.104); s.push(dn, dn, up, up); }   // down to 0.156 · up (drawing)
+    s.push(k(carry,0.24), 1, 1, k(TY-DIP,0.05), k(home,0.05));   // carry · DESCENT · hold · lift · home
+    return s;
+  }
+  // a station's plan: every pass it runs [{from, to, opts}], the slowest each segment needs
+  function passPlan(passes){
+    var s=PASS_EDGES.map(function(){ return 1; });
+    (passes||[]).forEach(function(q){ var g=passStretch(q.from, q.to, q.opts); for(var i=0;i<s.length;i++) s[i]=Math.max(s[i], g[i]); });
+    var W=0, a=0; for(var i=0;i<s.length;i++){ W+=(PASS_EDGES[i]-a)*s[i]; a=PASS_EDGES[i]; }
+    return { s:s, W:W };
+  }
+  function passClock(t, plan){
+    if(!plan) return t;
+    var T=clamp(t,0,1)*plan.W, a=0;
+    for(var i=0;i<PASS_EDGES.length;i++){
+      var e=PASS_EDGES[i], d=(e-a)*plan.s[i];
+      if(T<=d || i===PASS_EDGES.length-1) return Math.min(e, a+(e-a)*clamp(T/d,0,1));
+      T-=d; a=e;
+    }
+    return 1;
+  }
   function pipetteRun(st, from, to, p, opts){
     opts=opts||{};
     var pip=st.pip; if(!pip) return;
@@ -2045,9 +2088,9 @@ export {
                           // up behind the top HUD bar during the pour travel arc.
   function addPipetteRig(st){
     addStand(st);
-    // built where it always stood (a station not yet entered looks as approved); entering puts it
-    // at its HOME (pipRest) in the same frame the pass begins, as it used to jump to the source
-    var pip = buildPipette(); pip.scale.setScalar(PIP_SCALE); pip.position.set(PIP_REST.x, PIP_REST.y, PIP_REST.z);
+    // built AT ITS HOME (bug fix): it stood in its stand (PIP_REST) until the station was entered,
+    // then entering put it at HOME — a 1.34 jump in one frame, in view as the station faded in
+    var pip = buildPipette(); pip.scale.setScalar(PIP_SCALE); pip.position.copy(pipHome());
     pip.userData.noFrame = true;    // the pipette travels high on its arc — never frame it
     st.group.add(pip); st.pip = pip; st.updatables.push(pip);
   }
@@ -2522,6 +2565,13 @@ export {
     // centre; a well: one off-centre well; a flask: at the canted neck). Default =
     // centre (the microtube), so nothing regresses when a container omits it.
     var disp = o.dispense || {x:0, z:0};
+    // its pass plan (the pass clock): the pipette's way, from the source to the vessel. The source a
+    // tube (srcTube, placed at the bottle's spot by the caller) or the bottle at its full line.
+    {
+      var b0=st.reagents[o.key].grp, toY0=(disp.approach==='angled' && disp.y!=null) ? disp.y : Y;
+      var srcTip0 = o.each==null ? null : o.srcTube ? 0.035 : (b0 && b0.userData.surfaceY ? b0.userData.surfaceY()-0.1 : null);
+      st.passPlan=passPlan([{ from:st.reagents[o.key].pos, to:{x:disp.x,y:toY0,z:disp.z}, opts:{ tipUl:o.each, srcTip:srcTip0, dipDepth:o.entry } }]);
+    }
     st.enter=function(){
       SAMPLE.only(o.vessel);
       var v=SAMPLE[o.vessel];
@@ -2537,18 +2587,18 @@ export {
       var v=SAMPLE[o.vessel];
       var b=st.reagents[o.key].grp;
       // VOLUMES (o.each): n passes of one tip each; pass k at its own progress lp
-      var n=o.each!=null ? (o.passes||1) : 1, k=Math.min(n-1, Math.floor(p*n)), lp=n>1 ? clamp(p*n-k,0,1) : p;
+      var n=o.each!=null ? (o.passes||1) : 1, k=Math.min(n-1, Math.floor(p*n)), lp=passClock(n>1 ? clamp(p*n-k,0,1) : p, st.passPlan);   // the pass clock
       // the bottle opens BEFORE the pipette dips in (phase A), stays open while it
       // draws, and closes once the pipette leaves; its level drops as liquid is drawn.
       if(b && b.userData.setCap){
         b.userData.setCap(!(lp>0.03 && lp<0.36));
         if(o.each!=null) b.userData.setLevel(1 - (k+drawProgress(lp))*o.each/b.userData.stockUl);   // by what was drawn
-        else b.userData.setLevel(1 - 0.22*clamp(p/0.30,0,1));
+        else b.userData.setLevel(1 - 0.22*clamp(lp/0.30,0,1));
       }
       if(o.srcTube) o.srcTube.userData.setVolume(o.srcUl - (k+drawProgress(lp))*o.each);           // a tube source drops as it is drawn
       // the RECEIVING vessel (flask / cryovial) uncaps BEFORE the tip reaches its neck and
       // re-caps once it leaves — a tip through a closed cap is the same lie as through glass.
-      if(v.userData.setCap) v.userData.setCap(!(p>0.1 && p<0.95));
+      if(v.userData.setCap) v.userData.setCap(!((k>0 || lp>0.1) && (k<n-1 || lp<0.95)));   // on the pass clock: open from the first pass's arrival to the last one's leaving
       // for an ANGLED neck the dispense point is the neck MOUTH (its own height),
       // NOT the seat plane — otherwise the tip dips onto the flat top face.
       var toY = (disp.approach==='angled' && disp.y!=null) ? disp.y : Y;
@@ -2560,7 +2610,7 @@ export {
         var added=(k+dispenseProgress(lp))*o.each;
         if(v.userData.setVolume){ v.userData.setVolume(o.ulStart+added); v.userData.setColor(mixColor(o.cStart, o.ulStart, o.color, added)); }
         else if(lp>DISPENSE_FROM || k>0){ v.userData.setLevel(lerp(o.lStart,o.lEnd,(k+dispenseProgress(lp))/n)); if(o.cEnd!=null) v.userData.setColor(o.cEnd); }
-      } else if(p>DISPENSE_FROM){ var q=dispenseProgress(p);
+      } else if(lp>DISPENSE_FROM){ var q=dispenseProgress(lp);
         v.userData.setLevel(lerp(o.lStart,o.lEnd,q));
         if(o.cEnd!=null) v.userData.setColor(o.cEnd);
       }
@@ -2709,4 +2759,4 @@ export {
     };
   }
 
-export { dispenseProgress, drawProgress, pipetteRun, addStand, addPipetteRig, pipRest, buildSample, addBottle, stationReagent, stationSpin, PIP_STAND, PIP_REST, easeInOut, lerp, clamp }
+export { dispenseProgress, drawProgress, passClock, passPlan, pipetteRun, addStand, addPipetteRig, pipRest, buildSample, addBottle, stationReagent, stationSpin, PIP_STAND, PIP_REST, easeInOut, lerp, clamp }

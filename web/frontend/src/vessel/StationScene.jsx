@@ -324,6 +324,9 @@ function Floor({ totalLen, preset }) {
 // a multi-reagent station's SOURCES: each opens for its own draw only (from its pass's start —
 // the tip is in it by a tenth of the pass — until the tip has left), every other stays sealed.
 // They were never opened: every draw went in through a closed cap.
+// a capped RECEIVING vessel (cryovial, flask) is open from before the first pass's tip reaches it to
+// after the last one has left — on the pass clock (pass j of P at its own progress lp)
+function recvCap(v, j, P, lp, a = 0.1, b = 0.95) { if (v.userData.setCap) v.userData.setCap(!((j > 0 || lp > a) && (j < P - 1 || lp < b))) }
 function capSources(st, n, k, lp) {
   for (let j = 0; j < n; j++) { const b = st.reagents['r' + j] && st.reagents['r' + j].grp; if (b && b.userData.setCap) b.userData.setCap(!(j === k && lp < 0.36)) }
 }
@@ -343,10 +346,13 @@ function addReagentSource(st, key, r, k, fromMix) {
 
 // Build a station for a step. Every action gets a timeline with VISIBLE motion
 // driven by the per-step progress p (0->1): so no station is ever static.
-// a station that runs P pipette passes takes longer than one pass (each pass ≈ 2.3 s)
-const passDuration = (P) => STEP_DUR * Math.max(1, 1 + 0.35 * (P - 1))
-// split station progress p over a list of passes → { j: pass index, lp: its own progress }
-const passAt = (p, P) => { const j = Math.min(P - 1, Math.floor(p * P)); return { j, lp: P > 1 ? demo.clamp(p * P - j, 0, 1) : p } }
+// a station that runs P pipette passes takes longer than one pass (each pass ≈ 2.3 s) — and each pass
+// plan.W × that (its PASS PLAN, demo.passPlan: the time its long segments need to move no faster
+// than its descent into the vessel)
+const passDuration = (P, plan) => STEP_DUR * Math.max(1, 1 + 0.35 * (P - 1)) * (plan ? plan.W : 1)
+// split station progress p over a list of passes → { j: pass index, lp: its own progress } — lp on
+// the PASS CLOCK (demo.passClock): what pipetteRun and every liquid / cap of the pass read
+const passAt = (p, P, plan) => { const j = Math.min(P - 1, Math.floor(p * P)); return { j, lp: demo.passClock(P > 1 ? demo.clamp(p * P - j, 0, 1) : p, plan) } }
 
 export function configureStation(st, o) {
   const { action, equipment, container, prevContainer, color, name, vol, seconds, startLevel, endLevel, cycles } = o
@@ -452,7 +458,7 @@ export function configureStation(st, o) {
     const addColor = draws.length ? draws.reduce((c, x, k) => (k ? mixColor(c, draws.slice(0, k).reduce((a, y) => a + y.ul, 0), x.color, x.ul) : x.color), null) : endColor
     demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: Lq && draws.length ? addColor : endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: C.entryPoint,
       ...(Lq && P ? { passes: P, each: total / P, ulStart: startUl, srcTube: tube, srcUl } : {}) })
-    if (Lq && P) st.duration = passDuration(P)
+    st.duration = passDuration(Lq && P ? P : 1, st.passPlan)
     const src = st.reagents.r
     src.grp.visible = false
     tube.position.copy(src.grp.position); tube.userData.noFrame = true
@@ -556,7 +562,7 @@ export function configureStation(st, o) {
       const P = passList(addOps).length, add = addOps[0]
       demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: add ? add.color : endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: C.entryPoint,
         ...(Lq && P ? { passes: P, each: add.ul / P, ulStart: startUl } : {}) })
-      if (Lq && P) st.duration = passDuration(P)
+      st.duration = passDuration(Lq && P ? P : 1, st.passPlan)
       frameAngledPipette(st, C.dispense, 0)
     } else if (prep) {
       // DRAW FROM THE CARRIED MIX (Stage 36). The prep tube was made at its own station and
@@ -573,16 +579,20 @@ export function configureStation(st, o) {
       const mv = Lq ? addOps.find((x) => x.from === 'prep:' + o.drawsFrom) : null
       const P = mv ? mv.passes || 1 : 1, each = mv ? mv.ul / P : 0
       const prepUl = Lq ? ulAt('prep:' + o.drawsFrom, 'start') : 0
-      if (mv) st.duration = passDuration(P) + 0.25 * STEP_DUR
+      st.passPlan = demo.passPlan([{ from: draw, to: { x: disp.x, y: toY, z: disp.z }, opts: { tipUl: mv ? each : null, srcTip: 0.035, dipDepth: C.entryPoint } }])
+      // the station as it was (a quarter for the mix's arrival, the passes after it), the passes
+      // played plan.W × slower: the arrival and the DESCENT keep their seconds
+      const D0 = passDuration(P) + 0.25 * STEP_DUR, ARR = 0.25 / (0.25 + 0.75 * st.passPlan.W)
+      st.duration = D0 * (0.25 + 0.75 * st.passPlan.W)
       st.enter = () => { seat(0, SEAT_Y, 0); demo.pipRest(st); if (mv) prep.userData.setVolume(prepUl); else prep.userData.setLevel(PREP_FULL) }
       st.timeline = (p) => {
         const v = S[vessel]
-        if (v.userData.setCap) v.userData.setCap(!(p > 0.1 && p < 0.95)) // uncap to receive
         // the CARRIED prep arrives during the first quarter (its trip from the station that made
         // it): the pass waits for it — the pipette used to dive in while the tube was in the air
-        const q = demo.clamp((p - 0.25) / 0.75, 0, 1)
+        const q = demo.clamp((p - ARR) / (1 - ARR), 0, 1)
         if (mv) {
-          const { j, lp } = passAt(q, P)
+          const { j, lp } = passAt(q, P, st.passPlan)
+          recvCap(v, j, P, lp)                            // uncap to receive
           demo.pipetteRun(st, new Vector3(draw.x, draw.y, draw.z), { x: disp.x, y: toY, z: disp.z }, lp,
             { color: mv.color, tipUl: each, srcTip: 0.035, approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: C.entryPoint })
           const added = (j + demo.dispenseProgress(lp)) * each
@@ -591,9 +601,11 @@ export function configureStation(st, o) {
           prep.userData.setVolume(prepUl - (j + demo.drawProgress(lp)) * each)   // drops as the tip draws
           return
         }
-        demo.pipetteRun(st, new Vector3(draw.x, draw.y, draw.z), { x: disp.x, y: toY, z: disp.z }, q,
+        const lq = demo.passClock(q, st.passPlan)
+        recvCap(v, 0, 1, lq)
+        demo.pipetteRun(st, new Vector3(draw.x, draw.y, draw.z), { x: disp.x, y: toY, z: disp.z }, lq,
           { color: streamColor, fill: 0.8, approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: C.entryPoint })
-        const done = demo.dispenseProgress(q)
+        const done = demo.dispenseProgress(lq)
         v.userData.setLevel(demo.lerp(startLevel, endLevel, done))
         v.userData.setColor(endColor)
         prep.userData.setLevel(demo.lerp(PREP_FULL, 0.1, demo.easeInOut(demo.clamp(q, 0, 1)))) // drained as used
@@ -606,12 +618,13 @@ export function configureStation(st, o) {
       reags.forEach((r, k) => addReagentSource(st, 'r' + k, r, k, fromMix))
       st.enter = () => { seat(0, SEAT_Y, 0); demo.pipRest(st) }
       const passes = Lq ? passList(addOps) : []
-      if (passes.length) st.duration = passDuration(passes.length)
+      st.passPlan = demo.passPlan(reags.map((r, k) => ({ from: st.reagents['r' + k].pos, to: { x: disp.x, y: toY, z: disp.z }, opts: { tipUl: passes.length ? 1 : null, srcTip: passes.length ? bottleTip('r' + k) : null, dipDepth: C.entryPoint } })))
+      st.duration = passDuration(passes.length || reags.length, st.passPlan)
       st.timeline = (p) => {
         const v = S[vessel]
-        if (v.userData.setCap) v.userData.setCap(!(p > 0.1 && p < 0.95)) // uncap for the passes
         if (passes.length) {
-          const { j, lp } = passAt(p, passes.length), cur = passes[j], k = Math.min(reags.length - 1, cur.op.ri ?? 0)
+          const { j, lp } = passAt(p, passes.length, st.passPlan), cur = passes[j], k = Math.min(reags.length - 1, cur.op.ri ?? 0)
+          recvCap(v, j, passes.length, lp)                // uncap for the passes
           capSources(st, reags.length, k, lp)
           drawSources(passes, j, lp)
           demo.pipetteRun(st, st.reagents['r' + k].pos, { x: disp.x, y: toY, z: disp.z }, lp,
@@ -624,7 +637,8 @@ export function configureStation(st, o) {
         }
         const n = reags.length, seg = 1 / n
         const k = Math.min(n - 1, Math.floor(p / seg))
-        const lp = demo.clamp((p - k * seg) / seg, 0, 1)
+        const lp = demo.passClock(demo.clamp((p - k * seg) / seg, 0, 1), st.passPlan)
+        recvCap(v, k, n, lp)
         capSources(st, n, k, lp)
         demo.pipetteRun(st, st.reagents['r' + k].pos, { x: disp.x, y: toY, z: disp.z }, lp,
           { color: reags[k].color, fill: 0.8, approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: C.entryPoint })
@@ -664,14 +678,15 @@ export function configureStation(st, o) {
     }
     const pid = 'prep:' + prepId
     const passes = Lq ? passList(Lq.ops.filter((x) => x.op === 'add' && x.to === pid)) : null
-    if (passes && passes.length) st.duration = passDuration(passes.length)
+    st.passPlan = demo.passPlan(reags.map((r, k) => ({ from: st.reagents['r' + k].pos, to: DIP, opts: { tipUl: passes ? 1 : null, srcTip: passes ? bottleTip('r' + k) : null, dipDepth: 0.62 } })))
+    st.duration = passDuration((passes && passes.length) || reags.length, st.passPlan)
     st.enter = () => { idleSample(); if (passes) prep.userData.setVolume(0); else prep.userData.setLevel(0); prep.userData.setColor(reags[0].color); demo.pipRest(st) }
     st.timeline = (p) => {
       const sv = S[vessel]
       sv.userData.setColor(startColor); amount(sv, startUl, startLevel) // untouched, held
       if (passes) {
         if (!passes.length) { capSources(st, reags.length, -1, 1); return }   // nothing liquid to add (a plate warming up)
-        const { j, lp } = passAt(p, passes.length), cur = passes[j], k = Math.min(reags.length - 1, cur.op.ri ?? 0)
+        const { j, lp } = passAt(p, passes.length, st.passPlan), cur = passes[j], k = Math.min(reags.length - 1, cur.op.ri ?? 0)
         capSources(st, reags.length, k, lp)
         drawSources(passes, j, lp)
         demo.pipetteRun(st, st.reagents['r' + k].pos, DIP, lp, { color: cur.op.color, tipUl: cur.each, srcTip: bottleTip('r' + k), dipDepth: 0.62 })
@@ -682,7 +697,7 @@ export function configureStation(st, o) {
       }
       const n = reags.length, seg = 1 / n
       const k = Math.min(n - 1, Math.floor(p / seg))
-      const lp = demo.clamp((p - k * seg) / seg, 0, 1)
+      const lp = demo.passClock(demo.clamp((p - k * seg) / seg, 0, 1), st.passPlan)
       capSources(st, n, k, lp)
       demo.pipetteRun(st, st.reagents['r' + k].pos, DIP, lp, { color: reags[k].color, fill: 0.8, dipDepth: 0.62 })
       const done = (k + demo.dispenseProgress(lp)) / n
@@ -825,7 +840,7 @@ export function configureStation(st, o) {
         move: Lq ? Lq.ops.find((x) => x.op === 'move' && x.from === prevC2.vessel && x.to === vessel) || null : null,
         vols: Lq ? { a: ulAt(prevC2.vessel, 'start'), aColor: colAt(prevC2.vessel, 'start', startColor), b: ulAt(vessel, 'start'), bColor: colAt(vessel, 'start', null) } : null,
       })
-      if (Lq && st.passes) st.duration = passDuration(st.passes)
+      st.duration = passDuration(Lq && st.passes ? st.passes : 1, st.passPlan)
       st._skipHandoff = true // the pipette run IS the transition; no lift/settle swap
     } else if (kind === 'place' && prevC2) {
       // A gel or membrane on either side (#5): nothing is pipetted. Both vessels rest side
@@ -1202,7 +1217,7 @@ export function configureStation(st, o) {
       Lq ? { from: ulAt(prevVessel, 'start'), fromColor: colAt(prevVessel, 'start', startColor), to: startUl, toColor: startColor } : null)
   }
   // (the column's seat at this station: a prepare parks the idle sample beside the mix)
-  if (Lq && Lq.flowDiscard) wrapFlowDiscard(st, S, Lq.flowDiscard, colAt('flow', 'start', null), action === 'prepare' ? { x: -2.0, z: -0.1 } : { x: 0, z: 0 })
+  if (Lq && Lq.flowDiscard) wrapFlowDiscard(st, S, Lq.flowDiscard, colAt('flow', 'start', null), action === 'prepare' ? { x: -2.0, y: SEAT_Y, z: -0.1 } : { x: 0, y: SEAT_Y, z: 0 })
   // EVERY vessel of the line enters this station holding what the ledger says it holds at its
   // start — not only the one the station shows (a hidden tube kept another station's volume and
   // then drained or filled in view)
@@ -1239,7 +1254,9 @@ function wrapFlowDiscard(st, S, ul, color, seatLocal) {
   if (!st.pip) demo.addPipetteRig(st)                   // (every bench station that receives a column has one)
   const P = Math.max(1, Math.ceil(ul / TIP_UL - 1e-9)), each = ul / P
   const COL_S = 1.2                                      // seconds to stand the column aside (and back)
-  const TD = 2 * COL_S + P * STEP_DUR * 0.35             // + one pass per tip
+  // its passes: from the collection tube on the column's seat into the beaker (their own pass plan)
+  const plan = demo.passPlan([{ from: { x: seatLocal.x, y: seatLocal.y, z: seatLocal.z }, to: { x: seatLocal.x - 1.15, y: 0, z: seatLocal.z + 0.45 }, opts: { tipUl: each, srcTip: seatLocal.y + 0.02, dipDepth: 0.5 } }])
+  const TD = 2 * COL_S + P * STEP_DUR * 0.35 * plan.W   // + one pass per tip (on its pass clock)
   const dur0 = st.duration || STEP_DUR
   st.duration = dur0 + TD
   const F = TD / st.duration                             // share of p
@@ -1274,7 +1291,7 @@ function wrapFlowDiscard(st, S, ul, color, seatLocal) {
     S.snapTo(col, seat.x + aside * ASIDE, seat.y + up * LIFT, seat.z)
     col.userData.held = up > 0                           // out of its tube, it is in the hand
     if (q < A || q >= B) { demo.pipRest(st); return }
-    const { j, lp } = passAt((q - A) / (B - A), P)
+    const { j, lp } = passAt((q - A) / (B - A), P, plan)
     const W = waste.position, cx = seat.x - st.x
     demo.pipetteRun(st, { x: cx, y: seat.y, z: seat.z }, { x: W.x, y: 0, z: W.z }, lp,
       { color, tipUl: each, srcTip: seat.y + 0.02, dipDepth: 0.5 })   // the tip at the tube's floor (0.018): it draws the last µl
@@ -1425,6 +1442,8 @@ function configurePipetteTransfer(st, S, o) {
   const dstAngled = dstDisp && dstDisp.approach === 'angled'
   const from = { x: AX + (srcDisp?.x || 0), y: srcSeatY, z: Z + (srcDisp?.z || 0) }
   const to = { x: BX + (dstDisp?.x || 0), y: dstAngled && dstDisp.y != null ? dstDisp.y : dstSeatY, z: Z + (dstDisp?.z || 0) }
+  // its pass plan (the pass clock): source mouth → destination, at the speed of its descent
+  st.passPlan = demo.passPlan([{ from, to, opts: { tipUl: move && vols ? Math.min(each, TIP_UL) : null, srcTip: move && vols ? srcSeatY + 0.035 : null, dipDepth: dstEntry } }])
   // frame BOTH vessels (base → top of each) so the fit keeps them centred, not the tall
   // pipette (which is excluded from the frame).
   st.frameAnchors = [
@@ -1465,9 +1484,9 @@ function configurePipetteTransfer(st, S, o) {
     // a tip through a closed cap is a lie (the source while it is drawn from, the
     // destination while it is dispensed into)
     if (move && vols) {
-      const { j, lp } = passAt(p, P)
+      const { j, lp } = passAt(p, P, st.passPlan)
       S[fromKey].userData.setCap?.(!(lp > 0.01 && lp < 0.32))
-      S[toKey].userData.setCap?.(!(p > 0.4 / P && p < 1 - 0.03 / P))
+      recvCap(S[toKey], j, P, lp, 0.4, 0.97)
       demo.pipetteRun(st, from, to, lp, { color: move.color, tipUl: Math.min(each, TIP_UL), srcTip: srcSeatY + 0.035, approach: dstDisp?.approach, tilt: dstDisp?.tilt, depth: dstDisp?.depth, dipDepth: dstEntry })
       const drawn = (j + demo.drawProgress(lp)) * each, given = (j + demo.dispenseProgress(lp)) * each
       if (a.userData.setVolume) a.userData.setVolume(vols.a - drawn); else a.userData.setLevel?.(demo.lerp(startLevel, 0.03, drawn / move.ul))
@@ -1476,14 +1495,15 @@ function configurePipetteTransfer(st, S, o) {
       if (p > 0.98) S.snapTo(b, st.x + BX, dstSeatY, Z)
       return
     }
-    S[fromKey].userData.setCap?.(!(p > 0.01 && p < 0.32))
-    S[toKey].userData.setCap?.(!(p > 0.4 && p < 0.97))
-    demo.pipetteRun(st, from, to, p, { color, fill: 0.8, approach: dstDisp?.approach, tilt: dstDisp?.tilt, depth: dstDisp?.depth, dipDepth: dstEntry })
+    const c = demo.passClock(p, st.passPlan)          // the one pass, on the pass clock
+    S[fromKey].userData.setCap?.(!(c > 0.01 && c < 0.32))
+    S[toKey].userData.setCap?.(!(c > 0.4 && c < 0.97))
+    demo.pipetteRun(st, from, to, c, { color, fill: 0.8, approach: dstDisp?.approach, tilt: dstDisp?.tilt, depth: dstDisp?.depth, dipDepth: dstEntry })
     // SOURCE drains while the tip aspirates (pipetteRun's draw phase ends at p≈0.26).
-    a.userData.setLevel?.(demo.lerp(startLevel, 0.03, demo.easeInOut(demo.clamp(p / 0.26, 0, 1))))
+    a.userData.setLevel?.(demo.lerp(startLevel, 0.03, demo.easeInOut(demo.clamp(c / 0.26, 0, 1))))
     // DEST fills only once the tip is dispensing — only inside the dispense window (no early fill).
-    if (p > 0.68) {
-      const q = demo.dispenseProgress(p)
+    if (c > 0.68) {
+      const q = demo.dispenseProgress(c)
       b.userData.setColor?.(color)
       b.userData.setLevel?.(demo.lerp(0.03, endLevel, q))
     }
