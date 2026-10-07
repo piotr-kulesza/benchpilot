@@ -14,6 +14,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera } from '@react-three/drei'
 import { FogExp2, Color, Vector3, Quaternion, Box3, Group, Mesh, RingGeometry, SphereGeometry, CylinderGeometry, PlaneGeometry, CanvasTexture, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
+import { ANIMATION_TEMPO } from '../scene/tempo.js'
 import { buildLedger, mixColor, TIP_UL } from './liquidLedger.js'
 import { tubeShape, volumeAt } from '../scene/liquidShape.js'
 import { resolveRecipe, stepConditions, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects, exitLiftPoint, pourPlan, removalFor, benchStaging, addSource } from './sceneRecipe.js'
@@ -1997,6 +1998,9 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
   const lastStateRef = useRef(null)
   const frame = (state, dt) => {
     dt = Math.min(dt, 0.05)
+    // MOTION time: every moving thing below (p, the centrifuge's choreography, builders' update,
+    // vessel trips and springs) runs on adt — one knob, scene/tempo.js. The camera keeps dt.
+    const adt = dt / ANIMATION_TEMPO
     const time = state.clock.elapsedTime
     const stations = stationsRef.current
     if (!stations) return
@@ -2073,12 +2077,12 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       if (tm.hasTimer) pRef.current = tm.progress // countdown drives every timed instrument
       // the step's action begins once its vessels have ARRIVED (a trip from the last station takes
       // up to ~1.1 s): the pipette used to dive into a tube still in the air
-      else if (!vesselsArriving()) pRef.current = Math.min(pRef.current + dt / (act.duration || STEP_DUR), 1)   // a multi-pass or long pour takes longer
+      else if (!vesselsArriving()) pRef.current = Math.min(pRef.current + adt / (act.duration || STEP_DUR), 1)   // a multi-pass or long pour takes longer
       if (benchLine.pForce != null) pRef.current = benchLine.pForce   // DEV: the audit drives p
       // the centrifuge needs absolute-time dock/lift choreography (a 10-min spin can't
       // glide in for two minutes), so it reads the timer directly; everything else is
       // continuous in p and tracks the countdown just by being fed the elapsed fraction.
-      if (act.driveTimed && tm.hasTimer && benchLine.pForce == null) act.driveTimed(tm, dt)
+      if (act.driveTimed && tm.hasTimer && benchLine.pForce == null) act.driveTimed(tm, adt)
       else act.timeline?.(pRef.current)
     }
     // 4c · idle instrument animations run ONLY for the active station and its immediate
@@ -2090,7 +2094,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     let ticked = 0
     for (let si = 0; si < stations.length; si++) {
       if (Math.abs(si - ai) > 1) continue
-      for (const u of stations[si].updatables) { u.userData?.update?.(dt); ticked++ }
+      for (const u of stations[si].updatables) { u.userData?.update?.(adt); ticked++ }
     }
 
     // 4b · the countdown DIAL reads the SAME clock as the digits (timerRef.progress ==
@@ -2133,20 +2137,20 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     // the next seat — so the sample never teleports and never drags through the lid.
     const S = demo.getSample()
     if (S) for (const v of S.vessels) {
-      if (!v.userData.docked && !travelTrip(v, dt)) {
+      if (!v.userData.docked && !travelTrip(v, adt)) {
         const goal = v.userData.exitLift || v.userData.tPos
-        travel(v, goal, dt)
+        travel(v, goal, adt)
         if (v.userData.exitLift && v.position.distanceTo(v.userData.exitLift) < 0.06) {
           v.userData.exitLift = null // cleared the instrument — glide on to the seat
         }
       }
-      v.userData.update?.(dt)
+      v.userData.update?.(adt)
     }
     // 5b · prep vessels ride the SAME rails: each prepared mixture is CARRIED to the
     // station that draws from it, gliding exactly like the sample — never teleporting.
     for (const pv of demo.getPreps()) {
-      if (pv.visible && !travelTrip(pv, dt)) travel(pv, pv.userData.tPos, dt)
-      pv.userData.update?.(dt)
+      if (pv.visible && !travelTrip(pv, adt)) travel(pv, pv.userData.tPos, adt)
+      pv.userData.update?.(adt)
     }
 
     // 6 · fade equipment by distance from the rail — active full, neighbours

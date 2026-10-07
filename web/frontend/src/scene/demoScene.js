@@ -16,6 +16,7 @@ import { resolveScenePreset } from './scenePresets.js'
 import { exitLiftPoint } from '../vessel/sceneRecipe.js'
 import { streams } from './rng.js'
 import { mixColor } from '../vessel/liquidLedger.js'
+import { ANIMATION_TEMPO } from './tempo.js'
 import { innerRadiusFn, liquidProfileGeo, tubeProfile, collectionProfile, columnCupProfile, bottleProfile,
   tubeShape, columnShape, collectionShape, linearShape, tipShape, levelFor, volumeAt, bottleStockUl, COLL_Y0, COLL_YMAX } from './liquidShape.js'
 
@@ -675,7 +676,7 @@ export function undockSample(lift = false) {
       fluidMat.color.copy(st.color); fluidMat.emissive.copy(st.color);
       var dispensing = st.tFill<prev-0.0002 && st.fill>0.03;
       drop.visible=dispensing;
-      if(dispensing){ var t=performance.now()*0.006; drop.position.y=-0.9-Math.sin(t)*0.01; drop.scale.y=1.3+Math.sin(t*1.3)*0.15; }
+      if(dispensing){ var t=performance.now()*0.006/ANIMATION_TEMPO; drop.position.y=-0.9-Math.sin(t)*0.01; drop.scale.y=1.3+Math.sin(t*1.3)*0.15; }
       if(grp.userData.tipUl!=null ? !(grp.userData.tipUl>1e-9) : st.fill<0.01){ fluid.visible=false; }
       else{ fluid.visible=true; var h=st.fill*0.66; fluid.scale.y=h/0.6; fluid.position.y=-0.8+h/2;
         // the liquid stays INSIDE the tip (bug fix): its top is as wide as the tip's inner cone

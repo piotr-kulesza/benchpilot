@@ -9,6 +9,7 @@
 import { auditPose, isSolid, setPenetration, TOL } from './collisionAudit.js'
 import { auditTrack } from './motionAudit.js'
 import { Vector3, Quaternion, Frustum, Matrix4, Box3 } from 'three'
+import { ANIMATION_TEMPO } from '../scene/tempo.js'
 
 const visible = (o) => { for (let n = o; n; n = n.parent) if (!n.visible) return false; return true }
 const builderOf = (o) => (o.userData && o.userData.builder ? o.userData.builder.replace(/^build/, '') : null)
@@ -92,7 +93,7 @@ function recordMotion(line, tracks) {
 export function finishStation(line, seconds = 2.5) {
   line.hold = true
   line.pForce = 1
-  for (let k = 0; k < Math.round(seconds * 60); k++) line.step(1 / 60)
+  for (let k = 0; k < Math.round(seconds * ANIMATION_TEMPO * 60); k++) line.step(1 / 60)
 }
 
 // A TIMED step waits at p = 0 until Start is pressed (the runner holds the countdown): `hold`
@@ -103,7 +104,9 @@ export function simulateStation(line, { stepDur: stepDur0 = 6.5, tail = 1.5, eve
   // a station runs for its own duration (a multi-pass pipetting step or a long pour takes longer)
   let stepDur = stepDur0
   { const st = line.stations()[line.active()]; if (st && st.duration) stepDur = st.duration }
-  const fps = 60, H = Math.round(hold * fps), total = H + Math.round((stepDur + tail) * fps)
+  // the scene runs its motion ANIMATION_TEMPO× slower than wall time: so does the driver
+  stepDur *= ANIMATION_TEMPO
+  const fps = 60, H = Math.round(hold * ANIMATION_TEMPO * fps), total = H + Math.round((stepDur + tail * ANIMATION_TEMPO) * fps)
   const seen = new Map()
   const tracks = new Map(); tracks.frame = 0
   let prev = null, run = 0

@@ -168,6 +168,11 @@ frame through `window.__benchLine` (dev builds only): it enters each station wit
 timed step at rest (as before Start), drives p, and lets vessels arrive. Builders mark what is
 not a rigid solid with `auditKind` metadata (`'fluid'`, `'granular'`, `'effect'`) — never rendered.
 
+**Tempo — one knob.** `src/scene/tempo.js` → `ANIMATION_TEMPO` (1.6): the frame loop divides dt by it
+for every motion (step progress, centrifuge choreography, builders' `update`, vessel trips and springs),
+so all of it — liquid included — slows together; a protocol timer and the camera keep real time. The
+audit drivers (`collisionDriver`, `liquidFrames`) run the same slowed wall time.
+
 Motion rules the scene now keeps: a vessel leaving a station makes a TRIP (straight up — out
 along its axis first from a tilted seat, out through the front from an enclosure — over, and
 down, or in from the front under an overhead instrument), one smootherstep in time; a target
