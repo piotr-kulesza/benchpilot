@@ -171,7 +171,12 @@ not a rigid solid with `auditKind` metadata (`'fluid'`, `'granular'`, `'effect'`
 **Tempo — one knob.** `src/scene/tempo.js` → `ANIMATION_TEMPO` (1.6): the frame loop divides dt by it
 for every motion (step progress, centrifuge choreography, builders' `update`, vessel trips and springs),
 so all of it — liquid included — slows together; a protocol timer and the camera keep real time. The
-audit drivers (`collisionDriver`, `liquidFrames`) run the same slowed wall time.
+audit drivers (`collisionDriver`, `liquidFrames`) run the same slowed wall time. Code reads it through
+`animationTempo()` (dev runs may override it with `window.__benchTempo`). No motion may keep its own
+clock: no wall clock (`performance.now`), no per-frame factor or threshold — rates per second of the
+`dt` a builder is given. Proof: `node scripts/tempo-ratio.mjs` (dev server) times every motion
+segment of every station at tempo 1 and at ANIMATION_TEMPO on the runner's own clock and exits 1 unless
+each takes tempo × as long ± 5 % (`src/dev/tempoProbe.js`, proven red by `tempoProbe.test.js`).
 
 Motion rules the scene now keeps: a vessel leaving a station makes a TRIP (straight up — out
 along its axis first from a tilted seat, out through the front from an enclosure — over, and
