@@ -178,6 +178,20 @@ clock: no wall clock (`performance.now`), no per-frame factor or threshold — r
 segment of every station at tempo 1 and at ANIMATION_TEMPO on the runner's own clock and exits 1 unless
 each takes tempo × as long ± 5 % (`src/dev/tempoProbe.js`, proven red by `tempoProbe.test.js`).
 
+**The pass clock — the pipette is never faster than its descent.** `pipetteRun`'s p gives each part of a
+pass a fixed share; a PASS PLAN (`demo.passPlan([{from, to, opts}])`, per station, from the pipette's own
+geometry) gives each segment — to the source, into it, out of it, the carry, the lift, home — the time it
+needs to move no faster than that pass's descent into the vessel. `demo.passClock(lp, st.passPlan)` maps a
+pass's wall progress onto p (linearly per segment: easing untouched); `passAt(p, P, st.passPlan)` and
+`passDuration(P, st.passPlan)` carry it. Every caller warps lp ONCE and drives the pipette, the tip, the
+source, the destination and the caps from it — liquid stays on the plunger's clock. The idle pipette is
+built at its HOME (it used to stand in its stand and jump home on entry). Proof on the BUILT app, played
+through like a user: `VITE_BENCH_PROBE=1 npx vite build --outDir <dir> && npx vite preview --outDir <dir>`,
+then `BASE=… node scripts/pipette-speed.mjs [--to 8 --video docs/x.webm]` — every frame, every visible
+pipette: no frame faster than 1.1 × its descent, no teleport (`src/dev/pipetteSpeed.js`, proven red by
+`pipetteSpeed.test.js`). Run ONE headless browser at a time: a second one starves WebGL and the app falls
+back to 2D.
+
 Motion rules the scene now keeps: a vessel leaving a station makes a TRIP (straight up — out
 along its axis first from a tilted seat, out through the front from an enclosure — over, and
 down, or in from the front under an overhead instrument), one smootherstep in time; a target
