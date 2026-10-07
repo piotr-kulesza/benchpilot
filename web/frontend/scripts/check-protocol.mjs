@@ -68,10 +68,18 @@ function expectedPasses(data) {
 
 const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new', protocolTimeout: 0,
   args: ['--no-sandbox', '--use-angle=metal', '--enable-webgl', '--ignore-gpu-blocklist', '--window-size=1500,980'] })
+// warm the dev server: a fresh one optimises its dependencies on first use and RELOADS the page
+{
+  const p = await browser.newPage()
+  await p.goto(`${BASE}/?run=1&step=1`, { waitUntil: 'networkidle0' }).catch(() => {})
+  await p.evaluate(async () => { await import('/src/dev/protocolCheck.js'); await import('/src/dev/collisionDriver.js') }).catch(() => {})
+  await new Promise((r) => setTimeout(r, 3000))
+  await p.close()
+}
 const report = []
 let redStations = 0, allStations = 0, redProtocols = 0
 const t0 = Date.now()
-for (const job of jobs) {
+async function runJob(job) {
   const { stations, expect } = expectedPasses(job.data)
   const page = await browser.newPage()
   await page.setViewport({ width: 1440, height: 900 })
@@ -92,7 +100,7 @@ for (const job of jobs) {
     ok = await page.waitForFunction(() => window.__benchLine && window.__benchLine.stations && window.__benchLine.stations(), { timeout: 30000, polling: 100 }).then(() => true, () => false)
   }
   const rows = []
-  if (!ok) { rows.push({ station: 0, red: ['the runner never came up'] }); redStations++ }
+  if (!ok) rows.push({ station: 0, red: ['the runner never came up'] })
   for (let s = 1; ok && s <= stations.length; s++) {
     let boundary = []
     if (s > 1) {
@@ -133,8 +141,21 @@ for (const job of jobs) {
     if (r.pipette && r.pipette.overCount) red.push(`capacity: a ${r.pipette.over[0].kind} tip held ${r.pipette.over[0].ul} µl`)
     if (passBad.length) red.push(`pipette: ${passBad.slice(0, 2).join('; ')}${passBad.length > 2 ? ` (+${passBad.length - 2})` : ''}`)
     rows.push({ station: s, action: stations[s - 1].action, container: stations[s - 1].container, red, detail: VERBOSE ? r : { speedPeak: r.peak, camera: r.camera, passes: r.pipette && r.pipette.passes, expected: exp } })
-    allStations++; if (red.length) redStations++
   }
+  await page.close()
+  return { rows, errors }
+}
+for (const job of jobs) {
+  let res
+  for (let attempt = 1; ; attempt++) {
+    try { res = await runJob(job); break } catch (e) {
+      // the page was reloaded under the run (a dependency re-optimised): run the protocol again
+      if (attempt >= 2) { res = { rows: [{ station: 0, red: [`the run failed: ${String(e.message).slice(0, 120)}`] }], errors: [] }; break }
+      console.log(`  (${job.name}: ${String(e.message).slice(0, 80)} — retrying)`)
+    }
+  }
+  const { rows, errors } = res
+  for (const row of rows) { if (row.station) allStations++; if (row.red && row.red.length) redStations++ }
   const nRed = rows.filter((x) => x.red && x.red.length).length
   if (nRed) redProtocols++
   report.push({ protocol: job.name, stations: rows.length, red: nRed, rows, pageErrors: [...new Set(errors)].slice(0, 3) })
@@ -142,7 +163,6 @@ for (const job of jobs) {
   for (const row of rows) console.log(`  ${row.red && row.red.length ? '✗' : '✓'} ${String(row.station).padStart(2)} ${String(row.action || '').padEnd(14)} ${String(row.container || '').padEnd(12)} ${(row.red || []).join(' | ')}`)
   if (errors.length) console.log('  page errors:', [...new Set(errors)].slice(0, 2).join(' | '))
   fs.mkdirSync(path.dirname(OUT), { recursive: true }); fs.writeFileSync(OUT, JSON.stringify(report, null, 1))
-  await page.close()
 }
 await browser.close()
 if (server) await server.close()
