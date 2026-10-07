@@ -100,27 +100,40 @@ export function finishStation(line, seconds = 2.5) {
 // seconds of that rest are run first — what the viewer sees while reading the step.
 const arriving = (line) => { const S = line.sample(); return !!((S && S.vessels.some((v) => v.visible && v.userData.trip)) || line.preps().some((v) => v.visible && v.userData.trip)) }
 // stopAt: stop after that frame (the step is left posed there — for an evidence snapshot)
-export function simulateStation(line, { stepDur: stepDur0 = 6.5, tail = 1.5, every = 3, benchY = 0, hold = 0, stopAt = null } = {}) {
+// real: drive the station on the RUNNER'S OWN CLOCK instead of a forced p (scripts/check-protocol.mjs):
+//   { tick(k) → before each frame (advance the page clock; may press Start / skip a countdown and
+//     return 'cut' — the frames on either side are not continuous), done(k) → stop, onFrame(k),
+//     maxFrames }
+export function simulateStation(line, { stepDur: stepDur0 = 6.5, tail = 1.5, every = 3, benchY = 0, hold = 0, stopAt = null, real = null } = {}) {
   // a station runs for its own duration (a multi-pass pipetting step or a long pour takes longer)
   let stepDur = stepDur0
   { const st = line.stations()[line.active()]; if (st && st.duration) stepDur = st.duration }
   // the scene runs its motion animationTempo()× slower than wall time: so does the driver
   stepDur *= animationTempo()
-  const fps = 60, H = Math.round(hold * animationTempo() * fps), total = H + Math.round((stepDur + tail * animationTempo()) * fps)
+  const fps = 60, H = Math.round(hold * animationTempo() * fps), total = real ? real.maxFrames : H + Math.round((stepDur + tail * animationTempo()) * fps)
   const seen = new Map()
-  const tracks = new Map(); tracks.frame = 0
+  const done = []                                         // motion tracks closed at a cut
+  let tracks = new Map(); tracks.frame = 0
   let prev = null, run = 0
+  const pNow = () => (real ? +((typeof window !== 'undefined' && window.__benchperf && window.__benchperf.p) || 0) : (line.pForce || 0))
   line.hold = true
   try {
     for (let k = 0; k <= total; k++) {
-      // during a timed step's REST the runner's own logic runs (the countdown not started:
-      // driveTimed's rest — what the viewer sees before Start); then p is driven
-      // (and, as the runner does, the step's clock waits while a vessel is still arriving)
-      if (k >= H && !arriving(line)) run++
-      line.pForce = k < H ? null : Math.min(1, run / (stepDur * fps))
+      if (real) {
+        if (real.tick && real.tick(k) === 'cut') { done.push(tracks); tracks = new Map(); tracks.frame = k; prev = null }
+        line.pForce = null
+      } else {
+        // during a timed step's REST the runner's own logic runs (the countdown not started:
+        // driveTimed's rest — what the viewer sees before Start); then p is driven
+        // (and, as the runner does, the step's clock waits while a vessel is still arriving)
+        if (k >= H && !arriving(line)) run++
+        line.pForce = k < H ? null : Math.min(1, run / (stepDur * fps))
+      }
       line.step(1 / fps)
       tracks.frame = k; recordMotion(line, tracks)
+      if (real && real.onFrame) real.onFrame(k)
       if (stopAt != null && k >= stopAt) break
+      if (real && real.done && real.done(k)) break
       if (k % every) continue
       const { defects, state } = auditPose(lineObjects(line), { benchY, prev, frame: k })
       prev = state
@@ -128,11 +141,13 @@ export function simulateStation(line, { stepDur: stepDur0 = 6.5, tail = 1.5, eve
         const key = `${d.check}|${d.a}|${d.b}`
         const was = seen.get(key)
         const keep = (x) => { if (d.parts) Object.defineProperty(x, 'parts', { value: d.parts, enumerable: false, configurable: true, writable: true }); return x }
-        if (!was) seen.set(key, keep({ ...d, p: +(line.pForce || 0).toFixed(3), pLast: +(line.pForce || 0).toFixed(3), frames: 1, frame: k }))
-        else { was.frames++; was.pLast = +(line.pForce || 0).toFixed(3); if (d.depth > was.depth) { Object.assign(was, d, { p: was.p, pLast: was.pLast, frames: was.frames, frame: was.frame }); keep(was); was.pWorst = +(line.pForce || 0).toFixed(3); was.frameWorst = k } }
+        const pk = +pNow().toFixed(3)
+        if (!was) seen.set(key, keep({ ...d, p: pk, pLast: pk, frames: 1, frame: k }))
+        else { was.frames++; was.pLast = pk; if (d.depth > was.depth) { Object.assign(was, d, { p: was.p, pLast: was.pLast, frames: was.frames, frame: was.frame }); keep(was); was.pWorst = pk; was.frameWorst = k } }
       }
     }
   } finally { line.pForce = null }
+  done.push(tracks)
   // a moving part against its FINAL rest pose too (a cap that opens on the first frame was
   // never seen closed until the end): red only if it went deeper than it rests, either end
   for (const [key, d] of seen) {
@@ -141,11 +156,11 @@ export function simulateStation(line, { stepDur: stepDur0 = 6.5, tail = 1.5, eve
     if (d.parts.depth <= Math.max(d.d0 || 0, atEnd) + TOL.depth) seen.delete(key)
   }
   // motion: judged over the whole window (the sample's arrival glide included)
-  for (const t of tracks.values()) {
+  for (const tr of done) for (const t of tr.values()) {
     if (t.track.length < 3) continue
     for (const f of auditTrack(t.track, { kind: t.kind, restBefore: t.start === 0 })) {
       const key = `${f.check}|${t.name}|${f.how}`
-      if (!seen.has(key)) seen.set(key, { check: f.check, a: t.name, b: f.how, depth: f.peak || 0, p: +Math.min(1, Math.max(0, t.start + f.frame - H) / (stepDur * fps)).toFixed(3), frame: t.start + f.frame, frames: 1 })
+      if (!seen.has(key)) seen.set(key, { check: f.check, a: t.name, b: f.how, depth: f.peak || 0, p: real ? null : +Math.min(1, Math.max(0, t.start + f.frame - H) / (stepDur * fps)).toFixed(3), frame: t.start + f.frame, frames: 1 })
     }
   }
   return [...seen.values()]

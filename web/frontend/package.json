@@ -3,12 +3,13 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "benchpilot — a bench-usable protocol player over the parsed schema",
+  "description": "benchpilot \u2014 a bench-usable protocol player over the parsed schema",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check-protocol": "node scripts/check-protocol.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",
