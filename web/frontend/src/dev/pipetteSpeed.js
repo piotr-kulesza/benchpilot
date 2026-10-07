@@ -38,6 +38,7 @@ export function analyse(rec, { tol = 1.1, jump = 0.05, names = [] } = {}) {
   for (const [i, T] of [...tracks].sort((a, b) => a[0] - b[0])) {
     const ref = T.ref || fallback
     let max = 0, maxPhase = '', seg = null
+    const phases = {}                                  // peak speed per phase (its own station active)
     const close = () => { if (seg) { out.fast.push(seg); seg = null } }
     for (let k = 0; k < T.length; k++) {
       const f = T[k]
@@ -49,6 +50,7 @@ export function analyse(rec, { tol = 1.1, jump = 0.05, names = [] } = {}) {
       }
       if (f.v == null || !ref) { close(); continue }
       if (f.v > max) { max = f.v; maxPhase = f.phase }
+      if (f.active === i && f.v > (phases[f.phase] || 0)) phases[f.phase] = f.v
       out.maxRatio = Math.max(out.maxRatio, f.v / ref)
       if (f.v > tol * ref) {
         const where = f.active !== i ? 'between stations' : BEFORE.has(f.phase) ? 'before descent' : AFTER.has(f.phase) ? 'after lift' : f.phase
@@ -59,7 +61,7 @@ export function analyse(rec, { tol = 1.1, jump = 0.05, names = [] } = {}) {
       } else close()
     }
     close()
-    out.stations.push({ station: i + 1, action: names[i] || '', descent: T.ref, max, maxPhase, ratio: ref ? max / ref : null })
+    out.stations.push({ station: i + 1, action: names[i] || '', descent: T.ref, max, maxPhase, ratio: ref ? max / ref : null, phases })
   }
   return out
 }

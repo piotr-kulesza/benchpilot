@@ -39,7 +39,8 @@ const page = await browser.newPage()
 await page.setViewport({ width: 1440, height: 900 })
 const errors = []
 page.on('pageerror', (e) => errors.push(e.message))
-await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' })
+// ONE navigation (the session is set before the app's scripts run): a first load cut short by a
+// second left a webfont 'loading' for ever, and the 3D waits for its label fonts
 await page.evaluateOnNewDocument((d) => {
   sessionStorage.setItem('benchpilot.session', JSON.stringify({ protocol: d, source: 'pipette-speed', lang: 'en', answers: {} }))
   // seeded randomness + a FRAME clock: performance.now moves 1/60 s per delivered frame (so a
@@ -64,8 +65,13 @@ await page.evaluateOnNewDocument((d) => {
   window.cancelAnimationFrame = (x) => { queue = queue.filter((q) => q[0] !== x) }
   window.__kick = () => window.requestAnimationFrame(() => {})
 }, data)
-await page.goto(`${BASE}/?run=1&step=1`, { waitUntil: 'networkidle0' }).catch(() => {})
-await page.waitForFunction(() => window.__benchLine && window.__benchLine.stations && window.__benchLine.stations(), { timeout: 60000, polling: 100 })
+// the first load can stall (WebGL context under load): reload, up to 3 tries
+for (let tries = 1; ; tries++) {
+  await page.goto(`${BASE}/?run=1&step=1`, { waitUntil: 'networkidle0' }).catch(() => {})
+  const ok = await page.waitForFunction(() => window.__benchLine && window.__benchLine.stations && window.__benchLine.stations(), { timeout: 30000, polling: 100 }).then(() => true, () => false)
+  if (ok) break
+  if (tries >= 3) throw new Error('the runner never came up (window.__benchLine) — is this a VITE_BENCH_PROBE build?')
+}
 
 // the recorder: every frame, every pipette of a faded-in station, in the world
 await page.evaluate(() => {
