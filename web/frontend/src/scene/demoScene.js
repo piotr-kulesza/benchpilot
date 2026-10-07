@@ -16,7 +16,6 @@ import { resolveScenePreset } from './scenePresets.js'
 import { exitLiftPoint } from '../vessel/sceneRecipe.js'
 import { streams } from './rng.js'
 import { mixColor } from '../vessel/liquidLedger.js'
-import { ANIMATION_TEMPO } from './tempo.js'
 import { innerRadiusFn, liquidProfileGeo, tubeProfile, collectionProfile, columnCupProfile, bottleProfile,
   tubeShape, columnShape, collectionShape, linearShape, tipShape, levelFor, volumeAt, bottleStockUl, COLL_Y0, COLL_YMAX } from './liquidShape.js'
 
@@ -674,9 +673,14 @@ export function undockSample(lift = false) {
       if(grp.userData.tipUl!=null){ st.fill=st.tFill; st.color.copy(st.tColor); }   // the tip holds what the plunger drew, this frame
       else { st.fill=lerp(st.fill,st.tFill,1-Math.pow(0.002,dt)); st.color.lerp(st.tColor,1-Math.pow(0.004,dt)); }
       fluidMat.color.copy(st.color); fluidMat.emissive.copy(st.color);
-      var dispensing = st.tFill<prev-0.0002 && st.fill>0.03;
+      // dispensing: the tip empties faster than 0.012 of its fill per second of SCENE time (it was
+      // 0.0002 per frame — a per-frame threshold the tempo and the frame rate both changed)
+      var dispensing = dt>0 && (prev-st.tFill)/dt>0.012 && st.fill>0.03;
       drop.visible=dispensing;
-      if(dispensing){ var t=performance.now()*0.006/ANIMATION_TEMPO; drop.position.y=-0.9-Math.sin(t)*0.01; drop.scale.y=1.3+Math.sin(t*1.3)*0.15; }
+      // the drop's wobble runs on the scene's clock (dt is the frame loop's tempo-scaled time; it
+      // read performance.now — a wall clock outside the tempo): same 6 rad/s, same amplitude
+      st.wob=(st.wob||0)+dt;
+      if(dispensing){ var t=st.wob*6; drop.position.y=-0.9-Math.sin(t)*0.01; drop.scale.y=1.3+Math.sin(t*1.3)*0.15; }
       if(grp.userData.tipUl!=null ? !(grp.userData.tipUl>1e-9) : st.fill<0.01){ fluid.visible=false; }
       else{ fluid.visible=true; var h=st.fill*0.66; fluid.scale.y=h/0.6; fluid.position.y=-0.8+h/2;
         // the liquid stays INSIDE the tip (bug fix): its top is as wide as the tip's inner cone
