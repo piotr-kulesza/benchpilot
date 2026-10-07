@@ -16,6 +16,7 @@ import { resolveScenePreset } from './scenePresets.js'
 import { exitLiftPoint } from '../vessel/sceneRecipe.js'
 import { streams } from './rng.js'
 import { mixColor } from '../vessel/liquidLedger.js'
+import { MAX_SPEED } from './motionPlan.js'
 import { innerRadiusFn, liquidProfileGeo, tubeProfile, collectionProfile, columnCupProfile, bottleProfile,
   tubeShape, columnShape, collectionShape, linearShape, tipShape, levelFor, volumeAt, bottleStockUl, COLL_Y0, COLL_YMAX } from './liquidShape.js'
 
@@ -168,6 +169,38 @@ export function undockSample(lift = false) {
   function lerp(a,b,t){ return a + (b-a)*t; }
   function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
   function easeInOut(t){ t=clamp(t,0,1); return t<0.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2; }
+  // A PART MOVED BY A CHASE (a lid, a door, a cap, a tray: x eases toward its target in update(dt))
+  // never moves faster than MAX_SPEED (motionPlan.js — rule 3). measureParam runs the part's own
+  // pose function over x ∈ [0,1] at build time and returns the most any corner of its meshes travels
+  // per unit of x (in the builder's own frame); capChase then never steps x further in one frame than
+  // that speed allows (scaled by the builder's size in the world). The chase keeps its own curve.
+  var _mpA=new THREE.Vector3(), _mpS=new THREE.Vector3();
+  function measureParam(grp, parts, apply, x0){
+    var N=60, prev=null, k=0;
+    grp.updateMatrixWorld(true);
+    var inv=new THREE.Matrix4().copy(grp.matrixWorld).invert();
+    var meshes=[]; parts.forEach(function(pt){ pt.traverse(function(o){ if(o.isMesh && o.geometry) meshes.push(o); }); });
+    for(var i=0;i<=N;i++){
+      apply(i/N); grp.updateMatrixWorld(true);
+      var cur=[];
+      meshes.forEach(function(m){
+        if(!m.geometry.boundingBox) m.geometry.computeBoundingBox();
+        var b=m.geometry.boundingBox, M=new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld);
+        [b.min.x,b.max.x].forEach(function(x){ [b.min.y,b.max.y].forEach(function(y){ [b.min.z,b.max.z].forEach(function(z){ cur.push(new THREE.Vector3(x,y,z).applyMatrix4(M)); }); }); });
+      });
+      if(prev) for(var j=0;j<cur.length;j++) k=Math.max(k, cur[j].distanceTo(prev[j])*N);
+      prev=cur;
+    }
+    apply(x0==null?0:x0); grp.updateMatrixWorld(true);
+    return k;
+  }
+  function capChase(grp, cur, target, dt, base, k){
+    var next=lerp(cur,target,1-Math.pow(base,dt));
+    if(!(k>0) || !(dt>0)) return next;
+    var ws=grp.getWorldScale(_mpS).x||1;
+    var m=MAX_SPEED*dt/(k*ws);
+    return cur+clamp(next-cur,-m,m);
+  }
   var MAX_ANISO = 8;
 
   function radialTex(stops){
@@ -560,8 +593,13 @@ export function undockSample(lift = false) {
   }
 
   /* ---------- air-displacement micropipette ---------- */
-  function buildPipette(){
+  // kind 'P200' (the demo's pipette; a yellow tip) or 'P1000' (the same model, a blue tip and its own
+  // decal, placed 1.15× larger by addPipetteRig): rule 1 — a volume calls for its pipette
+  function buildPipette(kind){
+    kind = kind==='P1000' ? 'P1000' : 'P200';
+    var P1000 = kind==='P1000';
     var grp = new THREE.Group();
+    grp.userData.kind = kind; grp.userData.capacityUl = P1000 ? 1000 : 200;
     var bodyMat  = matPainted(0xd8dee6, 0.42);
     var accentMat= new THREE.MeshStandardMaterial({ color:0x4c6470, metalness:0.3, roughness:0.44, envMapIntensity:0.8 });
     var darkMat  = matPlastic(0x232a33);
@@ -584,7 +622,8 @@ export function undockSample(lift = false) {
     var vc=document.createElement("canvas"); vc.width=128; vc.height=180; var vg=vc.getContext("2d");
     vg.fillStyle="#131920"; vg.fillRect(0,0,128,180);
     vg.fillStyle="#9fb0ba"; vg.font="700 62px 'IBM Plex Mono'"; vg.textAlign="center";
-    vg.fillText("3",64,58); vg.fillText("5",64,118); vg.fillText("0",64,178);
+    if(P1000){ vg.fillText("1",64,58); vg.fillText("0",64,118); vg.fillText("0",64,178); }
+    else { vg.fillText("3",64,58); vg.fillText("5",64,118); vg.fillText("0",64,178); }
     var vTex=new THREE.CanvasTexture(vc); vTex.anisotropy=MAX_ANISO;
     var win=new THREE.Mesh(new THREE.PlaneGeometry(0.1,0.16), new THREE.MeshBasicMaterial({map:vTex,transparent:true}));
     win.position.set(0,1.05,0.162); win.rotation.x=-0.05; grp.add(win);
@@ -608,7 +647,8 @@ export function undockSample(lift = false) {
     var cone = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.028,0.16,24), steelMat);
     cone.position.y=0.02; grp.add(cone);
 
-    var tipMat = matSilicone(0xe6eef4); tipMat.opacity=0.42;
+    // the tip's colour says its size, as at the bench: a P200's tip is yellow, a P1000's blue
+    var tipMat = matSilicone(P1000 ? 0x3d86d6 : 0xf0c62e); tipMat.opacity=P1000 ? 0.5 : 0.5;
     var tp=[
       new THREE.Vector2(0.0,-0.86), new THREE.Vector2(0.014,-0.8), new THREE.Vector2(0.05,-0.2),
       new THREE.Vector2(0.08,0.02), new THREE.Vector2(0.11,0.02), new THREE.Vector2(0.115,-0.03)
@@ -637,8 +677,8 @@ export function undockSample(lift = false) {
     var brandC=document.createElement("canvas"); brandC.width=160; brandC.height=72; var brandG=brandC.getContext("2d");
     brandG.clearRect(0,0,160,72);
     brandG.fillStyle="#516873"; brandG.font="700 34px 'IBM Plex Sans'"; brandG.textAlign="center"; brandG.textBaseline="middle";
-    brandG.fillText("P200",80,30);
-    brandG.font="500 15px 'IBM Plex Sans'"; brandG.fillStyle="#41535d"; brandG.fillText("20 – 200 µL",80,56);
+    brandG.fillText(P1000 ? "P1000" : "P200",80,30);
+    brandG.font="500 15px 'IBM Plex Sans'"; brandG.fillStyle="#41535d"; brandG.fillText(P1000 ? "100 – 1000 µL" : "20 – 200 µL",80,56);
     var brandTex=new THREE.CanvasTexture(brandC); brandTex.anisotropy=MAX_ANISO;
     var brand=new THREE.Mesh(new THREE.PlaneGeometry(0.18,0.081),
       new THREE.MeshStandardMaterial({ map:brandTex, transparent:true, roughness:0.55, metalness:0, envMapIntensity:0.4 }));
@@ -663,7 +703,7 @@ export function undockSample(lift = false) {
     grp.userData.st=st;
     grp.userData.setFluid=function(v){ st.tFill=clamp(v,0,1); };
     // the tip drawn to the volume it holds: a P200 tip (its decal), so 10 µl is a sliver, not a full tip
-    var tShape=tipShape();
+    var tShape=tipShape(grp.userData.capacityUl);
     grp.userData.drawnUl=function(){ return fluid.visible ? volumeAt(tShape, st.fill) : 0; };
     grp.userData.drawnColor=function(){ return '#'+fluidMat.color.getHexString(); };   // the tip is the origin
     grp.userData.setTipVolume=function(ul){ grp.userData.tipUl=Math.max(0,ul); st.tFill=levelFor(tShape, Math.min(Math.max(ul,0), tShape.capacityUl)); };
@@ -926,8 +966,9 @@ export function undockSample(lift = false) {
     grp.userData.label=label;
     grp.userData.setDrawer=function(out){ pst.tDraw=out?1:0; };
     grp.userData.setOD=function(v){ drawOD(clamp(v,0,4)); };
-    grp.userData.update=function(dt){ pst.draw=lerp(pst.draw,pst.tDraw,1-Math.pow(0.02,dt));
-      tray.position.set(0,0.5,0.4+pst.draw*1.4); trayLip.position.set(0,0.53,1.24+pst.draw*1.4); };
+    var trayAt=function(x){ tray.position.set(0,0.5,0.4+x*1.4); trayLip.position.set(0,0.53,1.24+x*1.4); };
+    var trayK=measureParam(grp,[tray,trayLip],trayAt,pst.draw);      // its speed cap (rule 3)
+    grp.userData.update=function(dt){ pst.draw=capChase(grp,pst.draw,pst.tDraw,dt,0.02,trayK); trayAt(pst.draw); };
     grp.userData.update(0.001);
     return grp;
   }
@@ -991,7 +1032,9 @@ export function undockSample(lift = false) {
     var ist={ door:0, tDoor:0 };
     grp.userData.label=label;
     grp.userData.setDoor=function(open){ ist.tDoor=open?1:0; };
-    grp.userData.update=function(dt){ ist.door=lerp(ist.door,ist.tDoor,1-Math.pow(0.02,dt)); doorPivot.rotation.y=easeInOut(ist.door)*1.3; };
+    var doorAt=function(x){ doorPivot.rotation.y=easeInOut(x)*1.3; };
+    var doorK=measureParam(grp,[doorPivot],doorAt,ist.door);         // its speed cap (rule 3)
+    grp.userData.update=function(dt){ ist.door=capChase(grp,ist.door,ist.tDoor,dt,0.02,doorK); doorAt(ist.door); };
     return grp;
   }
 
@@ -1059,9 +1102,10 @@ export function undockSample(lift = false) {
       var tempC = hot ? 95 : (cp<0.7 ? 58 : 72);
       drawDisp(cyc, cycles, tempC, hot);
     };
+    var lidAt=function(x){ lidPivot.rotation.x = -easeInOut(x)*1.15; }; // 1=open(raised), 0=closed(flat over the block)
+    var lidK=measureParam(grp,[lidPivot],lidAt,st.lid);              // its speed cap (rule 3)
     grp.userData.update=function(dt){
-      st.lid=lerp(st.lid, st.tLid, 1-Math.pow(0.02,dt));
-      lidPivot.rotation.x = -easeInOut(st.lid)*1.15; // 1=open(raised), 0=closed(flat over the block)
+      st.lid=capChase(grp,st.lid,st.tLid,dt,0.02,lidK); lidAt(st.lid);
     };
     grp.userData.setProgress(0,30);
     return grp;
@@ -1301,6 +1345,9 @@ export function undockSample(lift = false) {
     label.position.set(0,2.5,0); grp.add(label);
 
     var st={ spin:0,tSpin:0,lid:1,tLid:1 };   // lid: 1=open, 0=closed (starts open)
+    var cenLidAt=function(x){ lidPivot.rotation.x = -easeInOut(x)*1.15; };
+    var cenLidK=measureParam(grp,[lidPivot],cenLidAt,st.lid);
+    rotor.userData.spinPart = true;   // the spin is the one motion the speed rule excepts (and what rides in it)
     grp.userData.rotor=rotor; grp.userData.dome=dome; grp.userData.label=label; grp.userData.st=st;
     grp.userData.holders=holders;
     grp.userData.setSpin=function(v){ st.tSpin=v; };
@@ -1311,8 +1358,7 @@ export function undockSample(lift = false) {
     grp.userData.update=function(dt){
       st.spin=lerp(st.spin,st.tSpin,1-Math.pow(0.01,dt));
       rotor.rotation.y += st.spin*dt;
-      st.lid=lerp(st.lid,st.tLid,1-Math.pow(0.02,dt));
-      lidPivot.rotation.x = -easeInOut(st.lid)*1.15;
+      st.lid=capChase(grp,st.lid,st.tLid,dt,0.02,cenLidK); cenLidAt(st.lid);   // its speed cap (rule 3)
       drawRPM(Math.min(st.spin,26)/26*13400);
     };
     return grp;
@@ -1646,16 +1692,19 @@ export function undockSample(lift = false) {
     grp.userData.cap=cap;
     grp.userData.setLevel=function(v){ bState.tLevel=clamp(v,0,1); };
     grp.userData.setCap=function(on){ bState.tOpen = on ? 0 : 1; };
-    grp.userData.update=function(dt){
-      bState.level = grp.userData.snapLevel ? bState.tLevel : lerp(bState.level,bState.tLevel,1-Math.pow(0.02,dt));
-      bState.open =lerp(bState.open, bState.tOpen, 1-Math.pow(0.0009,dt));
-      liq.scale.y=Math.max(0.001,bState.level);                    // surface drops
-      var o=bState.open;
-      // LIFT FIRST, then slide and tilt aside (bug fix): all three at once swung the cap's
-      // skirt through the neck. Closed (0) and open (1) poses are unchanged.
+    // LIFT FIRST, then slide and tilt aside (bug fix): all three at once swung the cap's
+    // skirt through the neck. Closed (0) and open (1) poses are unchanged.
+    var capAt=function(o){
       var up=Math.min(1,o/0.35), aside=clamp((o-0.25)/0.75,0,1);
       cap.position.set(-aside*0.52, bState.capBaseY + up*0.42, aside*0.14); // lift, then slide aside
       cap.rotation.z = aside*1.2;                                            // tilt aside
+    };
+    var capK=measureParam(grp,[cap],capAt,bState.open);
+    grp.userData.update=function(dt){
+      bState.level = grp.userData.snapLevel ? bState.tLevel : lerp(bState.level,bState.tLevel,1-Math.pow(0.02,dt));
+      bState.open =capChase(grp, bState.open, bState.tOpen, dt, 0.0009, capK);   // its speed cap (rule 3)
+      liq.scale.y=Math.max(0.001,bState.level);                    // surface drops
+      capAt(bState.open);
     };
     return grp;
   }
@@ -1869,7 +1918,7 @@ export {
   // receiving vessel fills only inside it — never before the tip arrives.
   var DISPENSE_FROM=0.68, DISPENSE_TO=0.87;
   function dispenseProgress(p){ return easeInOut(clamp((p-DISPENSE_FROM)/(DISPENSE_TO-DISPENSE_FROM),0,1)); }
-  var TIP_DROP=0.62;                          // tip end below the pipette origin: 0.86 × PIP_SCALE 0.72
+  var TIP_DROP_P200=0.62;                     // tip end below the pipette origin: 0.86 × PIP_SCALE 0.72
   // A PASS STARTS AND ENDS AT THE PIPETTE'S HOME (bug fix). The pipette used to begin with
   // its tip already IN the source while the bottle's cap was still on (the cap comes off at
   // p 0.03), to end parked over the destination — where the sample, lifting out on the next
@@ -1883,7 +1932,12 @@ export {
   // HOME is one fixed point (it is also where the idle pipette waits: pipRest), so a pass that
   // starts late in a step leaves from exactly where the pipette was — never a jump
   var PIP_HOME_Y=2.4;
-  function pipHome(){ return new THREE.Vector3(PIP_REST.x+0.6, PIP_HOME_Y, PIP_REST.z); }
+  // each pipette waits at its own HOME: the P200 front-left beside its stand (as it always has), a
+  // P1000 0.5 behind it. pipetteRun sets HOME_KIND to the pipette a pass uses.
+  var HOME_KIND='P200';
+  function pipHome(kind){ kind=kind||HOME_KIND; return new THREE.Vector3(PIP_REST.x+0.6, PIP_HOME_Y, PIP_REST.z-(kind==='P1000'?0.5:0)); }
+  // the pipette a pass of `ul` calls for (rule 1; the ledger has already split a move into passes)
+  function kindFor(opts){ return opts && opts.kind ? opts.kind : (opts && opts.tipUl!=null && opts.tipUl>200+1e-9 ? 'P1000' : 'P200'); }
   function pipPhaseA(from, TRAVEL_Y, a){             // a: 0..1 across phase A → origin position
     var SRC=from.y+0.72, H=pipHome();                // SRC: origin with the tip down in the source
     if(a<0.3){ var q=easeInOut(a/0.3); return new THREE.Vector3(lerp(H.x,from.x,q), lerp(H.y,TRAVEL_Y,q), lerp(H.z,from.z,q)); }
@@ -1938,7 +1992,7 @@ export {
   // the stretch each segment of ONE pass needs (straight approach; pipetteRun's own geometry)
   function passStretch(from, to, opts){
     opts=opts||{};
-    var H=pipHome(), TY=Math.max(from.y,to.y)+2.0, DIP=to.y+(opts.dipDepth!=null?opts.dipDepth:0.62);
+    var H=pipHome(kindFor(opts)), TY=Math.max(from.y,to.y)+2.0, DIP=to.y+(opts.dipDepth!=null?opts.dipDepth:0.62);
     var vol=opts.tipUl!=null && opts.srcTip!=null, SRC=vol ? opts.srcTip : from.y+0.72;
     var vd=(TY-DIP)/0.12;                                   // the descent: its way per unit of p
     var k=function(dist, share){ return Math.max(1, Math.abs(dist)/share/vd); };
@@ -1969,7 +2023,15 @@ export {
   }
   function pipetteRun(st, from, to, p, opts){
     opts=opts||{};
+    // the pipette this pass's volume calls for; the other one (if the station has two) waits at home
+    var kind=kindFor(opts);
+    if(st.pips && st.pips[kind] && st.pip!==st.pips[kind]){
+      var was=st.pip; st.pip=st.pips[kind];
+      if(was){ was.position.copy(pipHome(was.userData.kind)); was.rotation.set(0,0,0); was.userData.setFluid(0); was.userData.phase='home'; }
+    }
+    HOME_KIND=kind;
     var pip=st.pip; if(!pip) return;
+    var TIP_DROP=TIP_DROP_P200*(pip.scale.x/PIP_SCALE);   // the tip below the body's pivot, at this pipette's size
     // GEOMETRY-SAFE motion (bug fix): NEVER cross laterally at rim height (that
     // pushed the tip through the vessel wall). Instead: draw at the bottle, travel
     // LEVEL and HIGH — well clear of any vessel top — to directly above the mouth,
@@ -2086,20 +2148,29 @@ export {
   // resident equipment: a stand AND its OWN pipette, both fixed to this station
   var PIP_SCALE = 0.72;   // IMPROVEMENT: a shorter pipette so its body never reaches
                           // up behind the top HUD bar during the pour travel arc.
-  function addPipetteRig(st){
-    addStand(st);
-    // built AT ITS HOME (bug fix): it stood in its stand (PIP_REST) until the station was entered,
-    // then entering put it at HOME — a 1.34 jump in one frame, in view as the station faded in
-    var pip = buildPipette(); pip.scale.setScalar(PIP_SCALE); pip.position.copy(pipHome());
-    pip.userData.noFrame = true;    // the pipette travels high on its arc — never frame it
-    st.group.add(pip); st.pip = pip; st.updatables.push(pip);
+  // kinds: the pipettes the station's passes call for (rule 1) — ['P200'] by default. Called again
+  // with more kinds, it adds the missing ones (a station whose flow-through discard needs a P1000).
+  function addPipetteRig(st, kinds){
+    kinds = kinds && kinds.length ? kinds : ['P200'];
+    if(!st.pips){ addStand(st); st.pips={}; }
+    kinds.forEach(function(kind){
+      if(st.pips[kind]) return;
+      // built AT ITS HOME (bug fix): it stood in its stand (PIP_REST) until the station was entered,
+      // then entering put it at HOME — a 1.34 jump in one frame, in view as the station faded in
+      var pip = buildPipette(kind); pip.scale.setScalar(PIP_SCALE*(kind==='P1000'?1.15:1)); pip.position.copy(pipHome(kind));
+      pip.userData.noFrame = true;    // the pipette travels high on its arc — never frame it
+      st.group.add(pip); st.pips[kind]=pip; st.updatables.push(pip);
+      if(!st.pip) st.pip = pip;
+    });
   }
   // dock this station's resident pipette back in its stand (LOCAL space)
   // the idle pipette waits at its HOME, held (not in its stand: the stand's arm crosses its own
   // ring) — the point every pass starts from and returns to
   function pipRest(st){ if(!st.pip) return;
-    st.pip.position.copy(pipHome()); st.pip.rotation.set(0,0,0);
-    st.pip.userData.setFluid(0); st.pip.userData.phase='home'; }
+    (st.pips ? Object.values(st.pips) : [st.pip]).forEach(function(pp){
+      pp.position.copy(pipHome(pp.userData.kind)); pp.rotation.set(0,0,0);
+      pp.userData.setFluid(0); if(pp.userData.tipUl!=null) pp.userData.setTipVolume(0); pp.userData.phase='home';
+    }); }
 
   // ─── Stage-8 container vessels (the sample-follow model shows exactly one) ───
   // Shared liquid state matching buildTube's contract: setLevel/setColor/setLabel +
@@ -2165,17 +2236,20 @@ export {
     var _cryoUpd=grp.userData.update;
     grp.userData.update=function(dt){
       if(_cryoUpd) _cryoUpd(dt);
-      cryoCap.open = lerp(cryoCap.open, cryoCap.tOpen, 1-Math.pow(0.0009,dt));
-      var o=cryoCap.open;
-      // unscrew up off the vial (0-0.3), carry over clear (0.3-0.7), set down upright on
-      // the bench in front of the vial (0.7-1) — never left hanging in the air. The cap is
-      // 0.2 tall, so on the bench its centre sits at 0.1. Reverses to cap it again.
+      cryoCap.open = capChase(grp, cryoCap.open, cryoCap.tOpen, dt, 0.0009, cryoK);   // its speed cap (rule 3)
+      cryoAt(cryoCap.open);
+    };
+    // unscrew up off the vial (0-0.3), carry over clear (0.3-0.7), set down upright on
+    // the bench in front of the vial (0.7-1) — never left hanging in the air. The cap is
+    // 0.2 tall, so on the bench its centre sits at 0.1. Reverses to cap it again.
+    function cryoAt(o){
       var ON_Y=top+0.09, UP=top+0.5, BX=-0.45, BY=0.1, BZ=0.4, e;
       if(o<0.3){ e=easeInOut(o/0.3); cryoCapGrp.position.set(0, lerp(ON_Y,UP,e), 0); }
       else if(o<0.7){ e=easeInOut((o-0.3)/0.4); cryoCapGrp.position.set(lerp(0,BX,e), UP, lerp(0,BZ,e)); }
       else { e=easeInOut((o-0.7)/0.3); cryoCapGrp.position.set(BX, lerp(UP,BY,e), BZ); }
       cryoCapGrp.rotation.z = 0;
-    };
+    }
+    var cryoK=measureParam(grp,[cryoCapGrp],cryoAt,cryoCap.open);
     return grp;
   }
 
@@ -2310,15 +2384,18 @@ export {
     var _flaskUpd=grp.userData.update;
     grp.userData.update=function(dt){
       if(_flaskUpd) _flaskUpd(dt);
-      flaskCap.open = lerp(flaskCap.open, flaskCap.tOpen, 1-Math.pow(0.0009,dt));
-      var o=flaskCap.open;
-      // unscrew up off the neck (o 0-0.3), carry over clear (0.3-0.7), set down on the
-      // bench upright beside the flask (0.7-1). Reverses to cap it again.
+      flaskCap.open = capChase(grp, flaskCap.open, flaskCap.tOpen, dt, 0.0009, flaskK);   // its speed cap (rule 3)
+      flaskAt(flaskCap.open);
+    };
+    // unscrew up off the neck (o 0-0.3), carry over clear (0.3-0.7), set down on the
+    // bench upright beside the flask (0.7-1). Reverses to cap it again.
+    function flaskAt(o){
       var up=CAP_ON.y+0.35, e;
       if(o<0.3){ e=easeInOut(o/0.3); flaskCapGrp.position.set(CAP_ON.x, lerp(CAP_ON.y, up, e), CAP_ON.z); flaskCapGrp.rotation.z=-0.62*(1-e); }
       else if(o<0.7){ e=easeInOut((o-0.3)/0.4); flaskCapGrp.position.set(lerp(CAP_ON.x,CAP_BENCH.x,e), up, lerp(CAP_ON.z,CAP_BENCH.z,e)); flaskCapGrp.rotation.z=0; }
       else { e=easeInOut((o-0.7)/0.3); flaskCapGrp.position.set(CAP_BENCH.x, lerp(up, CAP_BENCH.y, e), CAP_BENCH.z); flaskCapGrp.rotation.z=0; }
-    };
+    }
+    var flaskK=measureParam(grp,[flaskCapGrp],flaskAt,flaskCap.open);
     return grp;
   }
 
@@ -2463,7 +2540,9 @@ export {
     grp.userData.setDoor=function(open){ st.tDoor=open?1:0; };
     grp.userData.setFrost=function(a){ frostMat.opacity=clamp(a,0,0.5)*0.4; };  // at most a faint mist
     // the door swings OUT, toward the front (bug fix: +1.2 swung it into the cabinet)
-    grp.userData.update=function(dt){ st.door=lerp(st.door,st.tDoor,1-Math.pow(0.02,dt)); doorPivot.rotation.y=-easeInOut(st.door)*1.2; };
+    var fDoorAt=function(x){ doorPivot.rotation.y=-easeInOut(x)*1.2; };
+    var fDoorK=measureParam(grp,[doorPivot],fDoorAt,st.door);        // its speed cap (rule 3)
+    grp.userData.update=function(dt){ st.door=capChase(grp,st.door,st.tDoor,dt,0.02,fDoorK); fDoorAt(st.door); };
     return grp;
   }
 
@@ -2557,7 +2636,7 @@ export {
     st.reagents[key] = { grp:b, pos:new THREE.Vector3(x, 0.24, z) };
   }
   function stationReagent(st, Y, o){
-    addPipetteRig(st);
+    addPipetteRig(st, o.kinds);
     // an ANGLED pass (a flask's canted neck) tilts the pipette's body out over where the bottle
     // stood: the bottle stands 0.3 further forward, clear of it
     addBottle(st, o.key, o.blabel, o.color, 2.0, (o.dispense && o.dispense.approach==='angled') ? 1.0 : 0.7);
@@ -2620,6 +2699,13 @@ export {
     // VOLUMES (o.vol {start,end}; o.flow {start,peak,end,color}): the docked vessel goes from start to
     // end while the rotor turns; a column's liquid arrives in its collection tube at the same pace;
     // "discard the flow-through" empties it once the lid is open. Without o.vol: the demo's levels.
+    // the liquid moves ONLY while the rotor turns (rule 2): its share never runs ahead of the spin —
+    // spun up from rest, the rotor turns a few frames after the countdown starts; reset on entry
+    var spunQ=0;
+    function amtSpin(v, e){
+      if(e<=spunQ || (cen.userData.st && cen.userData.st.spin>0.01)) spunQ=Math.max(spunQ, e);
+      amt(v, spunQ);
+    }
     function amt(v, e){
       if(o.vol && v.userData.setVolume) v.userData.setVolume(lerp(o.vol.start, o.vol.end, e));
       else v.userData.setLevel(lerp(o.lStart==null?0.5:o.lStart, o.lEnd==null?(o.lStart==null?0.5:o.lStart):o.lEnd, e));
@@ -2678,6 +2764,17 @@ export {
         v.quaternion.copy(sp.q); v.scale.setScalar(sp.s);
       }
     }
+    // how long the lowering takes: from its own way (lift → over the slot → into it, turning to the
+    // slot's tilt) on its two eased legs, peaking at MAX_SPEED (rule 3) — it was a fixed 0.9 s
+    var lowerT=null;
+    function lowerTime(){
+      if(lowerT!=null) return lowerT;
+      var sp=seatPose(), L=new THREE.Vector3(st.x+lift.x, lift.y, lift.z), E=sp.p.clone().addScaledVector(sp.axis, 0.9);
+      var R=new THREE.Box3().setFromObject(SAMPLE[o.vessel]).getSize(new THREE.Vector3()).length();   // the vessel's own size
+      var turn=new THREE.Quaternion().angleTo(sp.q)*R + Math.abs(1-sp.s)*R;   // its corners swing as it tilts and shrinks into the slot
+      lowerT=Math.max(0.3, 3*(L.distanceTo(E)+turn)/(0.55*MAX_SPEED), 3*E.distanceTo(sp.p)/(0.45*MAX_SPEED));
+      return lowerT;
+    }
     st.enter=function(){
       SAMPLE.only(o.vessel);
       var v=SAMPLE[o.vessel];
@@ -2686,7 +2783,7 @@ export {
       if(o.vol) amt(v, 0); else v.userData.setLevel(o.lStart==null?0.5:o.lStart);
       undock(); v.scale.setScalar(1); v.rotation.set(0,0,0); v.visible=true;
       SAMPLE.at(v, st.x+lift.x, lift.y, lift.z);        // arrives above the open rotor
-      lowerQ=0; lastP=0; restT=0;
+      lowerQ=0; lastP=0; restT=0; spunQ=0; lowerT=null;
       cen.userData.setLabel(o.cenLabel||"Centrifuge", o.cenSub||""); cen.userData.setSpin(0); cen.userData.setLid(true);
     };
     if(o.seconds) st.hud={label:o.hudLabel||"Centrifuge", seconds:o.seconds};
@@ -2707,7 +2804,7 @@ export {
         // rotor it is lowered into its slot, and rests there with the lid open
         if(docked) return;
         if(v.userData.trip){ SAMPLE.at(v, st.x+lift.x, lift.y, lift.z); return; }
-        restT+=dt; var qr=clamp(restT/0.9,0,1); lowerInto(qr); if(qr>=1) dock();
+        restT+=dt; var qr=clamp(restT/lowerTime(),0,1); lowerInto(qr); if(qr>=1) dock();
         return;
       }
       if(t.done || t.progress>=1){                // 00:00 — rotor spins DOWN, lid opens
@@ -2717,7 +2814,7 @@ export {
         if(!docked){ lowerInto(1); dock(); }
         if(endT<0.9){ cen.userData.setLid(false); }              // still closed while it slows
         else { cen.userData.setLid(true); }                      // lid swings open
-        if(o.vol) amt(v, 1);   // the flow-through stays in its tube: it is poured off at the bench (the next station)
+        if(o.vol) amtSpin(v, 1);   // the flow-through stays in its tube: it is poured off at the bench (the next station)
         // the tube STAYS in its slot (bug fix): it used to be lifted out and left hanging in the
         // air; it leaves on the next step, along the slot's axis (undockSample)
         return;
@@ -2726,14 +2823,14 @@ export {
       if(phase!=="run"){ phase="run"; runT=0; }
       runT+=dt;
       if(!docked){                               // Start pressed before it was lowered in
-        restT+=dt; var qe=clamp(restT/0.9,0,1); lowerInto(qe); if(qe>=1) dock();
+        restT+=dt; var qe=clamp(restT/lowerTime(),0,1); lowerInto(qe); if(qe>=1) dock();
         cen.userData.setLid(true); cen.userData.setSpin(0);
       } else {
         dock();
         cen.userData.setLid(false);
         cen.userData.setSpin(t.running?24:0);     // spin while running; decelerate & hold when paused
       }
-      if(o.vol) amt(v, easeInOut(clamp(t.progress,0,1)));
+      if(o.vol) amtSpin(v, easeInOut(clamp(t.progress,0,1)));
       else if(o.lEnd!=null) v.userData.setLevel(lerp(o.lStart==null?0.5:o.lStart,o.lEnd,easeInOut(clamp(t.progress,0,1))));
     };
     st.timeline=function(p){
@@ -2754,7 +2851,7 @@ export {
       } else {                               // 5 · lid opens; the sample STAYS in its slot (it
         cen.userData.setSpin(0); cen.userData.setLid(true);   // leaves on the next step, along the slot axis)
       }
-      if(o.vol) amt(v, easeInOut(clamp((p-0.27)/0.53,0,1)));   // moves only while the rotor turns
+      if(o.vol) amtSpin(v, easeInOut(clamp((p-0.27)/0.53,0,1)));   // moves only while the rotor turns
       else if(o.lEnd!=null) v.userData.setLevel(lerp(o.lStart==null?0.5:o.lStart, o.lEnd, easeInOut(clamp(p,0,1))));
     };
   }

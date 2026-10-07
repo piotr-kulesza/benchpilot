@@ -15,7 +15,8 @@ import { PerspectiveCamera } from '@react-three/drei'
 import { FogExp2, Color, Vector3, Quaternion, Box3, Group, Mesh, RingGeometry, SphereGeometry, CylinderGeometry, PlaneGeometry, CanvasTexture, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
 import { animationTempo } from '../scene/tempo.js'
-import { buildLedger, mixColor, TIP_UL } from './liquidLedger.js'
+import { MAX_SPEED, CAMERA_MAX_SPEED, PEAK, durationFor } from '../scene/motionPlan.js'
+import { buildLedger, mixColor, TIP_UL, P200_UL, passesFor } from './liquidLedger.js'
 import { tubeShape, volumeAt } from '../scene/liquidShape.js'
 import { resolveRecipe, stepConditions, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects, exitLiftPoint, pourPlan, removalFor, benchStaging, addSource } from './sceneRecipe.js'
 import { containerContract, transferKind, sideBySide } from './containerContract.js'
@@ -31,7 +32,6 @@ const RAIL_Z = 9.6
 const LOOK_Y = 1.05
 const STEP_DUR = 6.5 // the demo's per-step animation window (seconds)
 const SPACING = 8.4 // distance between stations along +X (the demo's buildLine)
-const GLIDE_DUR = 1.65 // camera rail-dolly duration on a step change (the demo)
 // Camera framing is MEASURED from each station's content bounding box, never assumed
 // to sit at the origin (a centrifuge is parked off to one side, a CO₂ incubator is
 // wide and deep). R_REF is the content radius the demo's fixed distance frames
@@ -387,6 +387,8 @@ export function configureStation(st, o) {
   }
   // this station's pipette passes: one entry per tip, in order (an op of n passes is n entries)
   const passList = (ops) => ops.flatMap((op) => Array.from({ length: op.passes || 1 }, () => ({ op, each: op.ul / (op.passes || 1) })))
+  // the pipettes a station's passes call for (rule 1: ≤ 200 µl a P200, more a P1000)
+  const kindsOf = (passes) => [...new Set(passes.map((x) => (x.each <= P200_UL + 1e-9 ? 'P200' : 'P1000')))]
   // each source bottle falls by exactly what its tips have drawn so far (the draw's own curve)
   const drawSources = (passes, j, lp) => {
     const drawn = {}
@@ -457,7 +459,7 @@ export function configureStation(st, o) {
     const srcUl = draws.some((x) => String(x.from).startsWith('prep:')) ? ulAt(draws[0].from, 'start') : volumeAt(tubeShape(1.7, 0.32), 0.6)
     const addColor = draws.length ? draws.reduce((c, x, k) => (k ? mixColor(c, draws.slice(0, k).reduce((a, y) => a + y.ul, 0), x.color, x.ul) : x.color), null) : endColor
     demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: Lq && draws.length ? addColor : endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: C.entryPoint,
-      ...(Lq && P ? { passes: P, each: total / P, ulStart: startUl, srcTube: tube, srcUl } : {}) })
+      ...(Lq && P ? { passes: P, each: total / P, ulStart: startUl, srcTube: tube, srcUl, kinds: kindsOf([{ each: total / P }]) } : {}) })
     st.duration = passDuration(Lq && P ? P : 1, st.passPlan)
     const src = st.reagents.r
     src.grp.visible = false
@@ -561,7 +563,7 @@ export function configureStation(st, o) {
       // with volumes, one pass per tip of the stated draw, the vessel rising by what was dispensed
       const P = passList(addOps).length, add = addOps[0]
       demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: add ? add.color : endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: C.entryPoint,
-        ...(Lq && P ? { passes: P, each: add.ul / P, ulStart: startUl } : {}) })
+        ...(Lq && P ? { passes: P, each: add.ul / P, ulStart: startUl, kinds: kindsOf(passList(addOps)) } : {}) })
       st.duration = passDuration(Lq && P ? P : 1, st.passPlan)
       frameAngledPipette(st, C.dispense, 0)
     } else if (prep) {
@@ -575,9 +577,9 @@ export function configureStation(st, o) {
       const PREP_FULL = 0.62
       st.drawsFromId = o.drawsFrom
       st.drawPos = { x: st.x + draw.x, y: 0, z: draw.z } // WORLD seat the carried tube glides to
-      demo.addPipetteRig(st)
       const mv = Lq ? addOps.find((x) => x.from === 'prep:' + o.drawsFrom) : null
       const P = mv ? mv.passes || 1 : 1, each = mv ? mv.ul / P : 0
+      demo.addPipetteRig(st, mv ? kindsOf([{ each }]) : null)
       const prepUl = Lq ? ulAt('prep:' + o.drawsFrom, 'start') : 0
       st.passPlan = demo.passPlan([{ from: draw, to: { x: disp.x, y: toY, z: disp.z }, opts: { tipUl: mv ? each : null, srcTip: 0.035, dipDepth: C.entryPoint } }])
       // the station as it was (a quarter for the mix's arrival, the passes after it), the passes
@@ -614,10 +616,10 @@ export function configureStation(st, o) {
       // N reagents → N pipette passes INTO the sample (one per reagent, from its own source).
       const disp = C.dispense || { x: 0, z: 0 }
       const toY = (disp.approach === 'angled' && disp.y != null) ? disp.y : SEAT_Y
-      demo.addPipetteRig(st)
+      const passes = Lq ? passList(addOps) : []
+      demo.addPipetteRig(st, kindsOf(passes))
       reags.forEach((r, k) => addReagentSource(st, 'r' + k, r, k, fromMix))
       st.enter = () => { seat(0, SEAT_Y, 0); demo.pipRest(st) }
-      const passes = Lq ? passList(addOps) : []
       st.passPlan = demo.passPlan(reags.map((r, k) => ({ from: st.reagents['r' + k].pos, to: { x: disp.x, y: toY, z: disp.z }, opts: { tipUl: passes.length ? 1 : null, srcTip: passes.length ? bottleTip('r' + k) : null, dipDepth: C.entryPoint } })))
       st.duration = passDuration(passes.length || reags.length, st.passPlan)
       st.timeline = (p) => {
@@ -662,7 +664,8 @@ export function configureStation(st, o) {
     prep.userData.setColor(reags[0].color); prep.userData.setLevel(0)
     prep.userData.setLabel(name || 'mixture', vol || '')
     st.prep = prep; st.prepId = prepId; st.prepHome = home; st.prepFull = PREP_FULL
-    demo.addPipetteRig(st)
+    const pid0 = 'prep:' + prepId
+    demo.addPipetteRig(st, Lq ? kindsOf(passList(Lq.ops.filter((x) => x.op === 'add' && x.to === pid0))) : null)
     reags.forEach((r, k) => demo.addBottle(st, 'r' + k, r.name, r.color, 2.2 + k * 0.95, 0.7))
     // the prep sits at (0.4, ·, 0.2) LOCAL to this station while it is being made, so the
     // bottles dispense straight into it (world == home because it is parked here).
@@ -1237,6 +1240,14 @@ export function configureStation(st, o) {
       }
       // during an elution the column (not drawn) rides in the eluate tube it drains into
       if (S.column) S.column.userData.ridesWith = (action === 'elute' && vessel !== 'column') ? S[vessel] : null
+      // a reagent bottle is an unlimited source: every station starts with it at its drawn line,
+      // closed (it falls by what this station draws). A station's entry sets its WHOLE start — the
+      // pacer's dry run, or an earlier visit, must leave nothing behind
+      for (const r of Object.values(st.reagents || {})) {
+        const b = r && r.grp
+        if (b && b.userData.stockUl) { b.userData.snapLevel = true; b.userData.setLevel(1) }
+        if (b && b.userData.setCap) b.userData.setCap(true)
+      }
       enter0 && enter0()
     }
   }
@@ -1251,8 +1262,8 @@ export function configureStation(st, o) {
 // bottom, so it is not tipped.) The beaker stands left of the seat, clear of the stand and sources.
 function wrapFlowDiscard(st, S, ul, color, seatLocal) {
   const baseEnter = st.enter, baseTimeline = st.timeline
-  if (!st.pip) demo.addPipetteRig(st)                   // (every bench station that receives a column has one)
-  const P = Math.max(1, Math.ceil(ul / TIP_UL - 1e-9)), each = ul / P
+  const P = passesFor(ul), each = ul / P                // rule 1: the pipette its volume calls for
+  demo.addPipetteRig(st, [each <= P200_UL + 1e-9 ? 'P200' : 'P1000'])   // (adds it to a station's rig if missing)
   const COL_S = 1.2                                      // seconds to stand the column aside (and back)
   // its passes: from the collection tube on the column's seat into the beaker (their own pass plan)
   const plan = demo.passPlan([{ from: { x: seatLocal.x, y: seatLocal.y, z: seatLocal.z }, to: { x: seatLocal.x - 1.15, y: 0, z: seatLocal.z + 0.45 }, opts: { tipUl: each, srcTip: seatLocal.y + 0.02, dipDepth: 0.5 } }])
@@ -1443,7 +1454,7 @@ function configurePipetteTransfer(st, S, o) {
   const from = { x: AX + (srcDisp?.x || 0), y: srcSeatY, z: Z + (srcDisp?.z || 0) }
   const to = { x: BX + (dstDisp?.x || 0), y: dstAngled && dstDisp.y != null ? dstDisp.y : dstSeatY, z: Z + (dstDisp?.z || 0) }
   // its pass plan (the pass clock): source mouth → destination, at the speed of its descent
-  st.passPlan = demo.passPlan([{ from, to, opts: { tipUl: move && vols ? Math.min(each, TIP_UL) : null, srcTip: move && vols ? srcSeatY + 0.035 : null, dipDepth: dstEntry } }])
+  st.passPlan = demo.passPlan([{ from, to, opts: { tipUl: move && vols ? each : null, srcTip: move && vols ? srcSeatY + 0.035 : null, dipDepth: dstEntry } }])
   // frame BOTH vessels (base → top of each) so the fit keeps them centred, not the tall
   // pipette (which is excluded from the frame).
   st.frameAnchors = [
@@ -1451,7 +1462,7 @@ function configurePipetteTransfer(st, S, o) {
     new Vector3(BX + dstFoot.minX, dstSeatY, Z), new Vector3(BX + dstFoot.maxX, dstSeatY + 1.7, Z),
   ]
 
-  demo.addPipetteRig(st)
+  demo.addPipetteRig(st, move && vols ? [each <= P200_UL + 1e-9 ? 'P200' : 'P1000'] : null)
   if (dstAngled) frameAngledPipette(st, dstDisp, BX, Z)
 
   st.enter = () => {
@@ -1487,7 +1498,7 @@ function configurePipetteTransfer(st, S, o) {
       const { j, lp } = passAt(p, P, st.passPlan)
       S[fromKey].userData.setCap?.(!(lp > 0.01 && lp < 0.32))
       recvCap(S[toKey], j, P, lp, 0.4, 0.97)
-      demo.pipetteRun(st, from, to, lp, { color: move.color, tipUl: Math.min(each, TIP_UL), srcTip: srcSeatY + 0.035, approach: dstDisp?.approach, tilt: dstDisp?.tilt, depth: dstDisp?.depth, dipDepth: dstEntry })
+      demo.pipetteRun(st, from, to, lp, { color: move.color, tipUl: each, srcTip: srcSeatY + 0.035, approach: dstDisp?.approach, tilt: dstDisp?.tilt, depth: dstDisp?.depth, dipDepth: dstEntry })
       const drawn = (j + demo.drawProgress(lp)) * each, given = (j + demo.dispenseProgress(lp)) * each
       if (a.userData.setVolume) a.userData.setVolume(vols.a - drawn); else a.userData.setLevel?.(demo.lerp(startLevel, 0.03, drawn / move.ul))
       if (b.userData.setVolume) { b.userData.setVolume(vols.b + given); b.userData.setColor?.(mixColor(vols.bColor, vols.b, move.color, given)) }
@@ -1511,6 +1522,136 @@ function configurePipetteTransfer(st, S, o) {
     // p 0.98, in full view); the next step's entry puts it away as the camera leaves
     if (p > 0.98) S.snapTo(b, st.x + BX, dstSeatY, Z)
   }
+}
+
+// THE PACER — every motion of a station timed from its own DISTANCE (rule 3, motionPlan.js).
+// At build time the station's own timeline is run dry over p (its vessels' state saved and restored,
+// as clearStand does): every mesh that moves is measured in the world, each step of p, and the
+// camera's push. Runs of p in which something moves are MOTION SEGMENTS; each is given exactly the
+// time that makes its fastest moment reach MAX_SPEED — uniformly, so its own easing is untouched.
+// Runs in which nothing moves (a draw or a dispense held, a pour's stream, a wait) keep the seconds
+// the station gave them. The result is a warp: wall progress u → the timeline's p, and the
+// station's duration. Everything the timeline drives — vessels, tips, liquids, caps — reads the
+// SAME p, so a liquid stays on the plunger's clock. Computed from geometry when the scene is built;
+// nothing is tuned per protocol or per station. A step on a countdown keeps the countdown's clock.
+const PACE_N = 1500
+const PACE_EPS = 2e-4            // world units per sample: below it, nothing moved
+const _pc = new Vector3()
+function paceMeshes(root, out, skipSet) {
+  root.traverse((o) => {
+    if (skipSet.has(o)) return
+    if (!o.isMesh || o.isSprite || !o.geometry) return
+    const mats = Array.isArray(o.material) ? o.material : [o.material]
+    if (mats.some((m) => m && m.userData && (m.userData.auditKind === 'fluid' || m.userData.auditKind === 'effect' || m.userData.auditKind === 'granular'))) return
+    for (let n = o; n && n !== root.parent; n = n.parent) if (n.userData && (n.userData.auditKind || n.userData.spinPart)) return
+    out.push(o)
+  })
+}
+function meshCorners(m, out) {
+  if (!m.geometry.boundingBox) m.geometry.computeBoundingBox()
+  const b = m.geometry.boundingBox
+  let i = 0
+  for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) for (const z of [b.min.z, b.max.z]) { (out[i] || (out[i] = new Vector3())).set(x, y, z).applyMatrix4(m.matrixWorld); i++ }
+  return out
+}
+const shownTo = (o, root) => { for (let n = o; n && n !== root; n = n.parent) if (!n.visible) return false; return o.visible !== false }
+function pace(st) {
+  if (!st.timeline) return
+  const S = demo.getSample()
+  const vessels = S ? [...S.vessels, ...demo.getPreps()] : demo.getPreps()
+  const saved = vessels.map((v) => ({ v, parent: v.parent, docked: v.userData.docked, trip: v.userData.trip, p: v.position.clone(), t: v.userData.tPos ? v.userData.tPos.clone() : null, vis: v.visible, r: v.rotation.clone(), s: v.scale.clone(), q: v.quaternion.clone() }))
+  const snap = demo.getSnap ? demo.getSnap() : false
+  const base = st.duration || STEP_DUR
+  const d = new Float64Array(PACE_N + 1)
+  const jumps = []
+  try {
+    demo.setSnap(true)
+    st.enter && st.enter()
+    const skipSet = new Set([st.label, st.dial].filter(Boolean))
+    const all = []
+    st.group.children.forEach((c) => paceMeshes(c, all, skipSet))
+    vessels.forEach((v) => paceMeshes(v, all, skipSet))
+    const update = () => { st.group.updateMatrixWorld(true); for (const v of vessels) v.updateWorldMatrix(true, true) }
+    // movers: meshes whose world matrix changes across a coarse pass (the rest stand still)
+    const first = new Map()
+    const movers = new Set()
+    for (let k = 0; k <= 96; k++) {
+      st.timeline(k / 96); update()
+      for (const m of all) { const e = m.matrixWorld.elements; const f = first.get(m); if (!f) first.set(m, e.slice()); else if (!movers.has(m) && e.some((x, i) => Math.abs(x - f[i]) > 1e-6)) movers.add(m) }
+    }
+    const list = [...movers]
+    st.enter && st.enter()
+    let prev = null
+    const cam = st.pushCam && st.pushTarget ? st.pushTarget : null
+    const camBase = cam && st.frame ? (() => { const f = st.frame, fit = demo.clamp(f.radius / R_REF, 1, 1.7); return new Vector3(f.center.x, f.center.y + (RAIL_Y - LOOK_Y) * fit, f.center.z + RAIL_Z * fit) })() : null
+    const camSpan = cam && camBase ? camBase.distanceTo(_pc.set(cam.pos[0], cam.pos[1], cam.pos[2])) * MAX_SPEED / CAMERA_MAX_SPEED : 0
+    let pushPrev = cam ? st.pushCam(0) : 0
+    for (let k = 0; k <= PACE_N; k++) {
+      const p = k / PACE_N
+      st.timeline(p); update()
+      const cur = list.map((m) => (shownTo(m, null) ? meshCorners(m, []) : null))
+      if (prev) {
+        let dk = 0
+        for (let i = 0; i < list.length; i++) {
+          const a = prev[i], b = cur[i]
+          if (!a || !b) continue
+          for (let c = 0; c < 8; c++) { const dd = a[c].distanceTo(b[c]); if (dd > dk) dk = dd }
+        }
+        if (cam) { const pu = st.pushCam(p); dk = Math.max(dk, Math.abs(pu - pushPrev) * camSpan); pushPrev = pu }
+        d[k] = dk
+      }
+      prev = cur
+    }
+  } catch (e) {
+    if (import.meta.env.DEV) console.warn('[pace] station', st.x / SPACING + 1, e)
+    return
+  } finally {
+    try { st.timeline(0) } catch { /* the timeline's p = 0 targets (caps, lids) back where they start */ }
+    try { st.enter && st.enter() } catch { /* */ }
+    for (const o of saved) {
+      if (o.v.parent !== o.parent && o.parent) o.parent.add(o.v)
+      o.v.userData.docked = o.docked; o.v.userData.trip = o.trip
+      o.v.position.copy(o.p); if (o.t) o.v.userData.tPos.copy(o.t); o.v.visible = o.vis; o.v.quaternion.copy(o.q); o.v.scale.copy(o.s)
+    }
+    demo.setSnap(snap)
+    demo.pipRest(st)
+  }
+  // an ISOLATED jump (a sample far above both neighbours) is a cut in the timeline, not a motion:
+  // it is reported (the dev guard, check-protocol), never stretched into a slow glide
+  for (let k = 1; k <= PACE_N; k++) {
+    if (d[k] > 0.03 && d[k] > 4 * Math.max(d[k - 1] || 0, d[k + 1] || 0)) { jumps.push({ p: +(k / PACE_N).toFixed(4), dist: +d[k].toFixed(3) }); d[k] = 0 }
+  }
+  // segments: runs of moving samples (a one-sample lull does not split one)
+  const dp = 1 / PACE_N
+  const T = new Float64Array(PACE_N + 1)
+  const segs = []
+  let k = 1
+  while (k <= PACE_N) {
+    if (d[k] <= PACE_EPS) { T[k] = dp * base; k++; continue }
+    let e = k
+    while (e + 1 <= PACE_N && (d[e + 1] > PACE_EPS || (e + 2 <= PACE_N && d[e + 2] > PACE_EPS))) e++
+    let peak = 0, len = 0
+    for (let i = k; i <= e; i++) { peak = Math.max(peak, d[i] / dp); len += d[i] }
+    const per = dp * peak / (0.95 * MAX_SPEED)   // seconds per sample: the fastest one peaks at MAX_SPEED (5 % under)
+    for (let i = k; i <= e; i++) T[i] = per
+    segs.push({ from: +((k - 1) / PACE_N).toFixed(4), to: +(e / PACE_N).toFixed(4), length: +len.toFixed(3), seconds: +(per * (e - k + 1)).toFixed(3) })
+    k = e + 1
+  }
+  const cum = new Float64Array(PACE_N + 1)
+  for (let i = 1; i <= PACE_N; i++) cum[i] = cum[i - 1] + T[i]
+  const total = cum[PACE_N]
+  if (!(total > 0)) return
+  st.duration = total
+  st.pace = { segs, jumps, base: +base.toFixed(3), total: +total.toFixed(3) }
+  // wall progress u → p (linear inside each sample: a segment is scaled uniformly)
+  st.warp = (u) => {
+    const t = Math.min(1, Math.max(0, u)) * total
+    let lo = 0, hi = PACE_N
+    while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (cum[mid] <= t) lo = mid; else hi = mid }
+    const span = cum[hi] - cum[lo]
+    return Math.min(1, (lo + (span > 0 ? (t - cum[lo]) / span : 0)) / PACE_N)
+  }
+  if (import.meta.env.DEV && jumps.length) console.warn(`[scene rule] station ${Math.round(st.x / SPACING) + 1}: the timeline jumps (a teleport) at`, jumps)
 }
 
 // THE STAND CLEARS THE SEAT: where a vessel this station sets down overlaps the pipette stand's
@@ -1610,11 +1751,16 @@ function travel(v, goal, dt) {
   if (u._goal.distanceToSquared(goal) > TRAVEL_JUMP * TRAVEL_JUMP) {
     // the target jumped: travel to it — unless the vessel was SNAPPED onto it (a jump between
     // stations places it), which carries no motion
-    if (v.position.distanceToSquared(goal) < 1e-10) { u._vel.set(0, 0, 0); u._spring = false } else u._spring = true
+    if (v.position.distanceToSquared(goal) < 1e-10) { u._vel.set(0, 0, 0); u._spring = false } else {
+      u._spring = true
+      // its stiffness from its DISTANCE: a critically damped spring from rest peaks at d·ω/e, so it
+      // never outruns MAX_SPEED (motionPlan.js) however far the target jumped
+      u._omega = Math.min(TRAVEL_OMEGA, Math.E * MAX_SPEED / Math.max(1e-6, v.position.distanceTo(goal)))
+    }
   }
   u._goal.copy(goal)
   if (u._spring) {
-    const k = TRAVEL_OMEGA * TRAVEL_OMEGA, c = 2 * TRAVEL_OMEGA
+    const w = u._omega || TRAVEL_OMEGA, k = w * w, c = 2 * w
     u._vel.x += (k * (goal.x - v.position.x) - c * u._vel.x) * dt
     u._vel.y += (k * (goal.y - v.position.y) - c * u._vel.y) * dt
     u._vel.z += (k * (goal.z - v.position.z) - c * u._vel.z) * dt
@@ -1630,6 +1776,7 @@ function travel(v, goal, dt) {
   }
 }
 const _travelPrev = new Vector3()
+const _v3 = new Vector3(), _v3b = new Vector3()
 // is any shown vessel (the sample, a prep) still on its trip here?
 function vesselsArriving() {
   const S = demo.getSample()
@@ -1642,6 +1789,7 @@ function vesselsArriving() {
 // station that moves the seat during the trip is followed.
 const _tp = [new Vector3(), new Vector3(), new Vector3(), new Vector3()]
 const _qId = new Quaternion()
+const _tpS = new Vector3()
 function tripPoint(pts, s, out) {
   // the polyline with each inner corner replaced by a quadratic curve through it
   const R = 0.35
@@ -1678,8 +1826,12 @@ function travelTrip(v, dt) {
   const pts = tr.out ? [tr.from, tr.out, tr.lift, ...tail] : [tr.from, tr.lift, ...tail]
   if (tr.D == null) {
     let L = 0; for (let i = 1; i < pts.length; i++) L += pts[i].distanceTo(pts[i - 1])
-    tr.L0 = tr.out ? tr.from.distanceTo(tr.out) / L : 0
-    tr.D = Math.min(1.1, Math.max(0.6, 0.4 + L * 0.05)) + (tr.out ? 0.3 : 0)
+    // leaving a tilted / scaled seat it rights itself on the first leg: its corners swing by the tilt
+    // (and grow by the scale) over its own size — that is way travelled too
+    tr.L0 = tr.out ? tr.from.distanceTo(tr.out) / L : 0   // the first leg's share of the path (positions)
+    if (tr.out) { const R = new Box3().setFromObject(v).getSize(_tpS).length(); L += (tr.q0.angleTo(_qId) * R + Math.abs(1 - tr.s0) * R) / Math.max(tr.L0, 0.05) }
+    // its time from its LENGTH: the whole path on one smootherstep, peaking at MAX_SPEED (motionPlan.js)
+    tr.D = Math.max(0.3, durationFor(L, PEAK.smootherstep))
   }
   tr.t += dt
   const s = smoother(tr.t / tr.D)
@@ -1746,6 +1898,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
   const activeRef = useRef(0)
   const prevActiveRef = useRef(-1)
   const pRef = useRef(0)
+  const uRef = useRef(0) // the step's wall progress (p = the pacer's warp of it)
   const restartRef = useRef(true)
   const perspRef = useRef()
   const keyRef = useRef()
@@ -1866,6 +2019,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       st.frame = computeStationFrame(st)
       st.group.position.set(st.x, 0, 0)
       clearStand(st)
+      pace(st)
       // the title sits just ABOVE the thing the step is about — the props' bbox top,
       // centred on it — not over the station origin. Its own half-height (worldH/2)
       // plus a small gap put the plate's BOTTOM edge clear of the subject.
@@ -2031,13 +2185,12 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     // Everything below (the timeline, driveTimed, the dial) reads this one value.
     { const tmr = timerRef.current; if (tmr.live) tmr.progress = tmr.live() }
 
-    // 1 · ease railX toward the active station's X
+    // 1 · ease railX toward the active station's X — on the SCENE clock (tempo), for as long as the
+    // camera's own way takes at its top speed (motionPlan.js): the glide's length is measured once
+    // the target pose is known (below), from where the camera actually is
     const g = glideRef.current
-    if (g.active) {
-      g.t = Math.min(g.t + dt / GLIDE_DUR, 1)
-      railXRef.current = demo.lerp(g.from, g.to, demo.easeInOut(g.t))
-      if (g.t >= 1) { g.active = false; railXRef.current = g.to }
-    }
+    const ge = g.active ? demo.easeInOut(g.t) : 1
+    if (g.active) railXRef.current = demo.lerp(g.from, g.to, ge)
     const railX = railXRef.current
 
     // 2 · position the cinematic camera — pure lateral tracking, no orbit — aimed and
@@ -2047,7 +2200,12 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     const fit = demo.clamp(f.radius / R_REF, 1, 1.7) // back off only for oversized rigs
     const cam = perspRef.current
     if (cam) {
-      const cx = railX + f.center.x + Math.sin(time * 0.15) * 0.12
+      // the camera aims at the station it is going TO: during a glide its pose blends from where the
+      // camera was to that station's own framing (reached unchanged), on the scene clock, for as long
+      // as the way takes at CAMERA_MAX_SPEED (motionPlan.js). The framing used to switch to the new
+      // station's in one frame while the rail eased over.
+      const camX = g.active ? g.to : railX
+      const cx = camX + f.center.x + Math.sin(time * 0.15) * 0.12
       // demo angle/height, scaled to fit, aimed at the content centre (x/y/z)
       let px = cx, py = f.center.y + (RAIL_Y - LOOK_Y) * fit, pz = f.center.z + RAIL_Z * fit
       let lx = cx, ly = f.center.y, lz = f.center.z
@@ -2056,11 +2214,23 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       const push = actCam && actCam.pushCam ? actCam.pushCam(pRef.current) : 0
       if (push > 0 && actCam.pushTarget) {
         const t = actCam.pushTarget
-        px = demo.lerp(px, railX + t.pos[0], push); py = demo.lerp(py, t.pos[1], push); pz = demo.lerp(pz, t.pos[2], push)
-        lx = demo.lerp(lx, railX + t.look[0], push); ly = demo.lerp(ly, t.look[1], push); lz = demo.lerp(lz, t.look[2], push)
+        px = demo.lerp(px, camX + t.pos[0], push); py = demo.lerp(py, t.pos[1], push); pz = demo.lerp(pz, t.pos[2], push)
+        lx = demo.lerp(lx, camX + t.look[0], push); ly = demo.lerp(ly, t.look[1], push); lz = demo.lerp(lz, t.look[2], push)
+      }
+      if (g.active) {
+        if (!g.dur) {
+          g.fromPos = cam.position.clone(); g.fromLook = g.look ? g.look.clone() : new Vector3(lx, ly, lz)
+          g.dur = Math.max(0.25, durationFor(Math.max(g.fromPos.distanceTo(_v3.set(px, py, pz)), g.fromLook.distanceTo(_v3b.set(lx, ly, lz))), PEAK.easeInOut, CAMERA_MAX_SPEED))
+        }
+        g.t = Math.min(g.t + adt / g.dur, 1)
+        const e = demo.easeInOut(g.t)
+        px = demo.lerp(g.fromPos.x, px, e); py = demo.lerp(g.fromPos.y, py, e); pz = demo.lerp(g.fromPos.z, pz, e)
+        lx = demo.lerp(g.fromLook.x, lx, e); ly = demo.lerp(g.fromLook.y, ly, e); lz = demo.lerp(g.fromLook.z, lz, e)
+        if (g.t >= 1) { g.active = false; railXRef.current = g.to }
       }
       cam.position.set(px, py, pz)
       cam.lookAt(lx, ly, lz)
+      g.look = (g.look || new Vector3()).set(lx, ly, lz)
       // keep the active station's title label INSIDE the frame, below the top HUD band:
       // if its top edge would project above LABEL_TOP_NDC, lower it (never below the
       // subject's top) — a pushed-in or widened frame used to clip it at the top edge
@@ -2092,13 +2262,18 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     // is a lie about the step. Untimed steps (and the dev harness) keep the free-running p.
     const act = stations[activeRef.current]
     if (act) {
-      if (restartRef.current) { pRef.current = 0; restartRef.current = false }
+      if (restartRef.current) { pRef.current = 0; uRef.current = 0; restartRef.current = false }
       const tm = timerRef.current
       if (tm.hasTimer) pRef.current = tm.progress // countdown drives every timed instrument
       // the step's action begins once its vessels have ARRIVED (a trip from the last station takes
-      // up to ~1.1 s): the pipette used to dive into a tube still in the air
-      else if (!vesselsArriving()) pRef.current = Math.min(pRef.current + adt / (act.duration || STEP_DUR), 1)   // a multi-pass or long pour takes longer
-      if (benchLine.pForce != null) pRef.current = benchLine.pForce   // DEV: the audit drives p
+      // up to ~1.1 s): the pipette used to dive into a tube still in the air. u is the step's WALL
+      // progress over its paced duration; p = the pacer's warp of it (pace(): every motion timed
+      // from its distance)
+      else {
+        if (!vesselsArriving()) uRef.current = Math.min(uRef.current + adt / (act.duration || STEP_DUR), 1)
+        pRef.current = act.warp ? act.warp(uRef.current) : uRef.current
+      }
+      if (benchLine.pForce != null) { uRef.current = benchLine.pForce; pRef.current = act.warp && !tm.hasTimer ? act.warp(benchLine.pForce) : benchLine.pForce }   // DEV: the audit drives u
       // the centrifuge needs absolute-time dock/lift choreography (a 10-min spin can't
       // glide in for two minutes), so it reads the timer directly; everything else is
       // continuous in p and tracks the countdown just by being fed the elapsed fraction.
