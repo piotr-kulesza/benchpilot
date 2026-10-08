@@ -831,7 +831,9 @@ export function configureStation(st, o) {
         if (!home) { demo.pipRest(st); home = pip.position.clone() }
         const IN = 0.15, OUT = 0.85
         const cp = demo.clamp((p - IN) / (OUT - IN), 0, 1) * 3 % 1 // 3 mixing strokes
-        const dip = p > IN && p < OUT ? (1 - Math.cos(cp * 2 * Math.PI)) / 2 : 0 // 0→1→0, each stroke eased at both ends
+        // 0→1→0, each stroke eased at both ends, then a moment at the top, the tip empty (strokes ran into
+        // each other: the tip was empty only at one instant between them)
+        const dip = p > IN && p < OUT && cp < 0.85 ? (1 - Math.cos(cp / 0.85 * 2 * Math.PI)) / 2 : 0
         if (p <= IN || p >= OUT) {
           // level over to above the tube at its home's height, then straight down to the stroke's top
           // (a diagonal cut through the tube's rim)
