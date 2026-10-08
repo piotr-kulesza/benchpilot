@@ -106,9 +106,15 @@ function depart(v, alongAxis = false) {
 // was docked rises STRAIGHT UP out of the instrument (an `exitLift` waypoint the frame
 // loop honours before the normal glide) so it never drags diagonally through the rotor
 // or the lid. On a jump (`lift` false) we just free it — a jump is allowed to snap.
+// the rotor a docked vessel rides in, and whether it has come to rest
+function rotorOf(v) { for (let n = v.parent; n; n = n.parent) if (n.userData && n.userData.spinPart) return n.parent; return null }
+export function rotorAtRest(v) { const cen = rotorOf(v); return !cen || !cen.userData.atRest || cen.userData.atRest() }
 export function undockSample(lift = false) {
   if (!SAMPLE || !scene) return
   for (const v of SAMPLE.vessels) {
+    // a vessel in a rotor that is still turning (spinning down, settling home) is taken out only once
+    // it is still (undockWhenStill, every frame): released now, the slot turned away under it
+    if (lift && v.userData.docked && !rotorAtRest(v)) { v.userData.leaveWhenStill = true; continue }
     const wasDocked = v.userData.docked
     if (v.parent && v.parent !== scene) scene.attach(v)
     // on a sequential Next EVERY shown vessel departs straight up and arrives from above (it
@@ -120,6 +126,18 @@ export function undockSample(lift = false) {
     else { v.userData.trip = null; v.userData.exitOut = null; if (wasDocked) { v.rotation.set(0, 0, 0); v.scale.setScalar(1) } }
     v.userData.exitLift = null
   }
+}
+export function undockWhenStill() {
+  if (!SAMPLE || !scene) return false
+  let waiting = false
+  for (const v of SAMPLE.vessels) {
+    if (!v.userData.leaveWhenStill) continue
+    if (!rotorAtRest(v)) { waiting = true; continue }
+    v.userData.leaveWhenStill = false
+    scene.attach(v); v.userData.docked = false
+    if (v.visible) depart(v, true)
+  }
+  return waiting
 }
 
   var LOOK = {
@@ -1069,6 +1087,7 @@ export function undockSample(lift = false) {
     var doorAt=function(x){ doorPivot.rotation.y=easeInOut(x)*1.3; };
     var doorK=measureParam(grp,[doorPivot],doorAt,ist.door);         // its speed cap (rule 3)
     grp.userData.update=function(dt){ ist.door=capChase(grp,ist.door,ist.tDoor,dt,0.02,doorK); doorAt(ist.door); };
+    grp.userData.doorState=function(){ return ist.door; };
     return grp;
   }
 
@@ -1348,7 +1367,8 @@ export function undockSample(lift = false) {
       var a=k/8*Math.PI*2;
       var holder=new THREE.Group();
       var slot=new THREE.Mesh(new THREE.CylinderGeometry(SLOT_R,SLOT_R,0.62,24,1,true), slotMat); holder.add(slot);   // straight-sided: what passes its mouth passes its depth
-      var slotBot=new THREE.Mesh(new THREE.SphereGeometry(SLOT_R,18,10,0,Math.PI*2,Math.PI*0.5,Math.PI*0.5),slotMat);
+      // a FLAT floor at the slot's foot (a rounded one reached below the bowl into the solid base)
+      var slotBot=new THREE.Mesh(new THREE.CircleGeometry(SLOT_R,24),slotMat); slotBot.rotation.x=-Math.PI/2;
       slotBot.position.y=-0.31; holder.add(slotBot);
       holder.position.set(Math.cos(a)*0.62,0.0,Math.sin(a)*0.62);
       // clean fixed-angle rotor: every slot tilts outward by the SAME angle around its tangential axis
@@ -1405,6 +1425,7 @@ export function undockSample(lift = false) {
     var cenLidK=measureParam(grp,[lidPivot],cenLidAt,st.lid);
     rotor.userData.spinPart = true;   // the spin is the one motion the speed rule excepts (and what rides in it)
     grp.userData.rotor=rotor; grp.userData.dome=dome; grp.userData.label=label; grp.userData.st=st;
+    grp.userData.atRest=function(){ return st.tSpin===0 && st.spin<0.01 && (!st.homing || (Math.abs(st.rv||0)<0.01 && Math.abs((st.home||0)-rotor.rotation.y)<0.003)); };
     grp.userData.holders=holders;
     grp.userData.setSpin=function(v){ st.tSpin=v; };
     // IMPROVEMENT: explicit lid hook. stationSpin closes it before the rotor spins
@@ -1415,9 +1436,13 @@ export function undockSample(lift = false) {
       st.spin=lerp(st.spin,st.tSpin,1-Math.pow(0.01,dt));
       rotor.rotation.y += st.spin*dt;
       // spinning down, the rotor comes to rest at its HOME angle (its docked slot facing the front, as it
-      // was loaded — so the tube leaves away from the raised lid at the back), creeping the last of the way
-      if(st.tSpin===0 && st.spin<1.5){ var home=Math.round(rotor.rotation.y/(Math.PI*2))*Math.PI*2, cr=Math.max(st.spin,0.8)*dt;
-        rotor.rotation.y += clamp(home-rotor.rotation.y, -cr, cr); }
+      // was loaded — so the tube leaves away from the raised lid at the back): from its own slow turn it
+      // settles there on a critically damped spring (no abrupt stop)
+      if(st.tSpin===0 && st.spin<1.5){
+        if(!st.homing){ st.homing=true; st.rv=st.spin; st.home=Math.ceil(rotor.rotation.y/(Math.PI*2))*Math.PI*2; }
+        rotor.rotation.y -= st.spin*dt;                     // (the spin's own turn is replaced by the spring's)
+        st.rv += (9*(st.home-rotor.rotation.y) - 6*st.rv)*dt; rotor.rotation.y += st.rv*dt;
+      } else st.homing=false;
       st.lid=capChase(grp,st.lid,st.tLid,dt,0.02,cenLidK); cenLidAt(st.lid);   // its speed cap (rule 3)
       drawRPM(Math.min(st.spin,26)/26*13400);
     };
@@ -2656,6 +2681,7 @@ export {
     grp.userData.setFrost=function(a){ frostMat.opacity=clamp(a,0,0.5)*0.4; };  // at most a faint mist
     // the door swings OUT, toward the front (bug fix: +1.2 swung it into the cabinet)
     var fDoorAt=function(x){ doorPivot.rotation.y=-easeInOut(x)*1.2; };
+    grp.userData.doorState=function(){ return st.door; };
     var fDoorK=measureParam(grp,[doorPivot],fDoorAt,st.door);        // its speed cap (rule 3)
     grp.userData.update=function(dt){ st.door=capChase(grp,st.door,st.tDoor,dt,0.02,fDoorK); fDoorAt(st.door); };
     return grp;
@@ -2849,6 +2875,19 @@ export {
       v.position.copy(keep[0]); v.quaternion.copy(keep[1]); v.scale.copy(keep[2]); v.updateMatrixWorld(true);
       return Math.min(0.6, ((cen.userData.slotR||0.215)-0.012)/Math.max(r,1e-3));
     };
+    // how deep it sits: lowered along the slot until its lowest vertex rests on the slot's flat floor
+    // (0.31 below its middle) — from both geometries
+    var seatYOf=function(v){
+      var sc=seatScaleOf(v), R=cen.userData.slotR||0.215, y0=-Infinity, pt=new THREE.Vector3();
+      var keep=[v.position.clone(), v.quaternion.clone(), v.scale.clone()];
+      v.position.set(0,0,0); v.quaternion.identity(); v.scale.setScalar(1); v.updateMatrixWorld(true);
+      v.traverse(function(m){ if(!m.isMesh || !m.geometry || m.isSprite || m.isInstancedMesh) return; var mm=[].concat(m.material)[0];
+        if((m.userData&&m.userData.auditKind)||(mm&&mm.userData&&mm.userData.auditKind)) return;
+        var pos=m.geometry.attributes.position; if(!pos) return;
+        for(var i=0;i<pos.count;i++){ pt.fromBufferAttribute(pos,i).applyMatrix4(m.matrixWorld); if(Math.hypot(pt.x,pt.z)*sc<R) y0=Math.max(y0, -0.31-pt.y*sc); } });
+      v.position.copy(keep[0]); v.quaternion.copy(keep[1]); v.scale.copy(keep[2]); v.updateMatrixWorld(true);
+      return isFinite(y0) ? y0+0.008 : SEAT_Y;   // resting on it (within contact), not on its very surface
+    };
     var preSlot={ x:1.4, y:1.42, z:0.03 };   // just above the slot (station-local)
     var lift={ x:1.4, y:2.15, z:0.03 };      // raised clear of the rotor
     var docked=false;
@@ -2856,12 +2895,12 @@ export {
       if(docked) return;
       var v=SAMPLE[o.vessel];
       holder.add(v);                         // reparent INTO the slot — now rides the rotor
-      v.position.set(0, SEAT_Y, 0);          // seated in the slot bottom
+      v.position.set(0, seatYOf(v), 0);      // seated ON the slot's bottom (from both geometries)
       v.rotation.set(0,0,0);                 // aligns with the holder's outward tilt
       v.scale.setScalar(seatScaleOf(v));
       v.userData.docked=true; docked=true;   // frame loop stops gliding it while docked
       // leaving, it needs only to clear the slot's mouth (0.31 above the slot's centre) along its axis
-      v.userData.exitDepth=(0.31-SEAT_Y+0.05)*holder.getWorldScale(new THREE.Vector3()).x;
+      v.userData.exitDepth=(0.31-v.position.y+0.05)*holder.getWorldScale(new THREE.Vector3()).x;
     }
     function undock(){
       if(!docked) return;
@@ -2877,7 +2916,7 @@ export {
     var _sp=new THREE.Vector3(), _sq=new THREE.Quaternion(), _ss=new THREE.Vector3(), _ax=new THREE.Vector3();
     function seatPose(){
       cen.updateWorldMatrix(true,true);
-      new THREE.Matrix4().compose(new THREE.Vector3(0,SEAT_Y,0), new THREE.Quaternion(), new THREE.Vector3(seatScaleOf(SAMPLE[o.vessel]),seatScaleOf(SAMPLE[o.vessel]),seatScaleOf(SAMPLE[o.vessel])))
+      new THREE.Matrix4().compose(new THREE.Vector3(0,seatYOf(SAMPLE[o.vessel]),0), new THREE.Quaternion(), new THREE.Vector3(seatScaleOf(SAMPLE[o.vessel]),seatScaleOf(SAMPLE[o.vessel]),seatScaleOf(SAMPLE[o.vessel])))
         .premultiply(holder.matrixWorld).decompose(_sp,_sq,_ss);
       _ax.set(0,1,0).applyQuaternion(_sq);
       return { p:_sp.clone(), q:_sq.clone(), s:_ss.x, axis:_ax.clone() };

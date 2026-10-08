@@ -542,7 +542,7 @@ export function configureStation(st, o) {
       // (what flows in: the bottle's reagent, or — pouring the sample itself — the poured vessel's contents)
       const inColor = reag ? reag.color : (() => { const mv = Lq && pour.ops.find((x) => x.op === 'move' && x.to === vessel); return mv ? colAt(mv.from, 'start', endColor) : endColor })()
       if (VOL) { v.userData.setVolume(startUl + (endUl - startUl) * q); v.userData.setColor(mixColor(startColor, startUl, inColor, (endUl - startUl) * q)) }
-      else evolve(q)
+      else { evolve(q); if (Lq) v.userData.keepVolume?.(startUl + (endUl - startUl) * q) }   // (a surface keeps what flowed in, on the stream's clock)
     }
     // POURING THE SAMPLE ITSELF ("pour the agarose into the casting tray"): no bottle — the vessel the
     // sample was in IS what pours. It lifts, carries over and lowers until its MOUTH is over this
@@ -560,7 +560,13 @@ export function configureStation(st, o) {
       const Ml = new Vector3(sd.x || 0, angledSrc && sd.y != null ? sd.y : sb.max.y, sd.z || 0)        // its mouth, its own frame
       const ang0 = angledSrc ? -(sd.tilt != null ? sd.tilt : -0.62) : 0                               // its mouth's axis, from vertical toward +x
       const thMax = (Math.PI + 0.35) - Math.atan2(Math.cos(ang0), Math.sin(ang0))                      // tipped until the mouth points 20° below level
-      const T = new Vector3(mouth.x, mouth.y + 0.35, mouth.z)                                          // the mouth, just over this vessel's
+      // the mouth over this vessel's — HIGH ENOUGH that at every angle of the tip the poured vessel stays
+      // above the bench and above this vessel (a T-flask tipped about its neck swings its body down)
+      const T = new Vector3(mouth.x, mouth.y + 0.35, mouth.z)
+      { let low = 0
+        for (let k = 0; k <= 12; k++) { const th = thMax * k / 12, c = Math.cos(th), sn = Math.sin(th)
+          for (const x of [sb.min.x, sb.max.x]) for (const y of [sb.min.y, sb.max.y]) low = Math.min(low, (x - Ml.x) * sn + (y - Ml.y) * c) }
+        T.y = Math.max(T.y, db.max.y + 0.08 - low) }
       const at = (th) => { const c = Math.cos(th), sn = Math.sin(th); return new Vector3(T.x - (Ml.x * c - Ml.y * sn), T.y - (Ml.x * sn + Ml.y * c), T.z - Ml.z) }
       const P0 = at(0)
       const seatS = { x: db.min.x - sb.max.x - 0.35, y: (prevContainer ? containerContract(prevContainer).seat.y : 0), z: 0 }   // beside, clear of it
@@ -876,6 +882,11 @@ export function configureStation(st, o) {
         const { j, lp } = passAt(p, P, st.passPlan)
         recvCap(v, j, P, lp, 0.02, 0.36)                             // a capped vessel opens while the tip is in it
         // the tip draws from just under the liquid's surface (it follows the level down as it drains)
+        if (angled) {
+          // through a canted neck: in along its axis until the tip is just over the medium's floor
+          const fy = v.userData.liquidFloorY ? v.userData.liquidFloorY() : null, say = Math.cos(-(disp.tilt != null ? disp.tilt : -0.62))
+          if (fy != null) opts.srcDepth = Math.max(0.3, (from.y - (v.position.y + fy * v.scale.y + 0.012)) / say)
+        }
         if (!angled) {
           const sy = v.userData.surfaceY ? v.userData.surfaceY() : null, fy = v.userData.liquidFloorY ? v.userData.liquidFloorY() : null
           const floor = fy != null ? v.position.y + fy * v.scale.y + 0.004 : srcTip
@@ -1169,8 +1180,8 @@ export function configureStation(st, o) {
     // the 1.7 sample tube tops out ~2.02, under the cavity top) the entire time it is at or
     // inside the freezer, and only hops UP while still out in front of the box (never
     // over it). Door opens first; closes only once the vial is fully inside.
-    // the vial waits on the bench to the RIGHT of the freezer (bug fix): the door hinges front-left
-    // and swings out across the left — from a seat there the vial passed through it
+    // the vial waits on the bench to the RIGHT (bug fix): the door hinges left and opens across the
+    // front-left — from there the vial went in and out through it; it arrives past the door still shut
     const bench = { x: 1.6, y: SEAT_Y, z: 0.9 }
     // seated ON the cavity floor (from the freezer's geometry: whatever the vessel — a tube's rounded
     // foot, a cryovial's skirt) and slid straight in at that height; clear of the closed door
@@ -1178,11 +1189,16 @@ export function configureStation(st, o) {
     inside.y = restOn(fr, S[vessel], inside.x, inside.z, 1.0) + 0.004
     const front = { x: 0.1, y: inside.y, z: 0.4 }   // staged low, in front of the mouth
     const move = (v, a, b, q) => S.at(v, st.x + demo.lerp(a.x, b.x, q), demo.lerp(a.y, b.y, q), demo.lerp(a.z, b.z, q))
-    st.enter = () => { seat(bench.x, bench.y, bench.z); fr.userData.setDoor(true); fr.userData.setFrost(0); st.cold.intensity = 0 }
+    // the door opens once the vial has ARRIVED on the bench beside it (it used to swing open across the
+    // way the vial was carried in), and the vial waits for it before it goes in (the step's clock waits)
+    st.enter = () => { seat(bench.x, bench.y, bench.z); fr.userData.setDoor(false); fr.userData.setFrost(0); st.cold.intensity = 0 }
+    let lastP = 0
+    st.waitFor = () => lastP < 0.42 && !S[vessel].userData.trip && fr.userData.doorState() < 0.97 && lastP >= 0.1
     st.timeline = (p) => {
+      lastP = p
       evolve(p)
       const v = S[vessel]
-      fr.userData.setDoor(p < 0.66)  // open until the vial is seated inside, then close
+      fr.userData.setDoor(p < 0.66 && !v.userData.trip)  // open (once it has arrived) until the vial is seated inside, then close
       if (p < 0.66) v.userData.exitOut = null
       if (p < 0.14) {                // 1 · door swings open; vial waits on the bench
         S.at(v, st.x + bench.x, bench.y, bench.z)
@@ -1252,6 +1268,7 @@ export function configureStation(st, o) {
     const onStage = (dev, sy, k = 1.3, dx = 0, dz0 = 0) => {
       st.dev = dev; st.group.add(dev); st.updatables.push(dev)
       const dz = clearOnStage(dev, S[vessel], sy, dx, dz0)   // forward of whatever rises over the stage behind it
+      sy = restOn(dev, S[vessel], dx, dz, sy + 0.1)                         // resting ON the stage (from its geometry)
       const out = (v) => { v.userData.exitOut = (v.userData.exitOut || new Vector3()).set(st.x + dx, sy, dz + 1.4) }
       st.enter = () => { seat(0, 0, 0); S.at(S[vessel], st.x + dx, sy, dz); const v = S[vessel]; v.userData.enterVia = (v.userData.enterVia || new Vector3()).set(st.x + dx, sy, dz + 1.4); dev.userData.setProgress?.(0) }
       st.timeline = (p) => { evolve(p); S.at(S[vessel], st.x + dx, sy, dz); out(S[vessel]); dev.userData.setProgress?.(demo.easeInOut(demo.clamp(p * k, 0, 1))) }
@@ -1713,7 +1730,8 @@ function restOn(dev, v, x, z, upTo) {
 // station's duration. Everything the timeline drives — vessels, tips, liquids, caps — reads the
 // SAME p, so a liquid stays on the plunger's clock. Computed from geometry when the scene is built;
 // nothing is tuned per protocol or per station. A step on a countdown keeps the countdown's clock.
-const PACE_N = 1500
+const PACE_PER_S = 250          // dry-run samples per second of the station's own time (≥ 1500): a 25-pass
+                                // station had 60 samples a pass, 3 for a lift — its peak went unseen
 const PACE_EPS = 2e-4            // world units per sample: below it, nothing moved
 const _pc = new Vector3()
 function paceMeshes(root, out, skipSet) {
@@ -1740,6 +1758,7 @@ function pace(st) {
   const saved = vessels.map((v) => ({ v, parent: v.parent, docked: v.userData.docked, trip: v.userData.trip, p: v.position.clone(), t: v.userData.tPos ? v.userData.tPos.clone() : null, vis: v.visible, r: v.rotation.clone(), s: v.scale.clone(), q: v.quaternion.clone() }))
   const snap = demo.getSnap ? demo.getSnap() : false
   const base = st.duration || STEP_DUR
+  const PACE_N = Math.min(40000, Math.max(1500, Math.ceil(PACE_PER_S * base)))
   const d = new Float64Array(PACE_N + 1)
   const jumps = []
   try {
@@ -1964,6 +1983,7 @@ const _travelPrev = new Vector3()
 const _v3 = new Vector3(), _v3b = new Vector3()
 // is any shown vessel (the sample, a prep) still on its trip here?
 function vesselsArriving() {
+  if (demo.undockWhenStill()) return true   // a vessel still waiting in a turning rotor to be taken out
   const S = demo.getSample()
   if (S && S.vessels.some((v) => v.visible && v.userData.trip)) return true
   return demo.getPreps().some((v) => v.visible && v.userData.trip)
@@ -2000,42 +2020,46 @@ function tripPoint(pts, s, out) {
 }
 const smoother = (t) => { t = Math.min(1, Math.max(0, t)); return t * t * t * (t * (t * 6 - 15) + 10) }
 function travelTrip(v, dt) {
-  const u = v.userData, tr = u.trip
+  const u = v.userData
+  let tr = u.trip
   if (!tr) return false
-  const seat = u.tPos
-  // a seat under an overhead instrument (a camera, an objective) or inside one (an incubator)
-  // is entered from the FRONT: over the front at the clearance height, down there, then in
-  const via = u.enterVia
-  if (via) { _tp[2].set(via.x, Math.max(via.y, tr.lift.y), via.z); _tp[3].copy(via) } else _tp[2].set(seat.x, Math.max(seat.y, tr.lift.y), seat.z)
-  const tail = via ? [_tp[2], _tp[3], seat] : [_tp[2], seat]
-  const pts = tr.out ? [tr.from, tr.out, tr.lift, ...tail] : [tr.from, tr.lift, ...tail]
+  // LEAVING THROUGH AN OPENING (out of a rotor slot along its axis, out of a freezer's door): TWO trips,
+  // each eased from rest to rest — OUT to the opening (its seat's tilt and size kept), then ON to its
+  // next seat (righting itself, taking its new size). Between them it may wait (a door shutting).
+  if (tr.out && !tr.stage) {
+    const next = { from: tr.out.clone(), out: null, lift: tr.lift, q0: tr.q0, s0: tr.s0, t: 0, D: null, stage: 2, hold: tr.holdOn || null }
+    tr = u.trip = { from: tr.from, to: tr.out.clone(), q0: tr.q0, s0: tr.s0, t: 0, D: null, stage: 1, hold: tr.hold || null, next }
+  }
+  const seat = tr.stage === 1 ? tr.to : u.tPos
+  let pts
+  if (tr.stage === 1) pts = [tr.from, tr.to]
+  else {
+    // a seat under an overhead instrument (a camera, an objective) or inside one (an incubator)
+    // is entered from the FRONT: over the front at the clearance height, down there, then in
+    const via = u.enterVia
+    if (via) { _tp[2].set(via.x, Math.max(via.y, tr.lift.y), via.z); _tp[3].copy(via) } else _tp[2].set(seat.x, Math.max(seat.y, tr.lift.y), seat.z)
+    const tail = via ? [_tp[2], _tp[3], seat] : [_tp[2], seat]
+    pts = [tr.from, tr.lift, ...tail]
+  }
+  const ts = u.tScale != null ? u.tScale : 1
   if (tr.D == null) {
     let L = 0; for (let i = 1; i < pts.length; i++) L += pts[i].distanceTo(pts[i - 1])
-    // leaving a tilted / scaled seat it rights itself on the first leg: its corners swing by the tilt
-    // (and grow by the scale) over its own size — that is way travelled too
-    tr.L0 = tr.out ? tr.from.distanceTo(tr.out) / L : 0   // the first leg's share of the path (positions)
-    // it keeps its seat's tilt and size while it slides OUT along its axis (righting or growing inside a
-    // rotor slot ran it through the slot's wall); then rights itself and takes its new size on the rest
-    // of the way — its corners' swing is way travelled too, over that share
-    const R = new Box3().setFromObject(v).getSize(_tpS).length() / Math.max(v.scale.x, 1e-3)   // its size at scale 1
-    const rest = Math.max(1 - tr.L0, 0.05)
-    L += (tr.q0.angleTo(_qId) * R * tr.s0 + Math.abs((u.tScale != null ? u.tScale : 1) - tr.s0) * R) / rest
+    // (out of an opening it keeps its seat's tilt and size; on the way on it rights itself and takes its
+    // new size — its corners' swing over its own size is way travelled too)
+    if (tr.stage !== 1) { const R = new Box3().setFromObject(v).getSize(_tpS).length() / Math.max(v.scale.x, 1e-3); L += tr.q0.angleTo(_qId) * R * tr.s0 + Math.abs(ts - tr.s0) * R }
     // its time from its LENGTH: the whole path on one smootherstep, peaking at MAX_SPEED (motionPlan.js)
     tr.D = Math.max(0.3, durationFor(L, PEAK.smootherstep))
   }
+  if (tr.hold && tr.hold()) return true   // waiting (a door opening before it leaves, shutting behind it)
   tr.t += dt
   const s = smoother(tr.t / tr.D)
   tripPoint(pts, s, v.position)
-  // leaving a tilted / scaled seat: upright and full size by the end of the first leg
-  // its size goes from where it was to its seat's (tScale) over the whole trip
-  const ts = u.tScale != null ? u.tScale : 1
-  const kk = tr.out ? smoother(s <= tr.L0 ? 0 : (s - tr.L0) / Math.max(1 - tr.L0, 1e-6)) : s
-  if (tr.out) v.quaternion.copy(tr.q0).slerp(_qId, kk)
-  v.scale.setScalar(tr.s0 + (ts - tr.s0) * kk)
+  if (tr.stage !== 1) { v.quaternion.copy(tr.q0).slerp(_qId, s); v.scale.setScalar(tr.s0 + (ts - tr.s0) * s) }
   if (tr.t >= tr.D) {
-    v.position.copy(seat); u.trip = null; u.enterVia = null
-    if (tr.out) v.quaternion.identity()
-    v.scale.setScalar(ts)
+    v.position.copy(seat)
+    if (tr.stage === 1) { u.trip = tr.next; return true }
+    u.trip = null; u.enterVia = null
+    v.quaternion.identity(); v.scale.setScalar(ts)
     if (u._goal) { u._goal.copy(seat); u._vel.set(0, 0, 0); u._spring = false }
   }
   return true
@@ -2095,6 +2119,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
   const pRef = useRef(0)
   const uRef = useRef(0) // the step's wall progress (p = the pacer's warp of it)
   const sceneTimeRef = useRef(0) // seconds of scene time (dt / tempo), summed
+  const guardRef = useRef({ station: -1, prev: new Map(), said: new Set() })   // the dev rule guard
   const restartRef = useRef(true)
   const perspRef = useRef()
   const keyRef = useRef()
@@ -2347,6 +2372,15 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     // left a spin mid-way, free the sample from the rotor — and on a sequential Next lift
     // it STRAIGHT UP out of the instrument before gliding (never a teleport through the lid).
     demo.undockSample(sequential)
+    // leaving an instrument with a DOOR (a freezer, an incubator), the door opens first and the vessel
+    // waits for it — it used to leave through the closed door
+    const prevDev = sequential && stations[prevActiveRef.current] && stations[prevActiveRef.current].dev
+    if (prevDev && prevDev.userData.setDoor && prevDev.userData.doorState) {
+      prevDev.userData.setDoor(true)
+      for (const v of demo.getSample()?.vessels || []) if (v.userData.trip && v.userData.trip.out) {
+        v.userData.trip.hold = () => prevDev.userData.doorState() < 0.97   // out once it is open (and on, away from it)
+      }
+    }
     demo.getSample()?.vessels.forEach((v) => v.rotation.set(0, 0, 0))
     demo.setSnap(!sequential)
     stations[active].enter?.()
@@ -2469,7 +2503,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       // progress over its paced duration; p = the pacer's warp of it (pace(): every motion timed
       // from its distance)
       else {
-        if (!vesselsArriving()) uRef.current = Math.min(uRef.current + adt / (act.duration || STEP_DUR), 1)
+        if (!vesselsArriving() && !(act.waitFor && act.waitFor())) uRef.current = Math.min(uRef.current + adt / (act.duration || STEP_DUR), 1)   // (and for what the station waits on: a door opening)
         pRef.current = act.warp ? act.warp(uRef.current) : uRef.current
       }
       if (benchLine.pForce != null) { uRef.current = benchLine.pForce; pRef.current = act.warp && !tm.hasTimer ? act.warp(benchLine.pForce) : benchLine.pForce }   // DEV: the audit drives u
@@ -2591,6 +2625,22 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       p.p = pRef.current // the active step's animation value, so a probe can see frames where motion did not advance
     }
     if (benchLine.onFrame) benchLine.onFrame(dt)   // a probe build's recorder (scripts/pipette-speed.mjs)
+    // DEV RULE GUARD: a pipette, a vessel of the sample or the camera moving faster than the motion rule
+    // allows (motionPlan.js) is logged — once per object per station — with the station and the object
+    if (import.meta.env.DEV && act && dt > 0) {
+      const gd = guardRef.current
+      if (gd.station !== activeRef.current) { gd.station = activeRef.current; gd.prev = new Map(); gd.said = new Set() }
+      const tempo = animationTempo(), capO = (MAX_SPEED / tempo) * 1.1, capC = (CAMERA_MAX_SPEED / tempo) * 1.1
+      const rides = (o) => { for (let n = o.parent; n; n = n.parent) if (n.userData && n.userData.spinPart) return true; return false }
+      const watch = [...Object.values(act.pips || {}).map((o) => [o.userData.kind || 'pipette', o, capO]),
+        ...(S ? S.vessels.filter((v) => v.visible && !rides(v)).map((v) => [`sample ${v.userData.builder || ''}`, v, capO]) : []),
+        ...(perspRef.current ? [['camera', perspRef.current, capC]] : [])]
+      for (const [name, o, cap] of watch) {
+        const w = o.getWorldPosition(_v3), was = gd.prev.get(o)
+        if (was) { const v = w.distanceTo(was) / dt; if (v > cap && !gd.said.has(o)) { gd.said.add(o); console.warn(`[scene rule] station ${activeRef.current + 1}: ${name} moved ${v.toFixed(2)} u/s, over its ${(cap / 1.1).toFixed(2)} u/s cap (motionPlan.js)`) } }
+        gd.prev.set(o, w.clone())
+      }
+    }
   }
   useFrame((state, dt) => {
     lastStateRef.current = state

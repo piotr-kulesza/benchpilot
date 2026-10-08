@@ -66,9 +66,11 @@ function inView(line, root) {
   cam.updateMatrixWorld(); _pm.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse); _fr.setFromProjectionMatrix(_pm)
   _bx.setFromObject(root); return _bx.isEmpty() || _fr.intersectsBox(_bx)
 }
+// the SPIN is the one motion the rules except: a rotor (spinPart) and what rides in it (a docked tube)
+const spins = (o) => { for (let n = o; n; n = n.parent) if (n.userData && n.userData.spinPart) return true; return false }
 function recordMotion(line, tracks) {
   for (const c of motionCandidates(line)) {
-    if (!hasSolid(c.root)) continue
+    if (!hasSolid(c.root) || spins(c.root)) continue
     c.root.updateWorldMatrix(true, false)
     c.root.matrixWorld.decompose(_p, _q, _s)
     let t = tracks.get(c.key)
@@ -76,7 +78,7 @@ function recordMotion(line, tracks) {
     const vis = visible(c.root)
     t.track.push({ pos: _p.toArray(), quat: _q.toArray(), visible: vis, inView: vis ? inView(line, c.root) : (t.track.length ? t.track[t.track.length - 1].inView : true) })
     for (const g of c.root.children) {
-      if (!g.isGroup || !g.children.length) continue
+      if (!g.isGroup || !g.children.length || spins(g)) continue
       const pk = 'part:' + g.uuid   // a part's own key: a vessel nested in another is also an object
       let tp = tracks.get(pk)
       if (!tp) { tp = { name: `${c.name} · part`, kind: 'part', track: [], start: tracks.frame }; tracks.set(pk, tp) }

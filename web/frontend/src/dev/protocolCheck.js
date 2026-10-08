@@ -120,8 +120,12 @@ export function createMotionTracker(line, { fps = 60 } = {}) {
         const vis = shown(mesh)
         let e = st.get(mesh)
         if (!vis) { if (e) e.hidden = true; continue }
+        // (a mesh whose world matrix has not changed has not moved: no corners to compute)
+        const me = mesh.matrixWorld.elements
+        if (e && !e.hidden && e.m && me.every((x, i) => x === e.m[i])) { if (isolatedJump(e.d[0], e.d[1], 0)) teleports.push({ frame: k - 1, object: label, kind: 'jump', dist: +e.d[1].toFixed(3) }); e.d = [e.d[1], 0]; continue }
         const pts = corners(mesh, [])
-        if (!e) { st.set(mesh, { pts, d: [0, 0], label }); continue }
+        if (!e) { st.set(mesh, { pts, d: [0, 0], label, m: me.slice() }); continue }
+        e.m = me.slice()
         if (e.hidden) {                     // shown again: where it was?
           let gap = 0; for (let i = 0; i < 8; i++) gap = Math.max(gap, pts[i].distanceTo(e.pts[i]))
           if (gap > REAPPEAR) teleports.push({ frame: k, object: label, kind: 'reappears elsewhere', dist: +gap.toFixed(3) })
@@ -208,6 +212,7 @@ export async function checkStation(line, { timed = 0, fullTo = 20, tailSec = 2, 
       return null
     },
     onFrame(k) {
+      if (window.__traceSpin && line.stations()[line.active()].cen) { const c = line.stations()[line.active()].cen, S = line.sample(); (window.__spinTrace || (window.__spinTrace = [])).push([k, +c.userData.st.spin.toFixed(3), S.column && S.column.userData.drawnUl ? +S.column.userData.drawnUl().toFixed(1) : null, +((window.__benchperf && window.__benchperf.p) || 0).toFixed(3), !!(S.column && S.column.userData.docked)]) }
       motion.frame(k); passes.frame(k)
       const cur = { k, p: pNow(), ...sampleLiquids(line) }
       if (prevL) for (const b of checkFrames([prevL, cur])) if (liquid.length < 40) liquid.push(b)

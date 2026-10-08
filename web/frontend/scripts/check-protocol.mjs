@@ -69,8 +69,9 @@ function expectedPasses(data) {
   })) }
 }
 
-const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new', protocolTimeout: 0,
+const launch = () => puppeteer.launch({ executablePath: CHROME, headless: 'new', protocolTimeout: 0,
   args: ['--no-sandbox', '--use-angle=metal', '--enable-webgl', '--ignore-gpu-blocklist', '--window-size=1500,980'] })
+let browser = await launch()
 // warm the dev server: a fresh one optimises its dependencies on first use and RELOADS the page
 {
   const p = await browser.newPage()
@@ -89,14 +90,18 @@ async function runJob(job) {
   const errors = []
   page.on('pageerror', (e) => errors.push(e.message))
   // ONE navigation: the session and a frame clock are set before the app's own scripts run
-  await page.evaluateOnNewDocument((d) => {
+  await page.evaluateOnNewDocument((d, trace) => {
+    if (trace) window.__traceSpin = true
     sessionStorage.setItem('benchpilot.session', JSON.stringify({ protocol: d, source: 'check-protocol', lang: 'en', answers: {} }))
     let a = 0x5eed
     Math.random = () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296 }
     let now = 0
     performance.now = () => now
+    // the wall clock too (a countdown's DONE is read from Date.now): on a slow check, real time ran out
+    // before the frame clock did, and the countdown jumped to its end
+    const t0 = Date.now(); Date.now = () => t0 + now
     window.__clockAdd = (ms) => { now += ms }
-  }, job.data)
+  }, job.data, has('trace-spin'))
   let ok = false
   for (let tries = 0; tries < 3 && !ok; tries++) {
     await page.goto(`${BASE}/?run=1&step=1`, { waitUntil: 'networkidle0' }).catch(() => {})
@@ -127,7 +132,9 @@ async function runJob(job) {
       r = await page.evaluate(async (T) => {
         const P = await import('/src/dev/protocolCheck.js')
         const startTimer = () => { const b = [...document.querySelectorAll('button')].find((x) => /Start/.test(x.textContent)); if (b) b.click() }
-        return P.checkStation(window.__benchLine, { timed: T, clockAdd: (ms) => window.__clockAdd(ms), startTimer })
+        const r = await P.checkStation(window.__benchLine, { timed: T, clockAdd: (ms) => window.__clockAdd(ms), startTimer })
+        if (window.__spinTrace) { r.spinTrace = window.__spinTrace.filter((x, i) => i % 15 === 0); window.__spinTrace = [] }
+        return r
       }, T)
     } catch (e) { r = { error: String(e.message || e).slice(0, 200) } }
     const exp = expect[s - 1] || []
@@ -143,7 +150,7 @@ async function runJob(job) {
     if (r.motionAudit && r.motionAudit.length) red.push(`motion ×${r.motionAudit.length}: ${r.motionAudit.map((c) => `${c.check}:${c.a}`).slice(0, 2).join('  ')}`)
     if (r.pipette && r.pipette.overCount) red.push(`capacity: a ${r.pipette.over[0].kind} tip held ${r.pipette.over[0].ul} µl`)
     if (passBad.length) red.push(`pipette: ${passBad.slice(0, 2).join('; ')}${passBad.length > 2 ? ` (+${passBad.length - 2})` : ''}`)
-    rows.push({ station: s, action: stations[s - 1].action, container: stations[s - 1].container, red, detail: VERBOSE ? r : { speedPeak: r.peak, camera: r.camera, passes: r.pipette && r.pipette.passes, expected: exp } })
+    rows.push({ station: s, action: stations[s - 1].action, container: stations[s - 1].container, red, detail: VERBOSE ? r : { speedPeak: r.peak, camera: r.camera, passes: r.pipette && r.pipette.passes, expected: exp }, spinTrace: r.spinTrace })
   }
   await page.close()
   return { rows, errors }
@@ -152,8 +159,10 @@ for (const job of jobs) {
   let res
   for (let attempt = 1; ; attempt++) {
     try { res = await runJob(job); break } catch (e) {
-      // the page was reloaded under the run (a dependency re-optimised): run the protocol again
-      if (attempt >= 2) { res = { rows: [{ station: 0, red: [`the run failed: ${String(e.message).slice(0, 120)}`] }], errors: [] }; break }
+      // the page was reloaded under the run (a dependency re-optimised), or the browser itself went
+      // down (a GPU process lost): a fresh browser if need be, and the protocol again
+      if (!browser.connected) { try { await browser.close() } catch { /* gone */ } browser = await launch() }
+      if (attempt >= 3) { res = { rows: [{ station: 0, red: [`the run failed: ${String(e.message).slice(0, 120)}`] }], errors: [] }; break }
       console.log(`  (${job.name}: ${String(e.message).slice(0, 80)} — retrying)`)
     }
   }
