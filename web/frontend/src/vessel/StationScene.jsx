@@ -464,6 +464,15 @@ export function configureStation(st, o) {
   // would show an amount nobody stated — and flagged
   const unstatedAdd = Lq && (action === 'pour_add' || action === 'seed' || action === 'stain') && (o.reagents || []).length > 0
     && !addOps.length && !(pour && pour.pour) && !Lq.ops.some((x) => x.to === vessel || x.from === vessel)
+  // a bottle and the pipette: one pass per tip of the ledger's draw (P200 / P1000 by its volume),
+  // the vessel rising by what was dispensed — every add from a bottle (pour_add, seed) runs this
+  const pipettedAdd = () => {
+    const P = passList(addOps).length, add = addOps[0]
+    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: add ? add.color : endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: ENTRY,
+      ...(Lq && P ? { passes: P, each: add.ul / P, ulStart: startUl, kinds: kindsOf(passList(addOps)) } : {}) })
+    st.duration = passDuration(Lq && P ? P : 1, st.passPlan)
+    frameAngledPipette(st, C.dispense, 0)
+  }
   if (unstatedAdd) {
     st.flags = [...(st.flags || []), 'volume not stated — nothing is moved (rule 5)']
     st.enter = () => seat(0, SEAT_Y, 0)
@@ -645,11 +654,7 @@ export function configureStation(st, o) {
     if (reags.length <= 1 && !fromMix) {
       // single-reagent path: resident pipette rig + bottle; fill ramps in the dispense window —
       // with volumes, one pass per tip of the stated draw, the vessel rising by what was dispensed
-      const P = passList(addOps).length, add = addOps[0]
-      demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: add ? add.color : endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: ENTRY,
-        ...(Lq && P ? { passes: P, each: add.ul / P, ulStart: startUl, kinds: kindsOf(passList(addOps)) } : {}) })
-      st.duration = passDuration(Lq && P ? P : 1, st.passPlan)
-      frameAngledPipette(st, C.dispense, 0)
+      pipettedAdd()
     } else if (prep) {
       // DRAW FROM THE CARRIED MIX (Stage 36). The prep tube was made at its own station and
       // is glided HERE (placePreps + the frame loop) — one object, moved, not a copy. The
@@ -1235,9 +1240,28 @@ export function configureStation(st, o) {
     }
   } else if (action === 'seed') {
     // dispense the sample into the culture vessel; on agar, a spreader then sweeps it out.
-    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: ENTRY })
-    frameAngledPipette(st, C.dispense, 0)
-    if (container === 'agar_plate') {
+    // (it used to run one fixed P200 pass whatever the volume, the bottle draining off its own clock).
+    // "Plate the transformation": the SAMPLE itself moves from its vessel — a pipette transfer
+    // from that vessel, never a bottle invented for it
+    const mv = Lq ? Lq.ops.find((x) => x.op === 'move' && x.to === vessel && !String(x.from).startsWith('prep:')) : null
+    const prevC2 = prevContainer ? containerContract(prevContainer) : null
+    if (mv && prevC2 && prevC2.vessel === mv.from) {
+      configurePipetteTransfer(st, S, {
+        fromKey: mv.from, toKey: vessel, srcSeatY: prevC2.seat.y, dstSeatY: SEAT_Y,
+        srcDisp: prevC2.dispense, dstDisp: C.dispense, dstEntry: ENTRY, srcToken: prevContainer, dstToken: container,
+        color: endColor, startLevel, endLevel, name, vol, move: mv,
+        vols: { a: ulAt(mv.from, 'start'), aColor: colAt(mv.from, 'start', startColor), b: ulAt(vessel, 'start'), bColor: colAt(vessel, 'start', null) },
+      })
+      st.duration = passDuration(st.passes || 1, st.passPlan)
+      st._skipHandoff = true
+    } else if (Lq && !addOps.length && !mv) {
+      // RULE 5 — nothing stated to seed: the plate on the bench, still, flagged
+      st.flags = [...(st.flags || []), 'seeded volume not stated — nothing is moved (rule 5)']
+      st.enter = () => seat(0, SEAT_Y, 0)
+      st.timeline = () => {}
+    } else pipettedAdd()
+    const at = st.dstAt || { x: 0, z: 0 }
+    if (container === 'agar_plate' && !(Lq && !addOps.length && !mv)) {   // (nothing seeded: nothing to spread)
       const spr = demo.buildSpreader()
       spr.scale.setScalar(0.9)
       spr.visible = false
@@ -1255,7 +1279,7 @@ export function configureStation(st, o) {
         const e = demo.easeInOut(demo.clamp((p - 0.7) / 0.25, 0, 1)), a = e * Math.PI * 3 // sweeping circles
         const y = p < 0.7 ? demo.lerp(OUT, ON, demo.easeInOut(demo.clamp((p - 0.6) / 0.1, 0, 1)))
           : p < 0.95 ? ON : demo.lerp(ON, OUT, demo.easeInOut((p - 0.95) / 0.05))
-        spr.position.set(Math.cos(a) * 0.42, y, Math.sin(a) * 0.36)
+        spr.position.set(at.x + Math.cos(a) * 0.42, y, at.z + Math.sin(a) * 0.36)
         spr.rotation.y = a
       }
     }
@@ -1587,6 +1611,7 @@ function configurePipetteTransfer(st, S, o) {
   // tube-sized constants — a microtube beside a flask used to stand inside its neck
   const { AX, BX, srcFoot, dstFoot } = sideBySide(o.srcToken, o.dstToken)
   const Z = 0.1
+  st.dstAt = { x: BX, z: Z }   // where the destination stands (a spreader sweeps it)
   // aspirate over the SOURCE (tip dips in from srcSeatY, then rises) and dispense at the
   // DESTINATION's contract mouth (straight into a tube; angled down a flask's neck).
   const dstAngled = dstDisp && dstDisp.approach === 'angled'
