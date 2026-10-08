@@ -806,13 +806,24 @@ export function configureStation(st, o) {
     const TOP = SEAT_Y + 1.35 // raised, tip clear of the tube (kept low — HUD clearance)
     const BOT = SEAT_Y + 0.8 // plunged, tip in the liquid
     demo.addPipetteRig(st)
-    st.enter = () => { seat(0, SEAT_Y, 0); if (st.pip) { st.pip.position.set(0, TOP, 0); st.pip.userData.setFluid(0) } }
+    // from its HOME to over the tube, three strokes, and back home (it used to wait over the tube —
+    // where the tube, leaving, rose into it — and each stroke started at full speed)
+    let home = null
+    st.enter = () => { seat(0, SEAT_Y, 0); demo.pipRest(st); if (st.pip) home = st.pip.position.clone() }
     st.timeline = (p) => {
       const pip = st.pip
       if (pip) {
-        const cp = (p * 3) % 1 // 3 mixing strokes
-        const dip = Math.sin(cp * Math.PI) // 0→1→0, CONTINUOUS across the reset (no jump)
-        pip.position.set(0, demo.lerp(TOP, BOT, dip), 0)
+        if (!home) { demo.pipRest(st); home = pip.position.clone() }
+        const IN = 0.15, OUT = 0.85
+        const cp = demo.clamp((p - IN) / (OUT - IN), 0, 1) * 3 % 1 // 3 mixing strokes
+        const dip = p > IN && p < OUT ? (1 - Math.cos(cp * 2 * Math.PI)) / 2 : 0 // 0→1→0, each stroke eased at both ends
+        if (p <= IN || p >= OUT) {
+          // level over to above the tube at its home's height, then straight down to the stroke's top
+          // (a diagonal cut through the tube's rim)
+          const t = p <= IN ? p / IN : 1 - (p - OUT) / (1 - OUT)
+          const a = demo.easeInOut(demo.clamp(t / 0.5, 0, 1)), b = demo.easeInOut(demo.clamp((t - 0.5) / 0.5, 0, 1))
+          pip.position.set(demo.lerp(home.x, 0, a), demo.lerp(home.y, TOP, b), demo.lerp(home.z, 0, a))
+        } else pip.position.set(0, demo.lerp(TOP, BOT, dip), 0)
         pip.userData.setColor(endColor)
         if (VOL) { const held = (Lq.mixUl || 0) * dip; pip.userData.setTipVolume(held); S[vessel].userData.setVolume(startUl - held) }   // drawn at the bottom of each stroke, back on the way up
         else pip.userData.setFluid((1 - dip) * 0.6) // draw up when raised, expel when plunged
