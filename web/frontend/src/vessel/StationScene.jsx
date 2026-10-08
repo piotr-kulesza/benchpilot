@@ -726,7 +726,7 @@ export function configureStation(st, o) {
           let ul = startUl, c = startColor
           for (let i = 0; i <= j; i++) { const a = i < j ? passes[i].each : demo.dispenseProgress(lp) * passes[i].each; c = mixColor(c, ul, passes[i].op.color, a); ul += a }
           if (VOL) { v.userData.setVolume(ul); v.userData.setColor(c) }
-          else { v.userData.setLevel(demo.lerp(startLevel, endLevel, (j + demo.dispenseProgress(lp)) / passes.length)); v.userData.setColor(reags[k].color) }
+          else { v.userData.keepVolume?.(ul); v.userData.setLevel(demo.lerp(startLevel, endLevel, (j + demo.dispenseProgress(lp)) / passes.length)); v.userData.setColor(reags[k].color) }   // a surface keeps what it was given
           return
         }
         const n = reags.length, seg = 1 / n
