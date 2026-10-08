@@ -1180,7 +1180,9 @@ export function undockWhenStill() {
       var tempC = hot ? 95 : (cp<0.7 ? 58 : 72);
       drawDisp(cyc, cycles, tempC, hot);
     };
-    var lidAt=function(x){ lidPivot.rotation.x = -easeInOut(x)*1.15; }; // 1=open(raised), 0=closed(flat over the block)
+    // open past upright (bug fix: at 66° the raised lid leaned over the well, and a tube coming down into
+    // it grazed the lid's face)
+    var lidAt=function(x){ lidPivot.rotation.x = -easeInOut(x)*1.6; }; // 1=open(raised), 0=closed(flat over the block)
     grp.userData.lidState=function(){ return st.lid; };
     var lidK=measureParam(grp,[lidPivot],lidAt,st.lid);              // its speed cap (rule 3)
     grp.userData.update=function(dt){
