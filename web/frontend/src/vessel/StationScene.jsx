@@ -1618,6 +1618,9 @@ function configurePipetteTransfer(st, S, o) {
   // spaced by each vessel's FOOTPRINT (a flask is 3 units long with its neck), never by
   // tube-sized constants — a microtube beside a flask used to stand inside its neck
   const { AX, BX, srcFoot, dstFoot } = sideBySide(o.srcToken, o.dstToken)
+  // the rig stands clear of BOTH vessels (the source sits to the left: a flask's body reached under
+  // the pipette's home)
+  st.clearLeft = Math.min(st.clearLeft ?? Infinity, AX + srcFoot.minX, BX + dstFoot.minX); st.clearRight = Math.max(st.clearRight ?? -Infinity, AX + srcFoot.maxX, BX + dstFoot.maxX); demo.prepRig(st)
   const Z = 0.1
   st.dstAt = { x: BX, z: Z }   // where the destination stands (a spreader sweeps it)
   // aspirate over the SOURCE (tip dips in from srcSeatY, then rises) and dispense at the
