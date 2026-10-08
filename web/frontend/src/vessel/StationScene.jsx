@@ -1059,10 +1059,13 @@ export function configureStation(st, o) {
       const inc = demo.buildCO2Incubator(); inc.position.set(0, 0, -1.1); incDev = inc
       st.group.add(inc); st.updatables.push(inc)
       // resting ON the lower shelf (from both geometries: 0.66 was a flask's — a dish floated over it)
-      const shelfY = restOn(inc, S[vessel], 0, -1.25, 0.76)
+      // … centred between its walls by its own footprint (a T-flask's cap went through the right wall)
+      const fpI = solidBox(S[vessel]), cxI = -(fpI.min.x + fpI.max.x) / 2
+      const shelfY = restOn(inc, S[vessel], cxI, -1.25, 0.76)
       seatFn = () => {   // on the lower shelf, inside — it comes in through the door, not the roof
-        S.at(S[vessel], st.x, shelfY, -1.25); inc.userData.setDoor(true)   // open while it is carried in
-        const v = S[vessel]; v.userData.enterVia = (v.userData.enterVia || new Vector3()).set(st.x, shelfY, 1.2)
+        S.at(S[vessel], st.x + cxI, shelfY, -1.25); inc.userData.setDoor(true)   // open while it is carried in
+        const v = S[vessel]; v.userData.enterVia = (v.userData.enterVia || new Vector3()).set(st.x + cxI, shelfY + 0.04, 1.2)   // in just above the shelf (sliding on it grazed its edge)
+        v.userData.enterHold = () => inc.userData.doorState() < 0.97   // in once the door is open
       }
       // The DETACHMENT is the whole point of the step but it's small + behind glass.
       // As the step resolves: OPEN the door and PUSH the camera in close on the flask
@@ -1434,7 +1437,7 @@ export function configureStation(st, o) {
       if (S.column) S.column.userData.ridesWith = (action === 'elute' && vessel !== 'column') ? S[vessel] : null
       // (a station that has one sets it on entry — a stale enterVia, left by the pacer's dry run of a
       // later station's entry, sent a dish's trip by way of an incubator five stations on)
-      for (const v of S.vessels) { v.userData.rides = null; v.userData.enterVia = null }
+      for (const v of S.vessels) { v.userData.rides = null; v.userData.enterVia = null; v.userData.enterHold = null }
       // a reagent bottle is an unlimited source: every station starts with it at its drawn line,
       // closed (it falls by what this station draws). A station's entry sets its WHOLE start — the
       // pacer's dry run, or an earlier visit, must leave nothing behind
@@ -2105,13 +2108,13 @@ function clearTrips(groups) {
     if (!m.isMesh || m.isSprite || !m.visible || !m.geometry) return
     const mat = [].concat(m.material)[0]
     if ((m.userData && m.userData.auditKind) || (mat && mat.userData && mat.userData.auditKind)) return
-    for (let n = m; n; n = n.parent) if (!n.visible) return
+    for (let n = m; n && n !== g; n = n.parent) if (!n.visible) return   // (the station itself may still be fading in — hidden)
     solids.push(new Box3().setFromObject(m))
   })
   // a door's whole swing (it opens while the vessel is on its way: measured shut, an incubator's open
   // door stood in a dish's path)
   const doors = []
-  for (const g of groups) g.traverse((o) => { if (o.userData && o.userData.doorSweep && o.visible) doors.push(...o.userData.doorSweep()) })
+  for (const g of groups) g.traverse((o) => { if (o.userData && o.userData.doorSweep) doors.push(...o.userData.doorSweep()) })
   for (const v of vs) {
     const tr = v.userData.trip, from = tr.out || tr.from, to = v.userData.enterVia || v.userData.tPos
     _vb.setFromObject(v)
@@ -2170,15 +2173,24 @@ function travelTrip(v, dt) {
     const next = { from: tr.out.clone(), out: null, lift: tr.lift, q0: tr.q0, s0: tr.s0, t: 0, D: null, stage: 2, hold: tr.holdOn || null }
     tr = u.trip = { from: tr.from, to: tr.out.clone(), q0: tr.q0, s0: tr.s0, t: 0, D: null, stage: 1, hold: tr.hold || null, next }
   }
-  const seat = tr.stage === 1 ? tr.to : u.tPos
+  // ENTERING AN ENCLOSURE whose door must open first (enterHold): TWO trips — over to above its front
+  // entry, then, once it is open, down and in (it came down through an incubator's opening door)
+  if (u.enterVia && u.enterHold && tr.stage !== 1 && tr.stage !== 'A' && tr.stage !== 'B') {
+    const above = new Vector3(u.enterVia.x, Math.max(u.enterVia.y, tr.lift.y), u.enterVia.z)
+    const next = { from: above.clone(), q0: new Quaternion(), s0: u.tScale != null ? u.tScale : 1, t: 0, D: null, stage: 'B', hold: u.enterHold }
+    tr = u.trip = { from: tr.from, lift: tr.lift, to: above, q0: tr.q0, s0: tr.s0, t: 0, D: null, stage: 'A', hold: tr.hold || null, next }
+  }
+  const seat = tr.stage === 1 || tr.stage === 'A' ? tr.to : u.tPos
   let pts
   if (tr.stage === 1) pts = [tr.from, tr.to]
+  else if (tr.stage === 'A') pts = [tr.from, tr.lift, tr.to]
+  else if (tr.stage === 'B') { const via = u.enterVia || seat; pts = via.y > seat.y + 1e-6 ? [tr.from, via, _tp[1].set(seat.x, via.y, seat.z), seat] : [tr.from, via, seat] }   // (in just above its seat, then set down)
   else {
     // a seat under an overhead instrument (a camera, an objective) or inside one (an incubator)
     // is entered from the FRONT: over the front at the clearance height, down there, then in
     const via = u.enterVia
     if (via) { _tp[2].set(via.x, Math.max(via.y, tr.lift.y), via.z); _tp[3].copy(via) } else _tp[2].set(seat.x, Math.max(seat.y, tr.lift.y), seat.z)
-    const tail = via ? [_tp[2], _tp[3], seat] : [_tp[2], seat]
+    const tail = via ? (via.y > seat.y + 1e-6 ? [_tp[2], _tp[3], _tp[1].set(seat.x, via.y, seat.z), seat] : [_tp[2], _tp[3], seat]) : [_tp[2], seat]
     pts = [tr.from, tr.lift, ...tail]
   }
   const ts = u.tScale != null ? u.tScale : 1
@@ -2197,8 +2209,8 @@ function travelTrip(v, dt) {
   if (tr.stage !== 1) { v.quaternion.copy(tr.q0).slerp(_qId, s); v.scale.setScalar(tr.s0 + (ts - tr.s0) * s) }
   if (tr.t >= tr.D) {
     v.position.copy(seat)
-    if (tr.stage === 1) { u.trip = tr.next; return true }
-    u.trip = null; u.enterVia = null
+    if (tr.stage === 1 || tr.stage === 'A') { u.trip = tr.next; return true }
+    u.trip = null; u.enterVia = null; u.enterHold = null
     v.quaternion.identity(); v.scale.setScalar(ts)
     if (u._goal) { u._goal.copy(seat); u._vel.set(0, 0, 0); u._spring = false }
   }
