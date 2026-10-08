@@ -429,7 +429,7 @@ export function configureStation(st, o) {
     dressFlow('start')
     if (v.userData.setCap) v.userData.setCap(true) // a capped vessel arrives SEALED; a pour opens it
     v.visible = true
-    v.rotation.set(0, 0, 0)
+    if (!v.userData.trip && !v.userData.docked && !v.userData.leaveWhenStill) v.rotation.set(0, 0, 0)   // one on its trip turns upright ON it
     demo.seatScale(v, 1) // full size at this seat — reached on its trip (it used to SNAP back from, e.g., the thermocycler's shrunk tube)
     S.at(v, st.x + x, FLAT ? SEAT_Y : y, z)   // a flat vessel rests on the bench at its contract seat (0 left a membrane / slide resting on nothing)
     return v
@@ -2410,7 +2410,9 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
         v.userData.trip.hold = () => prevDev.userData.doorState() < 0.97   // out once it is open (and on, away from it)
       }
     }
-    demo.getSample()?.vessels.forEach((v) => v.rotation.set(0, 0, 0))
+    // upright — except one on its trip out of a tilted seat: the trip turns it (forced here, it left a
+    // rotor slot upright through the slot's wall and snapped back to the tilt for the trip's second leg)
+    demo.getSample()?.vessels.forEach((v) => { if (!v.userData.trip && !v.userData.docked && !v.userData.leaveWhenStill) v.rotation.set(0, 0, 0) })
     demo.setSnap(!sequential)
     stations[active].enter?.()
     placePreps(active) // carry each prep to its seat — glides on a sequential Next, snaps on a jump
