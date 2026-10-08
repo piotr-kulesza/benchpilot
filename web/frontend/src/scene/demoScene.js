@@ -711,6 +711,7 @@ export function undockWhenStill() {
     fluid.position.y=-0.18; fluid.scale.y=0.0001; fluid.visible=false; grp.add(fluid);
     var drop = new THREE.Mesh(new THREE.SphereGeometry(0.03,16,12), fluidMat);
     drop.scale.set(1,1.3,1); drop.position.y=-0.9; drop.visible=false; grp.add(drop);
+    drop.userData.auditKind='effect';   // the drop hanging off the tip as it dispenses — it wobbles into the tip's end by design
 
     // knurled volume-adjustment thumbwheel (its digits show in the window above)
     var dialMat = matBrushed(0x8a94a0);
