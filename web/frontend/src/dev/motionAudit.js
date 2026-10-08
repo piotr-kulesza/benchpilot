@@ -13,6 +13,7 @@ export const EASE = {
   ratio: 0.3,       // first/last-frame speed over peak speed above which a start/stop is abrupt
   jump: 0.06,       // a single-frame displacement this large with rest around it = teleport
   minFrames: 4,     // shorter moves are jitter, not moves
+  judge: 1e-3,      // a move whose PEAK stays under this (5 × rest; 0.06° a frame) is float residue — its start and stop are not judged
 }
 
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])
@@ -62,7 +63,7 @@ export function auditTrack(track, { kind = 'object', from = 0, to = track.length
       const n = b - a + 1
       const peak = Math.max(...sp.slice(a, b + 1))
       if (unit === 'move' && n <= 2 && peak > EASE.jump) { findings.push({ check: 'teleport', how: `jumps ${peak.toFixed(3)} in ${n} frame${n > 1 ? 's' : ''}`, frame: a }); continue }
-      if (n < EASE.minFrames) continue
+      if (n < EASE.minFrames || peak < EASE.judge) continue
       // a move that runs into the end of the window was cut, not stopped; one that starts at
       // the window's first frame was already moving
       if ((restBefore || a > from + 1) && sp[a] > EASE.ratio * peak) findings.push({ check: 'abrupt-start', how: `${unit} starts at ${(100 * sp[a] / peak).toFixed(0)}% of peak`, frame: a, peak })

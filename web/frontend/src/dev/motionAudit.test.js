@@ -14,6 +14,14 @@ describe('motion audit', () => {
     const tr = [...rest(0, 10), ...Array.from({ length: 41 }, (_, k) => at(ease(k / 40))), ...rest(1, 10)]
     expect(checks(auditTrack(tr))).toEqual([])
   })
+  it('a residual turn barely above rest (float noise, 3e-4 rad/frame) → green; a real linear turn → abrupt', () => {
+    const rq = (a) => [Math.sin(a / 2), 0, 0, Math.cos(a / 2)]
+    const turn = (step) => [...Array.from({ length: 10 }, () => ({ pos: [0, 0, 0], quat: rq(0), visible: true })),
+      ...Array.from({ length: 20 }, (_, k) => ({ pos: [0, 0, 0], quat: rq(step * (k + 1)), visible: true })),
+      ...Array.from({ length: 10 }, () => ({ pos: [0, 0, 0], quat: rq(step * 20), visible: true }))]
+    expect(checks(auditTrack(turn(3e-4)))).toEqual([])
+    expect(checks(auditTrack(turn(0.02))).sort()).toEqual(['abrupt-start', 'abrupt-stop'])
+  })
   it('a linear move → abrupt start and abrupt stop', () => {
     const tr = [...rest(0, 10), ...Array.from({ length: 41 }, (_, k) => at(k / 40)), ...rest(1, 10)]
     expect(checks(auditTrack(tr)).sort()).toEqual(['abrupt-start', 'abrupt-stop'])
