@@ -48,6 +48,18 @@ export function comparePasses(expected, seen) {
 }
 const fmt = (ul) => (ul >= 1000 ? `${+(ul / 1000).toFixed(3)} mL` : `${+ul.toFixed(1)} µl`)
 // one frame's displacement d[k] among its neighbours: an isolated jump?
+// when a station's run is over: its OWN p has been seen below 1 (on entry the page still reads the
+// last station's p = 1 — taken as the end, stations were checked to p 0.73) and then held at 1, nothing
+// arriving, for `tail` frames
+export function createFinish(tail) {
+  let low = false, since = null
+  return (k, p, arriving) => {
+    if (p < 0.9999) low = true
+    if (!low || p < 0.9999 || arriving) { since = null; return false }
+    if (since == null) since = k
+    return k - since >= tail
+  }
+}
 export function isolatedJump(prev, cur, next, jump = JUMP) { return cur >= jump && cur >= 4 * Math.max(prev || 0, next || 0) }
 
 // ── in the page ──
@@ -196,9 +208,13 @@ export async function checkStation(line, { timed = 0, fullTo = 20, tailSec = 2, 
   const arriving = () => { const S = line.sample(); return !!((S && S.vessels.some((v) => v.visible && v.userData.trip)) || line.preps().some((v) => v.visible && v.userData.trip)) }
   const pNow = () => +((window.__benchperf && window.__benchperf.p) || 0)
   let phase = timed ? 'rest' : 'run', restSince = null, settled = null, started = null, jumped = false
-  const tail = Math.round(tailSec * tempo * fps)
+  const tail = Math.round(tailSec * tempo * fps), finish = createFinish(tail)
+  // long enough for the station's own paced run (25 P1000 passes run past 240 s; cut there, a station
+  // was checked to p 0.73 and passed)
+  const act = line.stations()[line.active()]
+  const runSec = Math.max(maxSec, (act && act.duration ? act.duration * tempo : 0) + (timed ? 60 : 0) + 30)
   const found = await simulateStationAsync(line, { every, real: {
-    maxFrames: Math.round(maxSec * fps),
+    maxFrames: Math.round(runSec * fps),
     tick(k) {
       clockAdd(1000 / fps)
       if (phase === 'rest' && !arriving()) {
@@ -222,16 +238,14 @@ export async function checkStation(line, { timed = 0, fullTo = 20, tailSec = 2, 
     },
     done(k) {
       if (phase === 'rest') return false
-      const finished = pNow() >= 0.9999 && !arriving()
-      if (!finished) { settled = null; return false }
-      if (settled == null) settled = k
-      return k - settled >= tail
+      return finish(k, pNow(), arriving())
     },
   } })
   const MOTION = ['teleport', 'abrupt-start', 'abrupt-stop']
   const collisions = found.filter((d) => !MOTION.includes(d.check))
   const motionAudit = found.filter((d) => MOTION.includes(d.check))
-  return { liquid, ...motion.result(), collisions, motionAudit, ...{ pipette: passes.result() } }
+  const pEnd = pNow()
+  return { liquid, ...motion.result(), collisions, motionAudit, ...{ pipette: passes.result() }, unfinished: pEnd < 0.9999 ? +pEnd.toFixed(3) : null }
 }
 
 export { sampleLiquids, checkBoundary }

@@ -142,6 +142,7 @@ async function runJob(job) {
     const passBad = r.pipette ? comparePasses(exp, r.pipette.passes) : []
     const red = []
     if (r.error) red.push(`error: ${r.error}`)
+    if (r.unfinished != null) red.push(`did not finish (p ${r.unfinished})`)
     if (boundary.length) red.push(`liquid (d) ×${boundary.length}: ${boundary[0].vessel} ${boundary[0].detail}`)
     if (r.liquid && r.liquid.length) red.push(`liquid (${[...new Set(r.liquid.map((b) => b.check))].join(',')}) ×${r.liquid.length}: ${r.liquid[0].vessel} ${r.liquid[0].detail}`)
     if (r.speed && r.speed.length) { const w = r.speed.sort((a, b) => b.ratio - a.ratio)[0]; red.push(`speed ×${r.speed.length} objects: ${w.label} ${w.peak} u/s = ×${w.ratio} of the cap (frame ${w.peakFrame}, p ${w.peakP})`) }

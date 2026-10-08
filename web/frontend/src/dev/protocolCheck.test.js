@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { passesFor, comparePasses, isolatedJump } from './protocolCheck.js'
+import { passesFor, comparePasses, isolatedJump, createFinish } from './protocolCheck.js'
 import { generateProtocol, EDGE_VOLUMES } from './genProtocol.js'
 
 describe('check-protocol — the pure rules, proven red', () => {
@@ -14,6 +14,16 @@ describe('check-protocol — the pure rules, proven red', () => {
   it('RED: 500 µl in three P200 passes is not one P1000 pass', () => {
     const bad = comparePasses(passesFor(500), [{ kind: 'P200', ul: 200 }, { kind: 'P200', ul: 200 }, { kind: 'P200', ul: 100 }])
     expect(bad.length).toBe(3); expect(bad[0]).toMatch(/needs a P1000, drawn with a P200/)
+  })
+  it('RED: a station is finished only once ITS p has run to 1 — a p still at 1 from the last station is not its end', () => {
+    const f = createFinish(3)
+    // the page still reads the previous station's p = 1 for the first frames
+    expect([0, 1, 2, 3, 4].map((k) => f(k, 1, false))).toEqual([false, false, false, false, false])
+    const g = createFinish(3)
+    const ps = [1, 1, 0, 0.4, 0.9, 1, 1, 1, 1]
+    expect(ps.map((p, k) => g(k, p, false))).toEqual([false, false, false, false, false, false, false, false, true])
+    const h = createFinish(0)
+    expect([0.2, 1, 1].map((p, k) => h(k, p, true))).toEqual([false, false, false])   // a vessel still arriving
   })
   it('RED: a 1001 µl move drawn as one pass is missing its second', () => {
     expect(comparePasses(passesFor(1001), [{ kind: 'P1000', ul: 1001 }]).length).toBe(2)
