@@ -15,3 +15,9 @@ export function animationTempo() {
   if (import.meta.env && import.meta.env.DEV && typeof window !== 'undefined' && window.__benchTempo > 0) return window.__benchTempo
   return ANIMATION_TEMPO
 }
+
+// THE STATION-CHANGE TRANSITION (the camera's dolly and the vessels' glide to the next station) is
+// e972bcf's, as it was — only slower, by this one factor: camera and vessels together, so their timing
+// relative to each other is e972bcf's. Its clock is the wall clock divided by it (not ANIMATION_TEMPO).
+export const TRANSITION_SLOWDOWN = 1.6
+

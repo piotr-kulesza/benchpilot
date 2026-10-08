@@ -14,7 +14,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera } from '@react-three/drei'
 import { FogExp2, Color, Vector3, Quaternion, Box3, Group, Mesh, RingGeometry, SphereGeometry, CylinderGeometry, PlaneGeometry, CanvasTexture, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
-import { animationTempo } from '../scene/tempo.js'
+import { animationTempo, TRANSITION_SLOWDOWN } from '../scene/tempo.js'
 import { MAX_SPEED, CAMERA_MAX_SPEED, PEAK, MIN_DUR, durationFor } from '../scene/motionPlan.js'
 import { buildLedger, mixColor } from './liquidLedger.js'
 import { tubeShape, volumeAt } from '../scene/liquidShape.js'
@@ -31,6 +31,7 @@ const RAIL_Y = 3.35
 const RAIL_Z = 9.6
 const LOOK_Y = 1.05
 const STEP_DUR = 6.5 // the demo's per-step animation window (seconds)
+const GLIDE_DUR = 1.65 // camera rail-dolly duration on a step change (the demo)
 const SPACING = 8.4 // distance between stations along +X (the demo's buildLine)
 // Camera framing is MEASURED from each station's content bounding box, never assumed
 // to sit at the origin (a centrifuge is parked off to one side, a CO₂ incubator is
@@ -424,7 +425,6 @@ export function configureStation(st, o) {
   // seat the travelling sample WITHOUT resetting its contents: it enters at the
   // carried-in (start) state, so it continues from where the last step left it.
   const seat = (x, y, z) => {
-    const shownBefore = S[vessel].visible
     S.only(vessel)
     const v = S[vessel]
     if (name) v.userData.setLabel(name, vol || '')
@@ -435,10 +435,7 @@ export function configureStation(st, o) {
     v.visible = true
     if (!v.userData.trip && !v.userData.docked && !v.userData.leaveWhenStill) v.rotation.set(0, 0, 0)   // one on its trip turns upright ON it
     demo.seatScale(v, 1) // full size at this seat — reached on its trip (it used to SNAP back from, e.g., the thermocycler's shrunk tube)
-    // a vessel only now shown is PLACED at its seat (it sprang from wherever it was last left hidden — a
-    // casting tray slid along the bench through the last station's stand); one already shown travels
-    if (!shownBefore && !v.userData.trip && !v.userData.docked) { S.snapTo(v, st.x + x, FLAT ? SEAT_Y : y, z); v.userData.trip = null }
-    else S.at(v, st.x + x, FLAT ? SEAT_Y : y, z)   // a flat vessel rests on the bench at its contract seat (0 left a membrane / slide resting on nothing)
+    S.at(v, st.x + x, FLAT ? SEAT_Y : y, z)   // a flat vessel rests on the bench at its contract seat (0 left a membrane / slide resting on nothing)
     return v
   }
 
@@ -2102,132 +2099,23 @@ const _v3 = new Vector3(), _v3b = new Vector3()
 // is any shown vessel (the sample, a prep) still on its trip here?
 function vesselsArriving() {
   const wb = typeof window !== 'undefined' && window.__benchperf
-  if (demo.undockWhenStill()) { if (wb) wb.waiting = 'rotor'; return true }   // a vessel still waiting in a turning rotor to be taken out
   if (wb) wb.waiting = null
   const S = demo.getSample()
   if (S && S.vessels.some((v) => v.visible && v.userData.trip)) return true
   return demo.getPreps().some((v) => v.visible && v.userData.trip)
 }
-// A TRIP's carry height clears what stands on its way (from the geometry of both stations): every
-// solid whose footprint the carried vessel's footprint crosses on its horizontal leg — a pipette
-// stand, a pipette at its home, a bottle — is passed OVER (at the fixed clearance height a flask's
-// neck swept through the stand). What the vessel leaves or goes into (its footprint holds the start
-// or the seat) is entered and left vertically, not passed over.
-const _cb = new Box3(), _vb = new Box3()
-function clearTrips(groups) {
-  const S = demo.getSample()
-  const vs = [...(S ? S.vessels : []), ...demo.getPreps()].filter((v) => v.visible && v.userData.trip && v.userData.trip.lift)
-  if (!vs.length) return
-  const solids = []
-  for (const g of groups) g.traverse((m) => {
-    if (!m.isMesh || m.isSprite || !m.visible || !m.geometry) return
-    const mat = [].concat(m.material)[0]
-    if ((m.userData && m.userData.auditKind) || (mat && mat.userData && mat.userData.auditKind)) return
-    for (let n = m; n && n !== g; n = n.parent) if (!n.visible) return   // (the station itself may still be fading in — hidden)
-    solids.push(new Box3().setFromObject(m))
-  })
-  // a door's whole swing (it opens while the vessel is on its way: measured shut, an incubator's open
-  // door stood in a dish's path)
-  const doors = []
-  for (const g of groups) g.traverse((o) => { if (o.userData && o.userData.doorSweep) doors.push(...o.userData.doorSweep()) })
-  for (const v of vs) {
-    const tr = v.userData.trip, from = tr.out || tr.from, to = v.userData.enterVia || v.userData.tPos
-    _vb.setFromObject(v)
-    const below = v.position.y - _vb.min.y, rx = (_vb.max.x - _vb.min.x) / 2, rz = (_vb.max.z - _vb.min.z) / 2
-    const x0 = Math.min(from.x, to.x) - rx, x1 = Math.max(from.x, to.x) + rx, z0 = Math.min(from.z, to.z) - rz, z1 = Math.max(from.z, to.z) + rz
-    const holds = (b, p) => p.x >= b.min.x && p.x <= b.max.x && p.z >= b.min.z && p.z <= b.max.z
-    let top = -Infinity
-    for (const b of solids) {
-      if (b.max.x < x0 || b.min.x > x1 || b.max.z < z0 || b.min.z > z1) continue
-      if (holds(b, from) || holds(b, to)) continue
-      top = Math.max(top, b.max.y)
-    }
-    for (const b of doors) if (!(b.max.x < x0 || b.min.x > x1 || b.max.z < z0 || b.min.z > z1)) top = Math.max(top, b.max.y)   // (a door is passed over wherever it swings)
-    if (isFinite(top)) tr.lift.y = Math.max(tr.lift.y, top + below + 0.08)
-  }
-}
-// A TRIP (demo.depart): from where the vessel stood, straight up to the clearance height, over
-// to above its seat, straight down onto it — corners rounded, the whole path ONE smootherstep
-// in time (it starts from rest and settles; 0.6–1.1 s by length). The seat is read live, so a
-// station that moves the seat during the trip is followed.
-const _tp = [new Vector3(), new Vector3(), new Vector3(), new Vector3()]
-const _qId = new Quaternion()
-const _tpS = new Vector3()
-function tripPoint(pts, s, out) {
-  // the polyline with each inner corner replaced by a quadratic curve through it
-  const R = 0.35
-  const seq = []
-  for (let i = 0; i < pts.length; i++) {
-    if (i === 0 || i === pts.length - 1) { seq.push(['p', pts[i]]); continue }
-    const a = pts[i - 1], c = pts[i], b = pts[i + 1]
-    const ra = Math.min(R, a.distanceTo(c) / 2), rb = Math.min(R, c.distanceTo(b) / 2)
-    const p0 = c.clone().addScaledVector(a.clone().sub(c).normalize(), ra), p2 = c.clone().addScaledVector(b.clone().sub(c).normalize(), rb)
-    seq.push(['q', p0, c, p2])
-  }
-  // sample to a dense polyline, then walk s of its length
-  const poly = []
-  for (const e of seq) {
-    if (e[0] === 'p') poly.push(e[1].clone())
-    else for (let k = 0; k <= 8; k++) { const t = k / 8, u = 1 - t; poly.push(new Vector3().addScaledVector(e[1], u * u).addScaledVector(e[2], 2 * u * t).addScaledVector(e[3], t * t)) }
-  }
-  let L = 0; const seg = []
-  for (let i = 1; i < poly.length; i++) { const d = poly[i].distanceTo(poly[i - 1]); seg.push(d); L += d }
-  let r = s * L
-  for (let i = 0; i < seg.length; i++) { if (r <= seg[i] || i === seg.length - 1) return out.copy(poly[i]).lerp(poly[i + 1], seg[i] > 0 ? Math.min(1, r / seg[i]) : 1), L; r -= seg[i] }
-  return out.copy(poly[poly.length - 1])
-}
-const smoother = (t) => { t = Math.min(1, Math.max(0, t)); return t * t * t * (t * (t * 6 - 15) + 10) }
-function travelTrip(v, dt) {
+function travelTrip(v, dt, tdt = dt) {
   const u = v.userData
-  let tr = u.trip
-  if (!tr) return false
-  // LEAVING THROUGH AN OPENING (out of a rotor slot along its axis, out of a freezer's door): TWO trips,
-  // each eased from rest to rest — OUT to the opening (its seat's tilt and size kept), then ON to its
-  // next seat (righting itself, taking its new size). Between them it may wait (a door shutting).
-  if (tr.out && !tr.stage) {
-    const next = { from: tr.out.clone(), out: null, lift: tr.lift, q0: tr.q0, s0: tr.s0, t: 0, D: null, stage: 2, hold: tr.holdOn || null }
-    tr = u.trip = { from: tr.from, to: tr.out.clone(), q0: tr.q0, s0: tr.s0, t: 0, D: null, stage: 1, hold: tr.hold || null, next }
-  }
-  // ENTERING AN ENCLOSURE whose door must open first (enterHold): TWO trips — over to above its front
-  // entry, then, once it is open, down and in (it came down through an incubator's opening door)
-  if (u.enterVia && u.enterHold && tr.stage !== 1 && tr.stage !== 'A' && tr.stage !== 'B') {
-    const above = new Vector3(u.enterVia.x, Math.max(u.enterVia.y, tr.lift.y), u.enterVia.z)
-    const next = { from: above.clone(), q0: new Quaternion(), s0: u.tScale != null ? u.tScale : 1, t: 0, D: null, stage: 'B', hold: u.enterHold }
-    tr = u.trip = { from: tr.from, lift: tr.lift, to: above, q0: tr.q0, s0: tr.s0, t: 0, D: null, stage: 'A', hold: tr.hold || null, next }
-  }
-  const seat = tr.stage === 1 || tr.stage === 'A' ? tr.to : u.tPos
-  let pts
-  if (tr.stage === 1) pts = [tr.from, tr.to]
-  else if (tr.stage === 'A') pts = [tr.from, tr.lift, tr.to]
-  else if (tr.stage === 'B') { const via = u.enterVia || seat; pts = via.y > seat.y + 1e-6 ? [tr.from, via, _tp[1].set(seat.x, via.y, seat.z), seat] : [tr.from, via, seat] }   // (in just above its seat, then set down)
-  else {
-    // a seat under an overhead instrument (a camera, an objective) or inside one (an incubator)
-    // is entered from the FRONT: over the front at the clearance height, down there, then in
-    const via = u.enterVia
-    if (via) { _tp[2].set(via.x, Math.max(via.y, tr.lift.y), via.z); _tp[3].copy(via) } else _tp[2].set(seat.x, Math.max(seat.y, tr.lift.y), seat.z)
-    const tail = via ? (via.y > seat.y + 1e-6 ? [_tp[2], _tp[3], _tp[1].set(seat.x, via.y, seat.z), seat] : [_tp[2], _tp[3], seat]) : [_tp[2], seat]
-    pts = [tr.from, tr.lift, ...tail]
-  }
-  const ts = u.tScale != null ? u.tScale : 1
-  if (tr.D == null) {
-    let L = 0; for (let i = 1; i < pts.length; i++) L += pts[i].distanceTo(pts[i - 1])
-    // (out of an opening it keeps its seat's tilt and size; on the way on it rights itself and takes its
-    // new size — its corners' swing over its own size is way travelled too)
-    if (tr.stage !== 1) { const R = new Box3().setFromObject(v).getSize(_tpS).length() / Math.max(v.scale.x, 1e-3); L += tr.q0.angleTo(_qId) * R * tr.s0 + Math.abs(ts - tr.s0) * R }
-    // its time from its LENGTH: the whole path on one smootherstep, peaking at MAX_SPEED (motionPlan.js)
-    tr.D = Math.max(MIN_DUR.move, durationFor(L, PEAK.smootherstep))
-  }
-  if (tr.hold && tr.hold()) return true   // waiting (a door opening before it leaves, shutting behind it)
-  tr.t += dt
-  const s = smoother(tr.t / tr.D)
-  tripPoint(pts, s, v.position)
-  if (tr.stage !== 1) { v.quaternion.copy(tr.q0).slerp(_qId, s); v.scale.setScalar(tr.s0 + (ts - tr.s0) * s) }
-  if (tr.t >= tr.D) {
-    v.position.copy(seat)
-    if (tr.stage === 1 || tr.stage === 'A') { u.trip = tr.next; return true }
-    u.trip = null; u.enterVia = null; u.enterHold = null
-    v.quaternion.identity(); v.scale.setScalar(ts)
-    if (u._goal) { u._goal.copy(seat); u._vel.set(0, 0, 0); u._spring = false }
+  const tr = u.trip
+  if (!tr || !tr.transit) return false
+  // A TRANSIT to the next station (e972bcf's glide, as it was, on the transition's clock tdt): out of a
+  // dock straight up to its exitLift, then eased toward its seat; arrived within 1e-3
+  const goal = u.exitLift || u.tPos
+  v.position.lerp(goal, 1 - Math.pow(0.02, tdt))
+  if (u.exitLift && v.position.distanceTo(u.exitLift) < 0.06) u.exitLift = null // cleared the instrument — glide on to the seat
+  if (!u.exitLift && v.position.distanceTo(u.tPos) < 1e-3) {
+    v.position.copy(u.tPos); u.trip = null
+    if (u._goal) { u._goal.copy(u.tPos); u._vel.set(0, 0, 0); u._spring = false }
   }
   return true
 }
@@ -2285,7 +2173,6 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
   const prevActiveRef = useRef(-1)
   const pRef = useRef(0)
   const uRef = useRef(0) // the step's wall progress (p = the pacer's warp of it)
-  const sceneTimeRef = useRef(0) // seconds of scene time (dt / tempo), summed
   const guardRef = useRef({ station: -1, prev: new Map(), said: new Set() })   // the dev rule guard
   const restartRef = useRef(true)
   const perspRef = useRef()
@@ -2539,23 +2426,14 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     // left a spin mid-way, free the sample from the rotor — and on a sequential Next lift
     // it STRAIGHT UP out of the instrument before gliding (never a teleport through the lid).
     demo.undockSample(sequential)
-    // leaving an instrument with a DOOR (a freezer, an incubator), the door opens first and the vessel
-    // waits for it — it used to leave through the closed door
-    const prevDev = sequential && stations[prevActiveRef.current] && stations[prevActiveRef.current].dev
-    if (prevDev && prevDev.userData.setDoor && prevDev.userData.doorState) {
-      prevDev.userData.setDoor(true)
-      for (const v of demo.getSample()?.vessels || []) if (v.userData.trip && v.userData.trip.out) {
-        v.userData.trip.hold = () => prevDev.userData.doorState() < 0.97   // out once it is open (and on, away from it)
-      }
-    }
-    // upright — except one on its trip out of a tilted seat: the trip turns it (forced here, it left a
-    // rotor slot upright through the slot's wall and snapped back to the tilt for the trip's second leg)
-    demo.getSample()?.vessels.forEach((v) => { if (!v.userData.trip && !v.userData.docked && !v.userData.leaveWhenStill) v.rotation.set(0, 0, 0) })
+    demo.getSample()?.vessels.forEach((v) => v.rotation.set(0, 0, 0))
     demo.setSnap(!sequential)
     stations[active].enter?.()
     placePreps(active) // carry each prep to its seat — glides on a sequential Next, snaps on a jump
-    if (sequential) clearTrips([stations[prevActiveRef.current], stations[active]].filter(Boolean).map((x) => x.group))
     demo.setSnap(false)
+    // (e972bcf's step change, as it was. A glide to the next station is a TRANSIT — travelTrip — on the
+    // transition's clock; the step's clock waits for it, as it waited for a trip)
+    if (sequential) for (const v of [...(demo.getSample()?.vessels || []), ...demo.getPreps()]) if (v.visible) v.userData.trip = { transit: true }
     pRef.current = 0
     restartRef.current = true
     activeRef.current = active
@@ -2575,10 +2453,6 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     // MOTION time: every moving thing below (p, the centrifuge's choreography, builders' update,
     // vessel trips and springs) runs on adt — one knob, scene/tempo.js. The camera keeps dt.
     const adt = dt / animationTempo()
-    // the camera's slow sway runs on the SCENE's clock (rule 4) — the renderer's wall clock jumped
-    // whenever real time did (a tab in the background, a countdown) and the sway jumped with it
-    sceneTimeRef.current += adt
-    const time = sceneTimeRef.current
     const stations = stationsRef.current
     if (!stations) return
     // THE FRAME CLOCK: a timed step's progress is read HERE, every frame, from the
@@ -2588,12 +2462,15 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     // Everything below (the timeline, driveTimed, the dial) reads this one value.
     { const tmr = timerRef.current; if (tmr.live) tmr.progress = tmr.live() }
 
-    // 1 · ease railX toward the active station's X — on the SCENE clock (tempo), for as long as the
-    // camera's own way takes at its top speed (motionPlan.js): the glide's length is measured once
-    // the target pose is known (below), from where the camera actually is
+    // 1 · ease railX toward the active station's X
+    // (e972bcf's camera, as it was — on the TRANSITION's clock: the wall clock ÷ TRANSITION_SLOWDOWN)
+    const tdt = dt / TRANSITION_SLOWDOWN, time = state.clock.elapsedTime / TRANSITION_SLOWDOWN
     const g = glideRef.current
-    const ge = g.active ? demo.easeInOut(g.t) : 1
-    if (g.active) railXRef.current = demo.lerp(g.from, g.to, ge)
+    if (g.active) {
+      g.t = Math.min(g.t + tdt / GLIDE_DUR, 1)
+      railXRef.current = demo.lerp(g.from, g.to, demo.easeInOut(g.t))
+      if (g.t >= 1) { g.active = false; railXRef.current = g.to }
+    }
     const railX = railXRef.current
 
     // 2 · position the cinematic camera — pure lateral tracking, no orbit — aimed and
@@ -2603,12 +2480,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     const fit = demo.clamp(f.radius / R_REF, 1, 1.7) // back off only for oversized rigs
     const cam = perspRef.current
     if (cam) {
-      // the camera aims at the station it is going TO: during a glide its pose blends from where the
-      // camera was to that station's own framing (reached unchanged), on the scene clock, for as long
-      // as the way takes at CAMERA_MAX_SPEED (motionPlan.js). The framing used to switch to the new
-      // station's in one frame while the rail eased over.
-      const camX = g.active ? g.to : railX
-      const cx = camX + f.center.x + Math.sin(time * 0.15) * 0.12
+      const cx = railX + f.center.x + Math.sin(time * 0.15) * 0.12
       // demo angle/height, scaled to fit, aimed at the content centre (x/y/z)
       let px = cx, py = f.center.y + (RAIL_Y - LOOK_Y) * fit, pz = f.center.z + RAIL_Z * fit
       let lx = cx, ly = f.center.y, lz = f.center.z
@@ -2617,23 +2489,11 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       const push = actCam && actCam.pushCam ? actCam.pushCam(pRef.current) : 0
       if (push > 0 && actCam.pushTarget) {
         const t = actCam.pushTarget
-        px = demo.lerp(px, camX + t.pos[0], push); py = demo.lerp(py, t.pos[1], push); pz = demo.lerp(pz, t.pos[2], push)
-        lx = demo.lerp(lx, camX + t.look[0], push); ly = demo.lerp(ly, t.look[1], push); lz = demo.lerp(lz, t.look[2], push)
-      }
-      if (g.active) {
-        if (!g.dur) {
-          g.fromPos = cam.position.clone(); g.fromLook = g.look ? g.look.clone() : new Vector3(lx, ly, lz)
-          g.dur = Math.max(MIN_DUR.move, durationFor(Math.max(g.fromPos.distanceTo(_v3.set(px, py, pz)), g.fromLook.distanceTo(_v3b.set(lx, ly, lz))), PEAK.easeInOut, CAMERA_MAX_SPEED))
-        }
-        g.t = Math.min(g.t + adt / g.dur, 1)
-        const e = demo.easeInOut(g.t)
-        px = demo.lerp(g.fromPos.x, px, e); py = demo.lerp(g.fromPos.y, py, e); pz = demo.lerp(g.fromPos.z, pz, e)
-        lx = demo.lerp(g.fromLook.x, lx, e); ly = demo.lerp(g.fromLook.y, ly, e); lz = demo.lerp(g.fromLook.z, lz, e)
-        if (g.t >= 1) { g.active = false; railXRef.current = g.to }
+        px = demo.lerp(px, railX + t.pos[0], push); py = demo.lerp(py, t.pos[1], push); pz = demo.lerp(pz, t.pos[2], push)
+        lx = demo.lerp(lx, railX + t.look[0], push); ly = demo.lerp(ly, t.look[1], push); lz = demo.lerp(lz, t.look[2], push)
       }
       cam.position.set(px, py, pz)
       cam.lookAt(lx, ly, lz)
-      g.look = (g.look || new Vector3()).set(lx, ly, lz)
       // keep the active station's title label INSIDE the frame, below the top HUD band:
       // if its top edge would project above LABEL_TOP_NDC, lower it (never below the
       // subject's top) — a pushed-in or widened frame used to clip it at the top edge
@@ -2738,7 +2598,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       // a vessel that RIDES a moving part (a plate on a reader's drawer) reads its seat now, after the
       // instruments moved this frame — set in the timeline, it trailed the drawer by a frame, into its lip
       if (v.visible && v.userData.rides) v.userData.tPos.copy(v.userData.rides())
-      if (!v.userData.docked && !travelTrip(v, adt)) {
+      if (!v.userData.docked && !travelTrip(v, adt, tdt)) {
         const goal = v.userData.exitLift || v.userData.tPos
         travel(v, goal, adt)
         if (v.userData.exitLift && v.position.distanceTo(v.userData.exitLift) < 0.06) {
@@ -2750,7 +2610,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     // 5b · prep vessels ride the SAME rails: each prepared mixture is CARRIED to the
     // station that draws from it, gliding exactly like the sample — never teleporting.
     for (const pv of demo.getPreps()) {
-      if (pv.visible && !travelTrip(pv, adt)) travel(pv, pv.userData.tPos, adt)
+      if (pv.visible && !travelTrip(pv, adt, tdt)) travel(pv, pv.userData.tPos, adt)
       pv.userData.update?.(adt)
     }
 
@@ -2759,7 +2619,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     for (const st of stations) {
       const d = Math.abs(st.x - railX)
       const tgt = demo.clamp(1 - (d - VIS_FULL) / (VIS_GONE - VIS_FULL), 0, 1)
-      st.vis = demo.lerp(st.vis, tgt, 1 - Math.pow(0.01, dt))
+      st.vis = demo.lerp(st.vis, tgt, 1 - Math.pow(0.01, tdt))   // (on the transition's clock)
       if (tgt >= 1 && st.vis > 0.999) st.vis = 1
       if (tgt <= 0 && st.vis < 0.001) st.vis = 0
       applyStationVis(st)

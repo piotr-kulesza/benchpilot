@@ -78,27 +78,8 @@ export function setPrepVisible(id, vis) { const v = PREPS[id]; if (v) v.visible 
 // like S.at for the sample.
 export function prepAt(id, x, y, z) {
   const v = PREPS[id]; if (!v) return
-  // a prep CARRIED to a new place (a glide, not a snap) leaves straight up and comes down onto
-  // its new seat — never cutting sideways through what stands around it
-  if (!SNAP_SAMPLE && v.visible && v.position.distanceToSquared(new THREE.Vector3(x, y, z)) > 0.0025) depart(v)
   v.userData.tPos.set(x, y, z)
-  if (SNAP_SAMPLE) { v.position.set(x, y, z); v.userData.trip = null }
-}
-// DEPART: a TRIP — rise straight up to the clearance height, carry over to above the new seat,
-// lower straight onto it; one eased motion along that path (the frame loop runs it: travelTrip)
-function depart(v, alongAxis = false) {
-  const from = v.position.clone()
-  let out = null
-  if (v.userData.exitOut) { out = v.userData.exitOut.clone(); v.userData.exitOut = null }   // out of an enclosure's opening first
-  else if (alongAxis && (v.scale.x !== 1 || Math.abs(v.quaternion.w) < 0.99999)) {
-    // out along its own axis by its seat's depth (a rotor slot records it on docking: just clear of the
-    // slot's mouth — out by its whole height swung its top into the shell's rim), else its height; then up
-    const box = new THREE.Box3().setFromObject(v), h = v.userData.exitDepth != null ? v.userData.exitDepth : box.getSize(new THREE.Vector3()).y
-    out = from.clone().addScaledVector(new THREE.Vector3(0, 1, 0).applyQuaternion(v.quaternion), h)
-  }
-  const lp = exitLiftPoint(out || from, EXIT_CLEAR_Y)
-  v.userData.exitDepth = null
-  v.userData.trip = { from, out, lift: new THREE.Vector3(lp.x, lp.y, lp.z), q0: v.quaternion.clone(), s0: v.scale.x, t: 0, D: null }
+  if (SNAP_SAMPLE) v.position.set(x, y, z)
 }
 // If a step change interrupts a spin, the sample may still be parented into a
 // centrifuge rotor slot — return every vessel to the scene (upright, full size).
@@ -106,38 +87,25 @@ function depart(v, alongAxis = false) {
 // was docked rises STRAIGHT UP out of the instrument (an `exitLift` waypoint the frame
 // loop honours before the normal glide) so it never drags diagonally through the rotor
 // or the lid. On a jump (`lift` false) we just free it — a jump is allowed to snap.
-// the rotor a docked vessel rides in, and whether it has come to rest
-function rotorOf(v) { for (let n = v.parent; n; n = n.parent) if (n.userData && n.userData.spinPart) return n.parent; return null }
-export function rotorAtRest(v) { const cen = rotorOf(v); return !cen || !cen.userData.atRest || cen.userData.atRest() }
+// (e972bcf's, as it was — the station-change transition is e972bcf's: StationScene, TRANSITION_SLOWDOWN)
 export function undockSample(lift = false) {
   if (!SAMPLE || !scene) return
   for (const v of SAMPLE.vessels) {
-    // a vessel in a rotor that is still turning (spinning down, settling home) is taken out only once
-    // it is still (undockWhenStill, every frame): released now, the slot turned away under it
-    if (lift && v.userData.docked && !rotorAtRest(v)) { v.userData.leaveWhenStill = true; continue }
+    v.userData.trip = null; v.userData.leaveWhenStill = false; v.userData.exitOut = null   // (no later trip state survives)
     const wasDocked = v.userData.docked
     if (v.parent && v.parent !== scene) scene.attach(v)
-    // on a sequential Next EVERY shown vessel departs straight up and arrives from above (it
-    // used to be only a docked one: a tube left the ice bucket sideways through its wall). A
-    // DOCKED one (a tilted rotor slot, a well) first slides out along its own axis, turning
-    // upright and back to full size as it goes — it used to jump upright and full-size in place
-    if (wasDocked) v.userData.docked = false
-    if (lift && v.visible) depart(v, wasDocked)
-    else { v.userData.trip = null; v.userData.exitOut = null; if (wasDocked) { v.rotation.set(0, 0, 0); v.scale.setScalar(1) } }
-    v.userData.exitLift = null
+    if (wasDocked) {
+      v.userData.docked = false; v.rotation.set(0, 0, 0); v.scale.setScalar(1)
+      if (lift) {
+        const lp = exitLiftPoint(v.position, EXIT_CLEAR_Y)
+        v.userData.exitLift = (v.userData.exitLift || new THREE.Vector3()).set(lp.x, lp.y, lp.z)
+      } else {
+        v.userData.exitLift = null
+      }
+    } else {
+      v.userData.exitLift = null
+    }
   }
-}
-export function undockWhenStill() {
-  if (!SAMPLE || !scene) return false
-  let waiting = false
-  for (const v of SAMPLE.vessels) {
-    if (!v.userData.leaveWhenStill) continue
-    if (!rotorAtRest(v)) { waiting = true; continue }
-    v.userData.leaveWhenStill = false
-    scene.attach(v); v.userData.docked = false
-    if (v.visible) depart(v, true)
-  }
-  return waiting
 }
 
   var LOOK = {
