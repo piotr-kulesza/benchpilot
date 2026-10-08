@@ -9,9 +9,9 @@
 // MAX_SPEED / tempo). Nothing is timed from its own station any more: the pipette used to be held to
 // THAT pass's descent, so one station's pipette moved at 2.5 u/s and another's at 9.9.
 //
-// MAX_SPEED: the median of the pipette's descents as measured on the 9 bundled protocols before this
-// rule (scripts/pipette-speed.mjs, on screen × tempo).
-export const MAX_SPEED = 8.7            // world units per second of scene time
+// MAX_SPEED: the median of the pipette's descents measured on the 9 bundled protocols before this rule
+// (45 stations, check-protocol's per-station peaks: 5.39–5.67 u/s on screen, median 5.54 × tempo 1.6).
+export const MAX_SPEED = 8.86           // world units per second of scene time
 export const CAMERA_MAX_SPEED = MAX_SPEED
 // the shortest any one segment of a kind may last (seconds of scene time): a short move still reads
 // as a move, a draw or a dispense as a pause — the same everywhere
