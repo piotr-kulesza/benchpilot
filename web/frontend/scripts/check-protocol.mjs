@@ -64,10 +64,10 @@ function expectedPasses(data) {
   // the vessels a station RETIRES (a used collection tube set aside, a mix used up): gone at the next
   // boundary, not a jump
   const retired = L.stations.map((rec) => rec.ops.filter((o) => o.op === 'retire').map((o) => o.from))
-  return { stations, L, retired, expect: L.stations.map((rec) => rec.ops.flatMap((o) => {
+  return { stations, L, retired, expect: L.stations.map((rec) => [...rec.ops.flatMap((o) => {
     const piped = (o.op === 'add' || o.op === 'move' || o.op === 'discard') && o.method === 'pipette'
     return piped && !o.guess ? passesFor(o.ul) : []
-  })) }
+  }), ...(rec.mixUl > 0 ? [0, 1, 2].flatMap(() => passesFor(rec.mixUl)) : [])]) }   // (mixing by pipetting: three strokes of what the ledger draws)
 }
 
 const launch = () => puppeteer.launch({ executablePath: CHROME, headless: 'new', protocolTimeout: 0,
