@@ -1325,11 +1325,11 @@ export function configureStation(st, o) {
       const fit = Math.min(1, D.w / Math.max(1e-3, pb.max.x - pb.min.x), D.d / Math.max(1e-3, pb.max.z - pb.min.z), (D.ceil - D.topY - 0.03) / Math.max(1e-3, pb.max.y - pb.min.y))
       const cx = -fit * (pb.min.x + pb.max.x) / 2, cz = -fit * (pb.min.z + pb.max.z) / 2, py = D.topY - fit * pb.min.y
       const onTray = () => reader.position.z + reader.userData.trayZ() + cz   // the plate RIDES the drawer (it slid across it, over its lip)
-      st.enter = () => { seat(cx, py, onTray()); demo.seatScale(S[vessel], fit); reader.userData.setDrawer(true); reader.userData.setOD(0) }
+      const ride = new Vector3()
+      st.enter = () => { seat(cx, py, onTray()); demo.seatScale(S[vessel], fit); reader.userData.setDrawer(true); reader.userData.setOD(0); S[vessel].userData.rides = () => ride.set(st.x + cx, py, onTray()) }
       st.timeline = (p) => {
         const e = demo.easeInOut(demo.clamp(p * 1.3, 0, 1))
         reader.userData.setDrawer(p < 0.35)                     // plate slides in, then reads
-        S.at(S[vessel], st.x + cx, py, onTray())
         reader.userData.setOD(e * 1.85)
         evolve(p)
       }
@@ -1394,6 +1394,7 @@ export function configureStation(st, o) {
       }
       // during an elution the column (not drawn) rides in the eluate tube it drains into
       if (S.column) S.column.userData.ridesWith = (action === 'elute' && vessel !== 'column') ? S[vessel] : null
+      for (const v of S.vessels) v.userData.rides = null   // (a station that has one sets it on entry)
       // a reagent bottle is an unlimited source: every station starts with it at its drawn line,
       // closed (it falls by what this station draws). A station's entry sets its WHOLE start — the
       // pacer's dry run, or an earlier visit, must leave nothing behind
@@ -2621,6 +2622,9 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     // the next seat — so the sample never teleports and never drags through the lid.
     const S = demo.getSample()
     if (S) for (const v of S.vessels) {
+      // a vessel that RIDES a moving part (a plate on a reader's drawer) reads its seat now, after the
+      // instruments moved this frame — set in the timeline, it trailed the drawer by a frame, into its lip
+      if (v.visible && v.userData.rides) v.userData.tPos.copy(v.userData.rides())
       if (!v.userData.docked && !travelTrip(v, adt)) {
         const goal = v.userData.exitLift || v.userData.tPos
         travel(v, goal, adt)
