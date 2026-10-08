@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { passesFor, comparePasses, isolatedJump, createFinish, phaseSpeeds } from './protocolCheck.js'
+import { passesFor, comparePasses, isolatedJump, createFinish, phaseSpeeds, ndcInFrame, transitionVerdict } from './protocolCheck.js'
 import { generateProtocol, EDGE_VOLUMES } from './genProtocol.js'
 
 describe('check-protocol — the pure rules, proven red', () => {
@@ -13,6 +13,15 @@ describe('check-protocol — the pure rules, proven red', () => {
   })
   it('RED: two substances drawn as one is a draw missing', () => {
     expect(comparePasses([...passesFor(100), ...passesFor(30)], [{ ul: 130 }]).length).toBe(2)
+  })
+  it('a vessel is in the frame when every corner of its box projects inside the view (NDC −1…1)', () => {
+    expect(ndcInFrame([[0, 0], [0.9, -0.9], [-0.99, 0.99]])).toBe(true)
+    expect(ndcInFrame([[0, 0], [1.2, 0]])).toBe(false)               // RED: one corner off the right edge
+  })
+  it('RED: a transition whose camera finishes after the vessel has set down, or loses it from the frame, is red', () => {
+    expect(transitionVerdict({ vesselDone: 220, cameraDone: 200, outFrames: 0 })).toEqual([])
+    expect(transitionVerdict({ vesselDone: 220, cameraDone: 240, outFrames: 0 })[0]).toMatch(/camera arrives 20 frames after/)
+    expect(transitionVerdict({ vesselDone: 220, cameraDone: 200, outFrames: 31, firstOut: 12 })[0]).toMatch(/out of the frame in 31 frames/)
   })
   it('per-phase peak speeds of a pipette track (u/s): the descent and the moves, each its own', () => {
     const fr = (phase, y, x = 0) => ({ phase, x, y, z: 0, dt: 0.1 })

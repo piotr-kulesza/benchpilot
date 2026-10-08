@@ -14,7 +14,7 @@
 //   tempo     per station, the pipette's peak descent and move speeds (phaseSpeeds): one tempo for
 //             every station — their spread across stations is checked by scripts/check-protocol.mjs
 // The pure parts are exported and proven red by protocolCheck.test.js.
-import { Vector3 } from 'three'
+import { Vector3, Box3 } from 'three'
 import { MAX_SPEED, CAMERA_MAX_SPEED } from '../scene/motionPlan.js'
 import { animationTempo } from '../scene/tempo.js'
 import { sampleLiquids, checkFrames, checkBoundary } from './liquidFrames.js'
@@ -209,6 +209,46 @@ export function createPassTracker(line) {
   }
 }
 // the ACTIVE station's pipette, frame by frame (world, the frame's dt): its peak descent and move speeds
+// THE STATION CHANGE (camera + the vessel's glide): the vessel in the view every frame, the camera's
+// dolly done no later than the vessel sets down
+export function ndcInFrame(pts, edge = 1) { return pts.every(([x, y]) => Math.abs(x) <= edge && Math.abs(y) <= edge) }
+export function transitionVerdict({ vesselDone, cameraDone, outFrames, firstOut }) {
+  const bad = []
+  if (outFrames) bad.push(`the vessel is out of the frame in ${outFrames} frames of the station change (from frame ${firstOut})`)
+  if (vesselDone != null && cameraDone != null && cameraDone > vesselDone) bad.push(`the camera arrives ${cameraDone - vesselDone} frames after the vessel set down`)
+  return bad
+}
+// per frame while a vessel is on its way here (trip.transit): every corner of its box through the camera
+export function createTransitionTracker(line) {
+  const box = new Box3(), c = new Vector3()
+  let any = false, outFrames = 0, firstOut = null, vesselDone = null, cameraDone = null, where = null, lead = null, worst = 0
+  const others = new Set()
+  return {
+    frame(k) {
+      const S = line.sample(), cam = line.camera && line.camera(), g = line.glide && line.glide()
+      // THE vessel of the trip: the one the camera follows (it leaves the last station); others travelling
+      // (one first shown from where it was left hidden) are counted apart
+      const all = [...(S ? S.vessels : []), ...line.preps()].filter((v) => v.visible && v.userData.trip && v.userData.trip.transit)
+      if (g && g.lead && !lead) lead = g.lead
+      for (const v of all) if (v !== lead) others.add(v.name || 'vessel')
+      const movers = lead ? all.filter((v) => v === lead) : []
+      if (movers.length) { any = true; vesselDone = null }
+      else if (any && vesselDone == null) vesselDone = k
+      if (any && g && !g.active && cameraDone == null) cameraDone = k
+      if (g && g.active) cameraDone = null
+      if (!cam || !movers.length) return
+      cam.updateMatrixWorld()
+      for (const v of movers) {
+        box.setFromObject(v)
+        const pts = []
+        for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) { c.set(x, y, z).project(cam); pts.push([c.x, c.y]) }
+        worst = Math.max(worst, ...pts.map((q) => Math.max(Math.abs(q[0]), Math.abs(q[1]))))
+        if (!ndcInFrame(pts)) { outFrames++; if (firstOut == null) { firstOut = k; const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]); where = `${v.name || 'vessel'} x ${Math.min(...xs).toFixed(2)}…${Math.max(...xs).toFixed(2)}, y ${Math.min(...ys).toFixed(2)}…${Math.max(...ys).toFixed(2)} at (${v.position.toArray().map((q) => q.toFixed(2)).join(', ')})` } break }
+      }
+    },
+    result() { return any ? { vesselDone, cameraDone, outFrames, firstOut, where, worstNdc: +worst.toFixed(3), others: [...others], red: transitionVerdict({ vesselDone, cameraDone, outFrames, firstOut }) } : null },
+  }
+}
 export function createPhaseTracker(line, { fps = 60 } = {}) {
   const track = [], w = new Vector3()
   return {
@@ -227,7 +267,7 @@ export function createPhaseTracker(line, { fps = 60 } = {}) {
 // seconds runs its first and last 10 s and skips the middle — protocol time, not animation).
 export async function checkStation(line, { timed = 0, fullTo = 20, tailSec = 2, maxSec = 240, every = 8, clockAdd, startTimer } = {}) {
   const fps = 60, tempo = animationTempo()
-  const motion = createMotionTracker(line, { fps }), passes = createPassTracker(line), phases = createPhaseTracker(line, { fps })
+  const motion = createMotionTracker(line, { fps }), passes = createPassTracker(line), phases = createPhaseTracker(line, { fps }), trans = createTransitionTracker(line)
   const liquid = []
   let prevL = null
   const arriving = () => { const S = line.sample(); return !!((S && S.vessels.some((v) => v.visible && v.userData.trip)) || line.preps().some((v) => v.visible && v.userData.trip)) }
@@ -256,7 +296,7 @@ export async function checkStation(line, { timed = 0, fullTo = 20, tailSec = 2, 
     },
     onFrame(k) {
       if (window.__traceSpin && line.stations()[line.active()].cen) { const c = line.stations()[line.active()].cen, S = line.sample(); (window.__spinTrace || (window.__spinTrace = [])).push([k, +c.userData.st.spin.toFixed(3), S.column && S.column.userData.drawnUl ? +S.column.userData.drawnUl().toFixed(1) : null, +((window.__benchperf && window.__benchperf.p) || 0).toFixed(3), !!(S.column && S.column.userData.docked)]) }
-      motion.frame(k); passes.frame(k); phases.frame(k)
+      motion.frame(k); passes.frame(k); phases.frame(k); trans.frame(k)
       const cur = { k, p: pNow(), ...sampleLiquids(line) }
       if (prevL) for (const b of checkFrames([prevL, cur])) if (liquid.length < 40) liquid.push(b)
       prevL = cur
@@ -270,7 +310,7 @@ export async function checkStation(line, { timed = 0, fullTo = 20, tailSec = 2, 
   const collisions = found.filter((d) => !MOTION.includes(d.check))
   const motionAudit = found.filter((d) => MOTION.includes(d.check))
   const pEnd = pNow()
-  return { liquid, ...motion.result(), collisions, motionAudit, ...{ pipette: passes.result() }, phaseSpeeds: phases.result(), unfinished: pEnd < 0.9999 || !finish.ran ? +pEnd.toFixed(3) : null }
+  return { liquid, ...motion.result(), collisions, motionAudit, ...{ pipette: passes.result() }, phaseSpeeds: phases.result(), transition: trans.result(), unfinished: pEnd < 0.9999 || !finish.ran ? +pEnd.toFixed(3) : null }
 }
 
 export { sampleLiquids, checkBoundary }

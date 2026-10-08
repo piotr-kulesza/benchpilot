@@ -2104,6 +2104,13 @@ function vesselsArriving() {
   if (S && S.vessels.some((v) => v.visible && v.userData.trip)) return true
   return demo.getPreps().some((v) => v.visible && v.userData.trip)
 }
+// how much of its way a vessel in transit has left: out of its dock to its exitLift, then to its seat
+function tripLeft(v) {
+  const u = v.userData
+  return u.exitLift ? v.position.distanceTo(u.exitLift) + u.exitLift.distanceTo(u.tPos) : v.position.distanceTo(u.tPos)
+}
+const CAM_DONE = 0.01   // the camera's dolly is done when the lead vessel is this close to its seat (world units)
+const smootherstep = (t) => { t = Math.min(1, Math.max(0, t)); return t * t * t * (t * (t * 6 - 15) + 10) }
 function travelTrip(v, dt, tdt = dt) {
   const u = v.userData
   const tr = u.trip
@@ -2434,6 +2441,23 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     // (e972bcf's step change, as it was. A glide to the next station is a TRANSIT — travelTrip — on the
     // transition's clock; the step's clock waits for it, as it waited for a trip)
     if (sequential) for (const v of [...(demo.getSample()?.vessels || []), ...demo.getPreps()]) if (v.visible) v.userData.trip = { transit: true }
+    // THE CAMERA KEEPS UP WITH THE VESSEL (its timing only — path, target and end framing are e972bcf's):
+    // its dolly is paced by the trip of the vessel that travels furthest, from the same moment, and is
+    // done just before that vessel sets down (see the frame loop)
+    glideRef.current.lead = null
+    if (sequential) {
+      let best = null
+      const fromX = stations[prevActiveRef.current] ? stations[prevActiveRef.current].x : null
+      for (const v of [...(demo.getSample()?.vessels || []), ...demo.getPreps()]) {
+        if (!v.visible || !v.userData.trip || !v.userData.trip.transit) continue
+        // the vessel that makes the TRIP: it leaves the last station (one already here, or one first shown
+        // from wherever it was left hidden, is not this trip)
+        if (fromX != null && Math.abs(v.position.x - fromX) > SPACING / 2) continue
+        const total = tripLeft(v)
+        if (total > 1e-3 && (!best || total > best.total)) best = { v, total }
+      }
+      if (best) Object.assign(glideRef.current, { lead: best.v, total: best.total, prog: 0 })
+    }
     pRef.current = 0
     restartRef.current = true
     activeRef.current = active
@@ -2466,7 +2490,17 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     // (e972bcf's camera, as it was — on the TRANSITION's clock: the wall clock ÷ TRANSITION_SLOWDOWN)
     const tdt = dt / TRANSITION_SLOWDOWN, time = state.clock.elapsedTime / TRANSITION_SLOWDOWN
     const g = glideRef.current
-    if (g.active) {
+    if (g.active && g.lead) {
+      // paced by the lead vessel's own progress along its way (out of a dock, then to its seat): the dolly
+      // is a smootherstep of it — a soft start and a soft stop, no jerk — done when the vessel is within
+      // CAM_DONE of its seat, a moment before it sets down. (e972bcf's own timing, a cubic ease over
+      // GLIDE_DUR, let the vessel's exponential glide run 6 units ahead and out of the frame.)
+      const left = g.lead.userData.trip && g.lead.userData.trip.transit ? tripLeft(g.lead) : 0
+      g.prog = Math.max(g.prog, 1 - left / g.total)
+      g.t = Math.min(1, g.prog / Math.max(1e-6, 1 - CAM_DONE / g.total))
+      railXRef.current = demo.lerp(g.from, g.to, smootherstep(g.t))
+      if (g.t >= 1) { g.active = false; g.lead = null; railXRef.current = g.to }
+    } else if (g.active) {
       g.t = Math.min(g.t + tdt / GLIDE_DUR, 1)
       railXRef.current = demo.lerp(g.from, g.to, demo.easeInOut(g.t))
       if (g.t >= 1) { g.active = false; railXRef.current = g.to }
@@ -2689,6 +2723,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       step: (dt) => frame(lastStateRef.current, dt),
       render: () => { const s = lastStateRef.current; s.gl.render(s.scene, s.camera) },
       camera: () => lastStateRef.current && lastStateRef.current.camera,
+      glide: () => glideRef.current,
     })
     window.__benchLine = benchLine
   }

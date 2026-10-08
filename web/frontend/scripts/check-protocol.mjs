@@ -146,6 +146,7 @@ async function runJob(job) {
     const red = []
     if (r.error) red.push(`error: ${r.error}`)
     if (r.unfinished != null) red.push(`did not finish (p ${r.unfinished})`)
+    if (r.transition && r.transition.red.length) red.push(`station change: ${r.transition.red.join('; ')}`)
     if (boundary.length) red.push(`liquid (d) ×${boundary.length}: ${boundary[0].vessel} ${boundary[0].detail}`)
     if (r.liquid && r.liquid.length) red.push(`liquid (${[...new Set(r.liquid.map((b) => b.check))].join(',')}) ×${r.liquid.length}: ${r.liquid[0].vessel} ${r.liquid[0].detail}`)
     if (r.speed && r.speed.length) { const w = r.speed.sort((a, b) => b.ratio - a.ratio)[0]; red.push(`speed ×${r.speed.length} objects: ${w.label} ${w.peak} u/s = ×${w.ratio} of the cap (frame ${w.peakFrame}, p ${w.peakP})`) }
@@ -155,7 +156,7 @@ async function runJob(job) {
     if (r.motionAudit && r.motionAudit.length) red.push(`motion ×${r.motionAudit.length}: ${r.motionAudit.map((c) => `${c.check}:${c.a}`).slice(0, 2).join('  ')}`)
     if (passBad.length) red.push(`pipette: ${passBad.slice(0, 2).join('; ')}${passBad.length > 2 ? ` (+${passBad.length - 2})` : ''}`)
     if (STREAM) console.log(`    · ${job.name} ${String(s).padStart(2)} ${String(stations[s - 1].action).padEnd(14)} ${red.length ? '✗ ' + red.join(' | ').slice(0, 200) : '✓'}`)
-    rows.push({ station: s, action: stations[s - 1].action, container: stations[s - 1].container, red, detail: VERBOSE ? r : { speedPeak: r.peak, camera: r.camera, passes: r.pipette && r.pipette.passes, expected: exp }, phaseSpeeds: r.phaseSpeeds, peaks: r.peaks, spinTrace: r.spinTrace })
+    rows.push({ station: s, action: stations[s - 1].action, container: stations[s - 1].container, red, detail: VERBOSE ? r : { speedPeak: r.peak, camera: r.camera, passes: r.pipette && r.pipette.passes, expected: exp }, phaseSpeeds: r.phaseSpeeds, peaks: r.peaks, transition: r.transition, spinTrace: r.spinTrace })
   }
   await page.close()
   return { rows, errors }
