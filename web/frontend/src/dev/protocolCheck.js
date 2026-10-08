@@ -9,8 +9,10 @@
 //   teleport  no isolated one-frame jump of a mesh or the camera; nothing hidden and shown again
 //             somewhere else
 //   collision the collision + motion audit (src/dev/collisionAudit.js, motionAudit.js)
-//   capacity  a tip never holds more than its pipette takes; each pass's pipette is the one its
-//             volume calls for (≤ 200 µl a P200; 201–1000 µl ONE P1000 pass; more: P1000 passes)
+//   draws     one draw per substance a step adds (one pipette, schematic: whatever its volume), one
+//             per discard or move — never portions
+//   tempo     per station, the pipette's peak descent and move speeds (phaseSpeeds): one tempo for
+//             every station — their spread across stations is checked by scripts/check-protocol.mjs
 // The pure parts are exported and proven red by protocolCheck.test.js.
 import { Vector3 } from 'three'
 import { MAX_SPEED, CAMERA_MAX_SPEED } from '../scene/motionPlan.js'
@@ -22,29 +24,36 @@ export const SPEED_TOL = 1.1
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 export const JUMP = 0.08                 // world units in one frame, isolated (≥ 4× either side) → a teleport
 export const REAPPEAR = 0.05             // hidden, then shown this far from where it was → a teleport
-export const P200_UL = 200, P1000_UL = 1000
 
 // ── pure ──
-// the passes a stated pipette move calls for (rule 1)
-export function passesFor(ul) {
-  if (!(ul > 0)) return []
-  if (ul <= P200_UL) return [{ kind: 'P200', ul }]
-  if (ul <= P1000_UL) return [{ kind: 'P1000', ul }]
-  const n = Math.ceil(ul / P1000_UL - 1e-9)
-  return Array.from({ length: n }, () => ({ kind: 'P1000', ul: ul / n }))
-}
-// expected passes vs the passes seen (both [{kind, ul}]), in order; volumes to 1 %
+// the draws a stated pipette move takes: ONE, whatever its volume (schematic pipetting)
+export function passesFor(ul) { return ul > 0 ? [{ ul }] : [] }
+// expected draws vs the draws seen (both [{ul}]), in order; volumes to 1 %
 export function comparePasses(expected, seen) {
   const bad = []
   const n = Math.max(expected.length, seen.length)
   for (let i = 0; i < n; i++) {
     const e = expected[i], s = seen[i]
-    if (!s) { bad.push(`pass ${i + 1}: expected ${e.kind} ${fmt(e.ul)}, none seen`); continue }
-    if (!e) { bad.push(`pass ${i + 1}: ${s.kind} ${fmt(s.ul)} not called for`); continue }
-    if (e.kind !== s.kind) bad.push(`pass ${i + 1}: ${fmt(e.ul)} needs a ${e.kind}, drawn with a ${s.kind}`)
-    else if (Math.abs(e.ul - s.ul) > Math.max(0.5, 0.01 * e.ul)) bad.push(`pass ${i + 1}: ${e.kind} drew ${fmt(s.ul)}, expected ${fmt(e.ul)}`)
+    if (!s) { bad.push(`draw ${i + 1}: expected ${fmt(e.ul)}, none seen`); continue }
+    if (!e) { bad.push(`draw ${i + 1}: ${fmt(s.ul)} not called for`); continue }
+    if (Math.abs(e.ul - s.ul) > Math.max(0.5, 0.01 * e.ul)) bad.push(`draw ${i + 1}: drew ${fmt(s.ul)}, expected ${fmt(e.ul)}`)
   }
   return bad
+}
+// a pipette's peak speed per kind of motion (u/s) from its track [{phase, x, y, z, dt}]: the DESCENT
+// (into the source, into the vessel) and the MOVES (to the source, the carry, home); a frame's
+// displacement counts toward the phase it arrives in
+const DESCENT = new Set(['descent', 'into source']), MOVE = new Set(['to source', 'travel', 'return'])
+export function phaseSpeeds(track) {
+  const out = { descent: 0, move: 0 }
+  for (let i = 1; i < track.length; i++) {
+    const a = track[i - 1], b = track[i]
+    if (!(b.dt > 0)) continue
+    const v = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z) / b.dt
+    if (DESCENT.has(b.phase)) out.descent = Math.max(out.descent, v)
+    else if (MOVE.has(b.phase)) out.move = Math.max(out.move, v)
+  }
+  return out
 }
 const fmt = (ul) => (ul >= 1000 ? `${+(ul / 1000).toFixed(3)} mL` : `${+ul.toFixed(1)} µl`)
 // one frame's displacement d[k] among its neighbours: an isolated jump?
@@ -182,20 +191,31 @@ export function createMotionTracker(line, { fps = 60 } = {}) {
 // the passes the pipettes of the active station make: [{kind, ul}] (a pass = the tip from empty,
 // filled, back to empty; its volume the most it held)
 export function createPassTracker(line) {
-  const passes = [], open = new Map(), over = []
+  const passes = [], open = new Map()
   return {
     frame(k) {
       const st = line.stations()[line.active()]
       for (const pip of st.pips ? Object.values(st.pips) : st.pip ? [st.pip] : []) {
         const ul = pip.userData.tipUl != null ? pip.userData.tipUl : (pip.userData.drawnUl ? pip.userData.drawnUl() : 0)
-        const kind = pip.userData.kind || 'P200', capUl = pip.userData.capacityUl || P200_UL
-        if (ul > capUl + 0.5) over.push({ frame: k, kind, ul: +ul.toFixed(1), cap: capUl })
         const o = open.get(pip)
-        if (ul > 0.01) { if (!o) open.set(pip, { kind, ul }); else o.ul = Math.max(o.ul, ul) }
+        if (ul > 0.01) { if (!o) open.set(pip, { ul }); else o.ul = Math.max(o.ul, ul) }
         else if (o) { passes.push(o); open.delete(pip) }
       }
     },
-    result() { return { passes: [...passes, ...open.values()].map((p) => ({ kind: p.kind, ul: +p.ul.toFixed(2) })), over: over.slice(0, 5), overCount: over.length } },
+    result() { return { passes: [...passes, ...open.values()].map((p) => ({ ul: +p.ul.toFixed(2) })) } },
+  }
+}
+// the ACTIVE station's pipette, frame by frame (world, the frame's dt): its peak descent and move speeds
+export function createPhaseTracker(line, { fps = 60 } = {}) {
+  const track = [], w = new Vector3()
+  return {
+    frame() {
+      const st = line.stations()[line.active()], pip = st && st.pip
+      if (!pip) return
+      pip.getWorldPosition(w)
+      track.push({ phase: pip.userData.phase || 'home', x: w.x, y: w.y, z: w.z, dt: 1 / fps })
+    },
+    result() { const s = phaseSpeeds(track); return { descent: +s.descent.toFixed(3), move: +s.move.toFixed(3) } },
   }
 }
 
@@ -204,7 +224,7 @@ export function createPassTracker(line) {
 // seconds runs its first and last 10 s and skips the middle — protocol time, not animation).
 export async function checkStation(line, { timed = 0, fullTo = 20, tailSec = 2, maxSec = 240, every = 8, clockAdd, startTimer } = {}) {
   const fps = 60, tempo = animationTempo()
-  const motion = createMotionTracker(line, { fps }), passes = createPassTracker(line)
+  const motion = createMotionTracker(line, { fps }), passes = createPassTracker(line), phases = createPhaseTracker(line, { fps })
   const liquid = []
   let prevL = null
   const arriving = () => { const S = line.sample(); return !!((S && S.vessels.some((v) => v.visible && v.userData.trip)) || line.preps().some((v) => v.visible && v.userData.trip)) }
@@ -233,7 +253,7 @@ export async function checkStation(line, { timed = 0, fullTo = 20, tailSec = 2, 
     },
     onFrame(k) {
       if (window.__traceSpin && line.stations()[line.active()].cen) { const c = line.stations()[line.active()].cen, S = line.sample(); (window.__spinTrace || (window.__spinTrace = [])).push([k, +c.userData.st.spin.toFixed(3), S.column && S.column.userData.drawnUl ? +S.column.userData.drawnUl().toFixed(1) : null, +((window.__benchperf && window.__benchperf.p) || 0).toFixed(3), !!(S.column && S.column.userData.docked)]) }
-      motion.frame(k); passes.frame(k)
+      motion.frame(k); passes.frame(k); phases.frame(k)
       const cur = { k, p: pNow(), ...sampleLiquids(line) }
       if (prevL) for (const b of checkFrames([prevL, cur])) if (liquid.length < 40) liquid.push(b)
       prevL = cur
@@ -247,7 +267,7 @@ export async function checkStation(line, { timed = 0, fullTo = 20, tailSec = 2, 
   const collisions = found.filter((d) => !MOTION.includes(d.check))
   const motionAudit = found.filter((d) => MOTION.includes(d.check))
   const pEnd = pNow()
-  return { liquid, ...motion.result(), collisions, motionAudit, ...{ pipette: passes.result() }, unfinished: pEnd < 0.9999 || !finish.ran ? +pEnd.toFixed(3) : null }
+  return { liquid, ...motion.result(), collisions, motionAudit, ...{ pipette: passes.result() }, phaseSpeeds: phases.result(), unfinished: pEnd < 0.9999 || !finish.ran ? +pEnd.toFixed(3) : null }
 }
 
 export { sampleLiquids, checkBoundary }

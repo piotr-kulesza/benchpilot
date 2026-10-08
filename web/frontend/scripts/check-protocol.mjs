@@ -10,8 +10,10 @@
 // clock to its end, a timed one started and its countdown run (a long one: first and last 10 s),
 // then Next — checking, every frame (src/dev/protocolCheck.js):
 //   liquid (a–d) · speed of every object and the camera · teleports · collisions + motion audit ·
-//   pipette capacity and choice (≤ 200 µl P200; 201–1000 µl one P1000 pass; more: P1000 passes).
-// Exit 1 if any station is red.
+//   draws (one per substance, per discard, per move — never portions) · ONE TEMPO: the pipette's peak
+//   descent and move speeds of every station, whose spread across stations (max / min − 1) must stay
+//   within 15 % (per protocol and over the whole run).
+// Exit 1 if any station is red or the spread is over.
 import puppeteer from 'puppeteer-core'
 import fs from 'fs'
 import path from 'path'
@@ -20,6 +22,7 @@ import { buildLedger } from '../src/vessel/liquidLedger.js'
 import { sampleContainerSequence } from '../src/vessel/sceneRecipe.js'
 import { generateProtocol } from '../src/dev/genProtocol.js'
 import { passesFor, comparePasses } from '../src/dev/protocolCheck.js'
+import { spread } from '../src/scene/motionPlan.js'
 
 const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const argv = process.argv.slice(2)
@@ -150,13 +153,19 @@ async function runJob(job) {
     if (r.camera && (r.camera.over || r.camera.teleports.length)) red.push(`camera ${r.camera.over ? `×${r.camera.ratio} of its cap (frame ${r.camera.peakFrame})` : ''}${r.camera.teleports.length ? ` jump ${r.camera.teleports[0].dist}` : ''}`)
     if (r.collisions && r.collisions.length) red.push(`collision ×${r.collisions.length}: ${r.collisions.map((c) => `${c.check}:${c.a}×${c.b}=${(+c.depth).toFixed(3)}`).slice(0, 2).join('  ')}`)
     if (r.motionAudit && r.motionAudit.length) red.push(`motion ×${r.motionAudit.length}: ${r.motionAudit.map((c) => `${c.check}:${c.a}`).slice(0, 2).join('  ')}`)
-    if (r.pipette && r.pipette.overCount) red.push(`capacity: a ${r.pipette.over[0].kind} tip held ${r.pipette.over[0].ul} µl`)
     if (passBad.length) red.push(`pipette: ${passBad.slice(0, 2).join('; ')}${passBad.length > 2 ? ` (+${passBad.length - 2})` : ''}`)
     if (STREAM) console.log(`    · ${job.name} ${String(s).padStart(2)} ${String(stations[s - 1].action).padEnd(14)} ${red.length ? '✗ ' + red.join(' | ').slice(0, 200) : '✓'}`)
-    rows.push({ station: s, action: stations[s - 1].action, container: stations[s - 1].container, red, detail: VERBOSE ? r : { speedPeak: r.peak, camera: r.camera, passes: r.pipette && r.pipette.passes, expected: exp }, spinTrace: r.spinTrace })
+    rows.push({ station: s, action: stations[s - 1].action, container: stations[s - 1].container, red, detail: VERBOSE ? r : { speedPeak: r.peak, camera: r.camera, passes: r.pipette && r.pipette.passes, expected: exp }, phaseSpeeds: r.phaseSpeeds, spinTrace: r.spinTrace })
   }
   await page.close()
   return { rows, errors }
+}
+const SPREAD_MAX = 0.15
+const allTempo = []
+function tempoOf(rows) {
+  const of = (k) => { const xs = rows.map((r) => r.phaseSpeeds && r.phaseSpeeds[k]).filter((x) => x > 0.2)
+    return { n: xs.length, min: xs.length ? +Math.min(...xs).toFixed(2) : 0, max: xs.length ? +Math.max(...xs).toFixed(2) : 0, spread: spread(xs) } }
+  return { descent: of('descent'), move: of('move') }
 }
 for (const job of jobs) {
   let res
@@ -177,9 +186,17 @@ for (const job of jobs) {
   console.log(`\n${nRed ? '✗' : '✓'} ${job.name} — ${rows.length} stations, ${nRed} red`)
   for (const row of rows) console.log(`  ${row.red && row.red.length ? '✗' : '✓'} ${String(row.station).padStart(2)} ${String(row.action || '').padEnd(14)} ${String(row.container || '').padEnd(12)} ${(row.red || []).join(' | ')}`)
   if (errors.length) console.log('  page errors:', [...new Set(errors)].slice(0, 2).join(' | '))
+  // ONE TEMPO: the stations' pipette speeds (u/s on screen) and their spread
+  const sp = tempoOf(rows)
+  report[report.length - 1].tempo = sp
+  if (sp.descent.n || sp.move.n) console.log(`  tempo: descent ${sp.descent.min}–${sp.descent.max} u/s (spread ${(100 * sp.descent.spread).toFixed(1)} %) · moves ${sp.move.min}–${sp.move.max} u/s (spread ${(100 * sp.move.spread).toFixed(1)} %)${sp.descent.spread > SPREAD_MAX || sp.move.spread > SPREAD_MAX ? '  ✗ over 15 %' : ''}`)
+  allTempo.push(...rows)
   fs.mkdirSync(path.dirname(OUT), { recursive: true }); fs.writeFileSync(OUT, JSON.stringify(report, null, 1))
 }
 await browser.close()
 if (server) await server.close()
+const T = tempoOf(allTempo), tempoRed = T.descent.spread > SPREAD_MAX || T.move.spread > SPREAD_MAX || report.some((r) => r.tempo && (r.tempo.descent.spread > SPREAD_MAX || r.tempo.move.spread > SPREAD_MAX))
 console.log(`\ncheck-protocol — ${report.length} protocols (${redProtocols} red) · ${allStations} stations, ${redStations} red · ${((Date.now() - t0) / 60000).toFixed(1)} min → ${OUT}`)
-process.exitCode = redStations ? 1 : 0
+console.log(`one tempo — every station: descent ${T.descent.min}–${T.descent.max} u/s (spread ${(100 * T.descent.spread).toFixed(1)} %), moves ${T.move.min}–${T.move.max} u/s (spread ${(100 * T.move.spread).toFixed(1)} %) ${tempoRed ? '✗ over 15 %' : '✓'}`)
+fs.writeFileSync(OUT, JSON.stringify({ results: report, tempo: T }, null, 1))
+process.exitCode = redStations || tempoRed ? 1 : 0
