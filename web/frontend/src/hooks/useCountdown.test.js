@@ -113,3 +113,13 @@ describe('createCountdown — live() for the frame clock', () => {
     expect(createCountdown(7, () => {}, () => 123).live()).toBe(7)
   })
 })
+
+describe('a new step resets the clock', () => {
+  it('RED: two consecutive 60 s steps — the second does not inherit the first one\'s finished clock', async () => {
+    const { countdownChanged } = await import('./useCountdown.js')
+    expect(countdownChanged({ seconds: 60, step: 20 }, { seconds: 60, step: 21 })).toBe(true)
+    expect(countdownChanged({ seconds: 60, step: 21 }, { seconds: 60, step: 21 })).toBe(false)   // a re-render
+    expect(countdownChanged({ seconds: 15, step: 21 }, { seconds: 60, step: 21 })).toBe(true)   // an alternative's other duration
+  })
+})
+

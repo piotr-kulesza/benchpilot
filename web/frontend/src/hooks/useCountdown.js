@@ -69,21 +69,27 @@ export function createCountdown(seconds, onChange, now = perfNow) {
   }
 }
 
+// a new clock: a new STEP or a new duration (by the number alone, a 60 s step after a 60 s step kept the
+// first one's finished clock — its spin never ran)
+export function countdownChanged(prev, next) { return prev.seconds !== next.seconds || prev.step !== next.step }
+
 // A wall-clock countdown hook. The clock lives in a ref built ONCE, so no re-render of
 // this component or anything around it re-creates it or tears down its interval. Resets
 // only when `seconds` actually changes (a new step), never on an incidental re-render.
-export function useCountdown(seconds) {
+export function useCountdown(seconds, step) {
   const [state, setState] = useState(() => ({ remaining: seconds || 0, running: false, done: false }))
   const clockRef = useRef(null)
   if (clockRef.current == null) clockRef.current = createCountdown(seconds, setState)
 
   // new step → new duration (a same-value re-render leaves a running clock untouched
   // because the effect only fires when the number `seconds` truly changes).
-  const firstRun = useRef(true)
+  const lastRef = useRef({ seconds, step })
   useEffect(() => {
-    if (firstRun.current) { firstRun.current = false; return } // built with this duration already
+    const next = { seconds, step }
+    if (!countdownChanged(lastRef.current, next)) return   // built with this duration already / a re-render
+    lastRef.current = next
     clockRef.current.setDuration(seconds || 0)
-  }, [seconds])
+  }, [seconds, step])
 
   useEffect(() => () => clockRef.current.destroy(), [])
 

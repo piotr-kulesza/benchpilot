@@ -70,7 +70,7 @@ export default function Runner({ protocol, answers, setAnswers, onExit, initialS
 
   // one clock per step, shared by the scene (ring/gauge) and the timer strip.
   const timed = timerSeconds(step, altIndex)
-  const countdown = useCountdown(timed || 0)
+  const countdown = useCountdown(timed || 0, i)
   const timer = timed
     ? { remaining: countdown.remaining, fraction: timed > 0 ? countdown.remaining / timed : 1, running: countdown.running, done: countdown.done }
     : null
