@@ -2137,7 +2137,10 @@ export {
     }
     HOME_KIND=kind;
     var pip=st.pip; if(!pip) return;
-    var TIP_DROP=TIP_DROP_P200*(pip.scale.x/PIP_SCALE);   // the tip below the body's pivot, at this pipette's size
+    // the pipette's origin IS its tip (its lowest point) and it turns about it: a tilted pose needs no
+    // offset (bug fix: the origin was placed TIP_DROP up the axis, so through a flask's neck the tip
+    // stopped 0.6–0.7 short of its depth — over a shallow layer it 'drew' from the air above it)
+    var TIP_DROP=0;
     // GEOMETRY-SAFE motion (bug fix): NEVER cross laterally at rim height (that
     // pushed the tip through the vessel wall). Instead: draw at the bottle, travel
     // LEVEL and HIGH — well clear of any vessel top — to directly above the mouth,
