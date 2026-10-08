@@ -424,6 +424,7 @@ export function configureStation(st, o) {
   // seat the travelling sample WITHOUT resetting its contents: it enters at the
   // carried-in (start) state, so it continues from where the last step left it.
   const seat = (x, y, z) => {
+    const shownBefore = S[vessel].visible
     S.only(vessel)
     const v = S[vessel]
     if (name) v.userData.setLabel(name, vol || '')
@@ -434,7 +435,10 @@ export function configureStation(st, o) {
     v.visible = true
     if (!v.userData.trip && !v.userData.docked && !v.userData.leaveWhenStill) v.rotation.set(0, 0, 0)   // one on its trip turns upright ON it
     demo.seatScale(v, 1) // full size at this seat — reached on its trip (it used to SNAP back from, e.g., the thermocycler's shrunk tube)
-    S.at(v, st.x + x, FLAT ? SEAT_Y : y, z)   // a flat vessel rests on the bench at its contract seat (0 left a membrane / slide resting on nothing)
+    // a vessel only now shown is PLACED at its seat (it sprang from wherever it was last left hidden — a
+    // casting tray slid along the bench through the last station's stand); one already shown travels
+    if (!shownBefore && !v.userData.trip && !v.userData.docked) { S.snapTo(v, st.x + x, FLAT ? SEAT_Y : y, z); v.userData.trip = null }
+    else S.at(v, st.x + x, FLAT ? SEAT_Y : y, z)   // a flat vessel rests on the bench at its contract seat (0 left a membrane / slide resting on nothing)
     return v
   }
 
