@@ -2354,7 +2354,9 @@ export {
       if(grp.userData.volUl!=null){ st.level=st.tLevel; st.color.copy(st.tColor); }
       else { st.level=lerp(st.level,st.tLevel,1-Math.pow(0.001,dt)); st.color.lerp(st.tColor,1-Math.pow(0.004,dt)); }
       apply(liq, st.level, st.color, st);
-      if(grp.userData.volUl!=null && liq.isMesh) liq.visible = st.level>0.0005;   // 0 µl draws nothing
+      // 0 µl draws nothing (by its VOLUME: a level threshold hid up to 12 µl in a T-flask, and what was
+      // hidden read back as 0 while the tip still gave or took it)
+      if(grp.userData.volUl!=null && liq.isMesh) liq.visible = grp.userData.volUl>1e-3;
     };
     return st;
   }
