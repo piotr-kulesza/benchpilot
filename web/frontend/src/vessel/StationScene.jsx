@@ -813,7 +813,10 @@ export function configureStation(st, o) {
     // and back, aspirating + dispensing. (Do NOT reuse pipetteRun here — that's a
     // transfer arc, and looping it in place makes the pipette leap up and teleport.)
     const TOP = SEAT_Y + 1.35 // raised, tip clear of the tube (kept low — HUD clearance)
-    const BOT = SEAT_Y + 0.8 // plunged, tip in the liquid
+    // plunged: the tip IN the liquid — just over its vessel's floor (from its geometry: a fixed 0.8 left
+    // it over a shallow sample)
+    const cavFloor = S[vessel] && S[vessel].userData.liquidFloorY ? S[vessel].userData.liquidFloorY() : (S[vessel] && S[vessel].userData.cavity && S[vessel].userData.cavity.y0 != null ? S[vessel].userData.cavity.y0 : 0.75)
+    const BOT = SEAT_Y + cavFloor + 0.05
     demo.addPipetteRig(st)
     // from its HOME to over the tube, three strokes, and back home (it used to wait over the tube —
     // where the tube, leaving, rose into it — and each stroke started at full speed)
