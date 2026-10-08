@@ -369,6 +369,9 @@ export function configureStation(st, o) {
   // both upright and flat; their origins are at the base). Stations that place the
   // vessel ON equipment (bath/ice/rotor/…) still pass their own height to seat().
   const SEAT_Y = C.seat.y
+  // the seated vessel's footprint (station-local x, from its solid geometry): the pipette rig and the
+  // reagent bottle stand clear of it (demo.prepRig / addBottle — no shift for a tube)
+  if (S && S[vessel]) { const fp = solidBox(S[vessel]); st.clearLeft = fp.min.x; st.clearRight = fp.max.x; demo.prepRig(st) }
 
   // ── VOLUMES (liquidLedger.js): what this station's vessels hold, start → end, and the ops
   // between. A vessel with a drawn interior takes a volume (setVolume); a surface (slide,
@@ -2047,6 +2050,39 @@ function vesselsArriving() {
   if (S && S.vessels.some((v) => v.visible && v.userData.trip)) return true
   return demo.getPreps().some((v) => v.visible && v.userData.trip)
 }
+// A TRIP's carry height clears what stands on its way (from the geometry of both stations): every
+// solid whose footprint the carried vessel's footprint crosses on its horizontal leg — a pipette
+// stand, a pipette at its home, a bottle — is passed OVER (at the fixed clearance height a flask's
+// neck swept through the stand). What the vessel leaves or goes into (its footprint holds the start
+// or the seat) is entered and left vertically, not passed over.
+const _cb = new Box3(), _vb = new Box3()
+function clearTrips(groups) {
+  const S = demo.getSample()
+  const vs = [...(S ? S.vessels : []), ...demo.getPreps()].filter((v) => v.visible && v.userData.trip && v.userData.trip.lift)
+  if (!vs.length) return
+  const solids = []
+  for (const g of groups) g.traverse((m) => {
+    if (!m.isMesh || m.isSprite || !m.visible || !m.geometry) return
+    const mat = [].concat(m.material)[0]
+    if ((m.userData && m.userData.auditKind) || (mat && mat.userData && mat.userData.auditKind)) return
+    for (let n = m; n; n = n.parent) if (!n.visible) return
+    solids.push(new Box3().setFromObject(m))
+  })
+  for (const v of vs) {
+    const tr = v.userData.trip, from = tr.out || tr.from, to = v.userData.enterVia || v.userData.tPos
+    _vb.setFromObject(v)
+    const below = v.position.y - _vb.min.y, rx = (_vb.max.x - _vb.min.x) / 2, rz = (_vb.max.z - _vb.min.z) / 2
+    const x0 = Math.min(from.x, to.x) - rx, x1 = Math.max(from.x, to.x) + rx, z0 = Math.min(from.z, to.z) - rz, z1 = Math.max(from.z, to.z) + rz
+    const holds = (b, p) => p.x >= b.min.x && p.x <= b.max.x && p.z >= b.min.z && p.z <= b.max.z
+    let top = -Infinity
+    for (const b of solids) {
+      if (b.max.x < x0 || b.min.x > x1 || b.max.z < z0 || b.min.z > z1) continue
+      if (holds(b, from) || holds(b, to)) continue
+      top = Math.max(top, b.max.y)
+    }
+    if (isFinite(top)) tr.lift.y = Math.max(tr.lift.y, top + below + 0.08)
+  }
+}
 // A TRIP (demo.depart): from where the vessel stood, straight up to the clearance height, over
 // to above its seat, straight down onto it — corners rounded, the whole path ONE smootherstep
 // in time (it starts from rest and settles; 0.6–1.1 s by length). The seat is read live, so a
@@ -2446,6 +2482,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     demo.setSnap(!sequential)
     stations[active].enter?.()
     placePreps(active) // carry each prep to its seat — glides on a sequential Next, snaps on a jump
+    if (sequential) clearTrips([stations[prevActiveRef.current], stations[active]].filter(Boolean).map((x) => x.group))
     demo.setSnap(false)
     pRef.current = 0
     restartRef.current = true
