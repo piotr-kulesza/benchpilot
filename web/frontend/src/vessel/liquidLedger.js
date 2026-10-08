@@ -17,13 +17,12 @@ import { effectiveStep } from '../lib/runtime.js'
 import { parseVolume } from '../lib/volume.js'
 import { tubeShape, columnShape, collectionShape, linearShape, tipShape, levelFor, volumeAt } from '../scene/liquidShape.js'
 
-// THE PIPETTE A VOLUME CALLS FOR (rule 1): ≤ 200 µl one pass of the P200 (yellow tip); 201–1000 µl
-// ONE pass of the P1000 (blue tip); more: P1000 passes of equal volume, as few as hold it
+// SCHEMATIC PIPETTING: ONE pipette (the P200). Each substance a step adds is ONE draw from its own
+// source and one dispense, whatever its volume; a discard or a move is one draw too. The tip is drawn
+// full while it holds liquid, empty otherwise (scene) — the µl it carries are kept as a number.
 export const P200_UL = 200
-export const P1000_UL = 1000
-export const TIP_UL = P200_UL          // the P200's tip (kept for the tip's drawn shape)
-export const pipetteFor = (passUl) => (passUl <= P200_UL + 1e-9 ? 'P200' : 'P1000')
-export const capacityOf = (kind) => (kind === 'P1000' ? P1000_UL : P200_UL)
+export const TIP_UL = P200_UL          // the P200's tip (its drawn shape)
+export const pipetteFor = () => 'P200'
 export const POUR_MIN_UL = 50000       // ≥ 50 mL (or a step that says pour / rinse) is poured from its bottle — as the scene always has
 export const POUR_UL_PER_S = 10000     // a pour runs at 10 mL/s — its stream lasts volume / rate
 export const FLASK_AREA_CM2 = 25       // "per 10 cm²" is read against a T-25 (est: the drawn T-flask)
@@ -50,11 +49,8 @@ export function mixColor(c1, u1, c2, u2) {
   return (mix(16) << 16) | (mix(8) << 8) | mix(0)
 }
 
-// the tip: drawn to the volume it holds (never a full tip for a few µl)
-export function tipPlan(ul, kind = 'P200') { const c = capacityOf(kind); return { fill: levelFor(tipShape(c), Math.min(Math.max(ul, 0), c)) } }
-export const tipUl = (fill, kind = 'P200') => volumeAt(tipShape(capacityOf(kind)), fill)
-// how many passes a pipetted volume takes: one up to 1 mL (a P200 or a P1000), then P1000 passes
-export const passesFor = (ul) => (ul <= P1000_UL + 1e-9 ? 1 : Math.ceil(ul / P1000_UL - 1e-9))
+// how many draws a pipetted volume takes: one
+export const passesFor = (ul) => (ul > 0 ? 1 : 0)
 
 const NOT_LIQUID = /\b(plate|powder|pellet)\b/i
 const ADDS = new Set(['pour_add', 'seed', 'stain', 'pipette_mix'])
@@ -118,12 +114,6 @@ export function buildLedger(steps, { containers = [], altByStep = {}, colorOf = 
     const op = (o) => {
       if (o.op === 'retire' && !(get(o.from).ul > 1e-12)) { delete m[o.from]; return }
       if (!(o.ul > 1e-12) && o.op !== 'retire') return
-      // a DRAWN vessel holds no more than its nominal capacity: what the protocol adds beyond it cannot
-      // be drawn (100 mL into a 70 mL T-flask) — it is not added (the source gives only what it takes), flagged
-      if ((o.op === 'add' || o.op === 'move') && shapeOf(o.to)) {
-        const room = Math.max(0, nominalUl(o.to) - get(o.to).ul)
-        if (o.ul > room + 1e-9) { flag(`${fmt(o.ul)} into the ${o.to}, which holds ${fmt(nominalUl(o.to))}: ${fmt(o.ul - room)} more than it holds is not drawn`); o.ul = room; if (o.passes) { o.passes = passesFor(o.ul); o.pipette = pipetteFor(o.ul / Math.max(1, o.passes)) } if (!(o.ul > 1e-12)) return }
-      }
       if (o.op === 'add') { const t = get(o.to); t.color = mixColor(t.color, t.ul, o.color, o.ul); t.ul += o.ul; history.push(o) }
       else if (o.op === 'move') { const f = get(o.from), t = get(o.to); t.color = mixColor(t.color, t.ul, f.color, o.ul); f.ul -= o.ul; t.ul += o.ul; o.color = f.color }
       else { const f = get(o.from); o.ul = o.op === 'retire' ? f.ul : o.ul; f.ul -= o.ul; if (o.op === 'retire') delete m[o.from] }
@@ -132,8 +122,8 @@ export function buildLedger(steps, { containers = [], altByStep = {}, colorOf = 
     const text = `${s.text_en || ''} ${s.text || ''}`
     const here = rec.vessel
     if (pendingDiscard && m.column && s.action !== 'centrifuge' && s.action !== 'elute' && get('flow').ul > 0) {
-      { const u = get('flow').ul, n = passesFor(u)   // pipetted into a waste beaker, in the passes its volume calls for (rule 1)
-        op({ op: 'discard', from: 'flow', ul: u, method: 'pipette', passes: n, pipette: pipetteFor(u / n), to: 'waste', why: 'the flow-through, pipetted off (discarded at the last spin)' }) }
+      { const u = get('flow').ul   // ONE draw into a waste beaker
+        op({ op: 'discard', from: 'flow', ul: u, method: 'pipette', passes: 1, pipette: 'P200', to: 'waste', why: 'the flow-through, pipetted off (discarded at the last spin)' }) }
       rec.flowDiscard = rec.ops[rec.ops.length - 1].ul
       pendingDiscard = false
     }
@@ -169,9 +159,7 @@ export function buildLedger(steps, { containers = [], altByStep = {}, colorOf = 
     const methodFor = (ul) => (ul >= POUR_MIN_UL || /\b(pour|rins)/i.test(text) ? 'pour' : 'pipette')
     const pass = (o) => {
       if (o.method !== 'pipette') { delete o.passes; return o }
-      const passes = passesFor(o.ul)
-      if (passes > 1) note(`${fmt(o.ul)} pipetted in ${passes} P1000 passes of ${fmt(o.ul / passes)}`)
-      return { ...o, passes, pipette: pipetteFor(o.ul / passes) }
+      return { ...o, passes: 1, pipette: 'P200' }   // one draw, whatever the volume
     }
     // a stated reagent volume that this action does not move is reported, never invented
     const flagUnstated = () => distinct(s.reagents).forEach((r) => { const v = readVol(r); if (v.kind === 'unknown') flag(`${nameOf(r)}: ${v.reason} (not moved by a ${s.action} step)`) })
@@ -236,8 +224,8 @@ export function buildLedger(steps, { containers = [], altByStep = {}, colorOf = 
       }
     } else if (s.action === 'discard') {
       // pipetted into a waste beaker, in the passes its volume calls for (rule 1); nothing to discard → nothing
-      { const u = get(here).ul, n = passesFor(u)
-        if (u > 0) op({ op: 'discard', from: here, ul: u, method: 'pipette', passes: n, pipette: pipetteFor(u / n), to: 'waste', why: 'discard' }) }
+      { const u = get(here).ul
+        if (u > 0) op({ op: 'discard', from: here, ul: u, method: 'pipette', passes: 1, pipette: 'P200', to: 'waste', why: 'discard' }) }
     } else if (ADDS.has(s.action)) {
       const rs = distinct(s.reagents)
       const changed = prevV && prevV !== here
@@ -250,8 +238,8 @@ export function buildLedger(steps, { containers = [], altByStep = {}, colorOf = 
         else if (s.action === 'seed') { flag('the seeded volume is not stated — not drawn (no volume to move)'); ul = 0 }
         if (ul > 0) op(pass({ op: 'move', from, to: here, ul, method: s.action === 'seed' ? 'pipette' : 'pour' }))
       } else if (s.action === 'pipette_mix' && !rs.length) {
-        rec.mixUl = Math.min(TIP_UL, 0.5 * get(here).ul)
-        note(`mixing strokes draw ${fmt(rec.mixUl)} (half the volume, at most one tip)`)
+        rec.mixUl = 0.5 * get(here).ul
+        note(`mixing strokes draw ${fmt(rec.mixUl)} (half the volume)`)
       } else {
         const src = addSource({ text_en: s.text_en, text: s.text, reagents: rs })
         const from = s.draws_from && produced.has(s.draws_from) ? 'prep:' + s.draws_from : src === 'none' ? 'outside' : src === 'sample_tube' ? 'sample_tube' : 'bottle'

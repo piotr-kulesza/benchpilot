@@ -5,7 +5,8 @@
 import { describe, it, expect } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
-import { buildLedger, tipPlan, tipUl, TIP_UL, mixColor, capacityOf } from './liquidLedger.js'
+import { buildLedger, mixColor } from './liquidLedger.js'
+import { generateProtocol } from '../dev/genProtocol.js'
 import { sampleContainerSequence } from './sceneRecipe.js'
 import { parseVolume } from '../lib/volume.js'
 import { partitionSteps } from '../lib/runtime.js'
@@ -103,29 +104,30 @@ describe('doubling — two equal dispenses into an empty tube give twice one', (
   })
 })
 
-describe('the tip — fills to its draw, never more', () => {
-  it('a draw of 0.3–200 µl fills the drawn tip to that volume (±2 %)', () => {
-    for (const ul of [0.3, 1.5, 10, 40, 80, 175, 200]) {
-      const held = tipUl(tipPlan(ul).fill)
-      expect(held, `${ul} µl`).toBeLessThanOrEqual(ul * 1.02)
-      expect(held, `${ul} µl`).toBeGreaterThanOrEqual(ul * 0.98)
-    }
-  })
-  for (const p of PROTOCOLS) {
-    it(`${p.id}: every pipetted pass uses the pipette its volume calls for, within its capacity; the tip holds what it drew`, () => {
+// SCHEMATIC PIPETTING: one pipette (the P200); each substance a step adds is ONE draw from its own
+// source and one dispense, whatever its volume; a discard or a move is one draw; nothing is split into
+// passes, nothing is capped
+const GENERATED = Array.from({ length: 50 }, (_, k) => ({ id: `gen-${k + 1}`, ...generateProtocol(k + 1) }))
+describe('schematic pipetting — one draw per substance', () => {
+  for (const p of [...PROTOCOLS, ...GENERATED]) {
+    it(`${p.id}: every pipetted op is one draw, no substance is drawn twice in a step`, () => {
       for (const st of ledgerOf(p.steps).stations) {
-        for (const op of st.ops.filter((o) => o.method === 'pipette')) {
-          const at = `${p.id} step ${st.index}`
-          const each = op.ul / op.passes
-          // ≤ 200 µl one P200 pass; 201–1000 µl ONE P1000 pass; more: as few P1000 passes as hold it
-          expect(op.passes, at).toBe(op.ul <= 1000 + EPS ? 1 : Math.ceil(op.ul / 1000 - 1e-9))
-          expect(op.pipette, at).toBe(each <= 200 + EPS ? 'P200' : 'P1000')
-          expect(each, at).toBeLessThanOrEqual(capacityOf(op.pipette) + EPS)
-          expect(tipUl(tipPlan(each, op.pipette).fill, op.pipette)).toBeLessThanOrEqual(each * 1.02 + EPS)
+        const at = `${p.id} step ${st.index}`
+        const piped = st.ops.filter((o) => o.method === 'pipette')
+        for (const op of piped) {
+          expect(op.passes ?? 1, at).toBe(1)
+          expect(op.pipette == null || op.pipette === 'P200', at).toBe(true)
         }
+        const names = st.ops.filter((o) => o.op === 'add').map((o) => `${o.to}:${o.name}`)
+        expect(new Set(names).size, `${at}: ${names}`).toBe(names.length)
       }
     })
   }
+  it('a vessel holds what was added — 50 mL into a microtube is 50 mL (no cap)', () => {
+    const steps = [{ index: 1, action: 'pour_add', container: 'microtube', text: 'Add 50 mL PBS', text_en: 'Add 50 mL PBS', reagents: [{ name: 'PBS', name_en: 'PBS', volume: '50 mL', volume_en: '50 mL' }], conditionals: [], alternatives: [], hazards: [], conditions: {} }]
+    const L = ledgerOf(steps)
+    expect(L.stations[0].end.tube.ul).toBeCloseTo(50000, 3)
+  })
 })
 
 describe('neutrophil_rna — the volumes the protocol states', () => {
