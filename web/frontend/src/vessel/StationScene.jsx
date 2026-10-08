@@ -408,7 +408,15 @@ export function configureStation(st, o) {
     }
   }
   // the tip goes below a bottle's drawn line (0.1 under it)
-  const bottleTip = (k) => { const b = st.reagents[k] && st.reagents[k].grp; return b && b.userData.surfaceY ? b.userData.surfaceY() - 0.1 : null }
+  // the tip's depth in a bottle, for a PASS: under the surface as it stood when the pass began (what the
+  // passes before drew), set once — following the surface down while it drew made the tip creep
+  const bottleTip = (k, passes, j) => {
+    const b = st.reagents[k] && st.reagents[k].grp
+    if (!b || !b.userData.surfaceY) return null
+    if (!passes || !b.userData.surfaceAt || !b.userData.stockUl) return b.userData.surfaceY() - 0.1
+    const before = passes.slice(0, j).reduce((a, ps) => a + ('r' + (ps.op.ri ?? 0) === k ? ps.each : 0), 0)
+    return b.userData.surfaceAt(1 - before / b.userData.stockUl) - 0.1
+  }
 
   // seat the travelling sample WITHOUT resetting its contents: it enters at the
   // carried-in (start) state, so it continues from where the last step left it.
@@ -465,7 +473,7 @@ export function configureStation(st, o) {
     // bottle and no pipette are invented; the vessel simply receives it
     st.enter = () => seat(0, SEAT_Y, 0)
     st.timeline = (p) => { evolve(demo.easeInOut(demo.clamp((p - 0.2) / 0.6, 0, 1))) }
-  } else if (source === 'sample_tube') {
+  } else if (source === 'sample_tube' && !(o.drawsFrom && demo.getPrep(o.drawsFrom))) {   // (drawn from a CARRIED mix: that mix is the source — below)
     // the reagent IS the sample (e.g. "load the denatured protein samples into the wells"):
     // the pipette draws from the samples' own TUBE — a bottle of samples would be invented
     const tube = demo.buildTube({ height: 1.7, radius: 0.32, color: endColor, label: '' })
@@ -580,9 +588,10 @@ export function configureStation(st, o) {
       const put = (x, y, z, th) => { S.snapTo(src, st.x + x, y, z); src.rotation.set(0, 0, th) }
       const seg2 = (p, a, b) => demo.easeInOut(demo.clamp((p - a) / (b - a), 0, 1))
       const enter0 = st.enter
-      st.enter = () => { enter0 && enter0(); src.visible = true; put(seatS.x, seatS.y, seatS.z, 0); if (src.userData.setVolume) src.userData.setVolume(srcUl); else src.userData.keepVolume?.(srcUl) }
+      st.enter = () => { enter0 && enter0(); src.visible = true; src.userData.held = false; put(seatS.x, seatS.y, seatS.z, 0); if (src.userData.setVolume) src.userData.setVolume(srcUl); else src.userData.keepVolume?.(srcUl) }
       pourFrom = (p) => {
         src.visible = true
+        src.userData.held = p > 0.0005 && p < 0.9995   // lifted and poured BY HAND (not floating)
         if (p < 0.12) put(seatS.x, demo.lerp(seatS.y, CY, seg2(p, 0, 0.12)), seatS.z, 0)                                  // straight up
         else if (p < 0.28) { const q = seg2(p, 0.12, 0.28); put(demo.lerp(seatS.x, P0.x, q), CY, demo.lerp(seatS.z, P0.z, q), 0) }   // over
         else if (p < 0.36) put(P0.x, demo.lerp(CY, P0.y, seg2(p, 0.28, 0.36)), P0.z, 0)                                   // down to its pouring height
@@ -705,7 +714,7 @@ export function configureStation(st, o) {
           capSources(st, reags.length, k, lp)
           drawSources(passes, j, lp)
           demo.pipetteRun(st, st.reagents['r' + k].pos, { x: disp.x, y: toY, z: disp.z }, lp,
-            { color: cur.op.color, tipUl: cur.each, srcTip: bottleTip('r' + k), approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: ENTRY })
+            { color: cur.op.color, tipUl: cur.each, srcTip: bottleTip('r' + k, passes, j), approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: ENTRY })
           let ul = startUl, c = startColor
           for (let i = 0; i <= j; i++) { const a = i < j ? passes[i].each : demo.dispenseProgress(lp) * passes[i].each; c = mixColor(c, ul, passes[i].op.color, a); ul += a }
           if (VOL) { v.userData.setVolume(ul); v.userData.setColor(c) }
@@ -767,7 +776,7 @@ export function configureStation(st, o) {
         const { j, lp } = passAt(p, passes.length, st.passPlan), cur = passes[j], k = Math.min(reags.length - 1, cur.op.ri ?? 0)
         capSources(st, reags.length, k, lp)
         drawSources(passes, j, lp)
-        demo.pipetteRun(st, st.reagents['r' + k].pos, DIP, lp, { color: cur.op.color, tipUl: cur.each, srcTip: bottleTip('r' + k), dipDepth: 0.62 })
+        demo.pipetteRun(st, st.reagents['r' + k].pos, DIP, lp, { color: cur.op.color, tipUl: cur.each, srcTip: bottleTip('r' + k, passes, j), dipDepth: 0.62 })
         let ul = 0, c = null
         for (let i = 0; i <= j; i++) { const a = i < j ? passes[i].each : demo.dispenseProgress(lp) * passes[i].each; c = mixColor(c, ul, passes[i].op.color, a); ul += a }
         prep.userData.setVolume(ul); if (c != null) prep.userData.setColor(c)
@@ -876,10 +885,12 @@ export function configureStation(st, o) {
       const opts = { color: startColor, tipUl: each, srcTip: angled ? 0 : srcTip, srcApproach: angled ? 'angled' : null, srcTilt: disp.tilt, srcDepth: disp.depth, dipDepth: 0.5 }
       st.passPlan = demo.passPlan([{ from, to: { x: W.x, y: 0, z: W.z }, opts }])
       st.duration = passDuration(P, st.passPlan)
-      st.enter = () => { seat(0, SEAT_Y, 0); waste.userData.wasteUl = 0; demo.pipRest(st) }
+      let tipPass = -1
+      st.enter = () => { seat(0, SEAT_Y, 0); waste.userData.wasteUl = 0; tipPass = -1; demo.pipRest(st) }
       st.timeline = (p) => {
         const v = S[vessel]
         const { j, lp } = passAt(p, P, st.passPlan)
+        if (lp < 1e-6 && j === 0) tipPass = -1
         recvCap(v, j, P, lp, 0.02, 0.36)                             // a capped vessel opens while the tip is in it
         // the tip draws from just under the liquid's surface (it follows the level down as it drains)
         if (angled) {
@@ -887,10 +898,13 @@ export function configureStation(st, o) {
           const fy = v.userData.liquidFloorY ? v.userData.liquidFloorY() : null, say = Math.cos(-(disp.tilt != null ? disp.tilt : -0.62))
           if (fy != null) opts.srcDepth = Math.max(0.3, (from.y - (v.position.y + fy * v.scale.y + 0.012)) / say)
         }
-        if (!angled) {
+        if (!angled && j !== tipPass) {   // (once per pass: under the surface as it stands when the pass begins)
+          tipPass = j
           const sy = v.userData.surfaceY ? v.userData.surfaceY() : null, fy = v.userData.liquidFloorY ? v.userData.liquidFloorY() : null
           const floor = fy != null ? v.position.y + fy * v.scale.y + 0.004 : srcTip
-          opts.srcTip = sy != null ? Math.max(floor, v.position.y + sy * v.scale.y - 0.03) : floor
+          // deep enough for the whole pass: the surface falls by what this pass draws
+          const fall = sy != null && fy != null && startUl > 0 ? (sy - fy) * v.scale.y * Math.min(1, each / Math.max(1e-6, startUl - j * each)) : 0
+          opts.srcTip = sy != null ? Math.max(floor, v.position.y + sy * v.scale.y - 0.03 - fall) : floor
         }
         demo.pipetteRun(st, from, { x: W.x, y: 0, z: W.z }, lp, opts)
         if (!dOp) { evolve(p); return }
@@ -1268,9 +1282,9 @@ export function configureStation(st, o) {
     const onStage = (dev, sy, k = 1.3, dx = 0, dz0 = 0) => {
       st.dev = dev; st.group.add(dev); st.updatables.push(dev)
       const dz = clearOnStage(dev, S[vessel], sy, dx, dz0)   // forward of whatever rises over the stage behind it
-      sy = restOn(dev, S[vessel], dx, dz, sy + 0.1)                         // resting ON the stage (from its geometry)
-      const out = (v) => { v.userData.exitOut = (v.userData.exitOut || new Vector3()).set(st.x + dx, sy, dz + 1.4) }
-      st.enter = () => { seat(0, 0, 0); S.at(S[vessel], st.x + dx, sy, dz); const v = S[vessel]; v.userData.enterVia = (v.userData.enterVia || new Vector3()).set(st.x + dx, sy, dz + 1.4); dev.userData.setProgress?.(0) }
+      sy = restOn(dev, S[vessel], dx, dz, sy + 0.1) + 0.004                 // resting ON the stage (from its geometry), a hair clear
+      const out = (v) => { v.userData.exitOut = (v.userData.exitOut || new Vector3()).set(st.x + dx, sy + 0.04, dz + 1.4) }
+      st.enter = () => { seat(0, 0, 0); S.at(S[vessel], st.x + dx, sy, dz); const v = S[vessel]; v.userData.enterVia = (v.userData.enterVia || new Vector3()).set(st.x + dx, sy + 0.04, dz + 1.4); dev.userData.setProgress?.(0) }   // in from the front just ABOVE the stage, then down onto it (sliding in on it grazed the glass)
       st.timeline = (p) => { evolve(p); S.at(S[vessel], st.x + dx, sy, dz); out(S[vessel]); dev.userData.setProgress?.(demo.easeInOut(demo.clamp(p * k, 0, 1))) }
     }
     if (inst === 'plate_reader') {
@@ -1506,11 +1520,16 @@ function wrapHandoff(st, S, fromKey, toKey, color, level, fromDy = 0, vols = nul
     baseEnter && baseEnter()             // seats the NEW vessel at its target + sets its state
     const nv = S[toKey]
     st._seat = nv.userData.tPos.clone()  // where the new vessel belongs
+    // a seat under or inside an instrument (enterVia: entered from its FRONT) is not where the vessels
+    // swap — straight up and down there ran through the objective: they swap at the front, and the new
+    // one goes in from there
+    st._via = nv.userData.enterVia ? nv.userData.enterVia.clone() : null
+    st._swap = st._via ? st._via.clone() : st._seat.clone()
     const ov = S[fromKey]
     ov.visible = true                    // the OLD vessel carries the incoming contents in
     ov.rotation.set(0, 0, 0)
     oldAmt(ov)
-    S.snapTo(ov, st._seat.x, st._seat.y + fromDy, st._seat.z)
+    S.snapTo(ov, st._swap.x, st._swap.y + fromDy, st._swap.z)
     nv.visible = false                   // hide the new one until it descends
     st._handoff = true
   }
@@ -1519,15 +1538,19 @@ function wrapHandoff(st, S, fromKey, toKey, color, level, fromDy = 0, vols = nul
       const q = p / TR
       const ov = S[fromKey]
       const nv = S[toKey]
+      const W = st._swap, inQ = st._via ? 0.8 : 1   // (with a front entry, the last fifth carries it in)
       if (q < 0.5) {                     // old vessel rises straight up, out of the frame (remove)
         ov.visible = true; nv.visible = false
         const up = demo.easeInOut(q / 0.5)
-        S.snapTo(ov, st._seat.x, st._seat.y + fromDy + up * OUT, st._seat.z)
-      } else {                           // new vessel comes straight down from above the frame (insert)
+        S.snapTo(ov, W.x, W.y + fromDy + up * OUT, W.z)
+      } else if (q < 0.5 * (1 + inQ)) {  // new vessel comes straight down from above the frame (insert)
         ov.visible = false; nv.visible = true
-        const down = demo.easeInOut((q - 0.5) / 0.5)
+        const down = demo.easeInOut((q - 0.5) / (0.5 * inQ))
         newAmt(nv)
-        S.snapTo(nv, st._seat.x, st._seat.y + (1 - down) * OUT, st._seat.z)
+        S.snapTo(nv, W.x, W.y + (1 - down) * OUT, W.z)
+      } else {                           // …and in from the front to its seat
+        const e = demo.easeInOut((q - 0.5 * (1 + inQ)) / (1 - 0.5 * (1 + inQ)))
+        S.snapTo(nv, demo.lerp(W.x, st._seat.x, e), demo.lerp(W.y, st._seat.y, e), demo.lerp(W.z, st._seat.z, e))
       }
     } else {
       if (st._handoff) {                 // hand-off done — lock to the new vessel, run the action

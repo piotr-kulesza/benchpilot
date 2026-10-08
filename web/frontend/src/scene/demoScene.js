@@ -233,13 +233,23 @@ export function undockWhenStill() {
     apply(x0==null?0:x0); grp.updateMatrixWorld(true);
     return k;
   }
+  // (a critically damped spring at the rate the builder gave its chase — base^dt — so the part leaves
+  // from rest and settles to rest: an exponential chase jumped to full speed in its first frame; its
+  // velocity is never over MAX_SPEED at the part's own geometry)
+  var _chaseV=new WeakMap();
   function capChase(grp, cur, target, dt, base, k){
-    var next=lerp(cur,target,1-Math.pow(base,dt));
-    if(!(k>0) || !(dt>0)) return next;
-    var ws=grp.getWorldScale(_mpS).x||1;
-    var m=MAX_SPEED*dt/(k*ws);
-    return cur+clamp(next-cur,-m,m);
+    if(!(dt>0)) return cur;
+    var vs=_chaseV.get(grp); if(!vs){ vs=new Map(); _chaseV.set(grp,vs); }
+    var v=vs.get(k)||0, w=-Math.log(base);                      // its natural rate (1/s)
+    var ws=grp.getWorldScale(_mpS).x||1, vmax=k>0 ? MAX_SPEED/(k*ws) : Infinity;
+    v += (w*w*(target-cur) - 2*w*v)*dt;
+    v = clamp(v, -vmax, vmax);
+    var next=cur+v*dt;
+    if(Math.abs(target-next)<1e-4 && Math.abs(v)<1e-3){ next=target; v=0; }
+    vs.set(k,v);
+    return next;
   }
+
   var MAX_ANISO = 8;
 
   function radialTex(stops){
@@ -1774,6 +1784,7 @@ export function undockWhenStill() {
     grp.userData.drawnColor=function(){ return '#'+liq.material.color.getHexString(); };
     grp.userData.cavity={ r:0.36*0.9, y0:0, y1:h };
     grp.userData.surfaceY=function(){ return h*0.55*bState.level; };   // the liquid lathe is scaled in y from 0
+    grp.userData.surfaceAt=function(level){ return h*0.55*level; };       // …at a given level (a pass's tip height, set once)
     grp.userData.cap=cap;
     grp.userData.setLevel=function(v){ bState.tLevel=clamp(v,0,1); };
     grp.userData.setCap=function(on){ bState.tOpen = on ? 0 : 1; };
@@ -2823,7 +2834,9 @@ export {
       // NOT the seat plane — otherwise the tip dips onto the flat top face.
       var toY = (disp.approach==='angled' && disp.y!=null) ? disp.y : Y;
       // the tip goes below the source's surface: 0.1 under a bottle's drawn line, near a tube's floor
-      var srcTip = o.each==null ? null : o.srcTube ? 0.035 : (b && b.userData.surfaceY ? b.userData.surfaceY()-0.1 : null);
+      // the tip's depth is the PASS's: under the surface as it stood when the pass began (following the
+      // surface down while it drew made the tip creep, starting and stopping with the plunger)
+      var srcTip = o.each==null ? null : o.srcTube ? 0.035 : (b && b.userData.surfaceAt ? b.userData.surfaceAt(1 - k*o.each/b.userData.stockUl)-0.1 : null);
       pipetteRun(st, st.reagents[o.key].pos, {x:disp.x,y:toY,z:disp.z}, lp,
         {color:o.color, fill:0.8, tipUl:o.each, srcTip:srcTip, approach:disp.approach, tilt:disp.tilt, depth:disp.depth, dipDepth:o.entry});
       if(o.each!=null){
