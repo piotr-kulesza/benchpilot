@@ -22,6 +22,7 @@ describe('check-protocol — the pure rules, proven red', () => {
     const g = createFinish(3)
     const ps = [1, 1, 0, 0.4, 0.9, 1, 1, 1, 1]
     expect(ps.map((p, k) => g(k, p, false))).toEqual([false, false, false, false, false, false, false, false, true])
+    expect(f.ran).toBe(false); expect(g.ran).toBe(true)   // a clock that never ran is no run
     const h = createFinish(0)
     expect([0.2, 1, 1].map((p, k) => h(k, p, true))).toEqual([false, false, false])   // a vessel still arriving
   })

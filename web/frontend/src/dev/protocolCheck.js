@@ -53,12 +53,14 @@ const fmt = (ul) => (ul >= 1000 ? `${+(ul / 1000).toFixed(3)} mL` : `${+ul.toFix
 // arriving, for `tail` frames
 export function createFinish(tail) {
   let low = false, since = null
-  return (k, p, arriving) => {
-    if (p < 0.9999) low = true
+  const f = (k, p, arriving) => {
+    if (p < 0.9999) low = f.ran = true
     if (!low || p < 0.9999 || arriving) { since = null; return false }
     if (since == null) since = k
     return k - since >= tail
   }
+  f.ran = false   // its p was ever below 1 (a clock left 'done' by the last step never runs)
+  return f
 }
 export function isolatedJump(prev, cur, next, jump = JUMP) { return cur >= jump && cur >= 4 * Math.max(prev || 0, next || 0) }
 
@@ -245,7 +247,7 @@ export async function checkStation(line, { timed = 0, fullTo = 20, tailSec = 2, 
   const collisions = found.filter((d) => !MOTION.includes(d.check))
   const motionAudit = found.filter((d) => MOTION.includes(d.check))
   const pEnd = pNow()
-  return { liquid, ...motion.result(), collisions, motionAudit, ...{ pipette: passes.result() }, unfinished: pEnd < 0.9999 ? +pEnd.toFixed(3) : null }
+  return { liquid, ...motion.result(), collisions, motionAudit, ...{ pipette: passes.result() }, unfinished: pEnd < 0.9999 || !finish.ran ? +pEnd.toFixed(3) : null }
 }
 
 export { sampleLiquids, checkBoundary }
