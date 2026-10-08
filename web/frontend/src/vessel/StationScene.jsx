@@ -469,9 +469,9 @@ export function configureStation(st, o) {
     && !addOps.length && !(pour && pour.pour) && !Lq.ops.some((x) => x.to === vessel || x.from === vessel)
   // a bottle and the pipette: one pass per tip of the ledger's draw (P200 / P1000 by its volume),
   // the vessel rising by what was dispensed — every add from a bottle (pour_add, seed) runs this
-  const pipettedAdd = () => {
+  const pipettedAdd = (Y = SEAT_Y) => {
     const P = passList(addOps).length, add = addOps[0]
-    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: add ? add.color : endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: ENTRY,
+    demo.stationReagent(st, Y, { key: 'r', blabel: '', color: add ? add.color : endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: ENTRY,
       ...(Lq && P ? { passes: P, each: add.ul / P, ulStart: startUl, kinds: kindsOf(passList(addOps)) } : {}) })
     st.duration = passDuration(Lq && P ? P : 1, st.passPlan)
     frameAngledPipette(st, C.dispense, 0)
@@ -1293,12 +1293,15 @@ export function configureStation(st, o) {
     const tray = demo.buildStainingTray()
     st.group.add(tray)
     st.updatables.push(tray)
-    const onTray = restOn(tray, S[vessel], 0, 0, 0.5)   // the slide's foot ON the tray's rails (from their geometry)
-    st.enter = () => { seat(0, onTray, 0); S.at(S[vessel], st.x, onTray, 0) }
-    st.timeline = (p) => {
-      const f = demo.easeInOut(demo.clamp((p - 0.15) / 0.6, 0, 1))
-      S[vessel].userData.setLevel(demo.lerp(startLevel, Math.max(startLevel, endLevel, 0.7), f))
-      if (p > 0.2) S[vessel].userData.setColor(endColor) // dye floods over
+    const onTray = restOn(tray, S[vessel], 0, 0, 0.5) + 0.004   // the slide's foot ON the tray's rails (from their geometry), a hair clear
+    if (Lq && addOps.length) pipettedAdd(onTray)   // a stated stain: pipetted onto the slide, per the ledger (it flooded from nowhere)
+    else {
+      st.enter = () => { seat(0, onTray, 0); S.at(S[vessel], st.x, onTray, 0) }
+      st.timeline = (p) => {
+        const f = demo.easeInOut(demo.clamp((p - 0.15) / 0.6, 0, 1))
+        S[vessel].userData.setLevel(demo.lerp(startLevel, Math.max(startLevel, endLevel, 0.7), f))
+        if (p > 0.2) S[vessel].userData.setColor(endColor) // dye floods over
+      }
     }
   } else if (action === 'measure') {
     // EQUIPMENT CONTRACT: read each vessel on the instrument it actually goes in — a
