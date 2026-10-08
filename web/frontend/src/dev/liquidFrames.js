@@ -106,7 +106,7 @@ export function checkFrames(frames) {
     // conservation
     const sum = (F) => ids.reduce((s, id) => s + F.vessels[id].ul, 0) + (F.tip ? F.tip.ul : 0)
     const dSum = sum(B) - sum(A)
-    if (Math.abs(dSum) > SUM_TOL) bad.push({ check: 'c', frame: B.k, p: B.p, vessel: 'Σ', detail: `vessels + tip ${dSum > 0 ? '+' : ''}${dSum.toFixed(2)} µl in one frame` })
+    if (Math.abs(dSum) > SUM_TOL) bad.push({ check: 'c', frame: B.k, p: B.p, vessel: 'Σ', detail: `vessels + tip ${dSum > 0 ? '+' : ''}${dSum.toFixed(2)} µl in one frame`, parts: [`tip ${dTip.toFixed(2)}`, ...ids.filter((id) => Math.abs(dv[id]) > 1e-6).map((id) => `${id} ${dv[id].toFixed(2)}`)].join(', ') })
   }
   return bad
 }
