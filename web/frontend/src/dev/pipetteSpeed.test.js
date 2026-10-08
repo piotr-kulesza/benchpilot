@@ -24,6 +24,14 @@ describe('pipette speed — nothing faster than the descent, nothing jumps', () 
     const r = analyse(rec([...Array(10).fill([0.04, 'to source']), ...desc]))
     expect(r.fast[0].where).toBe('before descent')
   })
+  it('two pipettes of one station (a P200, a P1000 at its own home) are two tracks: neither jumps to the other', () => {
+    // each still at its own home, 0.81 apart; both recorded every frame
+    const rows = Array.from({ length: 20 }, (_, k) => [k, 0, 0.5, 1 / 60, [0, 0, 2.4, 1.25, 'home', 1, 'P200'], [0, -0.55, 2.4, 0.65, 'home', 1, 'P1000']])
+    expect(analyse(rows).teleports).toEqual([])
+    // RED: as ONE track (the active one, swapped) the swap reads as a 0.81 jump
+    const one = rows.map((r, k) => [r[0], r[1], r[2], r[3], (k < 10 ? r[4] : r[5]).slice(0, 6)])
+    expect(analyse(one).teleports.length).toBe(1)
+  })
   it('RED: a one-frame jump is a teleport', () => {
     const r = analyse(rec([...still(5), [0.5, 'home'], ...still(5), ...desc]))
     expect(r.teleports.length).toBe(1); expect(r.teleports[0].dist).toBeCloseTo(0.5, 5)

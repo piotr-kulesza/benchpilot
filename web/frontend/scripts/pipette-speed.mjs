@@ -81,10 +81,13 @@ await page.evaluate(() => {
     const sts = L.stations(); if (!sts) return
     const row = [window.__bpFrames, L.active(), +(window.__benchperf.p || 0).toFixed(4), +Math.min(dt, 0.05).toFixed(5)]
     sts.forEach((st, i) => {
-      if (!st.pip || !(st.vis > 0.001) || !shown(st.pip)) return
-      st.pip.updateWorldMatrix(true, false)
-      const e = st.pip.matrixWorld.elements
-      row.push([i, +e[12].toFixed(4), +e[13].toFixed(4), +e[14].toFixed(4), st.pip.userData.phase || 'home', +st.vis.toFixed(3)])
+      // every pipette of the station on its own (a P200 and a P1000), never only the active one
+      for (const pp of st.pips ? Object.values(st.pips) : st.pip ? [st.pip] : []) {
+        if (!(st.vis > 0.001) || !shown(pp)) continue
+        pp.updateWorldMatrix(true, false)
+        const e = pp.matrixWorld.elements
+        row.push([i, +e[12].toFixed(4), +e[13].toFixed(4), +e[14].toFixed(4), pp.userData.phase || 'home', +st.vis.toFixed(3), pp.userData.kind || 'P200'])
+      }
     })
     rec.push(row)
   }

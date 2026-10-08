@@ -14,14 +14,17 @@ export function analyse(rec, { tol = 1.1, jump = 0.05, names = [] } = {}) {
   for (const row of rec) {
     const [frame, active, p, dt] = row
     for (const c of row.slice(4)) {
-      const [i, x, y, z, phase, vis] = c
-      if (!tracks.has(i)) tracks.set(i, [])
-      tracks.get(i).push({ frame, active, p, dt, x, y, z, phase, vis })
+      // one track per PIPETTE (station · kind): a station with a P200 and a P1000 holds two (followed as
+      // the active one, a swap read as a jump from one home to the other)
+      const [i, x, y, z, phase, vis, kind] = c, key = kind ? i + ':' + kind : i
+      if (!tracks.has(key)) { const T = []; T.st = i; tracks.set(key, T) }
+      tracks.get(key).push({ frame, active, p, dt, x, y, z, phase, vis })
     }
   }
   const out = { stations: [], fast: [], teleports: [], maxRatio: 0 }
   const refs = []
-  for (const [i, T] of tracks) {
+  for (const [, T] of tracks) {
+    const i = T.st
     // per frame: distance from the previous frame (only between CONSECUTIVE frames)
     for (let k = 0; k < T.length; k++) {
       const a = T[k - 1], b = T[k]
@@ -35,7 +38,8 @@ export function analyse(rec, { tol = 1.1, jump = 0.05, names = [] } = {}) {
     T.ref = ref
   }
   const fallback = refs.length ? Math.min(...refs) : null
-  for (const [i, T] of [...tracks].sort((a, b) => a[0] - b[0])) {
+  for (const [, T] of [...tracks].sort((a, b) => a[1].st - b[1].st)) {
+    const i = T.st
     const ref = T.ref || fallback
     let max = 0, maxPhase = '', seg = null
     const phases = {}                                  // peak speed per phase (its own station active)
