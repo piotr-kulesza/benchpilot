@@ -16,7 +16,7 @@ import { FogExp2, Color, Vector3, Quaternion, Box3, Group, Mesh, RingGeometry, S
 import { reagentColor } from './theme.js'
 import { animationTempo } from '../scene/tempo.js'
 import { MAX_SPEED, CAMERA_MAX_SPEED, PEAK, durationFor } from '../scene/motionPlan.js'
-import { buildLedger, mixColor, TIP_UL, P200_UL, P1000_UL, passesFor } from './liquidLedger.js'
+import { buildLedger, mixColor } from './liquidLedger.js'
 import { tubeShape, volumeAt } from '../scene/liquidShape.js'
 import { resolveRecipe, stepConditions, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects, exitLiftPoint, pourPlan, removalFor, benchStaging, addSource } from './sceneRecipe.js'
 import { containerContract, transferKind, sideBySide } from './containerContract.js'
@@ -327,12 +327,6 @@ function Floor({ totalLen, preset }) {
 // a capped RECEIVING vessel (cryovial, flask) is open from before the first pass's tip reaches it to
 // after the last one has left — on the pass clock (pass j of P at its own progress lp)
 function recvCap(v, j, P, lp, a = 0.1, b = 0.95) { if (v.userData.setCap) v.userData.setCap(!((j > 0 || lp > a) && (j < P - 1 || lp < b))) }
-// the tip volumes a pass plan covers: one per pipette the passes use (planned with a P200's tip only,
-// a P1000 pass — from its own home, further back — outran the speed cap)
-function planTips(passes) {
-  if (!passes || !passes.length) return [null]
-  return [...new Set(passes.map((ps) => (ps.each > P200_UL + 1e-9 ? P1000_UL : 1)))]
-}
 function capSources(st, n, k, lp) {
   for (let j = 0; j < n; j++) { const b = st.reagents['r' + j] && st.reagents['r' + j].grp; if (b && b.userData.setCap) b.userData.setCap(!(j === k && lp < 0.36)) }
 }
@@ -408,8 +402,6 @@ export function configureStation(st, o) {
   }
   // this station's pipette passes: one entry per tip, in order (an op of n passes is n entries)
   const passList = (ops) => ops.flatMap((op) => Array.from({ length: op.passes || 1 }, () => ({ op, each: op.ul / (op.passes || 1) })))
-  // the pipettes a station's passes call for (rule 1: ≤ 200 µl a P200, more a P1000)
-  const kindsOf = (passes) => [...new Set(passes.map((x) => (x.each <= P200_UL + 1e-9 ? 'P200' : 'P1000')))]
   // each source bottle falls by exactly what its tips have drawn so far (the draw's own curve)
   const drawSources = (passes, j, lp) => {
     const drawn = {}
@@ -476,12 +468,12 @@ export function configureStation(st, o) {
   // would show an amount nobody stated — and flagged
   const unstatedAdd = Lq && (action === 'pour_add' || action === 'seed' || action === 'stain' || action === 'pipette_mix') && (o.reagents || []).length > 0
     && !addOps.length && !(pour && pour.pour) && !Lq.ops.some((x) => x.to === vessel || x.from === vessel)
-  // a bottle and the pipette: one pass per tip of the ledger's draw (P200 / P1000 by its volume),
+  // a bottle and the pipette: ONE draw per substance (the ledger's op),
   // the vessel rising by what was dispensed — every add from a bottle (pour_add, seed) runs this
   const pipettedAdd = (Y = SEAT_Y) => {
     const P = passList(addOps).length, add = addOps[0]
     demo.stationReagent(st, Y, { key: 'r', blabel: '', color: add ? add.color : endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: ENTRY,
-      ...(Lq && P ? { passes: P, each: add.ul / P, ulStart: startUl, kinds: kindsOf(passList(addOps)) } : {}) })
+      ...(Lq && P ? { passes: P, each: add.ul / P, ulStart: startUl } : {}) })
     st.duration = passDuration(Lq && P ? P : 1, st.passPlan)
     frameAngledPipette(st, C.dispense, 0)
   }
@@ -506,7 +498,7 @@ export function configureStation(st, o) {
     const srcUl = draws.some((x) => String(x.from).startsWith('prep:')) ? ulAt(draws[0].from, 'start') : volumeAt(tubeShape(1.7, 0.32), 0.6)
     const addColor = draws.length ? draws.reduce((c, x, k) => (k ? mixColor(c, draws.slice(0, k).reduce((a, y) => a + y.ul, 0), x.color, x.ul) : x.color), null) : endColor
     demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: Lq && draws.length ? addColor : endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: ENTRY,
-      ...(Lq && P ? { passes: P, each: total / P, ulStart: startUl, srcTube: tube, srcUl, kinds: kindsOf([{ each: total / P }]) } : {}) })
+      ...(Lq && P ? { passes: P, each: total / P, ulStart: startUl, srcTube: tube, srcUl } : {}) })
     st.duration = passDuration(Lq && P ? P : 1, st.passPlan)
     const src = st.reagents.r
     src.grp.visible = false
@@ -684,7 +676,7 @@ export function configureStation(st, o) {
       st.drawPos = { x: st.x + draw.x, y: 0, z: draw.z } // WORLD seat the carried tube glides to
       const mv = Lq ? addOps.find((x) => x.from === 'prep:' + o.drawsFrom) : null
       const P = mv ? mv.passes || 1 : 1, each = mv ? mv.ul / P : 0
-      demo.addPipetteRig(st, mv ? kindsOf([{ each }]) : null)
+      demo.addPipetteRig(st)
       const prepUl = Lq ? ulAt('prep:' + o.drawsFrom, 'start') : 0
       st.passPlan = demo.passPlan([{ from: draw, to: { x: disp.x, y: toY, z: disp.z }, opts: { tipUl: mv ? each : null, srcTip: 0.035, dipDepth: ENTRY } }])
       // the station as it was (a quarter for the mix's arrival, the passes after it), the passes
@@ -722,10 +714,10 @@ export function configureStation(st, o) {
       const disp = C.dispense || { x: 0, z: 0 }
       const toY = (disp.approach === 'angled' && disp.y != null) ? disp.y : SEAT_Y
       const passes = Lq ? passList(addOps) : []
-      demo.addPipetteRig(st, kindsOf(passes))
+      demo.addPipetteRig(st)
       reags.forEach((r, k) => addReagentSource(st, 'r' + k, r, k, fromMix))
       st.enter = () => { seat(0, SEAT_Y, 0); demo.pipRest(st) }
-      st.passPlan = demo.passPlan(reags.flatMap((r, k) => planTips(passes.length ? passes : null).map((tipUl) => ({ from: st.reagents['r' + k].pos, to: { x: disp.x, y: toY, z: disp.z }, opts: { tipUl, srcTip: passes.length ? bottleTip('r' + k) : null, dipDepth: ENTRY } }))))
+      st.passPlan = demo.passPlan(reags.map((r, k) => ({ from: st.reagents['r' + k].pos, to: { x: disp.x, y: toY, z: disp.z }, opts: { tipUl: passes.length ? 1 : null, srcTip: passes.length ? bottleTip('r' + k) : null, dipDepth: ENTRY } })))
       st.duration = passDuration(passes.length || reags.length, st.passPlan)
       st.timeline = (p) => {
         const v = S[vessel]
@@ -770,27 +762,27 @@ export function configureStation(st, o) {
     prep.userData.setLabel(name || 'mixture', vol || '')
     st.prep = prep; st.prepId = prepId; st.prepHome = home; st.prepFull = PREP_FULL
     const pid0 = 'prep:' + prepId
-    demo.addPipetteRig(st, Lq ? kindsOf(passList(Lq.ops.filter((x) => x.op === 'add' && x.to === pid0))) : null)
+    demo.addPipetteRig(st)
     reags.forEach((r, k) => { const at = sourceSlot(k, 2.2); demo.addBottle(st, 'r' + k, r.name, r.color, at.x, at.z) })
     // the prep sits at (0.4, ·, 0.2) LOCAL to this station while it is being made, so the
     // bottles dispense straight into it (world == home because it is parked here).
     const DIP = { x: 0.4, y: SEAT_Y, z: 0.2 }
     // the idle sample lives beside the prep, showing its carried contents — untouched.
-    { const rigFront = demo.PIP_REST.z - 0.6 - 0.3
+    { const rigFront = demo.PIP_REST.z - 0.3
       st.idleSeat = { x: -2.0, y: SEAT_Y, z: S[vessel] ? Math.min(-0.1, rigFront - 0.12 - solidBox(S[vessel]).max.z) : -0.1 } }   // (the flow-through discard plans its passes from here)
     const idleSample = () => {
       S.only(vessel)
       const sv = S[vessel]
       sv.userData.setColor(startColor); amount(sv, startUl, startLevel)
       sv.visible = true; sv.rotation.set(0, 0, 0); demo.seatScale(sv, 1)
-      // idle beside the prep, behind the pipette rig's front (the P1000's home, less its body): a wide plate
-      // at z −0.1 reached into the stand's pad and under the P1000 — a tube stays where it was
+      // idle beside the prep, behind the pipette rig's front (its home, less its body): a wide plate at
+      // z −0.1 reached into the stand's pad — a tube stays where it was
       S.snapTo(sv, st.x + st.idleSeat.x, st.idleSeat.y, st.idleSeat.z) // never clobber global snap
       return sv
     }
     const pid = 'prep:' + prepId
     const passes = Lq ? passList(Lq.ops.filter((x) => x.op === 'add' && x.to === pid)) : null
-    st.passPlan = demo.passPlan(reags.flatMap((r, k) => planTips(passes).map((tipUl) => ({ from: st.reagents['r' + k].pos, to: DIP, opts: { tipUl, srcTip: passes ? bottleTip('r' + k) : null, dipDepth: 0.62 } }))))
+    st.passPlan = demo.passPlan(reags.map((r, k) => ({ from: st.reagents['r' + k].pos, to: DIP, opts: { tipUl: passes ? 1 : null, srcTip: passes ? bottleTip('r' + k) : null, dipDepth: 0.62 } })))
     st.duration = passDuration((passes && passes.length) || reags.length, st.passPlan)
     st.enter = () => { idleSample(); if (passes) prep.userData.setVolume(0); else prep.userData.setLevel(0); prep.userData.setColor(reags[0].color); demo.pipRest(st) }
     st.timeline = (p) => {
@@ -913,7 +905,7 @@ export function configureStation(st, o) {
       waste.userData.cavity = { r: 0.46, y0: 0, y1: 1.0 }
       waste.position.set(W.x, 0, W.z)
       st.group.add(waste); st.waste = waste; st.updatables.push(waste)
-      demo.addPipetteRig(st, dOp ? [dOp.pipette || (each <= P200_UL ? 'P200' : 'P1000')] : null)
+      demo.addPipetteRig(st)
       const angled = disp.approach === 'angled'
       const from = { x: disp.x || 0, y: angled && disp.y != null ? disp.y : SEAT_Y + (disp.y != null ? disp.y : 0.9) * (FLAT ? 1 : 0), z: disp.z || 0 }
       if (!angled && !FLAT) from.y = SEAT_Y + 0.05                   // a tube: the tip goes to its floor
@@ -1444,7 +1436,7 @@ export function configureStation(st, o) {
       // later station's entry, sent a dish's trip by way of an incubator five stations on)
       for (const v of S.vessels) { v.userData.rides = null; v.userData.enterVia = null; v.userData.enterHold = null }
       // full size unless the station seats it smaller (it sets that after) — reached on its trip (a PCR tube
-      // kept the thermocycler's 0.44 through a station that never reset it, a P1000 tip wider than it)
+      // kept the thermocycler's 0.44 through a station that never reset it, a tip wider than it)
       for (const v of S.vessels) demo.seatScale(v, 1)
       // a reagent bottle is an unlimited source: every station starts with it at its drawn line,
       // closed (it falls by what this station draws). A station's entry sets its WHOLE start — the
@@ -1468,8 +1460,8 @@ export function configureStation(st, o) {
 // bottom, so it is not tipped.) The beaker stands left of the seat, clear of the stand and sources.
 function wrapFlowDiscard(st, S, ul, color, seatLocal) {
   const baseEnter = st.enter, baseTimeline = st.timeline
-  const P = passesFor(ul), each = ul / P                // rule 1: the pipette its volume calls for
-  demo.addPipetteRig(st, [each <= P200_UL + 1e-9 ? 'P200' : 'P1000'])   // (adds it to a station's rig if missing)
+  const P = 1, each = ul                                // ONE draw into the waste beaker, whatever its volume
+  demo.addPipetteRig(st)   // (adds it to a station's rig if missing)
   const COL_S = 1.2                                      // seconds to stand the column aside (and back)
   // its passes: from the collection tube on the column's seat into the beaker (their own pass plan)
   const plan = demo.passPlan([{ from: { x: seatLocal.x, y: seatLocal.y, z: seatLocal.z }, to: { x: seatLocal.x - 1.15, y: 0, z: seatLocal.z + 0.45 }, opts: { tipUl: each, srcTip: seatLocal.y + 0.02, dipDepth: 0.5 } }])
@@ -1685,7 +1677,7 @@ function configurePipetteTransfer(st, S, o) {
     new Vector3(BX + dstFoot.minX, dstSeatY, Z), new Vector3(BX + dstFoot.maxX, dstSeatY + 1.7, Z),
   ]
 
-  demo.addPipetteRig(st, move && vols ? [each <= P200_UL + 1e-9 ? 'P200' : 'P1000'] : null)
+  demo.addPipetteRig(st)
   if (dstAngled) frameAngledPipette(st, dstDisp, BX, Z)
 
   st.enter = () => {

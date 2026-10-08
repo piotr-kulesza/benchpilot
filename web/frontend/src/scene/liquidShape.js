@@ -164,3 +164,11 @@ export function levelFor(shape, ul){
 export function volumeAt(shape, level){
   return shape.capacityUl*shape.volAt(level)/shape.volAt(shape.full);
 }
+// what a vessel's drawn liquid stands for: its drawn volume — or, past what its drawn interior holds
+// (50 mL added to a microtube: the protocol's volumes are real, the drawing stops at full), the volume
+// it was given, read while the level stands at its top
+export function drawnOrKept(shape, level, keptUl){
+  var top=Math.max(1, shape.full), v=volumeAt(shape, level);
+  return keptUl!=null && level>=top-1e-6 && keptUl>v ? keptUl : v;
+}
+

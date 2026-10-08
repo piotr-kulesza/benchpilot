@@ -18,7 +18,7 @@ import { streams } from './rng.js'
 import { mixColor } from '../vessel/liquidLedger.js'
 import { MAX_SPEED } from './motionPlan.js'
 import { innerRadiusFn, liquidProfileGeo, tubeProfile, collectionProfile, columnCupProfile, bottleProfile,
-  tubeShape, columnShape, collectionShape, linearShape, tipShape, levelFor, volumeAt, bottleStockUl, COLL_Y0, COLL_YMAX } from './liquidShape.js'
+  tubeShape, columnShape, collectionShape, linearShape, tipShape, levelFor, volumeAt, drawnOrKept, bottleStockUl, COLL_Y0, COLL_YMAX } from './liquidShape.js'
 
 // Height (world Y) a sample rises to when it leaves a docked instrument, before it
 // glides on — clears the centrifuge lid (its own lift is y≈2.15) and every other device.
@@ -606,7 +606,7 @@ export function undockWhenStill() {
     grp.userData.shape=shape;
     grp.userData.setCapacity=function(ul){ if(ul>0) shape.capacityUl=ul; };
     grp.userData.setVolume=function(ul){ grp.userData.volUl=Math.max(0,ul); state.tLevel=levelFor(shape, ul); };
-    grp.userData.drawnUl=function(){ return liq.visible ? volumeAt(shape, state.builtLevel) : 0; };
+    grp.userData.drawnUl=function(){ return liq.visible ? drawnOrKept(shape, state.builtLevel, grp.userData.volUl) : 0; };
     // READ-ONLY instrumentation (src/dev/liquidFrames.js): what is drawn, and where
     grp.userData.drawnColor=function(){ return '#'+liqMat.color.getHexString(); };
     grp.userData.cavity={ r:R*0.955*0.9, y0:0, y1:H };
@@ -642,13 +642,10 @@ export function undockWhenStill() {
   }
 
   /* ---------- air-displacement micropipette ---------- */
-  // kind 'P200' (the demo's pipette; a yellow tip) or 'P1000' (the same model, a blue tip and its own
-  // decal, placed 1.15× larger by addPipetteRig): rule 1 — a volume calls for its pipette
-  function buildPipette(kind){
-    kind = kind==='P1000' ? 'P1000' : 'P200';
-    var P1000 = kind==='P1000';
+  function buildPipette(){
+    var kind = 'P200';
     var grp = new THREE.Group();
-    grp.userData.kind = kind; grp.userData.capacityUl = P1000 ? 1000 : 200;
+    grp.userData.kind = kind;
     var bodyMat  = matPainted(0xd8dee6, 0.42);
     var accentMat= new THREE.MeshStandardMaterial({ color:0x4c6470, metalness:0.3, roughness:0.44, envMapIntensity:0.8 });
     var darkMat  = matPlastic(0x232a33);
@@ -671,8 +668,7 @@ export function undockWhenStill() {
     var vc=document.createElement("canvas"); vc.width=128; vc.height=180; var vg=vc.getContext("2d");
     vg.fillStyle="#131920"; vg.fillRect(0,0,128,180);
     vg.fillStyle="#9fb0ba"; vg.font="700 62px 'IBM Plex Mono'"; vg.textAlign="center";
-    if(P1000){ vg.fillText("1",64,58); vg.fillText("0",64,118); vg.fillText("0",64,178); }
-    else { vg.fillText("3",64,58); vg.fillText("5",64,118); vg.fillText("0",64,178); }
+    vg.fillText("3",64,58); vg.fillText("5",64,118); vg.fillText("0",64,178);
     var vTex=new THREE.CanvasTexture(vc); vTex.anisotropy=MAX_ANISO;
     var win=new THREE.Mesh(new THREE.PlaneGeometry(0.1,0.16), new THREE.MeshBasicMaterial({map:vTex,transparent:true}));
     win.position.set(0,1.05,0.162); win.rotation.x=-0.05; grp.add(win);
@@ -696,8 +692,7 @@ export function undockWhenStill() {
     var cone = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.028,0.16,24), steelMat);
     cone.position.y=0.02; grp.add(cone);
 
-    // the tip's colour says its size, as at the bench: a P200's tip is yellow, a P1000's blue
-    var tipMat = matSilicone(P1000 ? 0x3d86d6 : 0xf0c62e); tipMat.opacity=P1000 ? 0.5 : 0.5;
+    var tipMat = matSilicone(0xe6eef4); tipMat.opacity=0.42;
     var tp=[
       new THREE.Vector2(0.0,-0.86), new THREE.Vector2(0.014,-0.8), new THREE.Vector2(0.05,-0.2),
       new THREE.Vector2(0.08,0.02), new THREE.Vector2(0.11,0.02), new THREE.Vector2(0.115,-0.03)
@@ -727,8 +722,8 @@ export function undockWhenStill() {
     var brandC=document.createElement("canvas"); brandC.width=160; brandC.height=72; var brandG=brandC.getContext("2d");
     brandG.clearRect(0,0,160,72);
     brandG.fillStyle="#516873"; brandG.font="700 34px 'IBM Plex Sans'"; brandG.textAlign="center"; brandG.textBaseline="middle";
-    brandG.fillText(P1000 ? "P1000" : "P200",80,30);
-    brandG.font="500 15px 'IBM Plex Sans'"; brandG.fillStyle="#41535d"; brandG.fillText(P1000 ? "100 – 1000 µL" : "20 – 200 µL",80,56);
+    brandG.fillText("P200",80,30);
+    brandG.font="500 15px 'IBM Plex Sans'"; brandG.fillStyle="#41535d"; brandG.fillText("20 – 200 µL",80,56);
     var brandTex=new THREE.CanvasTexture(brandC); brandTex.anisotropy=MAX_ANISO;
     var brand=new THREE.Mesh(new THREE.PlaneGeometry(0.18,0.081),
       new THREE.MeshStandardMaterial({ map:brandTex, transparent:true, roughness:0.55, metalness:0, envMapIntensity:0.4 }));
@@ -752,20 +747,24 @@ export function undockWhenStill() {
     var st={ fill:0,tFill:0,color:new THREE.Color(COL.lysis),tColor:new THREE.Color(COL.lysis) };
     grp.userData.st=st;
     grp.userData.setFluid=function(v){ st.tFill=clamp(v,0,1); };
-    // the tip drawn to the volume it holds: a P200 tip (its decal), so 10 µl is a sliver, not a full tip
-    var tShape=tipShape(grp.userData.capacityUl);
-    grp.userData.drawnUl=function(){ return fluid.visible ? volumeAt(tShape, st.fill) : 0; };
+    // SCHEMATIC: the tip is drawn FULL while it holds liquid and empty when it holds none — never its
+    // volume (one draw carries a whole substance, whatever it is). What it carries is kept as a number
+    // (tipUl): the liquid's accounts still balance at every frame
+    var TIP_FULL=0.7, tShape=tipShape();
+    grp.userData.drawnUl=function(){ return grp.userData.tipUl!=null ? (fluid.visible ? grp.userData.tipUl : 0) : (fluid.visible ? volumeAt(tShape, st.fill) : 0); };
     grp.userData.drawnColor=function(){ return '#'+fluidMat.color.getHexString(); };   // the tip is the origin
-    grp.userData.setTipVolume=function(ul){ grp.userData.tipUl=Math.max(0,ul); st.tFill=levelFor(tShape, Math.min(Math.max(ul,0), tShape.capacityUl)); };
+    grp.userData.setTipVolume=function(ul){ grp.userData.tipUl=Math.max(0,ul); st.tFill=ul>1e-9 ? TIP_FULL : 0; };
     grp.userData.setColor=function(h){ st.tColor.set(h); };
+    var prevUl=0;
     grp.userData.update=function(dt){
-      var prev=st.fill;
+      var prev=st.fill, ulNow=grp.userData.tipUl!=null ? grp.userData.tipUl : null;
       if(grp.userData.tipUl!=null){ st.fill=st.tFill; st.color.copy(st.tColor); }   // the tip holds what the plunger drew, this frame
       else { st.fill=lerp(st.fill,st.tFill,1-Math.pow(0.002,dt)); st.color.lerp(st.tColor,1-Math.pow(0.004,dt)); }
       fluidMat.color.copy(st.color); fluidMat.emissive.copy(st.color);
       // dispensing: the tip empties faster than 0.012 of its fill per second of SCENE time (it was
       // 0.0002 per frame — a per-frame threshold the tempo and the frame rate both changed)
-      var dispensing = dt>0 && (prev-st.tFill)/dt>0.012 && st.fill>0.03;
+      var dispensing = ulNow!=null ? (dt>0 && ulNow<prevUl-1e-9 && ulNow>1e-9) : (dt>0 && (prev-st.tFill)/dt>0.012 && st.fill>0.03);   // (schematic: while what it holds falls)
+      if(ulNow!=null) prevUl=ulNow;
       drop.visible=dispensing;
       // the drop's wobble runs on the scene's clock (dt is the frame loop's tempo-scaled time; it
       // read performance.now — a wall clock outside the tempo): same 6 rad/s, same amplitude
@@ -844,7 +843,7 @@ export function undockWhenStill() {
     grp.userData.setLevel=function(v){ st.tLevel=clamp(v,0,1); };
     var cShape=columnShape(); grp.userData.shape=cShape;
     grp.userData.setVolume=function(ul){ grp.userData.volUl=Math.max(0,ul); st.tLevel=levelFor(cShape, ul); };
-    grp.userData.drawnUl=function(){ return liq.visible ? volumeAt(cShape, st.builtLevel) : 0; };
+    grp.userData.drawnUl=function(){ return liq.visible ? drawnOrKept(cShape, st.builtLevel, grp.userData.volUl) : 0; };
     grp.userData.drawnFlowUl=function(){ return flow.visible ? volumeAt(flowShape, fst.builtLevel) : 0; };
     grp.userData.drawnColor=function(){ return '#'+liqMat.color.getHexString(); };
     grp.userData.drawnFlowColor=function(){ return '#'+flowMat.color.getHexString(); };
@@ -2045,18 +2044,12 @@ export {
   // HOME is one fixed point (it is also where the idle pipette waits: pipRest), so a pass that
   // starts late in a step leaves from exactly where the pipette was — never a jump
   var PIP_HOME_Y=2.4;
-  // each pipette waits at its own HOME: the P200 front-left beside its stand (as it always has), a
-  // P1000 0.5 behind it. pipetteRun sets HOME_KIND to the pipette a pass uses.
-  var HOME_KIND='P200';
   // RIG_DX: this station's rig shift (set by useRig): the stand and the pipettes' homes stand clear of
-  // the vessel the station seats (a flask's body reached under the P1000's home and into the stand's pad)
+  // the vessel the station seats (a flask's body reached into the stand's pad)
   var RIG_DX=0;
   function useRig(st){ RIG_DX=(st && st.rigDx) || 0; }
-  // the P1000 waits back AND to the left of the P200 (straight behind it, the P200's way to its source
-  // crossed it): each one's path to the bench goes right, away from the other
-  function pipHome(kind){ kind=kind||HOME_KIND; var big=kind==='P1000'; return new THREE.Vector3(PIP_REST.x+0.6+RIG_DX-(big?0.55:0), PIP_HOME_Y, PIP_REST.z-(big?0.6:0)); }
-  // the pipette a pass of `ul` calls for (rule 1; the ledger has already split a move into passes)
-  function kindFor(opts){ return opts && opts.kind ? opts.kind : (opts && opts.tipUl!=null && opts.tipUl>200+1e-9 ? 'P1000' : 'P200'); }
+  // the ONE pipette's HOME: front-left beside its stand
+  function pipHome(){ return new THREE.Vector3(PIP_REST.x+0.6+RIG_DX, PIP_HOME_Y, PIP_REST.z); }
   function pipPhaseA(from, TRAVEL_Y, a){             // a: 0..1 across phase A → origin position
     var SRC=from.y+0.72, H=pipHome();                // SRC: origin with the tip down in the source
     if(a<0.3){ var q=easeInOut(a/0.3); return new THREE.Vector3(lerp(H.x,from.x,q), lerp(H.y,TRAVEL_Y,q), lerp(H.z,from.z,q)); }
@@ -2111,7 +2104,7 @@ export {
   // the stretch each segment of ONE pass needs (straight approach; pipetteRun's own geometry)
   function passStretch(from, to, opts){
     opts=opts||{};
-    var H=pipHome(kindFor(opts)), TY=Math.max(from.y,to.y)+2.0, DIP=to.y+(opts.dipDepth!=null?opts.dipDepth:0.62);
+    var H=pipHome(), TY=Math.max(from.y,to.y)+2.0, DIP=to.y+(opts.dipDepth!=null?opts.dipDepth:0.62);
     var vol=opts.tipUl!=null && opts.srcTip!=null, SRC=vol ? opts.srcTip : from.y+0.72;
     var vd=(TY-DIP)/0.12;                                   // the descent: its way per unit of p
     var k=function(dist, share){ return Math.max(1, Math.abs(dist)/share/vd); };
@@ -2142,13 +2135,6 @@ export {
   }
   function pipetteRun(st, from, to, p, opts){
     opts=opts||{}; useRig(st);
-    // the pipette this pass's volume calls for; the other one (if the station has two) waits at home
-    var kind=kindFor(opts);
-    if(st.pips && st.pips[kind] && st.pip!==st.pips[kind]){
-      var was=st.pip; st.pip=st.pips[kind];
-      if(was){ was.position.copy(pipHome(was.userData.kind)); was.rotation.set(0,0,0); was.userData.setFluid(0); was.userData.phase='home'; }
-    }
-    HOME_KIND=kind;
     var pip=st.pip; if(!pip) return;
     // the pipette's origin IS its tip (its lowest point) and it turns about it: a tilted pose needs no
     // offset (bug fix: the origin was placed TIP_DROP up the axis, so through a flask's neck the tip
@@ -2297,28 +2283,23 @@ export {
   // resident equipment: a stand AND its OWN pipette, both fixed to this station
   var PIP_SCALE = 0.72;   // IMPROVEMENT: a shorter pipette so its body never reaches
                           // up behind the top HUD bar during the pour travel arc.
-  // kinds: the pipettes the station's passes call for (rule 1) — ['P200'] by default. Called again
-  // with more kinds, it adds the missing ones (a station whose flow-through discard needs a P1000).
-  function addPipetteRig(st, kinds){
-    kinds = kinds && kinds.length ? kinds : ['P200'];
+  // the station's ONE pipette (the P200) and its stand
+  function addPipetteRig(st){
     if(!st.pips){ addStand(st); st.pips={}; }
     useRig(st);
-    kinds.forEach(function(kind){
-      if(st.pips[kind]) return;
-      // built AT ITS HOME (bug fix): it stood in its stand (PIP_REST) until the station was entered,
-      // then entering put it at HOME — a 1.34 jump in one frame, in view as the station faded in
-      var pip = buildPipette(kind); pip.scale.setScalar(PIP_SCALE*(kind==='P1000'?1.15:1)); pip.position.copy(pipHome(kind));
-      pip.userData.noFrame = true;    // the pipette travels high on its arc — never frame it
-      st.group.add(pip); st.pips[kind]=pip; st.updatables.push(pip);
-      if(!st.pip) st.pip = pip;
-    });
+    if(st.pips.P200) return;
+    // built AT ITS HOME (bug fix): it stood in its stand (PIP_REST) until the station was entered,
+    // then entering put it at HOME — a 1.34 jump in one frame, in view as the station faded in
+    var pip = buildPipette(); pip.scale.setScalar(PIP_SCALE); pip.position.copy(pipHome());
+    pip.userData.noFrame = true;    // the pipette travels high on its arc — never frame it
+    st.group.add(pip); st.pips.P200=pip; st.pip=pip; st.updatables.push(pip);
   }
   // dock this station's resident pipette back in its stand (LOCAL space)
   // the idle pipette waits at its HOME, held (not in its stand: the stand's arm crosses its own
   // ring) — the point every pass starts from and returns to
   function pipRest(st){ if(!st.pip) return; useRig(st);
     (st.pips ? Object.values(st.pips) : [st.pip]).forEach(function(pp){
-      pp.position.copy(pipHome(pp.userData.kind)); pp.rotation.set(0,0,0);
+      pp.position.copy(pipHome()); pp.rotation.set(0,0,0);
       pp.userData.setFluid(0); if(pp.userData.tipUl!=null) pp.userData.setTipVolume(0); pp.userData.phase='home';
     }); }
 
@@ -2335,7 +2316,7 @@ export {
     // drawn interior is deeper than its usual medium layer, so its level may pass 1)
     if(shape){ grp.userData.shape=shape;
       grp.userData.setVolume=function(ul){ grp.userData.volUl=Math.max(0,ul); st.tLevel=levelFor(shape, ul); };
-      grp.userData.drawnUl=function(){ return liq.visible===false ? 0 : volumeAt(shape, st.level); }; }
+      grp.userData.drawnUl=function(){ return liq.visible===false ? 0 : drawnOrKept(shape, st.level, grp.userData.volUl); }; }
     // a SURFACE (slide, membrane, gel, agar plate) has no drawn interior: the demo's levels draw it,
     // and the volume it holds (as a film) is KEPT — so every µl the tip gives it is still counted
     else { grp.userData.keepVolume=function(ul){ grp.userData.keptUl=Math.max(0,ul); };
@@ -2827,7 +2808,7 @@ export {
     st.reagents[key] = { grp:b, pos:new THREE.Vector3(x, 0.24, z) };
   }
   function stationReagent(st, Y, o){
-    addPipetteRig(st, o.kinds);
+    addPipetteRig(st);
     // an ANGLED pass (a flask's canted neck) tilts the pipette's body out over where the bottle
     // stood: the bottle stands 0.3 further forward, clear of it
     addBottle(st, o.key, o.blabel, o.color, 2.0, (o.dispense && o.dispense.approach==='angled') ? 1.0 : 0.7);

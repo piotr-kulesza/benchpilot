@@ -38,7 +38,6 @@ export const MODELS = [
   { id: 'uv_transilluminator', kind: 'equipment', span: 3.2, orient: 'UV light box: glowing surface, amber hood, gel-doc camera (gel)', build: () => demo.buildUVTransilluminator() },
   { id: 'bottle',        kind: 'equipment', span: 2.0, orient: 'reagent bottle with a cap', build: () => demo.buildBottle(demo.COL.wash, 'RPE', 1.3, demo.COL.wash) },
   { id: 'pipette',       kind: 'equipment', span: 2.6, orient: 'air-displacement micropipette', build: () => demo.buildPipette() },
-  { id: 'pipette-p1000', kind: 'equipment', span: 3.0, orient: 'air-displacement micropipette, 100–1000 µL (blue tip)', build: () => demo.buildPipette('P1000') },
   { id: 'pipette_stand', kind: 'equipment', span: 3.2, orient: 'pipette carousel/stand', build: () => demo.buildPipetteStand() },
   { id: 'ice_bucket',    kind: 'equipment', span: 2.4, orient: 'ice bucket', build: () => demo.buildIceBucket() },
   { id: 'waste',         kind: 'equipment', span: 1.8, orient: 'waste beaker/container', build: () => demo.buildWaste() },
