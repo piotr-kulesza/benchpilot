@@ -462,7 +462,7 @@ export function configureStation(st, o) {
   // RULE 5 — an add whose volume the protocol does not state moves NOTHING (the ledger draws no op):
   // the station is honest and still — the sample on the bench, no bottle and no pipette run that
   // would show an amount nobody stated — and flagged
-  const unstatedAdd = Lq && (action === 'pour_add' || action === 'seed' || action === 'stain') && (o.reagents || []).length > 0
+  const unstatedAdd = Lq && (action === 'pour_add' || action === 'seed' || action === 'stain' || action === 'pipette_mix') && (o.reagents || []).length > 0
     && !addOps.length && !(pour && pour.pour) && !Lq.ops.some((x) => x.to === vessel || x.from === vessel)
   // a bottle and the pipette: one pass per tip of the ledger's draw (P200 / P1000 by its volume),
   // the vessel rising by what was dispensed — every add from a bottle (pour_add, seed) runs this
