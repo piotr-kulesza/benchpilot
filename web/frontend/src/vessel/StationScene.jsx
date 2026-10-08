@@ -1443,6 +1443,9 @@ export function configureStation(st, o) {
       // (a station that has one sets it on entry — a stale enterVia, left by the pacer's dry run of a
       // later station's entry, sent a dish's trip by way of an incubator five stations on)
       for (const v of S.vessels) { v.userData.rides = null; v.userData.enterVia = null; v.userData.enterHold = null }
+      // full size unless the station seats it smaller (it sets that after) — reached on its trip (a PCR tube
+      // kept the thermocycler's 0.44 through a station that never reset it, a P1000 tip wider than it)
+      for (const v of S.vessels) demo.seatScale(v, 1)
       // a reagent bottle is an unlimited source: every station starts with it at its drawn line,
       // closed (it falls by what this station draws). A station's entry sets its WHOLE start — the
       // pacer's dry run, or an earlier visit, must leave nothing behind
