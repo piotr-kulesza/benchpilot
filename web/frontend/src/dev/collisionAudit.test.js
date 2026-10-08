@@ -79,6 +79,17 @@ describe('collision audit · goes red on a deliberately overlapped pair', () => 
     expect(checks(r1)).toContain('sweep')
     expect(checks(r1)).not.toContain('float')
   })
+  it('a box carried ALONG with a moving wall (a plate on a drawer, just in front of its lip) → green; one that outruns it through the wall → sweep', () => {
+    const lip = new Group(), wall = box(0.02, 0.6, 0.6, 0.3); lip.add(wall)
+    const mover = new Group(), body = box(0.1, 0.1, 0.1, 0.24, 0.3); mover.add(body)
+    lip.updateMatrixWorld(true); mover.updateMatrixWorld(true)
+    const r0 = auditPose([obj('lip', lip), obj('mover', mover)])
+    lip.position.x = -0.2; mover.position.x = -0.2; lip.updateMatrixWorld(true); mover.updateMatrixWorld(true)   // both slide 0.2 together
+    expect(checks(auditPose([obj('lip', lip), obj('mover', mover)], { prev: r0.state }))).not.toContain('sweep')
+    const r1 = auditPose([obj('lip', lip), obj('mover', mover)])
+    mover.position.x = 0.4; lip.position.x = -0.1; lip.updateMatrixWorld(true); mover.updateMatrixWorld(true)    // it passes through the lip
+    expect(checks(auditPose([obj('lip', lip), obj('mover', mover)], { prev: r1.state }))).toContain('sweep')
+  })
   it('a lid closing through its own body → intersect (moving part × body)', () => {
     const dev = new Group(), body = box(0.6, 0.3, 0.6), lid = box(0.6, 0.04, 0.6, 0, 0.32); dev.add(body); dev.add(lid); dev.updateMatrixWorld(true)
     const r0 = auditPose([obj('dev', dev)])

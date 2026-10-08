@@ -269,9 +269,13 @@ export function sweep(meshes, prevWorld, others, cap = 64) {
       for (const o of others) {
         if (!o.geometry.boundingBox) o.geometry.computeBoundingBox()
         const ob = o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld)
-        if (!ob.intersectsBox(new Box3().setFromPoints([p0, p1]))) continue
-        _inv.copy(o.matrixWorld).invert()
-        const a = p0.clone().applyMatrix4(_inv), b = p1.clone().applyMatrix4(_inv)
+        const pob = prevWorld.get(o) ? o.geometry.boundingBox.clone().applyMatrix4(prevWorld.get(o)) : null
+        if (!ob.intersectsBox(new Box3().setFromPoints([p0, p1])) && !(pob && pob.intersectsBox(new Box3().setFromPoints([p0, p1])))) continue
+        // in the OTHER's frame: where the vertex was against where the other WAS, to where it is against
+        // where the other IS (a plate riding a drawer just in front of its lip moves with it — read
+        // against the lip's new pose only, its path crossed the lip every frame)
+        const po = prevWorld.get(o) || o.matrixWorld
+        const a = p0.clone().applyMatrix4(_inv.copy(po).invert()), b = p1.clone().applyMatrix4(_inv.copy(o.matrixWorld).invert())
         const dir = b.clone().sub(a), L = dir.length(); dir.normalize()
         _ray.set(a, dir)
         const hit = bvhOf(o.geometry).raycastFirst(_ray, 2 /* DoubleSide */)
