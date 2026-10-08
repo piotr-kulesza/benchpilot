@@ -38,7 +38,7 @@ export function setSnap(v) { SNAP_SAMPLE = v }
 export function getSnap() { return SNAP_SAMPLE }
 // a vessel's size at its seat (a rotor slot, a PCR well, a reader's drawer): reached by its trip from
 // where it was — snapped only when the line snaps (a jump between stations)
-export function seatScale(v, s) { v.userData.tScale = s; if (SNAP_SAMPLE || !v.userData.trip) v.scale.setScalar(s) }   // (no trip: it is only just shown)
+export function seatScale(v, s) { v.userData.tScale = s; if (SNAP_SAMPLE || (!v.userData.trip && !v.userData.docked && !v.userData.leaveWhenStill)) v.scale.setScalar(s) }   // (no trip: it is only just shown — one still in a rotor keeps its size until its trip)
 export function initSample() { SAMPLE = buildSample(); return SAMPLE }
 export function getSample() { return SAMPLE }
 
@@ -1377,10 +1377,12 @@ export function undockWhenStill() {
     for(var k=0;k<8;k++){
       var a=k/8*Math.PI*2;
       var holder=new THREE.Group();
-      var slot=new THREE.Mesh(new THREE.CylinderGeometry(SLOT_R,SLOT_R,0.62,24,1,true), slotMat); holder.add(slot);   // straight-sided: what passes its mouth passes its depth
+      // straight-sided (what passes its mouth passes its depth), its floor at −0.22: deeper, the tilted
+      // floor's outer edge dipped into the solid base below the bowl
+      var slot=new THREE.Mesh(new THREE.CylinderGeometry(SLOT_R,SLOT_R,0.53,24,1,true), slotMat); slot.position.y=0.045; holder.add(slot);
       // a FLAT floor at the slot's foot (a rounded one reached below the bowl into the solid base)
       var slotBot=new THREE.Mesh(new THREE.CircleGeometry(SLOT_R,24),slotMat); slotBot.rotation.x=-Math.PI/2;
-      slotBot.position.y=-0.31; holder.add(slotBot);
+      slotBot.position.y=-0.22; holder.add(slotBot);
       holder.position.set(Math.cos(a)*0.62,0.0,Math.sin(a)*0.62);
       // clean fixed-angle rotor: every slot tilts outward by the SAME angle around its tangential axis
       holder.quaternion.setFromAxisAngle(new THREE.Vector3(-Math.sin(a),0,Math.cos(a)), -0.40);
@@ -1436,7 +1438,8 @@ export function undockWhenStill() {
     var cenLidK=measureParam(grp,[lidPivot],cenLidAt,st.lid);
     rotor.userData.spinPart = true;   // the spin is the one motion the speed rule excepts (and what rides in it)
     grp.userData.rotor=rotor; grp.userData.dome=dome; grp.userData.label=label; grp.userData.st=st;
-    grp.userData.atRest=function(){ return st.tSpin===0 && st.spin<0.01 && (!st.homing || (Math.abs(st.rv||0)<0.01 && Math.abs((st.home||0)-rotor.rotation.y)<0.003)); };
+    // (still, and its lid open: what is in it can be taken out)
+    grp.userData.atRest=function(){ return st.tSpin===0 && st.spin<0.01 && (!st.homing || (Math.abs(st.rv||0)<0.01 && Math.abs((st.home||0)-rotor.rotation.y)<0.003)) && (st.tLid<1 || st.lid>0.97); };
     grp.userData.holders=holders;
     grp.userData.setSpin=function(v){ st.tSpin=v; };
     // IMPROVEMENT: explicit lid hook. stationSpin closes it before the rotor spins
@@ -2883,22 +2886,24 @@ export {
     var seatScaleOf=function(v){
       var keep=[v.position.clone(), v.quaternion.clone(), v.scale.clone()];
       v.position.set(0,0,0); v.quaternion.identity(); v.scale.setScalar(1); v.updateMatrixWorld(true);
-      var r=0, bb=new THREE.Box3();
+      // in the vessel's OWN frame (bug fix: world space — wherever its parent stood — skewed both)
+      var r=0, bb=new THREE.Box3(), vInv=new THREE.Matrix4().copy(v.matrixWorld).invert();
       v.traverse(function(m){ if(m.isMesh && m.geometry && !m.isSprite && !(m.userData&&m.userData.auditKind)){ var mm=[].concat(m.material)[0]; if(mm && mm.userData && mm.userData.auditKind) return;
-        bb.setFromObject(m); r=Math.max(r, Math.abs(bb.min.x), Math.abs(bb.max.x), Math.abs(bb.min.z), Math.abs(bb.max.z)); } });
+        if(!m.geometry.boundingBox) m.geometry.computeBoundingBox(); bb.copy(m.geometry.boundingBox).applyMatrix4(new THREE.Matrix4().copy(vInv).multiply(m.matrixWorld)); r=Math.max(r, Math.abs(bb.min.x), Math.abs(bb.max.x), Math.abs(bb.min.z), Math.abs(bb.max.z)); } });
       v.position.copy(keep[0]); v.quaternion.copy(keep[1]); v.scale.copy(keep[2]); v.updateMatrixWorld(true);
       return Math.min(0.6, ((cen.userData.slotR||0.215)-0.012)/Math.max(r,1e-3));
     };
     // how deep it sits: lowered along the slot until its lowest vertex rests on the slot's flat floor
-    // (0.31 below its middle) — from both geometries
+    // (0.22 below its middle) — from both geometries
     var seatYOf=function(v){
       var sc=seatScaleOf(v), R=cen.userData.slotR||0.215, y0=-Infinity, pt=new THREE.Vector3();
       var keep=[v.position.clone(), v.quaternion.clone(), v.scale.clone()];
       v.position.set(0,0,0); v.quaternion.identity(); v.scale.setScalar(1); v.updateMatrixWorld(true);
+      var vInv=new THREE.Matrix4().copy(v.matrixWorld).invert();
       v.traverse(function(m){ if(!m.isMesh || !m.geometry || m.isSprite || m.isInstancedMesh) return; var mm=[].concat(m.material)[0];
         if((m.userData&&m.userData.auditKind)||(mm&&mm.userData&&mm.userData.auditKind)) return;
         var pos=m.geometry.attributes.position; if(!pos) return;
-        for(var i=0;i<pos.count;i++){ pt.fromBufferAttribute(pos,i).applyMatrix4(m.matrixWorld); if(Math.hypot(pt.x,pt.z)*sc<R) y0=Math.max(y0, -0.31-pt.y*sc); } });
+        for(var i=0;i<pos.count;i++){ pt.fromBufferAttribute(pos,i).applyMatrix4(m.matrixWorld).applyMatrix4(vInv); if(Math.hypot(pt.x,pt.z)*sc<R) y0=Math.max(y0, -0.22-pt.y*sc); } });
       v.position.copy(keep[0]); v.quaternion.copy(keep[1]); v.scale.copy(keep[2]); v.updateMatrixWorld(true);
       return isFinite(y0) ? y0+0.008 : SEAT_Y;   // resting on it (within contact), not on its very surface
     };
