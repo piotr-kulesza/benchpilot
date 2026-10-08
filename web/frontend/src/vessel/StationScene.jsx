@@ -1028,9 +1028,11 @@ export function configureStation(st, o) {
     } else if (inst === 'co2_incubator') {
       const inc = demo.buildCO2Incubator(); inc.position.set(0, 0, -1.1); incDev = inc
       st.group.add(inc); st.updatables.push(inc)
-      seatFn = () => {   // flask on the lower shelf, inside — it comes in through the door, not the roof
-        S.at(S[vessel], st.x, 0.66, -1.25); inc.userData.setDoor(true)   // open while it is carried in
-        const v = S[vessel]; v.userData.enterVia = (v.userData.enterVia || new Vector3()).set(st.x, 0.66, 1.2)
+      // resting ON the lower shelf (from both geometries: 0.66 was a flask's — a dish floated over it)
+      const shelfY = restOn(inc, S[vessel], 0, -1.25, 0.76)
+      seatFn = () => {   // on the lower shelf, inside — it comes in through the door, not the roof
+        S.at(S[vessel], st.x, shelfY, -1.25); inc.userData.setDoor(true)   // open while it is carried in
+        const v = S[vessel]; v.userData.enterVia = (v.userData.enterVia || new Vector3()).set(st.x, shelfY, 1.2)
       }
       // The DETACHMENT is the whole point of the step but it's small + behind glass.
       // As the step resolves: OPEN the door and PUSH the camera in close on the flask
@@ -1397,7 +1399,9 @@ export function configureStation(st, o) {
       }
       // during an elution the column (not drawn) rides in the eluate tube it drains into
       if (S.column) S.column.userData.ridesWith = (action === 'elute' && vessel !== 'column') ? S[vessel] : null
-      for (const v of S.vessels) v.userData.rides = null   // (a station that has one sets it on entry)
+      // (a station that has one sets it on entry — a stale enterVia, left by the pacer's dry run of a
+      // later station's entry, sent a dish's trip by way of an incubator five stations on)
+      for (const v of S.vessels) { v.userData.rides = null; v.userData.enterVia = null }
       // a reagent bottle is an unlimited source: every station starts with it at its drawn line,
       // closed (it falls by what this station draws). A station's entry sets its WHOLE start — the
       // pacer's dry run, or an earlier visit, must leave nothing behind
@@ -2071,6 +2075,10 @@ function clearTrips(groups) {
     for (let n = m; n; n = n.parent) if (!n.visible) return
     solids.push(new Box3().setFromObject(m))
   })
+  // a door's whole swing (it opens while the vessel is on its way: measured shut, an incubator's open
+  // door stood in a dish's path)
+  const doors = []
+  for (const g of groups) g.traverse((o) => { if (o.userData && o.userData.doorSweep && o.visible) doors.push(...o.userData.doorSweep()) })
   for (const v of vs) {
     const tr = v.userData.trip, from = tr.out || tr.from, to = v.userData.enterVia || v.userData.tPos
     _vb.setFromObject(v)
@@ -2083,6 +2091,7 @@ function clearTrips(groups) {
       if (holds(b, from) || holds(b, to)) continue
       top = Math.max(top, b.max.y)
     }
+    for (const b of doors) if (!(b.max.x < x0 || b.min.x > x1 || b.max.z < z0 || b.min.z > z1)) top = Math.max(top, b.max.y)   // (a door is passed over wherever it swings)
     if (isFinite(top)) tr.lift.y = Math.max(tr.lift.y, top + below + 0.08)
   }
 }
