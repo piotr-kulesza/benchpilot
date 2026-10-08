@@ -844,7 +844,7 @@ export function undockWhenStill() {
     var cShape=columnShape(); grp.userData.shape=cShape;
     grp.userData.setVolume=function(ul){ grp.userData.volUl=Math.max(0,ul); st.tLevel=levelFor(cShape, ul); };
     grp.userData.drawnUl=function(){ return liq.visible ? drawnOrKept(cShape, st.builtLevel, grp.userData.volUl) : 0; };
-    grp.userData.drawnFlowUl=function(){ return flow.visible ? volumeAt(flowShape, fst.builtLevel) : 0; };
+    grp.userData.drawnFlowUl=function(){ return flow.visible ? drawnOrKept(flowShape, fst.builtLevel, grp.userData.flowUl) : 0; };   // (past its drawn top: its real volume)
     grp.userData.drawnColor=function(){ return '#'+liqMat.color.getHexString(); };
     grp.userData.drawnFlowColor=function(){ return '#'+flowMat.color.getHexString(); };
     grp.userData.cavity={ r:0.28*0.9, y0:0.86, y1:1.56 };
