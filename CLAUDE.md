@@ -228,7 +228,21 @@ Enforced BY CONSTRUCTION (shared code, any protocol):
   centrifuge's shell and rotor holes, a freezer's cavity, a thermocycler's well, a bath's liner, a
   gel tank, a reader's drawer tunnel); a vessel RESTS on what holds it (`restOn`), stands CLEAR of what
   rises over a stage (`clearOnStage`), and is SEATED TO FIT (a rotor slot, a reader's drawer: its own
-  solid extent against the opening — `solidBox`, `seatScale`), reaching that size on its trip.
+  solid extent against the opening — `solidBox`, `seatScale`), reaching that size on its trip. A rotor
+  seat is measured in the vessel's OWN frame and also keeps the seated vessel inside the closed dome.
+- **Layout from footprints**: a station records its seated vessel's footprint (`st.clearLeft/Right`);
+  the pipette rig (stand + homes, `demo.prepRig`) and reagent bottles stand clear of it (no shift for
+  a tube); a side-by-side transfer clears both vessels; sources stand in rows of four; the P1000
+  waits back-left of the P200; an idle sample beside a prep stands behind the rig's front.
+- **Trips clear what is on their way** (`clearTrips`): the carry height passes over every solid the
+  horizontal leg crosses, from both stations' geometry, and over a door's whole swing (`doorSweep`).
+  Each station's entry clears `rides` / `enterVia` (a dry run's leftovers sent trips astray); a vessel
+  riding a moving part (a plate on a reader's drawer) reads its seat after the instruments moved.
+- **The pipette's origin is its tip** and it turns about it (no offset up a canted neck's axis); a
+  discard's tip allows for its pass's fall; from a surface it goes to the film on its solid top.
+
+The checker plays each station until ITS p has reached 1 (`createFinish`: the last station's p = 1 is
+not this one's end) with a cap from the station's paced duration; an unfinished station is red.
 
 CHECKED (not constructed): liquid invariants (a–d), collisions and the motion audit, teleports — by
 `npm run check-protocol`, and in dev builds by the console guard (`[scene rule] station N: …` — an
