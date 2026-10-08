@@ -91,11 +91,13 @@ function depart(v, alongAxis = false) {
   let out = null
   if (v.userData.exitOut) { out = v.userData.exitOut.clone(); v.userData.exitOut = null }   // out of an enclosure's opening first
   else if (alongAxis && (v.scale.x !== 1 || Math.abs(v.quaternion.w) < 0.99999)) {
-    // out along its own axis by its own height (its seat's depth), then up
-    const box = new THREE.Box3().setFromObject(v), h = box.getSize(new THREE.Vector3()).y
+    // out along its own axis by its seat's depth (a rotor slot records it on docking: just clear of the
+    // slot's mouth — out by its whole height swung its top into the shell's rim), else its height; then up
+    const box = new THREE.Box3().setFromObject(v), h = v.userData.exitDepth != null ? v.userData.exitDepth : box.getSize(new THREE.Vector3()).y
     out = from.clone().addScaledVector(new THREE.Vector3(0, 1, 0).applyQuaternion(v.quaternion), h)
   }
   const lp = exitLiftPoint(out || from, EXIT_CLEAR_Y)
+  v.userData.exitDepth = null
   v.userData.trip = { from, out, lift: new THREE.Vector3(lp.x, lp.y, lp.z), q0: v.quaternion.clone(), s0: v.scale.x, t: 0, D: null }
 }
 // If a step change interrupts a spin, the sample may still be parented into a
@@ -992,6 +994,7 @@ export function undockSample(lift = false) {
     // what the drawer takes: the tunnel's width (less a margin), the tray's depth inside its front lip,
     // the tray's top and the tunnel's ceiling — a vessel is seated to fit (StationScene)
     grp.userData.drawer={ w:2*TX-0.06, d:1.7-0.16, topY:0.53, ceil:TY1 };
+    grp.userData.trayZ=function(){ return tray.position.z; };   // where the drawer's tray is now (a plate RIDES it)
     var label=makeLabel("Plate reader",""); label.position.set(0,1.95,0); grp.add(label);
     var pst={ draw:1, tDraw:1 };
     grp.userData.label=label;
@@ -1331,7 +1334,7 @@ export function undockSample(lift = false) {
     // the rotor disc has a HOLE for each slot (bug fix): a tube seated in a slot passed through
     // solid metal. The slots are wide enough for what they hold (a microtube or a spin column
     // seated at 0.6 is 0.19–0.20 across its body; the slots were 0.11)
-    var SLOT_R=0.215, discShape=new THREE.Shape(); discShape.absarc(0,0,0.95,0,Math.PI*2,false);
+    var SLOT_R=0.215, discShape=new THREE.Shape(); grp.userData.slotR=SLOT_R; discShape.absarc(0,0,0.95,0,Math.PI*2,false);
     for(var hk=0;hk<8;hk++){ var ha=hk/8*Math.PI*2, hole=new THREE.Path(); hole.absarc(Math.cos(ha)*0.62, -Math.sin(ha)*0.62, SLOT_R+0.02, 0, Math.PI*2, true); discShape.holes.push(hole); }
     var discGeo=new THREE.ExtrudeGeometry(discShape,{ depth:0.12, bevelEnabled:false, curveSegments:44 });
     discGeo.rotateX(-Math.PI/2); discGeo.translate(0,-0.08,0);
@@ -1344,8 +1347,8 @@ export function undockSample(lift = false) {
     for(var k=0;k<8;k++){
       var a=k/8*Math.PI*2;
       var holder=new THREE.Group();
-      var slot=new THREE.Mesh(new THREE.CylinderGeometry(SLOT_R,SLOT_R-0.03,0.62,24,1,true), slotMat); holder.add(slot);
-      var slotBot=new THREE.Mesh(new THREE.SphereGeometry(SLOT_R-0.03,18,10,0,Math.PI*2,Math.PI*0.5,Math.PI*0.5),slotMat);
+      var slot=new THREE.Mesh(new THREE.CylinderGeometry(SLOT_R,SLOT_R,0.62,24,1,true), slotMat); holder.add(slot);   // straight-sided: what passes its mouth passes its depth
+      var slotBot=new THREE.Mesh(new THREE.SphereGeometry(SLOT_R,18,10,0,Math.PI*2,Math.PI*0.5,Math.PI*0.5),slotMat);
       slotBot.position.y=-0.31; holder.add(slotBot);
       holder.position.set(Math.cos(a)*0.62,0.0,Math.sin(a)*0.62);
       // clean fixed-angle rotor: every slot tilts outward by the SAME angle around its tangential axis
@@ -1411,6 +1414,10 @@ export function undockSample(lift = false) {
     grp.userData.update=function(dt){
       st.spin=lerp(st.spin,st.tSpin,1-Math.pow(0.01,dt));
       rotor.rotation.y += st.spin*dt;
+      // spinning down, the rotor comes to rest at its HOME angle (its docked slot facing the front, as it
+      // was loaded — so the tube leaves away from the raised lid at the back), creeping the last of the way
+      if(st.tSpin===0 && st.spin<1.5){ var home=Math.round(rotor.rotation.y/(Math.PI*2))*Math.PI*2, cr=Math.max(st.spin,0.8)*dt;
+        rotor.rotation.y += clamp(home-rotor.rotation.y, -cr, cr); }
       st.lid=capChase(grp,st.lid,st.tLid,dt,0.02,cenLidK); cenLidAt(st.lid);   // its speed cap (rule 3)
       drawRPM(Math.min(st.spin,26)/26*13400);
     };
@@ -2274,6 +2281,12 @@ export {
         if(!_cb){ _cb=new THREE.Box3(); var inv=new THREE.Matrix4().copy(grp.matrixWorld).invert();
           grp.traverse(function(o){ if(o.isMesh && o.geometry && !o.isSprite && o!==liq){ o.geometry.computeBoundingBox(); _cb.union(_lb.copy(o.geometry.boundingBox).applyMatrix4(_m.multiplyMatrices(inv, o.matrixWorld))); } }); }
         return { box:_cb }; } });
+      // the bottom of its drawn liquid (where a tip that draws the last of it goes)
+      grp.userData.liquidFloorY=function(){
+        if(!liq || !liq.isMesh || !liq.geometry) return null;
+        liq.geometry.computeBoundingBox(); var inv=new THREE.Matrix4().copy(grp.matrixWorld).invert();
+        return _lb.copy(liq.geometry.boundingBox).applyMatrix4(_m.multiplyMatrices(inv, liq.matrixWorld)).min.y;
+      };
       grp.userData.surfaceY=function(){
         if(!liq || !liq.isMesh || liq.visible===false || !liq.geometry) return null;
         liq.geometry.computeBoundingBox(); var inv=new THREE.Matrix4().copy(grp.matrixWorld).invert();
@@ -2824,7 +2837,18 @@ export {
     var holder = cen.userData.holders[2];   // a slot facing the camera at rest
     // seated ON the slot's floor (bug fix: at -0.16 it hung 0.15 above it, and the tilted tube's
     // top crossed the closed lid's dome while it spun)
-    var SEAT_SCALE=0.6, SEAT_Y=-0.31;
+    var SEAT_Y=-0.31;
+    // the size a vessel is seated at: as large as 0.6, as small as its widest point (a cap's hinge knob
+    // included) needs to pass the slot (from both models' geometry)
+    var seatScaleOf=function(v){
+      var keep=[v.position.clone(), v.quaternion.clone(), v.scale.clone()];
+      v.position.set(0,0,0); v.quaternion.identity(); v.scale.setScalar(1); v.updateMatrixWorld(true);
+      var r=0, bb=new THREE.Box3();
+      v.traverse(function(m){ if(m.isMesh && m.geometry && !m.isSprite && !(m.userData&&m.userData.auditKind)){ var mm=[].concat(m.material)[0]; if(mm && mm.userData && mm.userData.auditKind) return;
+        bb.setFromObject(m); r=Math.max(r, Math.abs(bb.min.x), Math.abs(bb.max.x), Math.abs(bb.min.z), Math.abs(bb.max.z)); } });
+      v.position.copy(keep[0]); v.quaternion.copy(keep[1]); v.scale.copy(keep[2]); v.updateMatrixWorld(true);
+      return Math.min(0.6, ((cen.userData.slotR||0.215)-0.012)/Math.max(r,1e-3));
+    };
     var preSlot={ x:1.4, y:1.42, z:0.03 };   // just above the slot (station-local)
     var lift={ x:1.4, y:2.15, z:0.03 };      // raised clear of the rotor
     var docked=false;
@@ -2834,8 +2858,10 @@ export {
       holder.add(v);                         // reparent INTO the slot — now rides the rotor
       v.position.set(0, SEAT_Y, 0);          // seated in the slot bottom
       v.rotation.set(0,0,0);                 // aligns with the holder's outward tilt
-      v.scale.setScalar(SEAT_SCALE);
+      v.scale.setScalar(seatScaleOf(v));
       v.userData.docked=true; docked=true;   // frame loop stops gliding it while docked
+      // leaving, it needs only to clear the slot's mouth (0.31 above the slot's centre) along its axis
+      v.userData.exitDepth=(0.31-SEAT_Y+0.05)*holder.getWorldScale(new THREE.Vector3()).x;
     }
     function undock(){
       if(!docked) return;
@@ -2851,7 +2877,7 @@ export {
     var _sp=new THREE.Vector3(), _sq=new THREE.Quaternion(), _ss=new THREE.Vector3(), _ax=new THREE.Vector3();
     function seatPose(){
       cen.updateWorldMatrix(true,true);
-      new THREE.Matrix4().compose(new THREE.Vector3(0,SEAT_Y,0), new THREE.Quaternion(), new THREE.Vector3(SEAT_SCALE,SEAT_SCALE,SEAT_SCALE))
+      new THREE.Matrix4().compose(new THREE.Vector3(0,SEAT_Y,0), new THREE.Quaternion(), new THREE.Vector3(seatScaleOf(SAMPLE[o.vessel]),seatScaleOf(SAMPLE[o.vessel]),seatScaleOf(SAMPLE[o.vessel])))
         .premultiply(holder.matrixWorld).decompose(_sp,_sq,_ss);
       _ax.set(0,1,0).applyQuaternion(_sq);
       return { p:_sp.clone(), q:_sq.clone(), s:_ss.x, axis:_ax.clone() };

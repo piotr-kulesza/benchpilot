@@ -375,6 +375,15 @@ export function configureStation(st, o) {
   // membrane, gel, agar) keeps the demo's levels. Without a ledger (the dev matrix): the demo's levels.
   const Lq = o.liq || null
   const VOL = !!(Lq && S[vessel] && S[vessel].userData.setVolume)
+  // HOW DEEP A TIP GOES into this vessel: from its own geometry — the contract's depth, but never
+  // above 0.03 under its rim (a 96-well plate's 0.5 left the tip hovering 0.16 OVER the well it
+  // dispensed into); a surface (a membrane, a slide) is reached just above its film
+  const ENTRY = (() => {
+    const v = S[vessel], e = C.entryPoint != null ? C.entryPoint : 0.62
+    if (!v) return e
+    const top = solidBox(v).max.y
+    return v.userData.setVolume ? Math.min(e, top - 0.03) : top + 0.005
+  })()
   const ulAt = (id, side) => (Lq && Lq[side][id] ? Lq[side][id].ul : 0)
   const colAt = (id, side, dflt) => (Lq && Lq[side][id] && Lq[side][id].color != null ? Lq[side][id].color : dflt)
   const startUl = ulAt(vessel, 'start'), endUl = ulAt(vessel, 'end')
@@ -467,7 +476,7 @@ export function configureStation(st, o) {
     const total = draws.reduce((a, x) => a + x.ul, 0)
     const srcUl = draws.some((x) => String(x.from).startsWith('prep:')) ? ulAt(draws[0].from, 'start') : volumeAt(tubeShape(1.7, 0.32), 0.6)
     const addColor = draws.length ? draws.reduce((c, x, k) => (k ? mixColor(c, draws.slice(0, k).reduce((a, y) => a + y.ul, 0), x.color, x.ul) : x.color), null) : endColor
-    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: Lq && draws.length ? addColor : endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: C.entryPoint,
+    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: Lq && draws.length ? addColor : endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: ENTRY,
       ...(Lq && P ? { passes: P, each: total / P, ulStart: startUl, srcTube: tube, srcUl, kinds: kindsOf([{ each: total / P }]) } : {}) })
     st.duration = passDuration(Lq && P ? P : 1, st.passPlan)
     const src = st.reagents.r
@@ -530,15 +539,65 @@ export function configureStation(st, o) {
     const flowed = (p) => demo.clamp((p - 0.5) / 0.3, 0, 1)
     const fill = (q) => {
       const v = S[vessel]
-      if (VOL) { v.userData.setVolume(startUl + (endUl - startUl) * q); v.userData.setColor(mixColor(startColor, startUl, reag ? reag.color : endColor, (endUl - startUl) * q)) }
+      // (what flows in: the bottle's reagent, or — pouring the sample itself — the poured vessel's contents)
+      const inColor = reag ? reag.color : (() => { const mv = Lq && pour.ops.find((x) => x.op === 'move' && x.to === vessel); return mv ? colAt(mv.from, 'start', endColor) : endColor })()
+      if (VOL) { v.userData.setVolume(startUl + (endUl - startUl) * q); v.userData.setColor(mixColor(startColor, startUl, inColor, (endUl - startUl) * q)) }
       else evolve(q)
+    }
+    // POURING THE SAMPLE ITSELF ("pour the agarose into the casting tray"): no bottle — the vessel the
+    // sample was in IS what pours. It lifts, carries over and lowers until its MOUTH is over this
+    // vessel's, tips ABOUT its mouth (a flask's canted neck, else its top) until the mouth points 20°
+    // below level, holds while a stream joins the two (it drains as this one fills), rights itself and
+    // goes back to the bench. Its mouth and way it points come from its contract and geometry.
+    const srcMove = Lq && !reag ? pour.ops.find((x) => x.op === 'move' && x.to === vessel && x.from !== vessel && S[x.from]) : null
+    let pourFrom = null
+    if (srcMove) {
+      st._skipHandoff = true
+      const sk = srcMove.from, src = S[sk]
+      const SC = prevContainer ? containerContract(prevContainer) : containerContract(null), sd = SC.dispense || { x: 0, z: 0 }
+      const sb = solidBox(src), db = solidBox(S[vessel])
+      const angledSrc = sd.approach === 'angled'
+      const Ml = new Vector3(sd.x || 0, angledSrc && sd.y != null ? sd.y : sb.max.y, sd.z || 0)        // its mouth, its own frame
+      const ang0 = angledSrc ? -(sd.tilt != null ? sd.tilt : -0.62) : 0                               // its mouth's axis, from vertical toward +x
+      const thMax = (Math.PI + 0.35) - Math.atan2(Math.cos(ang0), Math.sin(ang0))                      // tipped until the mouth points 20° below level
+      const T = new Vector3(mouth.x, mouth.y + 0.35, mouth.z)                                          // the mouth, just over this vessel's
+      const at = (th) => { const c = Math.cos(th), sn = Math.sin(th); return new Vector3(T.x - (Ml.x * c - Ml.y * sn), T.y - (Ml.x * sn + Ml.y * c), T.z - Ml.z) }
+      const P0 = at(0)
+      const seatS = { x: db.min.x - sb.max.x - 0.35, y: (prevContainer ? containerContract(prevContainer).seat.y : 0), z: 0 }   // beside, clear of it
+      const CY = Math.max(P0.y, db.max.y + 0.3 - sb.min.y, seatS.y + 0.3)                               // clear of both on the way over
+      const srcUl = ulAt(sk, 'start'), moved = srcMove.ul
+      const stream2 = new Mesh(new CylinderGeometry(0.035, 0.05, 1, 12), new MeshStandardMaterial({ color: colAt(sk, 'start', endColor), roughness: 0.3, transparent: true, opacity: 0.8 }))
+      stream2.userData.auditKind = 'fluid'; stream2.visible = false
+      stream2.scale.y = Math.max(0.05, T.y - mouth.y); stream2.position.set(T.x, (T.y + mouth.y) / 2, T.z)
+      st.group.add(stream2)
+      st.liquidStreams = [{ mesh: stream2, from: sk, to: vessel }]
+      const put = (x, y, z, th) => { S.snapTo(src, st.x + x, y, z); src.rotation.set(0, 0, th) }
+      const seg2 = (p, a, b) => demo.easeInOut(demo.clamp((p - a) / (b - a), 0, 1))
+      const enter0 = st.enter
+      st.enter = () => { enter0 && enter0(); src.visible = true; put(seatS.x, seatS.y, seatS.z, 0); if (src.userData.setVolume) src.userData.setVolume(srcUl); else src.userData.keepVolume?.(srcUl) }
+      pourFrom = (p) => {
+        src.visible = true
+        if (p < 0.12) put(seatS.x, demo.lerp(seatS.y, CY, seg2(p, 0, 0.12)), seatS.z, 0)                                  // straight up
+        else if (p < 0.28) { const q = seg2(p, 0.12, 0.28); put(demo.lerp(seatS.x, P0.x, q), CY, demo.lerp(seatS.z, P0.z, q), 0) }   // over
+        else if (p < 0.36) put(P0.x, demo.lerp(CY, P0.y, seg2(p, 0.28, 0.36)), P0.z, 0)                                   // down to its pouring height
+        else if (p < 0.5) { const th = thMax * seg2(p, 0.36, 0.5), q = at(th); put(q.x, q.y, q.z, th) }                     // tip, about its mouth
+        else if (p < 0.8) { const q = at(thMax); put(q.x, q.y, q.z, thMax) }                                               // pour
+        else if (p < 0.88) { const th = thMax * (1 - seg2(p, 0.8, 0.88)), q = at(th); put(q.x, q.y, q.z, th) }              // right itself
+        else if (p < 0.92) put(P0.x, demo.lerp(P0.y, CY, seg2(p, 0.88, 0.92)), P0.z, 0)
+        else if (p < 0.97) { const q = seg2(p, 0.92, 0.97); put(demo.lerp(P0.x, seatS.x, q), CY, demo.lerp(P0.z, seatS.z, q), 0) }
+        else put(seatS.x, demo.lerp(CY, seatS.y, seg2(p, 0.97, 1)), seatS.z, 0)
+        stream2.visible = p >= 0.5 && p < 0.8
+        const f = flowed(p)
+        if (src.userData.setVolume) src.userData.setVolume(srcUl - moved * f); else src.userData.keepVolume?.(srcUl - moved * f)
+        fill(f)
+      }
     }
     st.timeline = (p0) => {
       const p = Lq ? pourP(p0) : p0
       const v = S[vessel]
       const seg = (a, b) => demo.easeInOut(demo.clamp((p - a) / (b - a), 0, 1))
       if (v.userData.setCap) v.userData.setCap(!(p > 0.2 && p < 0.95)) // a capped vessel opens for the pour
-      if (!bottle) { if (Lq) fill(flowed(p)); else evolve(seg(0.2, 0.85)); return }
+      if (!bottle) { if (pourFrom) pourFrom(p); else if (Lq) fill(flowed(p)); else evolve(seg(0.2, 0.85)); return }
       // 0-0.1 · uncap: the cap lifts off the neck, carries over, and is set on the bench
       if (p < 0.03) cap.position.set(CAP_ON.x, demo.lerp(CAP_ON.y, CAP_ON.y + 0.3, seg(0, 0.03)), CAP_ON.z)
       else if (p < 0.07) { const q = seg(0.03, 0.07); cap.position.set(demo.lerp(CAP_ON.x, CAP_BENCH.x, q), CAP_ON.y + 0.3, demo.lerp(CAP_ON.z, CAP_BENCH.z, q)) }
@@ -572,7 +631,7 @@ export function configureStation(st, o) {
       // single-reagent path: resident pipette rig + bottle; fill ramps in the dispense window —
       // with volumes, one pass per tip of the stated draw, the vessel rising by what was dispensed
       const P = passList(addOps).length, add = addOps[0]
-      demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: add ? add.color : endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: C.entryPoint,
+      demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: add ? add.color : endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: ENTRY,
         ...(Lq && P ? { passes: P, each: add.ul / P, ulStart: startUl, kinds: kindsOf(passList(addOps)) } : {}) })
       st.duration = passDuration(Lq && P ? P : 1, st.passPlan)
       frameAngledPipette(st, C.dispense, 0)
@@ -591,7 +650,7 @@ export function configureStation(st, o) {
       const P = mv ? mv.passes || 1 : 1, each = mv ? mv.ul / P : 0
       demo.addPipetteRig(st, mv ? kindsOf([{ each }]) : null)
       const prepUl = Lq ? ulAt('prep:' + o.drawsFrom, 'start') : 0
-      st.passPlan = demo.passPlan([{ from: draw, to: { x: disp.x, y: toY, z: disp.z }, opts: { tipUl: mv ? each : null, srcTip: 0.035, dipDepth: C.entryPoint } }])
+      st.passPlan = demo.passPlan([{ from: draw, to: { x: disp.x, y: toY, z: disp.z }, opts: { tipUl: mv ? each : null, srcTip: 0.035, dipDepth: ENTRY } }])
       // the station as it was (a quarter for the mix's arrival, the passes after it), the passes
       // played plan.W × slower: the arrival and the DESCENT keep their seconds
       const D0 = passDuration(P) + 0.25 * STEP_DUR, ARR = 0.25 / (0.25 + 0.75 * st.passPlan.W)
@@ -606,7 +665,7 @@ export function configureStation(st, o) {
           const { j, lp } = passAt(q, P, st.passPlan)
           recvCap(v, j, P, lp)                            // uncap to receive
           demo.pipetteRun(st, new Vector3(draw.x, draw.y, draw.z), { x: disp.x, y: toY, z: disp.z }, lp,
-            { color: mv.color, tipUl: each, srcTip: 0.035, approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: C.entryPoint })
+            { color: mv.color, tipUl: each, srcTip: 0.035, approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: ENTRY })
           const added = (j + demo.dispenseProgress(lp)) * each
           if (VOL) { v.userData.setVolume(startUl + added); v.userData.setColor(mixColor(startColor, startUl, mv.color, added)) }
           else { v.userData.setLevel(demo.lerp(startLevel, endLevel, added / mv.ul)); v.userData.setColor(endColor) }
@@ -616,7 +675,7 @@ export function configureStation(st, o) {
         const lq = demo.passClock(q, st.passPlan)
         recvCap(v, 0, 1, lq)
         demo.pipetteRun(st, new Vector3(draw.x, draw.y, draw.z), { x: disp.x, y: toY, z: disp.z }, lq,
-          { color: streamColor, fill: 0.8, approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: C.entryPoint })
+          { color: streamColor, fill: 0.8, approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: ENTRY })
         const done = demo.dispenseProgress(lq)
         v.userData.setLevel(demo.lerp(startLevel, endLevel, done))
         v.userData.setColor(endColor)
@@ -630,7 +689,7 @@ export function configureStation(st, o) {
       demo.addPipetteRig(st, kindsOf(passes))
       reags.forEach((r, k) => addReagentSource(st, 'r' + k, r, k, fromMix))
       st.enter = () => { seat(0, SEAT_Y, 0); demo.pipRest(st) }
-      st.passPlan = demo.passPlan(reags.map((r, k) => ({ from: st.reagents['r' + k].pos, to: { x: disp.x, y: toY, z: disp.z }, opts: { tipUl: passes.length ? 1 : null, srcTip: passes.length ? bottleTip('r' + k) : null, dipDepth: C.entryPoint } })))
+      st.passPlan = demo.passPlan(reags.map((r, k) => ({ from: st.reagents['r' + k].pos, to: { x: disp.x, y: toY, z: disp.z }, opts: { tipUl: passes.length ? 1 : null, srcTip: passes.length ? bottleTip('r' + k) : null, dipDepth: ENTRY } })))
       st.duration = passDuration(passes.length || reags.length, st.passPlan)
       st.timeline = (p) => {
         const v = S[vessel]
@@ -640,7 +699,7 @@ export function configureStation(st, o) {
           capSources(st, reags.length, k, lp)
           drawSources(passes, j, lp)
           demo.pipetteRun(st, st.reagents['r' + k].pos, { x: disp.x, y: toY, z: disp.z }, lp,
-            { color: cur.op.color, tipUl: cur.each, srcTip: bottleTip('r' + k), approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: C.entryPoint })
+            { color: cur.op.color, tipUl: cur.each, srcTip: bottleTip('r' + k), approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: ENTRY })
           let ul = startUl, c = startColor
           for (let i = 0; i <= j; i++) { const a = i < j ? passes[i].each : demo.dispenseProgress(lp) * passes[i].each; c = mixColor(c, ul, passes[i].op.color, a); ul += a }
           if (VOL) { v.userData.setVolume(ul); v.userData.setColor(c) }
@@ -653,7 +712,7 @@ export function configureStation(st, o) {
         recvCap(v, k, n, lp)
         capSources(st, n, k, lp)
         demo.pipetteRun(st, st.reagents['r' + k].pos, { x: disp.x, y: toY, z: disp.z }, lp,
-          { color: reags[k].color, fill: 0.8, approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: C.entryPoint })
+          { color: reags[k].color, fill: 0.8, approach: disp.approach, tilt: disp.tilt, depth: disp.depth, dipDepth: ENTRY })
         const done = (k + demo.dispenseProgress(lp)) / n
         v.userData.setLevel(demo.lerp(startLevel, endLevel, done))
         v.userData.setColor(reags[Math.min(k, n - 1)].color)
@@ -817,7 +876,11 @@ export function configureStation(st, o) {
         const { j, lp } = passAt(p, P, st.passPlan)
         recvCap(v, j, P, lp, 0.02, 0.36)                             // a capped vessel opens while the tip is in it
         // the tip draws from just under the liquid's surface (it follows the level down as it drains)
-        if (!angled) { const sy = v.userData.surfaceY ? v.userData.surfaceY() : null; if (sy != null) opts.srcTip = Math.max(srcTip, v.position.y + sy * v.scale.y - 0.03) }
+        if (!angled) {
+          const sy = v.userData.surfaceY ? v.userData.surfaceY() : null, fy = v.userData.liquidFloorY ? v.userData.liquidFloorY() : null
+          const floor = fy != null ? v.position.y + fy * v.scale.y + 0.004 : srcTip
+          opts.srcTip = sy != null ? Math.max(floor, v.position.y + sy * v.scale.y - 0.03) : floor
+        }
         demo.pipetteRun(st, from, { x: W.x, y: 0, z: W.z }, lp, opts)
         if (!dOp) { evolve(p); return }
         const drawn = (j + demo.drawProgress(lp)) * each
@@ -854,7 +917,7 @@ export function configureStation(st, o) {
       configurePipetteTransfer(st, S, {
         fromKey: prevC2.vessel, toKey: vessel,
         srcSeatY: prevC2.seat.y, dstSeatY: SEAT_Y,
-        srcDisp: prevC2.dispense, dstDisp: C.dispense, dstEntry: C.entryPoint,
+        srcDisp: prevC2.dispense, dstDisp: C.dispense, dstEntry: ENTRY,
         srcToken: prevContainer, dstToken: container,
         color: endColor, startLevel, endLevel, name, vol,
         move: Lq ? Lq.ops.find((x) => x.op === 'move' && x.from === prevC2.vessel && x.to === vessel) || null : null,
@@ -923,9 +986,9 @@ export function configureStation(st, o) {
     if (inst === 'plate_shaker') {
       const shaker = demo.buildPlateShaker()
       st.group.add(shaker); st.updatables.push(shaker)
-      // rides the platform — a vessel as wide as the platform's corner clips (a 96-well plate)
-      // rests ON them (0.76): at 0.62 the clips stood up through its base
-      const onY = (C.footprint && C.footprint.maxX > 1.13) ? 0.76 : 0.62
+      // rides the platform, RESTING on what is under it (from the shaker's geometry: a 96-well plate on
+      // the corner clips, a narrow vessel on the deck) — a hair clear, so its corner doesn't graze a clip
+      const onY = restOn(shaker, S[vessel], 0, 0, 1.0) + 0.004
       seatFn = () => S.at(S[vessel], st.x, onY, 0)
       // the orbit speeds up from rest and slows to rest (its angle eased; a linear one started at full speed)
       motionFn = (p) => { const a = demo.easeInOut(p) * 40; shaker.userData.setOrbit(a); S.at(S[vessel], st.x + Math.cos(a) * 0.06, onY, Math.sin(a) * 0.06) }
@@ -1109,8 +1172,11 @@ export function configureStation(st, o) {
     // the vial waits on the bench to the RIGHT of the freezer (bug fix): the door hinges front-left
     // and swings out across the left — from a seat there the vial passed through it
     const bench = { x: 1.6, y: SEAT_Y, z: 0.9 }
-    const front = { x: 0.1, y: 0.36, z: 0.4 }   // staged low, in front of the mouth (its rounded foot clear of the cavity floor)
-    const inside = { x: 0.1, y: 0.36, z: -1.2 } // seated on the cavity floor (y 0.30): a 1.7 tube tops out at 2.02, under the 2.40 cavity top; clear of the closed door
+    // seated ON the cavity floor (from the freezer's geometry: whatever the vessel — a tube's rounded
+    // foot, a cryovial's skirt) and slid straight in at that height; clear of the closed door
+    const inside = { x: 0.1, y: 0, z: -1.2 }
+    inside.y = restOn(fr, S[vessel], inside.x, inside.z, 1.0) + 0.004
+    const front = { x: 0.1, y: inside.y, z: 0.4 }   // staged low, in front of the mouth
     const move = (v, a, b, q) => S.at(v, st.x + demo.lerp(a.x, b.x, q), demo.lerp(a.y, b.y, q), demo.lerp(a.z, b.z, q))
     st.enter = () => { seat(bench.x, bench.y, bench.z); fr.userData.setDoor(true); fr.userData.setFrost(0); st.cold.intensity = 0 }
     st.timeline = (p) => {
@@ -1135,7 +1201,7 @@ export function configureStation(st, o) {
     }
   } else if (action === 'seed') {
     // dispense the sample into the culture vessel; on agar, a spreader then sweeps it out.
-    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: C.entryPoint })
+    demo.stationReagent(st, SEAT_Y, { key: 'r', blabel: '', color: endColor, vessel, vlabel: name || '', vsub: vol || '', cStart: startColor, cEnd: endColor, lStart: startLevel, lEnd: endLevel, dispense: C.dispense, entry: ENTRY })
     frameAngledPipette(st, C.dispense, 0)
     if (container === 'agar_plate') {
       const spr = demo.buildSpreader()
@@ -1199,11 +1265,12 @@ export function configureStation(st, o) {
       const D = reader.userData.drawer, pb = solidBox(S[vessel])
       const fit = Math.min(1, D.w / Math.max(1e-3, pb.max.x - pb.min.x), D.d / Math.max(1e-3, pb.max.z - pb.min.z), (D.ceil - D.topY - 0.03) / Math.max(1e-3, pb.max.y - pb.min.y))
       const cx = -fit * (pb.min.x + pb.max.x) / 2, cz = -fit * (pb.min.z + pb.max.z) / 2, py = D.topY - fit * pb.min.y
-      st.enter = () => { seat(cx, py, 1.9 + cz); demo.seatScale(S[vessel], fit); reader.userData.setDrawer(true); reader.userData.setOD(0) }
+      const onTray = () => reader.position.z + reader.userData.trayZ() + cz   // the plate RIDES the drawer (it slid across it, over its lip)
+      st.enter = () => { seat(cx, py, onTray()); demo.seatScale(S[vessel], fit); reader.userData.setDrawer(true); reader.userData.setOD(0) }
       st.timeline = (p) => {
         const e = demo.easeInOut(demo.clamp(p * 1.3, 0, 1))
         reader.userData.setDrawer(p < 0.35)                     // plate slides in, then reads
-        S.at(S[vessel], st.x + cx, py, demo.lerp(1.9, 0.35, e) + cz)    // ride the drawer into the slot
+        S.at(S[vessel], st.x + cx, py, onTray())
         reader.userData.setOD(e * 1.85)
         evolve(p)
       }
@@ -1588,6 +1655,13 @@ function clearOnStage(dev, v, sy, dx, dz) {
   return z
 }
 
+// a mesh's box in its own frame — an InstancedMesh's over all its instances (its bare geometry
+// lies wherever the template does: a plate's 96 well floors read as one disc below the plate)
+function localBox(m) {
+  if (m.isInstancedMesh) { if (!m.boundingBox) m.computeBoundingBox(); return m.boundingBox }
+  if (!m.geometry.boundingBox) m.geometry.computeBoundingBox()
+  return m.geometry.boundingBox
+}
 // a vessel's SOLID extent at scale 1 (its meshes, not its label, decals, liquids or effects)
 const _sbB = new Box3()
 function solidBox(v) {
@@ -1600,7 +1674,7 @@ function solidBox(v) {
     const mats = Array.isArray(m.material) ? m.material : [m.material]
     if (mats.some((q) => q && ((q.userData && q.userData.auditKind) || (q.transparent && m.geometry.type === 'PlaneGeometry') || q.visible === false))) return
     for (let n = m.parent; n && n !== v; n = n.parent) if (n.userData && n.userData.isLabel) return
-    m.geometry.computeBoundingBox(); out.union(_sbB.copy(m.geometry.boundingBox).applyMatrix4(m.matrixWorld))
+    out.union(_sbB.copy(localBox(m)).applyMatrix4(m.matrixWorld))
   })
   v.position.copy(keep.p); v.quaternion.copy(keep.q); v.scale.copy(keep.s); v.updateMatrixWorld(true)
   return out
@@ -1614,7 +1688,7 @@ function restOn(dev, v, x, z, upTo) {
   if (!v) return upTo
   const keep = { p: v.position.clone(), q: v.quaternion.clone(), s: v.scale.clone() }
   v.position.set(0, 0, 0); v.quaternion.identity(); v.scale.setScalar(1); v.updateMatrixWorld(true)
-  _roV.makeEmpty(); v.traverse((m) => { if (m.isMesh && m.geometry && m.visible !== false) { m.geometry.computeBoundingBox(); _roV.union(_roB.copy(m.geometry.boundingBox).applyMatrix4(m.matrixWorld)) } })
+  _roV.makeEmpty(); v.traverse((m) => { if (m.isMesh && m.geometry && m.visible !== false && !m.isSprite) _roV.union(_roB.copy(localBox(m)).applyMatrix4(m.matrixWorld)) })
   v.position.copy(keep.p); v.quaternion.copy(keep.q); v.scale.copy(keep.s); v.updateMatrixWorld(true)
   dev.updateMatrixWorld(true)
   let top = -Infinity
@@ -1653,8 +1727,7 @@ function paceMeshes(root, out, skipSet) {
   })
 }
 function meshCorners(m, out) {
-  if (!m.geometry.boundingBox) m.geometry.computeBoundingBox()
-  const b = m.geometry.boundingBox
+  const b = localBox(m)
   let i = 0
   for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) for (const z of [b.min.z, b.max.z]) { (out[i] || (out[i] = new Vector3())).set(x, y, z).applyMatrix4(m.matrixWorld); i++ }
   return out
@@ -1676,7 +1749,14 @@ function pace(st) {
     const all = []
     st.group.children.forEach((c) => paceMeshes(c, all, skipSet))
     vessels.forEach((v) => paceMeshes(v, all, skipSet))
-    const update = () => { st.group.updateMatrixWorld(true); for (const v of vessels) v.updateWorldMatrix(true, true) }
+    // after each step of p, everything the timeline SET is drawn as the frame loop would draw it (a
+    // vessel's level, a bottle's line — update(0): no time passes, volumes snap): a tip that follows a
+    // drawn surface is measured where it really goes
+    const update = () => {
+      for (const v of vessels) v.userData.update?.(0)
+      for (const u of st.updatables) u.userData?.update?.(0)
+      st.group.updateMatrixWorld(true); for (const v of vessels) v.updateWorldMatrix(true, true)
+    }
     // movers: meshes whose world matrix changes across a coarse pass (the rest stand still)
     const first = new Map()
     const movers = new Set()
@@ -1934,9 +2014,12 @@ function travelTrip(v, dt) {
     // leaving a tilted / scaled seat it rights itself on the first leg: its corners swing by the tilt
     // (and grow by the scale) over its own size — that is way travelled too
     tr.L0 = tr.out ? tr.from.distanceTo(tr.out) / L : 0   // the first leg's share of the path (positions)
+    // it keeps its seat's tilt and size while it slides OUT along its axis (righting or growing inside a
+    // rotor slot ran it through the slot's wall); then rights itself and takes its new size on the rest
+    // of the way — its corners' swing is way travelled too, over that share
     const R = new Box3().setFromObject(v).getSize(_tpS).length() / Math.max(v.scale.x, 1e-3)   // its size at scale 1
-    if (tr.out) L += tr.q0.angleTo(_qId) * R * tr.s0 / Math.max(tr.L0, 0.05)
-    L += Math.abs((u.tScale != null ? u.tScale : 1) - tr.s0) * R   // its corners grow or shrink to its seat's size
+    const rest = Math.max(1 - tr.L0, 0.05)
+    L += (tr.q0.angleTo(_qId) * R * tr.s0 + Math.abs((u.tScale != null ? u.tScale : 1) - tr.s0) * R) / rest
     // its time from its LENGTH: the whole path on one smootherstep, peaking at MAX_SPEED (motionPlan.js)
     tr.D = Math.max(0.3, durationFor(L, PEAK.smootherstep))
   }
@@ -1946,8 +2029,9 @@ function travelTrip(v, dt) {
   // leaving a tilted / scaled seat: upright and full size by the end of the first leg
   // its size goes from where it was to its seat's (tScale) over the whole trip
   const ts = u.tScale != null ? u.tScale : 1
-  if (tr.out) { const k = smoother(tr.L0 > 0 ? s / tr.L0 : 1); v.quaternion.copy(tr.q0).slerp(_qId, k) }
-  v.scale.setScalar(tr.s0 + (ts - tr.s0) * s)
+  const kk = tr.out ? smoother(s <= tr.L0 ? 0 : (s - tr.L0) / Math.max(1 - tr.L0, 1e-6)) : s
+  if (tr.out) v.quaternion.copy(tr.q0).slerp(_qId, kk)
+  v.scale.setScalar(tr.s0 + (ts - tr.s0) * kk)
   if (tr.t >= tr.D) {
     v.position.copy(seat); u.trip = null; u.enterVia = null
     if (tr.out) v.quaternion.identity()
@@ -2010,6 +2094,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
   const prevActiveRef = useRef(-1)
   const pRef = useRef(0)
   const uRef = useRef(0) // the step's wall progress (p = the pacer's warp of it)
+  const sceneTimeRef = useRef(0) // seconds of scene time (dt / tempo), summed
   const restartRef = useRef(true)
   const perspRef = useRef()
   const keyRef = useRef()
@@ -2286,7 +2371,10 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     // MOTION time: every moving thing below (p, the centrifuge's choreography, builders' update,
     // vessel trips and springs) runs on adt — one knob, scene/tempo.js. The camera keeps dt.
     const adt = dt / animationTempo()
-    const time = state.clock.elapsedTime
+    // the camera's slow sway runs on the SCENE's clock (rule 4) — the renderer's wall clock jumped
+    // whenever real time did (a tab in the background, a countdown) and the sway jumped with it
+    sceneTimeRef.current += adt
+    const time = sceneTimeRef.current
     const stations = stationsRef.current
     if (!stations) return
     // THE FRAME CLOCK: a timed step's progress is read HERE, every frame, from the

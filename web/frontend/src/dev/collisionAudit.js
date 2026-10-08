@@ -365,7 +365,8 @@ export function auditPose(objects, { benchY = 0, prev = null, checkSweep = true,
     // a thing that was not there (or not visible) in prev has just APPEARED: it starts its rest now
     const was = prev && prev.restSince ? prev.restSince.get(it.root) : undefined
     const fresh = prev && was === undefined
-    restSince.set(it.root, it.moving || fresh ? frame : (was != null ? was : -Infinity))
+    // (the first pose seen — no prev — starts every rest NOW: nothing has been seen resting yet)
+    restSince.set(it.root, it.moving || fresh || !prev ? frame : (was != null ? was : -Infinity))
   }
   for (const it of items) {
     const box = it.box
@@ -391,7 +392,9 @@ export function auditPose(objects, { benchY = 0, prev = null, checkSweep = true,
   if (prev && checkSweep) for (const it of items) {
     if (!it.moving) continue
     // (a held tool moving into closed glassware is the dip — as for intersections)
-    const others = items.filter((o) => o !== it).flatMap((o) => it.held ? o.meshes.filter((m) => !closedGlass(m)) : o.meshes)
+    // (a vessel RIDING another object — docked in a rotor slot — moves with it: neither sweeps the other)
+    const rides = (a, b) => { for (let n = a.root.parent; n; n = n.parent) if (n === b.root) return true; return false }
+    const others = items.filter((o) => o !== it && !rides(it, o) && !rides(o, it)).flatMap((o) => it.held ? o.meshes.filter((m) => !closedGlass(m)) : o.meshes)
     const s = sweep(it.meshes, prev.world, others)
     if (s) {
       const owner = items.find((o) => o.meshes.includes(s.other))

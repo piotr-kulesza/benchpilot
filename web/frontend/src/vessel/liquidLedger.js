@@ -118,6 +118,12 @@ export function buildLedger(steps, { containers = [], altByStep = {}, colorOf = 
     const op = (o) => {
       if (o.op === 'retire' && !(get(o.from).ul > 1e-12)) { delete m[o.from]; return }
       if (!(o.ul > 1e-12) && o.op !== 'retire') return
+      // a DRAWN vessel holds no more than its nominal capacity: what the protocol adds beyond it cannot
+      // be drawn (100 mL into a 70 mL T-flask) — it is not added (the source gives only what it takes), flagged
+      if ((o.op === 'add' || o.op === 'move') && shapeOf(o.to)) {
+        const room = Math.max(0, nominalUl(o.to) - get(o.to).ul)
+        if (o.ul > room + 1e-9) { flag(`${fmt(o.ul)} into the ${o.to}, which holds ${fmt(nominalUl(o.to))}: ${fmt(o.ul - room)} more than it holds is not drawn`); o.ul = room; if (o.passes) { o.passes = passesFor(o.ul); o.pipette = pipetteFor(o.ul / Math.max(1, o.passes)) } if (!(o.ul > 1e-12)) return }
+      }
       if (o.op === 'add') { const t = get(o.to); t.color = mixColor(t.color, t.ul, o.color, o.ul); t.ul += o.ul; history.push(o) }
       else if (o.op === 'move') { const f = get(o.from), t = get(o.to); t.color = mixColor(t.color, t.ul, f.color, o.ul); f.ul -= o.ul; t.ul += o.ul; o.color = f.color }
       else { const f = get(o.from); o.ul = o.op === 'retire' ? f.ul : o.ul; f.ul -= o.ul; if (o.op === 'retire') delete m[o.from] }

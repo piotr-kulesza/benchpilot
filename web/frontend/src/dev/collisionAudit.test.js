@@ -42,8 +42,12 @@ describe('collision audit · goes red on a deliberately overlapped pair', () => 
     expect(penetration(tip(0.095, 0.2), t)).toBeGreaterThan(TOL.depth)
   })
   it('a box held 0.2 above the bench, touching nothing, at rest → float; held, or only paused → green', () => {
-    expect(checks(auditPose([obj('B', box(0.2, 0.2, 0.2, 0, 0.3))], { frame: 60 }))).toEqual(['float'])
-    expect(checks(auditPose([obj('B', box(0.2, 0.2, 0.2, 0, 0.3), true)], { frame: 60 }))).toEqual([])
+    // resting from the first pose it was seen in (frame 0) to frame 60 → float; one pose alone has not rested yet
+    const f = box(0.2, 0.2, 0.2, 0, 0.3)
+    expect(checks(auditPose([obj('B', f)], { frame: 60 }))).toEqual([])
+    expect(checks(auditPose([obj('B', f)], { frame: 60, prev: auditPose([obj('B', f)], { frame: 0 }).state }))).toEqual(['float'])
+    const h = box(0.2, 0.2, 0.2, 0, 0.3)
+    expect(checks(auditPose([obj('B', h, true)], { frame: 60, prev: auditPose([obj('B', h, true)], { frame: 0 }).state }))).toEqual([])
     // it was moving at frame 50: at frame 60 it has rested only 10 frames — the top of an arc
     const b = new Group(); b.add(box(0.2, 0.2, 0.2, 0, 0.3)); b.updateMatrixWorld(true)
     const r0 = auditPose([obj('B', b)], { frame: 40 }); b.position.x = 0.1; b.updateMatrixWorld(true)

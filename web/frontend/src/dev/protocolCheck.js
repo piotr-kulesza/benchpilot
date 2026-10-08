@@ -85,8 +85,9 @@ function bodies(line) {
 // the 8 corners of a mesh's geometry box, in the world
 function corners(mesh, out) {
   const g = mesh.geometry
+  if (mesh.isInstancedMesh && !mesh.boundingBox) mesh.computeBoundingBox()
   if (!g.boundingBox) g.computeBoundingBox()
-  const b = g.boundingBox
+  const b = mesh.isInstancedMesh ? mesh.boundingBox : g.boundingBox
   let i = 0
   for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) for (const z of [b.min.z, b.max.z]) {
     (out[i] || (out[i] = new Vector3())).set(x, y, z).applyMatrix4(mesh.matrixWorld); i++
@@ -101,7 +102,7 @@ export function createMotionTracker(line, { fps = 60 } = {}) {
   const st = new Map()                 // mesh → { pts, d1 (last frame's displacement), last visible pts, label }
   const speed = new Map()              // label → { peak, frames over, firstFrame }
   const teleports = []
-  let cam = null, camPeak = 0, camOver = 0, camD = [0, 0], camPeakFrame = null
+  let cam = null, camPeak = 0, camOver = 0, camD = [0, 0], camPeakFrame = null, camTrace = [], camPeakTrace = null
   const camTele = []
   const over = (label, v, k) => {
     let s = speed.get(label); if (!s) { s = { label, peak: 0, over: 0, frame: null }; speed.set(label, s) }
@@ -137,6 +138,8 @@ export function createMotionTracker(line, { fps = 60 } = {}) {
       const c = line.camera && line.camera()
       if (c) {
         const p = c.position.clone()
+        camTrace.push([k, +p.x.toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3)]); if (camTrace.length > 9) camTrace.shift()
+        if (camPeakFrame === k - 4) camPeakTrace = camTrace.slice()
         if (cam) {
           const d = p.distanceTo(cam)
           if (isolatedJump(camD[0], camD[1], d, 0.5)) camTele.push({ frame: k - 1, dist: +camD[1].toFixed(3) })
@@ -146,12 +149,13 @@ export function createMotionTracker(line, { fps = 60 } = {}) {
         cam = p
       }
     },
-    cut() { for (const e of st.values()) { e.hidden = true }; cam = null; camD = [0, 0] },
+    // a cut (protocol time skipped): what moved meanwhile is not a jump — tracking starts over
+    cut() { st.clear(); cam = null; camD = [0, 0] },
     result() {
       return {
         speed: [...speed.values()].filter((s) => s.over).map((s) => ({ ...s, peak: +s.peak.toFixed(2), ratio: +(s.peak / (cap / SPEED_TOL)).toFixed(2) })),
         peak: Math.max(0, ...[...speed.values()].map((s) => s.peak)) / (cap / SPEED_TOL),
-        teleports, camera: { peak: +camPeak.toFixed(2), ratio: +(camPeak / (camCap / SPEED_TOL)).toFixed(2), over: camOver, peakFrame: camPeakFrame, teleports: camTele },
+        teleports, camera: { peak: +camPeak.toFixed(2), ratio: +(camPeak / (camCap / SPEED_TOL)).toFixed(2), over: camOver, peakFrame: camPeakFrame, trace: camPeakTrace, teleports: camTele },
       }
     },
   }
@@ -180,7 +184,7 @@ export function createPassTracker(line) {
 // Run the ACTIVE station on the runner's own clock and check everything. `timed`: the step's
 // countdown in seconds (Start is pressed once its vessels have arrived; a countdown over `fullTo`
 // seconds runs its first and last 10 s and skips the middle — protocol time, not animation).
-export async function checkStation(line, { timed = 0, fullTo = 60, tailSec = 2, maxSec = 600, every = 6, clockAdd, startTimer } = {}) {
+export async function checkStation(line, { timed = 0, fullTo = 20, tailSec = 2, maxSec = 600, every = 8, clockAdd, startTimer } = {}) {
   const fps = 60, tempo = animationTempo()
   const motion = createMotionTracker(line, { fps }), passes = createPassTracker(line)
   const liquid = []
