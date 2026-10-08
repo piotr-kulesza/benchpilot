@@ -1493,7 +1493,7 @@ function configureNestMove(st, S, o) {
     const col = S[columnKey], tube = S[tubeKey]
     col.visible = true; tube.visible = true
     col.rotation.set(0, 0, 0); tube.rotation.set(0, 0, 0)
-    col.scale.setScalar(1)
+    demo.seatScale(col, 1); demo.seatScale(tube, 1)   // full size, reached on its trip (set directly, the trip still took it to an earlier nest's 0.84 and the timeline snapped it back)
     col.userData.setColor?.(color); colAmt(col)                    // column keeps its bed contents
     tubeAmt(tube)                                                  // fresh clean tube — empty
     if (vols && col.userData.setFlow) { col.userData.setFlow(vols.flow); col.userData.setFlowColor(vols.flowColor) }
@@ -1506,6 +1506,10 @@ function configureNestMove(st, S, o) {
     col.visible = true; tube.visible = true
     tubeAmt(tube)                            // the clean tube NEVER fills — no liquid moves
     S.snapTo(tube, st.x + BX, tubeSeatY, Z)
+    // still in the rotor or on its way here, the column is its trip's: the timeline (run at p 0 while
+    // the step's clock waits) snapped it to full size in the slot and back onto its seat mid-trip
+    const cu = S[columnKey].userData
+    if (cu.docked || cu.leaveWhenStill || cu.trip) return
     // the COLUMN moves, its used collection tube does not: from the first lift the
     // collection tube stays standing on the bench where the assembly was
     if (p > 0.001) col.userData.detachCollection?.(st.group)
