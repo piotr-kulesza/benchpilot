@@ -182,6 +182,9 @@ export function createMotionTracker(line, { fps = 60 } = {}) {
       return {
         speed: [...speed.values()].filter((s) => s.over).map((s) => ({ ...s, peak: +s.peak.toFixed(2), ratio: +(s.peak / (cap / SPEED_TOL)).toFixed(2) })),
         peak: Math.max(0, ...[...speed.values()].map((s) => s.peak)) / (cap / SPEED_TOL),
+        // the station's peak speeds (u/s on screen): its sample vessels (their trips) and its pipette
+        peaks: { sample: +Math.max(0, ...[...speed.values()].filter((s) => /^(prev · )?sample /.test(s.label)).map((s) => s.peak)).toFixed(2),
+          pipette: +Math.max(0, ...[...speed.values()].filter((s) => /pipette/i.test(s.label) && !/stand/i.test(s.label)).map((s) => s.peak)).toFixed(2), cap: +(cap / SPEED_TOL).toFixed(2) },
         teleports, camera: { peak: +camPeak.toFixed(2), ratio: +(camPeak / (camCap / SPEED_TOL)).toFixed(2), over: camOver, peakFrame: camPeakFrame, trace: camPeakTrace, teleports: camTele },
       }
     },
