@@ -331,8 +331,11 @@ function capSources(st, n, k, lp) {
   for (let j = 0; j < n; j++) { const b = st.reagents['r' + j] && st.reagents['r' + j].grp; if (b && b.userData.setCap) b.userData.setCap(!(j === k && lp < 0.36)) }
 }
 
+// where reagent source k stands: rows of four along the bench, further ones a row behind (one row of
+// six reached into the next station's pipette stand)
+function sourceSlot(k, x0) { return { x: x0 + (k % 4) * 0.95, z: 0.7 - Math.floor(k / 4) * 1.0 } }
 function addReagentSource(st, key, r, k, fromMix) {
-  const sx = 2.0 + k * 0.95, sz = 0.7
+  const { x: sx, z: sz } = sourceSlot(k, 2.0)
   if (fromMix) {
     const src = demo.buildTube({ height: 1.5, radius: 0.3 })
     src.position.set(sx, 0, sz); src.userData.noFrame = true
@@ -758,7 +761,7 @@ export function configureStation(st, o) {
     st.prep = prep; st.prepId = prepId; st.prepHome = home; st.prepFull = PREP_FULL
     const pid0 = 'prep:' + prepId
     demo.addPipetteRig(st, Lq ? kindsOf(passList(Lq.ops.filter((x) => x.op === 'add' && x.to === pid0))) : null)
-    reags.forEach((r, k) => demo.addBottle(st, 'r' + k, r.name, r.color, 2.2 + k * 0.95, 0.7))
+    reags.forEach((r, k) => { const at = sourceSlot(k, 2.2); demo.addBottle(st, 'r' + k, r.name, r.color, at.x, at.z) })
     // the prep sits at (0.4, ·, 0.2) LOCAL to this station while it is being made, so the
     // bottles dispense straight into it (world == home because it is parked here).
     const DIP = { x: 0.4, y: SEAT_Y, z: 0.2 }
