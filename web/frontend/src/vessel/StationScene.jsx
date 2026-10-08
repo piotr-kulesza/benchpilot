@@ -539,7 +539,8 @@ export function configureStation(st, o) {
     const M = { x: mouth.x, y: Math.max(mouth.y + 0.35, recvTop + 0.45), z: mouth.z }
     const STREAM = Math.max(0.45, M.y - Math.max(recvTop - 0.1, mouth.y))   // the stream reaches down into it
     const tiltBase = { x: M.x + H * Math.sin(TH), y: M.y - H * Math.cos(TH), z: M.z }
-    const HOME = { x: 2.0, y: 0, z: 0.7 }
+    // where addBottle stood it: clear of the seated vessel (a fixed 2.0 put it back over a well plate's edge)
+    const HOME = bottle ? { x: bottle.position.x, y: 0, z: bottle.position.z } : { x: 2.0, y: 0, z: 0.7 }
     // the bottle's cap comes OFF before the pour and is set down on the bench beside the
     // bottle (the bottle's own cap follows the bottle's tilt, so it is hidden and this
     // identical cap — starting exactly on the neck — carries its role)
@@ -646,7 +647,11 @@ export function configureStation(st, o) {
       else if (p < 0.5) { x = tiltBase.x; y = tiltBase.y; z = tiltBase.z; rot = TH * seg(0.38, 0.5) }   // tip over
       else if (p < 0.8) { x = tiltBase.x; y = tiltBase.y; z = tiltBase.z; rot = TH }                    // pour
       else if (p < 0.88) { x = tiltBase.x; y = tiltBase.y; z = tiltBase.z; rot = TH * (1 - seg(0.8, 0.88)) }
-      else { const q = seg(0.88, 1); x = demo.lerp(tiltBase.x, HOME.x, q); z = demo.lerp(tiltBase.z, HOME.z, q); y = demo.lerp(tiltBase.y, HOME.y, q) }
+      // back as it came: up, over at the lift height, straight down onto its place (one diagonal swept it
+      // through the edge of a wide vessel)
+      else if (p < 0.91) { x = tiltBase.x; z = tiltBase.z; y = demo.lerp(tiltBase.y, LIFT, seg(0.88, 0.91)) }
+      else if (p < 0.96) { const q = seg(0.91, 0.96); x = demo.lerp(tiltBase.x, HOME.x, q); z = demo.lerp(tiltBase.z, HOME.z, q); y = LIFT }
+      else { y = demo.lerp(LIFT, HOME.y, seg(0.96, 1)) }
       bottle.position.set(x, y, z); bottle.rotation.set(0, 0, rot)
       if (Lq) bottle.userData.setLevel?.(1 - poured * flowed(p) / bottle.userData.stockUl)   // falls by what it poured
       else bottle.userData.setLevel?.(1 - 0.3 * seg(0.5, 0.8))      // the bottle empties as it pours
