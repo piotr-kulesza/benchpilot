@@ -538,7 +538,11 @@ export function configureStation(st, o) {
       bottle = st.reagents.pour.grp
     }
     const H = 1.3, TH = 1.9                                   // bottle height, pour tilt (rad)
-    const M = { x: mouth.x, y: mouth.y + 0.35, z: mouth.z }   // where the bottle mouth pours from
+    // where the bottle mouth pours from: above the receiving vessel's own top by the tipped bottle's neck
+    // (from 0.9 over its seat, a bottle tipped over a 1.7-tall tube came down into it)
+    const recvTop = SEAT_Y + solidBox(S[vessel]).max.y
+    const M = { x: mouth.x, y: Math.max(mouth.y + 0.35, recvTop + 0.45), z: mouth.z }
+    const STREAM = Math.max(0.45, M.y - Math.max(recvTop - 0.1, mouth.y))   // the stream reaches down into it
     const tiltBase = { x: M.x + H * Math.sin(TH), y: M.y - H * Math.cos(TH), z: M.z }
     const HOME = { x: 2.0, y: 0, z: 0.7 }
     // the bottle's cap comes OFF before the pour and is set down on the bench beside the
@@ -554,8 +558,8 @@ export function configureStation(st, o) {
     }
     let stream = null
     if (bottle) {
-      stream = new Mesh(new CylinderGeometry(0.035, 0.05, 0.45, 12), new MeshStandardMaterial({ color: reag.color, roughness: 0.3, transparent: true, opacity: 0.8 }))
-      stream.position.set(M.x, M.y - 0.22, M.z); stream.visible = false
+      stream = new Mesh(new CylinderGeometry(0.035, 0.05, STREAM, 12), new MeshStandardMaterial({ color: reag.color, roughness: 0.3, transparent: true, opacity: 0.8 }))
+      stream.position.set(M.x, M.y - STREAM / 2, M.z); stream.visible = false
       stream.userData.auditKind = 'fluid'   // metadata for the dev collision audit: a stream, not a solid
       st.group.add(stream)
       st.liquidStreams = [{ mesh: stream, from: 'source pour', to: vessel }]   // what the stream connects (the liquid checker)
