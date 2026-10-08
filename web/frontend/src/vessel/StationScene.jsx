@@ -771,7 +771,10 @@ export function configureStation(st, o) {
       const sv = S[vessel]
       sv.userData.setColor(startColor); amount(sv, startUl, startLevel)
       sv.visible = true; sv.rotation.set(0, 0, 0); demo.seatScale(sv, 1)
-      S.snapTo(sv, st.x - 2.0, SEAT_Y, -0.1) // idle beside the prep; never clobber global snap
+      // idle beside the prep, behind the pipette rig's front (the P1000's home, less its body): a wide plate
+      // at z −0.1 reached into the stand's pad and under the P1000 — a tube stays where it was
+      const rigFront = demo.PIP_REST.z - 0.6 - 0.3, idleZ = Math.min(-0.1, rigFront - 0.12 - solidBox(sv).max.z)
+      S.snapTo(sv, st.x - 2.0, SEAT_Y, idleZ) // never clobber global snap
       return sv
     }
     const pid = 'prep:' + prepId
