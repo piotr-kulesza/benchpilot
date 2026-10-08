@@ -279,7 +279,8 @@ export function sweep(meshes, prevWorld, others, cap = 64) {
         const dir = b.clone().sub(a), L = dir.length(); dir.normalize()
         _ray.set(a, dir)
         const hit = bvhOf(o.geometry).raycastFirst(_ray, 2 /* DoubleSide */)
-        if (hit && hit.distance <= L) { if (!worst || len > worst.len) worst = { mesh: m, other: o, len, at: p1 } }
+        // (it crossed: it ends BEYOND the surface it met — one that ends on it, set down onto a shelf, touched it)
+        if (hit && hit.distance < L - 1e-4) { if (!worst || len > worst.len) worst = { mesh: m, other: o, len, at: p1 } }
       }
     }
   }

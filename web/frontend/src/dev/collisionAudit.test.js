@@ -79,6 +79,17 @@ describe('collision audit · goes red on a deliberately overlapped pair', () => 
     expect(checks(r1)).toContain('sweep')
     expect(checks(r1)).not.toContain('float')
   })
+  it('a box set down EXACTLY onto a slab (its last frame ends on the top) → no sweep; one pushed 0.02 into it → sweep', () => {
+    const slab = box(0.6, 0.1, 0.6), mover = new Group(), body = box(0.2, 0.2, 0.2, 0, 0.1); mover.add(body)
+    mover.position.y = 0.123; mover.updateMatrixWorld(true)
+    const r0 = auditPose([obj('slab', slab), obj('mover', mover)])
+    mover.position.y = 0.1; mover.updateMatrixWorld(true)                  // its base lands on the slab's top (0.1)
+    expect(checks(auditPose([obj('slab', slab), obj('mover', mover)], { prev: r0.state }))).not.toContain('sweep')
+    mover.position.y = 0.123; mover.updateMatrixWorld(true)
+    const r1 = auditPose([obj('slab', slab), obj('mover', mover)])
+    mover.position.y = 0.08; mover.updateMatrixWorld(true)                 // 0.02 into it
+    expect(checks(auditPose([obj('slab', slab), obj('mover', mover)], { prev: r1.state }))).toContain('sweep')
+  })
   it('a box carried ALONG with a moving wall (a plate on a drawer, just in front of its lip) → green; one that outruns it through the wall → sweep', () => {
     const lip = new Group(), wall = box(0.02, 0.6, 0.6, 0.3); lip.add(wall)
     const mover = new Group(), body = box(0.1, 0.1, 0.1, 0.24, 0.3); mover.add(body)
