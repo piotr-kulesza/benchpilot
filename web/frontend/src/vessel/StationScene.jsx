@@ -908,7 +908,9 @@ export function configureStation(st, o) {
         }
         if (!angled && j !== tipPass) {   // (once per pass: under the surface as it stands when the pass begins)
           tipPass = j
-          const sy = v.userData.surfaceY ? v.userData.surfaceY() : null, fy = v.userData.liquidFloorY ? v.userData.liquidFloorY() : null
+          // (a vessel without liquidFloorY — a microtube — gives its cavity's floor: without one, no fall was
+          // allowed for and the surface dropped below the tip as the pass drew)
+          const sy = v.userData.surfaceY ? v.userData.surfaceY() : null, fy = v.userData.liquidFloorY ? v.userData.liquidFloorY() : (v.userData.cavity && v.userData.cavity.y0 != null ? v.userData.cavity.y0 : null)
           const floor = fy != null ? v.position.y + fy * v.scale.y + 0.004 : srcTip
           // deep enough for the whole pass: the surface falls by what this pass draws
           const fall = sy != null && fy != null && startUl > 0 ? (sy - fy) * v.scale.y * Math.min(1, each / Math.max(1e-6, startUl - j * each)) : 0
