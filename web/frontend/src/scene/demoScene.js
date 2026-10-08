@@ -2048,7 +2048,9 @@ export {
   // the vessel the station seats (a flask's body reached under the P1000's home and into the stand's pad)
   var RIG_DX=0;
   function useRig(st){ RIG_DX=(st && st.rigDx) || 0; }
-  function pipHome(kind){ kind=kind||HOME_KIND; return new THREE.Vector3(PIP_REST.x+0.6+RIG_DX, PIP_HOME_Y, PIP_REST.z-(kind==='P1000'?0.5:0)); }
+  // the P1000 waits back AND to the left of the P200 (straight behind it, the P200's way to its source
+  // crossed it): each one's path to the bench goes right, away from the other
+  function pipHome(kind){ kind=kind||HOME_KIND; var big=kind==='P1000'; return new THREE.Vector3(PIP_REST.x+0.6+RIG_DX-(big?0.55:0), PIP_HOME_Y, PIP_REST.z-(big?0.6:0)); }
   // the pipette a pass of `ul` calls for (rule 1; the ledger has already split a move into passes)
   function kindFor(opts){ return opts && opts.kind ? opts.kind : (opts && opts.tipUl!=null && opts.tipUl>200+1e-9 ? 'P1000' : 'P200'); }
   function pipPhaseA(from, TRAVEL_Y, a){             // a: 0..1 across phase A → origin position
