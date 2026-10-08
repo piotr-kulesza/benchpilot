@@ -923,6 +923,10 @@ export function configureStation(st, o) {
           const fy = v.userData.liquidFloorY ? v.userData.liquidFloorY() : null, say = Math.cos(-(disp.tilt != null ? disp.tilt : -0.62))
           if (fy != null) opts.srcDepth = Math.max(0.3, (from.y - (v.position.y + fy * v.scale.y + 0.012)) / say)
         }
+        if (!angled && j !== tipPass && !v.userData.setVolume) {   // a SURFACE (a membrane, a slide): the tip at its film, on its solid top
+          tipPass = j
+          opts.srcTip = v.position.y + vb.max.y * v.scale.y + 0.01   // (from the liquid's drawn top it hung 0.065 over the membrane)
+        }
         if (!angled && j !== tipPass) {   // (once per pass: under the surface as it stands when the pass begins)
           tipPass = j
           // (a vessel without liquidFloorY — a microtube — gives its cavity's floor: without one, no fall was
