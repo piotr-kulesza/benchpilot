@@ -1099,6 +1099,7 @@ export function configureStation(st, o) {
     const bath = demo.buildWaterBath()
     st.group.add(bath)
     st.updatables.push(bath)
+    const bathY = FLAT ? 0 : restOn(bath, S[vessel], 0, 0, 0.5)   // the tube's foot on the liner's floor (from both geometries)
     // a SMALL, TIGHT warm light — kept low-intensity + short-range so it doesn't
     // bloom onto the bench (art-direction: light stays near the vessel, not a flood).
     st.warm = new PointLight(0xffb060, 0, 1.8)
@@ -1114,7 +1115,7 @@ export function configureStation(st, o) {
     }))()
     st.enter = () => {
       if (FLAT) { seat(0, 0, 1.6); bath.position.set(0, 0, -1.15) } // flat vessel in front, bath behind
-      else { seat(0, 0.1, 0); bath.position.set(0, 0, 0) }          // tube dips INTO the water
+      else { seat(0, bathY, 0); bath.position.set(0, 0, 0) }        // tube dips INTO the water, resting on the liner's floor (0.1 left it 0.02 over it)
     }
     st.timeline = (p) => {
       st.warm.intensity = p * 1.1 // gentle warmth near the vessel (no bench bloom)
