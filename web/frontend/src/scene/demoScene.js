@@ -2037,7 +2037,11 @@ export {
   // each pipette waits at its own HOME: the P200 front-left beside its stand (as it always has), a
   // P1000 0.5 behind it. pipetteRun sets HOME_KIND to the pipette a pass uses.
   var HOME_KIND='P200';
-  function pipHome(kind){ kind=kind||HOME_KIND; return new THREE.Vector3(PIP_REST.x+0.6, PIP_HOME_Y, PIP_REST.z-(kind==='P1000'?0.5:0)); }
+  // RIG_DX: this station's rig shift (set by useRig): the stand and the pipettes' homes stand clear of
+  // the vessel the station seats (a flask's body reached under the P1000's home and into the stand's pad)
+  var RIG_DX=0;
+  function useRig(st){ RIG_DX=(st && st.rigDx) || 0; }
+  function pipHome(kind){ kind=kind||HOME_KIND; return new THREE.Vector3(PIP_REST.x+0.6+RIG_DX, PIP_HOME_Y, PIP_REST.z-(kind==='P1000'?0.5:0)); }
   // the pipette a pass of `ul` calls for (rule 1; the ledger has already split a move into passes)
   function kindFor(opts){ return opts && opts.kind ? opts.kind : (opts && opts.tipUl!=null && opts.tipUl>200+1e-9 ? 'P1000' : 'P200'); }
   function pipPhaseA(from, TRAVEL_Y, a){             // a: 0..1 across phase A → origin position
@@ -2124,7 +2128,7 @@ export {
     return 1;
   }
   function pipetteRun(st, from, to, p, opts){
-    opts=opts||{};
+    opts=opts||{}; useRig(st);
     // the pipette this pass's volume calls for; the other one (if the station has two) waits at home
     var kind=kindFor(opts);
     if(st.pips && st.pips[kind] && st.pip!==st.pips[kind]){
@@ -2262,8 +2266,15 @@ export {
   var PIP_REST  = new THREE.Vector3(-2.1, 1.2, 1.25);
 
   // a bare stand (dressing) — for stations that don't pipette
+  // the rig's right edge at no shift: the stand's pad, or a pipette at its home (its body's radius)
+  var RIG_RIGHT = Math.max(PIP_STAND.x+0.72, PIP_REST.x+0.6+0.3);
+  // st.clearLeft (station-local x the seated vessel's footprint starts at, set by the scene): shift the
+  // whole rig left by just as much as it needs to stand clear of it — none for a tube
+  function rigShiftFor(st){ return st.clearLeft==null ? 0 : Math.min(0, st.clearLeft-0.12-RIG_RIGHT); }
+  function prepRig(st){ st.rigDx=rigShiftFor(st); useRig(st); }
   function addStand(st){
-    var stand = buildPipetteStand(); stand.position.set(PIP_STAND.x,PIP_STAND.y,PIP_STAND.z);
+    if(st.rigDx==null) st.rigDx=rigShiftFor(st); useRig(st);
+    var stand = buildPipetteStand(); stand.position.set(PIP_STAND.x+RIG_DX,PIP_STAND.y,PIP_STAND.z);
     stand.userData.noFrame = true;   // pipetting DRESSING — excluded from the camera fit
     st.group.add(stand);
   }
@@ -2275,6 +2286,7 @@ export {
   function addPipetteRig(st, kinds){
     kinds = kinds && kinds.length ? kinds : ['P200'];
     if(!st.pips){ addStand(st); st.pips={}; }
+    useRig(st);
     kinds.forEach(function(kind){
       if(st.pips[kind]) return;
       // built AT ITS HOME (bug fix): it stood in its stand (PIP_REST) until the station was entered,
@@ -2288,7 +2300,7 @@ export {
   // dock this station's resident pipette back in its stand (LOCAL space)
   // the idle pipette waits at its HOME, held (not in its stand: the stand's arm crosses its own
   // ring) — the point every pass starts from and returns to
-  function pipRest(st){ if(!st.pip) return;
+  function pipRest(st){ if(!st.pip) return; useRig(st);
     (st.pips ? Object.values(st.pips) : [st.pip]).forEach(function(pp){
       pp.position.copy(pipHome(pp.userData.kind)); pp.rotation.set(0,0,0);
       pp.userData.setFluid(0); if(pp.userData.tipUl!=null) pp.userData.setTipVolume(0); pp.userData.phase='home';
@@ -2788,6 +2800,9 @@ export {
 
   function addBottle(st, key, labelText, color, x, z){
     var b = buildBottle(color, labelText, 1.3, color);
+    // clear of the seated vessel's footprint (st.clearRight, set by the scene): a flask's body reached
+    // into the bottle at its usual spot
+    if(st.clearRight!=null){ var bb=new THREE.Box3().setFromObject(b); x=Math.max(x, st.clearRight+0.12-bb.min.x); }
     b.position.set(x, 0, z); b.userData.noFrame = true;   // reagent SOURCE (dressing) — not framed
     st.group.add(b);
     if(b.userData.update) st.updatables.push(b);   // animate its cap + level each frame
@@ -3061,4 +3076,4 @@ export {
     };
   }
 
-export { dispenseProgress, drawProgress, passClock, passPlan, pipetteRun, addStand, addPipetteRig, pipRest, buildSample, addBottle, stationReagent, stationSpin, PIP_STAND, PIP_REST, easeInOut, lerp, clamp }
+export { prepRig, dispenseProgress, drawProgress, passClock, passPlan, pipetteRun, addStand, addPipetteRig, pipRest, buildSample, addBottle, stationReagent, stationSpin, PIP_STAND, PIP_REST, easeInOut, lerp, clamp }
