@@ -188,7 +188,7 @@ export function createPassTracker(line) {
 // Run the ACTIVE station on the runner's own clock and check everything. `timed`: the step's
 // countdown in seconds (Start is pressed once its vessels have arrived; a countdown over `fullTo`
 // seconds runs its first and last 10 s and skips the middle — protocol time, not animation).
-export async function checkStation(line, { timed = 0, fullTo = 20, tailSec = 2, maxSec = 600, every = 8, clockAdd, startTimer } = {}) {
+export async function checkStation(line, { timed = 0, fullTo = 20, tailSec = 2, maxSec = 240, every = 8, clockAdd, startTimer } = {}) {
   const fps = 60, tempo = animationTempo()
   const motion = createMotionTracker(line, { fps }), passes = createPassTracker(line)
   const liquid = []
@@ -206,6 +206,8 @@ export async function checkStation(line, { timed = 0, fullTo = 20, tailSec = 2, 
         if (k - restSince > Math.round(1.5 * tempo * fps)) { startTimer(); phase = 'count'; started = k; return sleep(120) }
       }
       if (k % 30 === 0) return sleep(0)            // the runner's React state keeps up (running → done)
+      // a countdown that has not moved 2 s after Start was not started (the click missed): press it again
+      if (phase === 'count' && k - started === 2 * fps && pNow() <= 0) { startTimer(); started = k; return sleep(120) }
       if (phase === 'count' && !jumped && timed > fullTo && k - started > 10 * fps) {
         clockAdd((timed - 20) * 1000); jumped = true; motion.cut(); prevL = null; return 'cut'
       }

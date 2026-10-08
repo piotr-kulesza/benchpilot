@@ -28,6 +28,7 @@ const has = (n) => argv.includes(`--${n}`)
 const OUT = flag('out', path.join(process.cwd(), 'dev-shots', 'check-protocol.json'))
 const ONLY = flag('stations', '') ? flag('stations', '').split(',').map(Number) : null
 const VERBOSE = has('verbose')
+const STREAM = !has('quiet')   // each station as it is checked (a stall shows where it is)
 
 // ── which protocols ──
 const jobs = []
@@ -150,6 +151,7 @@ async function runJob(job) {
     if (r.motionAudit && r.motionAudit.length) red.push(`motion ×${r.motionAudit.length}: ${r.motionAudit.map((c) => `${c.check}:${c.a}`).slice(0, 2).join('  ')}`)
     if (r.pipette && r.pipette.overCount) red.push(`capacity: a ${r.pipette.over[0].kind} tip held ${r.pipette.over[0].ul} µl`)
     if (passBad.length) red.push(`pipette: ${passBad.slice(0, 2).join('; ')}${passBad.length > 2 ? ` (+${passBad.length - 2})` : ''}`)
+    if (STREAM) console.log(`    · ${job.name} ${String(s).padStart(2)} ${String(stations[s - 1].action).padEnd(14)} ${red.length ? '✗ ' + red.join(' | ').slice(0, 200) : '✓'}`)
     rows.push({ station: s, action: stations[s - 1].action, container: stations[s - 1].container, red, detail: VERBOSE ? r : { speedPeak: r.peak, camera: r.camera, passes: r.pipette && r.pipette.passes, expected: exp }, spinTrace: r.spinTrace })
   }
   await page.close()

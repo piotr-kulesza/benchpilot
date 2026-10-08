@@ -2006,7 +2006,9 @@ const _travelPrev = new Vector3()
 const _v3 = new Vector3(), _v3b = new Vector3()
 // is any shown vessel (the sample, a prep) still on its trip here?
 function vesselsArriving() {
-  if (demo.undockWhenStill()) return true   // a vessel still waiting in a turning rotor to be taken out
+  const wb = typeof window !== 'undefined' && window.__benchperf
+  if (demo.undockWhenStill()) { if (wb) wb.waiting = 'rotor'; return true }   // a vessel still waiting in a turning rotor to be taken out
+  if (wb) wb.waiting = null
   const S = demo.getSample()
   if (S && S.vessels.some((v) => v.visible && v.userData.trip)) return true
   return demo.getPreps().some((v) => v.visible && v.userData.trip)
