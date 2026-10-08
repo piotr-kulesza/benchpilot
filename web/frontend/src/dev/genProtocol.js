@@ -2,8 +2,8 @@
 // supported verbs, vessels and volumes (the schema core/schema.py emits), from a fixed seed. The
 // scene must hold up on every one of them (scripts/check-protocol.mjs --generated N).
 //
-// Edge cases are drawn on purpose: 0.5 µl, 200 µl (the P200's top), 201 µl (the P1000's first),
-// 1000 µl, 1001 µl (two P1000 passes), 50 mL (poured), unstated / symbolic / relative volumes,
+// Edge cases are drawn on purpose: 0.5 µl, 200 µl, 201 µl, 1000 µl, 1001 µl (each still ONE draw —
+// schematic pipetting), 50 mL (poured), unstated / symbolic / relative volumes,
 // repeated additions of one reagent, discards, spins with "discard the flow-through", side mixes
 // drawn from later, unknown verbs and an unknown vessel. Pure — no DOM.
 

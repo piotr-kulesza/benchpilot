@@ -178,10 +178,11 @@ clock: no wall clock (`performance.now`), no per-frame factor or threshold — r
 segment of every station at tempo 1 and at ANIMATION_TEMPO on the runner's own clock and exits 1 unless
 each takes tempo × as long ± 5 % (`src/dev/tempoProbe.js`, proven red by `tempoProbe.test.js`).
 
-**The pass clock — the pipette is never faster than its descent.** `pipetteRun`'s p gives each part of a
-pass a fixed share; a PASS PLAN (`demo.passPlan([{from, to, opts}])`, per station, from the pipette's own
-geometry) gives each segment — to the source, into it, out of it, the carry, the lift, home — the time it
-needs to move no faster than that pass's descent into the vessel. `demo.passClock(lp, st.passPlan)` maps a
+**The pass clock — one tempo.** `pipetteRun`'s p gives each part of a pass a fixed share; a PASS PLAN
+(`demo.passPlan([{from, to, opts}])`, from the pipette's own geometry) gives each segment — to the source,
+into it, the draw, out of it, the carry, the descent, the dispense, the lift, home — its own SECONDS:
+`motionPlan.passSeconds`, its way at the global `MAX_SPEED`, never less than the global `MIN_DUR` of its
+kind. (It used to be held to its own pass's descent: every station had its own tempo.) `demo.passClock(lp, st.passPlan)` maps a
 pass's wall progress onto p (linearly per segment: easing untouched); `passAt(p, P, st.passPlan)` and
 `passDuration(P, st.passPlan)` carry it. Every caller warps lp ONCE and drives the pipette, the tip, the
 source, the destination and the caps from it — liquid stays on the plunger's clock. The idle pipette is
@@ -196,17 +197,19 @@ back to 2D.
 
 The scene must hold up on protocols nobody has seen. No per-protocol case and no hand-set timing:
 every rule is computed from the step data (verb, vessels, volumes) and the scene's geometry when the
-line is built. `src/scene/motionPlan.js` holds the ONE motion rule: every moving object (pipettes,
-vessels, caps, lids, doors, trays — the rotor's spin and what rides in it excepted) peaks at
-`MAX_SPEED` (9.4 u/s of scene time — the pipette descent approved on neutrophil_rna; 5.9 u/s on
-screen at tempo 1.6); a segment of length d on a curve peaking at k × its average lasts k·d/MAX_SPEED.
-The camera has its own cap (`CAMERA_MAX_SPEED`, its old glide speed).
+line is built. `src/scene/motionPlan.js` holds the ONE tempo: every moving object (the pipette, its
+descents too, vessels and their trips, caps, lids, doors, trays and the camera — the rotor's spin and
+what rides in it excepted) peaks at ONE `MAX_SPEED` (u/s of scene time; on screen ÷ ANIMATION_TEMPO —
+the median of the pipette's descents measured on the 9 examples before the rule) and no segment lasts
+less than the global `MIN_DUR` of its kind (move, descent, lift, pause): a segment of length d on a
+curve peaking at k × its average lasts max(k·d/MAX_SPEED, MIN_DUR[kind]). The same numbers for every
+station of every protocol; ANIMATION_TEMPO stays on top.
 
 Enforced BY CONSTRUCTION (shared code, any protocol):
 - **The pacer** (`pace()` in StationScene): at build, each untimed station's timeline is run dry over
   p (its vessels' state saved and restored); every moving mesh is measured in the world each sample;
   each motion segment gets exactly the time that makes its fastest moment reach MAX_SPEED (scaled
-  uniformly — its easing kept); holds (a draw, a dispense, a pour's stream, a wait) keep their seconds.
+  uniformly — its easing kept), never less than `MIN_DUR.move`; holds (a draw, a dispense, a pour's stream, a wait) keep their seconds.
   The step runs on that warp (`st.warp`: wall progress → p), so everything the timeline drives — tips,
   liquids, caps — stays on one clock. A step on a countdown keeps the countdown's clock.
 - **Trips** between stations: timed from their path length (plus the swing of a vessel's corners as it
@@ -217,11 +220,14 @@ Enforced BY CONSTRUCTION (shared code, any protocol):
   speed per unit of its parameter measured from its own geometry (`measureParam`). **The camera**:
   its glide lasts as long as its distance takes at its cap, on the tempo clock, blending to the next
   station's framing (unchanged); its sway runs on scene time.
-- **Pipette by volume** (rule 1, the ledger): ≤ 200 µl one P200 pass (yellow tip); 201–1000 µl ONE
-  P1000 pass (blue tip, `buildPipette('P1000')`); more → `ceil(v / 1000)` P1000 passes; ≥ 50 mL or a
-  step that says pour → poured. Discards are pipetted into a waste beaker the same way (through a
-  flask's canted neck along its axis). A station carries the pipettes its passes call for, each at
-  its own home. An add beyond a drawn vessel's capacity is capped and flagged.
+- **Schematic pipetting** (the ledger): ONE pipette (the P200). Each substance a step adds is ONE draw
+  from its own source and one dispense, whatever its volume; two substances, two draws from two
+  bottles; never the same substance twice in a step (unless the protocol says repeat). A discard, a
+  move, the flow-through: one draw (through a flask's canted neck along its axis). Mixing strokes only
+  in a step that says mix, the tip in the liquid. ≥ 50 mL or a step that says pour → poured. Vessel
+  volumes are real (the sum of what was added, never capped; past a vessel's drawn top it is drawn
+  full and keeps its volume); the TIP is schematic — drawn full while it holds liquid, empty when not
+  (what it carries is still counted). No capacity check.
 - **Rule 5**: an unknown verb → the bench; an unstated volume → NOTHING moved (no placeholder), the
   station still, flagged; an unknown vessel → the generic vessel, flagged by schema-audit.
 - **Where vessels go**: instruments are hollow where a vessel goes (`openBox`, `boxWithHole`: a
@@ -232,8 +238,8 @@ Enforced BY CONSTRUCTION (shared code, any protocol):
   seat is measured in the vessel's OWN frame and also keeps the seated vessel inside the closed dome.
 - **Layout from footprints**: a station records its seated vessel's footprint (`st.clearLeft/Right`);
   the pipette rig (stand + homes, `demo.prepRig`) and reagent bottles stand clear of it (no shift for
-  a tube); a side-by-side transfer clears both vessels; sources stand in rows of four; the P1000
-  waits back-left of the P200; an idle sample beside a prep stands behind the rig's front.
+  a tube); a side-by-side transfer clears both vessels; sources stand in rows of four; an idle sample
+  beside a prep stands behind the rig's front.
 - **Trips clear what is on their way** (`clearTrips`): the carry height passes over every solid the
   horizontal leg crosses, from both stations' geometry, and over a door's whole swing (`doorSweep`).
   Each station's entry clears `rides` / `enterVia` (a dry run's leftovers sent trips astray); a vessel
@@ -258,8 +264,9 @@ npm run check-protocol -- --generated 50 --seed 1      # synthetic (src/dev/genP
 
 It plays the runner like a user — every step on its own clock to its end, a countdown started and run
 (a long one: first and last 10 s), Next — and checks every frame: liquid (a–d, every vessel and tip),
-the speed of every visible mesh and of the camera, teleports, collisions + the motion audit, and the
-pipette (capacity; each pass the pipette its volume calls for). `src/dev/protocolCheck.js` (pure parts
+the speed of every visible mesh and of the camera, teleports, collisions + the motion audit, the draws
+(one per substance, per discard, per move) and ONE TEMPO: every station's pipette descent and move
+peaks, whose spread across stations must stay within 15 %. `src/dev/protocolCheck.js` (pure parts
 proven red by `protocolCheck.test.js`); the generator covers every verb, vessel and the edge volumes
 0.5, 200, 201, 1000, 1001 µl and 50 mL. Run ONE check at a time on a slow machine.
 
@@ -294,9 +301,8 @@ continuity n → n+1, doubling, the tip, the neutrophil volumes, every unstated 
 - **Level from volume, not height** (`src/scene/liquidShape.js`): a volume, as a share of the
   vessel's nominal capacity, fills the same share of its DRAWN inner volume (the builder's own
   lathe profile, or its box/cylinder); `levelFor` inverts it. No vessel is resized.
-- **The pipette its volume calls for**: ≤ 200 µl a P200 pass, 201–1000 µl one P1000 pass, more in
-  P1000 passes (see "Any protocol"); the tip fills to what it drew and empties on the destination's
-  dispense curve. A reagent is POURED where the scene always poured (≥ 50 mL, or the step says pour
+- **One draw per substance** (see "Any protocol"): the tip, drawn full while it holds liquid, carries
+  the whole draw and gives it on the destination's dispense curve. A reagent is POURED where the scene always poured (≥ 50 mL, or the step says pour
   / rinse) — the stream lasts volume / 10 mL·s⁻¹; pouring the sample's own vessel tips it about its
   mouth over the next one. A discard is pipetted into a waste beaker.
 - Surfaces (slide, membrane, gel, agar plate) have no drawn interior: their volume is kept, the

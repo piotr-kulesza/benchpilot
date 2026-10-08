@@ -58,7 +58,7 @@ export function sampleLiquids(line) {
     put('source ' + k, b, b.userData.drawnUl(), b.userData.drawnColor ? b.userData.drawnColor() : null, b.userData.cavity, b.userData.surfaceY ? b.userData.surfaceY() : null, false)
   }
   if (st && st.waste && st.waste.userData.wasteUl != null) put('waste', st.waste, st.waste.userData.wasteUl, null, st.waste.userData.cavity, null, false)
-  // every pipette of the station (a P200 and a P1000): the tip is what they hold together, coloured
+  // every pipette of the station: the tip is what they hold together, coloured
   // by the one holding liquid
   const pips = st && st.pips ? Object.values(st.pips) : pip ? [pip] : []
   if (pips.some((x) => x.userData.drawnUl)) {

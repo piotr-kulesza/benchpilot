@@ -14,8 +14,8 @@ export function analyse(rec, { tol = 1.1, jump = 0.05, names = [] } = {}) {
   for (const row of rec) {
     const [frame, active, p, dt] = row
     for (const c of row.slice(4)) {
-      // one track per PIPETTE (station · kind): a station with a P200 and a P1000 holds two (followed as
-      // the active one, a swap read as a jump from one home to the other)
+      // one track per PIPETTE (station · kind): a station with two holds two (followed as the active one,
+      // a swap read as a jump from one home to the other)
       const [i, x, y, z, phase, vis, kind] = c, key = kind ? i + ':' + kind : i
       if (!tracks.has(key)) { const T = []; T.st = i; tracks.set(key, T) }
       tracks.get(key).push({ frame, active, p, dt, x, y, z, phase, vis })
