@@ -1438,6 +1438,8 @@ export function undockWhenStill() {
     var cenLidK=measureParam(grp,[lidPivot],cenLidAt,st.lid);
     rotor.userData.spinPart = true;   // the spin is the one motion the speed rule excepts (and what rides in it)
     grp.userData.rotor=rotor; grp.userData.dome=dome; grp.userData.label=label; grp.userData.st=st;
+    // the CLOSED dome (centre and radius, in the centrifuge's frame): what rides the rotor stays inside it
+    grp.userData.domeClosed={ c:lidPivot.position.clone().add(dome.position), r:1.22 };
     // (still, and its lid open: what is in it can be taken out)
     grp.userData.atRest=function(){ return st.tSpin===0 && st.spin<0.01 && (!st.homing || (Math.abs(st.rv||0)<0.01 && Math.abs((st.home||0)-rotor.rotation.y)<0.003)) && (st.tLid<1 || st.lid>0.97); };
     grp.userData.holders=holders;
@@ -2883,30 +2885,46 @@ export {
     var SEAT_Y=-0.31;
     // the size a vessel is seated at: as large as 0.6, as small as its widest point (a cap's hinge knob
     // included) needs to pass the slot (from both models' geometry)
-    var seatScaleOf=function(v){
-      var keep=[v.position.clone(), v.quaternion.clone(), v.scale.clone()];
+    // the vessel's vertices in its OWN frame (bug fix: they were read in world space — wherever its
+    // parent stood — which skewed both the seat's size and its depth)
+    var vertsOf=function(v){
+      var keep=[v.position.clone(), v.quaternion.clone(), v.scale.clone()], out=[], pt=new THREE.Vector3();
       v.position.set(0,0,0); v.quaternion.identity(); v.scale.setScalar(1); v.updateMatrixWorld(true);
-      // in the vessel's OWN frame (bug fix: world space — wherever its parent stood — skewed both)
-      var r=0, bb=new THREE.Box3(), vInv=new THREE.Matrix4().copy(v.matrixWorld).invert();
-      v.traverse(function(m){ if(m.isMesh && m.geometry && !m.isSprite && !(m.userData&&m.userData.auditKind)){ var mm=[].concat(m.material)[0]; if(mm && mm.userData && mm.userData.auditKind) return;
-        if(!m.geometry.boundingBox) m.geometry.computeBoundingBox(); bb.copy(m.geometry.boundingBox).applyMatrix4(new THREE.Matrix4().copy(vInv).multiply(m.matrixWorld)); r=Math.max(r, Math.abs(bb.min.x), Math.abs(bb.max.x), Math.abs(bb.min.z), Math.abs(bb.max.z)); } });
-      v.position.copy(keep[0]); v.quaternion.copy(keep[1]); v.scale.copy(keep[2]); v.updateMatrixWorld(true);
-      return Math.min(0.6, ((cen.userData.slotR||0.215)-0.012)/Math.max(r,1e-3));
-    };
-    // how deep it sits: lowered along the slot until its lowest vertex rests on the slot's flat floor
-    // (0.22 below its middle) — from both geometries
-    var seatYOf=function(v){
-      var sc=seatScaleOf(v), R=cen.userData.slotR||0.215, y0=-Infinity, pt=new THREE.Vector3();
-      var keep=[v.position.clone(), v.quaternion.clone(), v.scale.clone()];
-      v.position.set(0,0,0); v.quaternion.identity(); v.scale.setScalar(1); v.updateMatrixWorld(true);
-      var vInv=new THREE.Matrix4().copy(v.matrixWorld).invert();
+      var vInv=new THREE.Matrix4().copy(v.matrixWorld).invert(), mm4=new THREE.Matrix4();
       v.traverse(function(m){ if(!m.isMesh || !m.geometry || m.isSprite || m.isInstancedMesh) return; var mm=[].concat(m.material)[0];
         if((m.userData&&m.userData.auditKind)||(mm&&mm.userData&&mm.userData.auditKind)) return;
-        var pos=m.geometry.attributes.position; if(!pos) return;
-        for(var i=0;i<pos.count;i++){ pt.fromBufferAttribute(pos,i).applyMatrix4(m.matrixWorld).applyMatrix4(vInv); if(Math.hypot(pt.x,pt.z)*sc<R) y0=Math.max(y0, -0.22-pt.y*sc); } });
+        var pos=m.geometry.attributes.position; if(!pos) return; mm4.copy(vInv).multiply(m.matrixWorld);
+        for(var i=0;i<pos.count;i++){ pt.fromBufferAttribute(pos,i).applyMatrix4(mm4); out.push(pt.x,pt.y,pt.z); } });
       v.position.copy(keep[0]); v.quaternion.copy(keep[1]); v.scale.copy(keep[2]); v.updateMatrixWorld(true);
+      return out;
+    };
+    // how deep it sits at scale sc: lowered along the slot until its lowest vertex rests on the slot's
+    // flat floor (0.22 below its middle)
+    var seatYAt=function(P,sc){
+      var R=cen.userData.slotR||0.215, y0=-Infinity;
+      for(var i=0;i<P.length;i+=3) if(Math.hypot(P[i],P[i+2])*sc<R) y0=Math.max(y0, -0.22-P[i+1]*sc);
       return isFinite(y0) ? y0+0.008 : SEAT_Y;   // resting on it (within contact), not on its very surface
     };
+    // the size it is seated at: as large as 0.6, as small as its widest point (a cap's hinge knob
+    // included) needs to pass the slot — and small enough that, seated, all of it stays inside the
+    // CLOSED dome while it spins (a tall tube's top, tilted out, came through the dome's front)
+    var seatCache=new Map();
+    var seatOf=function(v){
+      var hit=seatCache.get(v); if(hit) return hit;
+      var P=vertsOf(v), r=0;
+      for(var i=0;i<P.length;i+=3) r=Math.max(r, Math.abs(P[i]), Math.abs(P[i+2]));
+      var sc=Math.min(0.6, ((cen.userData.slotR||0.215)-0.012)/Math.max(r,1e-3)), D=cen.userData.domeClosed;
+      if(D){
+        cen.updateWorldMatrix(true,true);
+        var rel=new THREE.Matrix4().copy(cen.matrixWorld).invert().multiply(holder.matrixWorld), q=new THREE.Vector3(), M=new THREE.Matrix4();
+        var fits=function(s){ M.compose(new THREE.Vector3(0,seatYAt(P,s),0), new THREE.Quaternion(), new THREE.Vector3(s,s,s)).premultiply(rel);
+          for(var i=0;i<P.length;i+=3){ q.set(P[i],P[i+1],P[i+2]).applyMatrix4(M); if(q.y>D.c.y && q.distanceTo(D.c)>D.r-0.06) return false; } return true; };
+        for(var k=0;k<40 && !fits(sc);k++) sc*=0.97;
+      }
+      hit={ s:sc, y:seatYAt(P,sc) }; seatCache.set(v,hit); return hit;
+    };
+    var seatScaleOf=function(v){ return seatOf(v).s; };
+    var seatYOf=function(v){ return seatOf(v).y; };
     var preSlot={ x:1.4, y:1.42, z:0.03 };   // just above the slot (station-local)
     var lift={ x:1.4, y:2.15, z:0.03 };      // raised clear of the rotor
     var docked=false;
