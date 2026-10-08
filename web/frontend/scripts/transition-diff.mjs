@@ -40,22 +40,34 @@ for (const T of cur.transitions) {
       ves.set(k, e)
     }
   }
-  rows.push({ from: T.from, to: T.to, n, camPos, camShape, camOff: off0, camQ, fov, ves: [...ves.entries()] })
+  // THE GLIDE LAW, frame by frame, in each build: a free vessel moves toward its goal by 1 − 0.02^dt of the
+  // way (e972bcf's), dt the normalised frame (1/96 s): the residual of every frame of every shown vessel
+  const law = (rec) => { let worst = 0; const k = 1 - Math.pow(0.02, 1 / 96)
+    for (let f = 1; f < rec.frames.length; f++) for (const v of rec.frames[f].vs) {
+      const p = rec.frames[f - 1].vs.find((x) => x[0] === v[0]); if (!p || !p[1] || !v[1] || p.length < 9 || p[8] || v[8]) continue
+      // the goal the frame loop eased toward this frame: the one it had after the last frame, or one this
+      // frame's timeline set before the glide (an exitLift reached is cleared after it) — the nearer law
+      if (Math.hypot(v[2] - v[5], v[3] - v[6], v[4] - v[7]) < 2e-3) continue   // arrived (snapped onto its seat)
+      const res = (g) => Math.max(...[0, 1, 2].map((i) => Math.abs(v[2 + i] - (p[2 + i] + (g[i] - p[2 + i]) * k))))
+      worst = Math.max(worst, Math.min(res(p.slice(5, 8)), res(v.slice(5, 8))))
+    } return worst }
+  rows.push({ from: T.from, to: T.to, n, camPos, camShape, camOff: off0, camQ, fov, ves: [...ves.entries()], lawRef: law(R), lawCur: law(T) })
 }
 const ok = (x) => (x <= TOL ? '✓' : '✗')
 const f3 = (x) => (x < 1e-6 ? '0' : x < 1e-3 ? x.toExponential(1) : x.toFixed(3))
 const lines = []
-lines.push(`### ${cur.protocol}`, '', `| transition | frames | camera pos max Δ | of it, the station's framing (constant) | camera motion Δ (framing taken out) | quaternion Δ | FOV Δ | vessels: max Δ (at start / at end) |`, '|---|---|---|---|---|---|---|---|')
-let allMotion = true, allRaw = true
+lines.push(`### ${cur.protocol}`, '', `| transition | frames | camera pos max Δ | of it, the station's framing (constant) | camera motion Δ (framing taken out) | quaternion Δ | FOV Δ | vessels: max Δ (at start / at end) | glide law residual e972bcf / polish |`, '|---|---|---|---|---|---|---|---|---|')
+let allMotion = true, allRaw = true, allLaw = true
 for (const r of rows) {
   const vtxt = r.ves.map(([k, e]) => `${k} ${e.shown || `${f3(e.max)} (${f3(e.start)} / ${f3(e.end)})`}`).join('; ') || '–'
   const off = Math.max(...r.camOff.map(Math.abs))
   const vOk = r.ves.every(([, e]) => !e.shown && e.max <= TOL)
   if (!(r.camShape <= TOL && r.camQ <= TOL && r.fov <= TOL)) allMotion = false
   if (!(r.camPos <= TOL && r.camQ <= TOL && r.fov <= TOL && vOk)) allRaw = false
-  lines.push(`| ${r.from} → ${r.to} | ${r.n} | ${f3(r.camPos)} ${ok(r.camPos)} | ${off > TOL ? `${r.camOff.map((x) => x.toFixed(3)).join(', ')}` : '–'} | ${f3(r.camShape)} ${ok(r.camShape)} | ${f3(r.camQ)} ${ok(r.camQ)} | ${f3(r.fov)} ${ok(r.fov)} | ${vtxt} ${vOk ? '✓' : '✗'} |`)
+  if (r.lawCur > TOL) allLaw = false
+  lines.push(`| ${r.from} → ${r.to} | ${r.n} | ${f3(r.camPos)} ${ok(r.camPos)} | ${off > TOL ? `${r.camOff.map((x) => x.toFixed(3)).join(', ')}` : '–'} | ${f3(r.camShape)} ${ok(r.camShape)} | ${f3(r.camQ)} ${ok(r.camQ)} | ${f3(r.fov)} ${ok(r.fov)} | ${vtxt} ${vOk ? '✓' : '✗'} | ${f3(r.lawRef)} / ${f3(r.lawCur)} ${ok(r.lawCur)} |`)
 }
-lines.push('', `camera motion within ${TOL} on every transition: ${allMotion ? 'yes' : 'NO'} · everything (camera incl. framing, vessels) within ${TOL}: ${allRaw ? 'yes' : 'NO'}`, '')
+lines.push('', `camera motion within ${TOL} on every transition: ${allMotion ? 'yes' : 'NO'} · the vessels' glide is e972bcf's law within ${TOL} on every frame: ${allLaw ? 'yes' : 'NO'} · everything (camera incl. framing, vessels) within ${TOL}: ${allRaw ? 'yes' : 'NO'}`, '')
 const md = lines.join('\n')
 if (arg('md', '')) fs.appendFileSync(arg('md'), md + '\n')
 console.log(md)

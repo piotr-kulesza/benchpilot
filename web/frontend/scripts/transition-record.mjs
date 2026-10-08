@@ -66,7 +66,9 @@ for (let k = 1; k < N; k++) {
       const s = window.__r3f(), c = s.camera
       // every travelling vessel by its name in the sample (tube, column, flask …) or its prep id, in the world
       const vs = [], S = window.__demo.getSample(), w = { x: 0, y: 0, z: 0 }
-      const put = (key, o) => { o.updateWorldMatrix(true, false); const e = o.matrixWorld.elements; vs.push([key, o.visible ? 1 : 0, +e[12].toFixed(6), +e[13].toFixed(6), +e[14].toFixed(6)]) }
+      // [key, shown, x, y, z, its goal this frame (exitLift, else tPos) x, y, z, docked]
+      const put = (key, o) => { o.updateWorldMatrix(true, false); const e = o.matrixWorld.elements, g = o.userData.exitLift || o.userData.tPos
+        vs.push([key, o.visible ? 1 : 0, +e[12].toFixed(6), +e[13].toFixed(6), +e[14].toFixed(6), +g.x.toFixed(6), +g.y.toFixed(6), +g.z.toFixed(6), o.userData.docked ? 1 : 0]) }
       if (S) for (const [k, o] of Object.entries(S)) if (o && o.isObject3D && k !== 'active') put(k, o)
       for (const o of window.__demo.getPreps()) put('prep:' + o.userData.prepId, o)
       return { cam: [c.position.x, c.position.y, c.position.z, c.quaternion.x, c.quaternion.y, c.quaternion.z, c.quaternion.w, c.fov].map((x) => +x.toFixed(6)), vs }
