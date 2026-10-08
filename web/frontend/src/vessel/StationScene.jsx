@@ -1117,7 +1117,11 @@ export function configureStation(st, o) {
       demo.seatScale(S[vessel], 0.44)   // PCR-tube size in its well — reached on its trip, not snapped
       tc.userData.setLid(true); tc.userData.setProgress(0, n)
     }
+    // the tube lifts out once the lid is OPEN (the step's clock waits for it)
+    let tcP = 0
+    st.waitFor = () => tcP >= 0.79 && tcP < 0.82 && tc.userData.lidState() < 0.97
     st.timeline = (p) => {
+      tcP = p
       // lid CLOSED over the loaded tube while it cycles; it opens by p=0.78, and the
       // finished tube then lifts STRAIGHT UP out of its well (exitLiftPoint) — sunk in the
       // block it could not be seen, so the settled frame read as a closed black box

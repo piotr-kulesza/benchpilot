@@ -1174,6 +1174,7 @@ export function undockWhenStill() {
       drawDisp(cyc, cycles, tempC, hot);
     };
     var lidAt=function(x){ lidPivot.rotation.x = -easeInOut(x)*1.15; }; // 1=open(raised), 0=closed(flat over the block)
+    grp.userData.lidState=function(){ return st.lid; };
     var lidK=measureParam(grp,[lidPivot],lidAt,st.lid);              // its speed cap (rule 3)
     grp.userData.update=function(dt){
       st.lid=capChase(grp,st.lid,st.tLid,dt,0.02,lidK); lidAt(st.lid);
