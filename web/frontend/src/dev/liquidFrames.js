@@ -24,7 +24,7 @@ function tipIn(obj, cav, surfaceY, tipW) {
   // a round cavity (r, y0..y1) — or a vessel that is its own box (a flask, a dish, a plate)
   const inside = cav.box ? (_l.x >= cav.box.min.x - 1e-3 && _l.x <= cav.box.max.x + 1e-3 && _l.z >= cav.box.min.z - 1e-3 && _l.z <= cav.box.max.z + 1e-3 && _l.y >= cav.box.min.y - 1e-3 && _l.y <= cav.box.max.y + 0.02)
     : Math.hypot(_l.x, _l.z) <= cav.r + 1e-3 && _l.y >= cav.y0 - 1e-3 && _l.y <= cav.y1 + 0.02
-  return { inside, below: inside && surfaceY != null && _l.y <= surfaceY + 0.005 }
+  return { inside, below: inside && surfaceY != null && _l.y <= surfaceY + 0.005, tipY: +_l.y.toFixed(3), surfY: surfaceY == null ? null : +surfaceY.toFixed(3) }
 }
 
 export function sampleLiquids(line) {
@@ -36,7 +36,7 @@ export function sampleLiquids(line) {
   const out = { vessels: {}, tip: null, streams: (st && st.liquidStreams ? st.liquidStreams.filter((x) => x.mesh.visible).map((x) => [x.from, x.to]) : []) }
   const put = (id, obj, ul, color, cav, surf, docked) => {
     const t = tipW ? tipIn(obj, cav, surf, tipW) : { inside: false, below: false }
-    out.vessels[id] = { ul, color, tipIn: t.inside, tipBelow: t.below, spinning: !!(docked && turning) }
+    out.vessels[id] = { ul, color, tipIn: t.inside, tipBelow: t.below, tipY: t.tipY, surfY: t.surfY, spinning: !!(docked && turning) }
   }
   // docked in the rotor — or riding in a vessel that is (the column, not drawn, in the eluate tube)
   const docked = (v) => { for (let n = v; n; n = n.parent) if (n.userData && n.userData.docked) return true; return !!(v && v.userData.ridesWith && docked(v.userData.ridesWith)) }
@@ -90,7 +90,7 @@ export function checkFrames(frames) {
         const poured = flows.has(id)
         if (!(aspirating || dispensing || spun || poured)) {
           bad.push({ check: 'a', frame: B.k, p: B.p, vessel: id, detail: `${d > 0 ? '+' : ''}${d.toFixed(2)} µl with no transfer` +
-            (d < 0 && tipHere && !a.tipBelow ? ' (the tip is above the liquid)' : (a.tipIn || b.tipIn) && Math.abs(dTip) <= 1e-6 ? ' (the tip is in it but holds still)' : '') })
+            (d < 0 && tipHere && !a.tipBelow ? ` (the tip is above the liquid: ${a.tipY} over ${a.surfY})` : (a.tipIn || b.tipIn) && Math.abs(dTip) <= 1e-6 ? ' (the tip is in it but holds still)' : '') })
         }
       }
       // colour: only while something flows IN
