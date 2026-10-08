@@ -1071,7 +1071,8 @@ export function undockWhenStill() {
     coPanel(0.1,2.4,2.4, 1.6,1.2,-0.25); // right
     var innerMat=new THREE.MeshStandardMaterial({ color:0x8a95a1, roughness:0.55, metalness:0.1 }); // matte interior back wall
     var inWall=new THREE.Mesh(new THREE.PlaneGeometry(3.1,2.2), innerMat); inWall.position.set(0,1.2,-1.39); grp.add(inWall);
-    for(var s=0;s<2;s++){ var shelf=new THREE.Mesh(new THREE.BoxGeometry(2.8,0.03,1.7), matBrushed(0x8a94a0)); shelf.position.set(0,0.62+s*0.95,-0.15); grp.add(shelf); }
+    // the upper shelf clears a T-flask on the lower one (bug fix: at 1.57 the flask's neck, 1.9 high, went through it)
+    for(var s=0;s<2;s++){ var shelf=new THREE.Mesh(new THREE.BoxGeometry(2.8,0.03,1.7), matBrushed(0x8a94a0)); shelf.position.set(0,0.62+s*1.38,-0.15); grp.add(shelf); }
     // flush against the cabinet's front (bug fix: at z 0.95 the closed frame sat half inside the floor
     // panel's front edge)
     var doorPivot=new THREE.Group(); doorPivot.position.set(-1.6,1.2,1.0); grp.add(doorPivot);
