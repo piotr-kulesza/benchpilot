@@ -16,7 +16,7 @@ import { resolveScenePreset } from './scenePresets.js'
 import { exitLiftPoint } from '../vessel/sceneRecipe.js'
 import { streams } from './rng.js'
 import { mixColor } from '../vessel/liquidLedger.js'
-import { MAX_SPEED } from './motionPlan.js'
+import { MAX_SPEED, MIN_DUR, passSeconds } from './motionPlan.js'
 import { innerRadiusFn, liquidProfileGeo, tubeProfile, collectionProfile, columnCupProfile, bottleProfile,
   tubeShape, columnShape, collectionShape, linearShape, tipShape, levelFor, volumeAt, drawnOrKept, bottleStockUl, COLL_Y0, COLL_YMAX } from './liquidShape.js'
 
@@ -2101,25 +2101,23 @@ export {
   // keep their seconds; a pass lasts plan.W × as long. Everything a pass drives — the tip, the
   // source, the destination, the caps — reads the SAME warped p: a liquid stays on the plunger's clock.
   var PASS_EDGES=[0.078, 0.13, 0.156, 0.2028, 0.26, 0.5, 0.62, 0.9, 0.95, 1];
-  // the stretch each segment of ONE pass needs (straight approach; pipetteRun's own geometry)
+  // ONE PASS'S SECONDS, segment by segment (motionPlan.passSeconds): each from its own way at the ONE
+  // global top speed, never shorter than its kind's minimum — the same rule at every station (it was
+  // this pass's own descent: one station's pipette ran at 2.5 u/s, another's at 9.9). Straight approach;
+  // pipetteRun's own geometry.
   function passStretch(from, to, opts){
     opts=opts||{};
     var H=pipHome(), TY=Math.max(from.y,to.y)+2.0, DIP=to.y+(opts.dipDepth!=null?opts.dipDepth:0.62);
     var vol=opts.tipUl!=null && opts.srcTip!=null, SRC=vol ? opts.srcTip : from.y+0.72;
-    var vd=(TY-DIP)/0.12;                                   // the descent: its way per unit of p
-    var k=function(dist, share){ return Math.max(1, Math.abs(dist)/share/vd); };
-    var toSrc=Math.hypot(from.x-H.x, TY-H.y, from.z-H.z), down=TY-SRC;
-    var carry=Math.hypot(to.x-from.x, to.z-from.z), home=Math.hypot(H.x-to.x, H.y-TY, H.z-to.z);
-    var s=[k(toSrc,0.078)];                                  // home → over the source
-    if(vol) s.push(k(down,0.052), 1, 1, k(down,0.0572));     // down 0.078–0.13 · draw · up 0.2028–0.26
-    else { var dn=k(down,0.078), up=k(down,0.104); s.push(dn, dn, up, up); }   // down to 0.156 · up (drawing)
-    s.push(k(carry,0.24), 1, 1, k(TY-DIP,0.05), k(home,0.05));   // carry · DESCENT · hold · lift · home
-    return s;
+    var sec=passSeconds({ toSrc:Math.hypot(from.x-H.x, TY-H.y, from.z-H.z), down:TY-SRC, up:TY-SRC,
+      carry:Math.hypot(to.x-from.x, to.z-from.z), descent:TY-DIP, lift:TY-DIP, home:Math.hypot(H.x-to.x, H.y-TY, H.z-to.z) }, vol);
+    var a=0; return sec.map(function(t, i){ var w=PASS_EDGES[i]-a; a=PASS_EDGES[i]; return t/w; });   // seconds per unit of p
   }
-  // a station's plan: every pass it runs [{from, to, opts}], the slowest each segment needs
+  // a station's plan: every pass it runs [{from, to, opts}], the slowest each segment needs; W: one
+  // pass's SECONDS
   function passPlan(passes){
-    var s=PASS_EDGES.map(function(){ return 1; });
-    (passes||[]).forEach(function(q){ var g=passStretch(q.from, q.to, q.opts); for(var i=0;i<s.length;i++) s[i]=Math.max(s[i], g[i]); });
+    var s=PASS_EDGES.map(function(){ return 0; });
+    (passes&&passes.length ? passes : [{ from:{x:2,y:0,z:0.7}, to:{x:0,y:0,z:0}, opts:{} }]).forEach(function(q){ var g=passStretch(q.from, q.to, q.opts); for(var i=0;i<s.length;i++) s[i]=Math.max(s[i], g[i]); });
     var W=0, a=0; for(var i=0;i<s.length;i++){ W+=(PASS_EDGES[i]-a)*s[i]; a=PASS_EDGES[i]; }
     return { s:s, W:W };
   }
@@ -2991,7 +2989,7 @@ export {
       var sp=seatPose(), L=new THREE.Vector3(st.x+lift.x, lift.y, lift.z), E=sp.p.clone().addScaledVector(sp.axis, 0.9);
       var R=new THREE.Box3().setFromObject(SAMPLE[o.vessel]).getSize(new THREE.Vector3()).length();   // the vessel's own size
       var turn=new THREE.Quaternion().angleTo(sp.q)*R + Math.abs(1-sp.s)*R;   // its corners swing as it tilts and shrinks into the slot
-      lowerT=Math.max(0.3, 3*(L.distanceTo(E)+turn)/(0.55*MAX_SPEED), 3*E.distanceTo(sp.p)/(0.45*MAX_SPEED));
+      lowerT=Math.max(MIN_DUR.move, 3*(L.distanceTo(E)+turn)/(0.55*MAX_SPEED), 3*E.distanceTo(sp.p)/(0.45*MAX_SPEED));
       return lowerT;
     }
     st.enter=function(){

@@ -15,7 +15,7 @@ import { PerspectiveCamera } from '@react-three/drei'
 import { FogExp2, Color, Vector3, Quaternion, Box3, Group, Mesh, RingGeometry, SphereGeometry, CylinderGeometry, PlaneGeometry, CanvasTexture, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
 import { animationTempo } from '../scene/tempo.js'
-import { MAX_SPEED, CAMERA_MAX_SPEED, PEAK, durationFor } from '../scene/motionPlan.js'
+import { MAX_SPEED, CAMERA_MAX_SPEED, PEAK, MIN_DUR, durationFor } from '../scene/motionPlan.js'
 import { buildLedger, mixColor } from './liquidLedger.js'
 import { tubeShape, volumeAt } from '../scene/liquidShape.js'
 import { resolveRecipe, stepConditions, sampleContainerSequence, resolveRemoval, findTransferHandoffDefects, exitLiftPoint, pourPlan, removalFor, benchStaging, addSource } from './sceneRecipe.js'
@@ -349,10 +349,9 @@ function addReagentSource(st, key, r, k, fromMix) {
 
 // Build a station for a step. Every action gets a timeline with VISIBLE motion
 // driven by the per-step progress p (0->1): so no station is ever static.
-// a station that runs P pipette passes takes longer than one pass (each pass ≈ 2.3 s) — and each pass
-// plan.W × that (its PASS PLAN, demo.passPlan: the time its long segments need to move no faster
-// than its descent into the vessel)
-const passDuration = (P, plan) => STEP_DUR * Math.max(1, 1 + 0.35 * (P - 1)) * (plan ? plan.W : 1)
+// a station that runs P pipette passes lasts P passes, each plan.W seconds (its PASS PLAN,
+// demo.passPlan: every segment from its own way at the ONE global speed, motionPlan.js)
+const passDuration = (P, plan) => Math.max(1, P) * (plan || demo.passPlan([])).W
 // split station progress p over a list of passes → { j: pass index, lp: its own progress } — lp on
 // the PASS CLOCK (demo.passClock): what pipetteRun and every liquid / cap of the pass read
 const passAt = (p, P, plan) => { const j = Math.min(P - 1, Math.floor(p * P)); return { j, lp: demo.passClock(P > 1 ? demo.clamp(p * P - j, 0, 1) : p, plan) } }
@@ -679,10 +678,10 @@ export function configureStation(st, o) {
       demo.addPipetteRig(st)
       const prepUl = Lq ? ulAt('prep:' + o.drawsFrom, 'start') : 0
       st.passPlan = demo.passPlan([{ from: draw, to: { x: disp.x, y: toY, z: disp.z }, opts: { tipUl: mv ? each : null, srcTip: 0.035, dipDepth: ENTRY } }])
-      // the station as it was (a quarter for the mix's arrival, the passes after it), the passes
-      // played plan.W × slower: the arrival and the DESCENT keep their seconds
-      const D0 = passDuration(P) + 0.25 * STEP_DUR, ARR = 0.25 / (0.25 + 0.75 * st.passPlan.W)
-      st.duration = D0 * (0.25 + 0.75 * st.passPlan.W)
+      // a pause for the mix's arrival (the step's clock also waits for its trip), then the passes
+      const ARR_S = MIN_DUR.pause
+      st.duration = ARR_S + passDuration(P, st.passPlan)
+      const ARR = ARR_S / st.duration
       st.enter = () => { seat(0, SEAT_Y, 0); demo.pipRest(st); if (mv) prep.userData.setVolume(prepUl); else prep.userData.setLevel(PREP_FULL) }
       st.timeline = (p) => {
         const v = S[vessel]
@@ -1468,7 +1467,7 @@ function wrapFlowDiscard(st, S, ul, color, seatLocal) {
   const COL_S = 1.2                                      // seconds to stand the column aside (and back)
   // its passes: from the collection tube on the column's seat into the beaker (their own pass plan)
   const plan = demo.passPlan([{ from: { x: seatLocal.x, y: seatLocal.y, z: seatLocal.z }, to: { x: seatLocal.x - 1.15, y: 0, z: seatLocal.z + 0.45 }, opts: { tipUl: each, srcTip: seatLocal.y + 0.02, dipDepth: 0.5 } }])
-  const TD = 2 * COL_S + P * STEP_DUR * 0.35 * plan.W   // + one pass per tip (on its pass clock)
+  const TD = 2 * COL_S + P * plan.W                    // + its one pass (on its pass clock)
   const dur0 = st.duration || STEP_DUR
   st.duration = dur0 + TD
   const F = TD / st.duration                             // share of p
@@ -1942,7 +1941,9 @@ function pace(st) {
     while (e + 1 <= PACE_N && (d[e + 1] > PACE_EPS || (e + 2 <= PACE_N && d[e + 2] > PACE_EPS))) e++
     let peak = 0, len = 0
     for (let i = k; i <= e; i++) { peak = Math.max(peak, d[i] / dp); len += d[i] }
-    const per = dp * peak / (0.95 * MAX_SPEED)   // seconds per sample: the fastest one peaks at MAX_SPEED (5 % under)
+    // seconds per sample: the fastest one peaks at MAX_SPEED (5 % under) — and the run lasts at least the
+    // global minimum of a move (motionPlan.MIN_DUR: the same short move takes the same time everywhere)
+    const per = Math.max(dp * peak / (0.95 * MAX_SPEED), MIN_DUR.move / (e - k + 1))
     for (let i = k; i <= e; i++) T[i] = per
     segs.push({ from: +((k - 1) / PACE_N).toFixed(4), to: +(e / PACE_N).toFixed(4), length: +len.toFixed(3), seconds: +(per * (e - k + 1)).toFixed(3) })
     k = e + 1
@@ -2203,7 +2204,7 @@ function travelTrip(v, dt) {
     // new size — its corners' swing over its own size is way travelled too)
     if (tr.stage !== 1) { const R = new Box3().setFromObject(v).getSize(_tpS).length() / Math.max(v.scale.x, 1e-3); L += tr.q0.angleTo(_qId) * R * tr.s0 + Math.abs(ts - tr.s0) * R }
     // its time from its LENGTH: the whole path on one smootherstep, peaking at MAX_SPEED (motionPlan.js)
-    tr.D = Math.max(0.3, durationFor(L, PEAK.smootherstep))
+    tr.D = Math.max(MIN_DUR.move, durationFor(L, PEAK.smootherstep))
   }
   if (tr.hold && tr.hold()) return true   // waiting (a door opening before it leaves, shutting behind it)
   tr.t += dt
@@ -2611,7 +2612,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       if (g.active) {
         if (!g.dur) {
           g.fromPos = cam.position.clone(); g.fromLook = g.look ? g.look.clone() : new Vector3(lx, ly, lz)
-          g.dur = Math.max(0.25, durationFor(Math.max(g.fromPos.distanceTo(_v3.set(px, py, pz)), g.fromLook.distanceTo(_v3b.set(lx, ly, lz))), PEAK.easeInOut, CAMERA_MAX_SPEED))
+          g.dur = Math.max(MIN_DUR.move, durationFor(Math.max(g.fromPos.distanceTo(_v3.set(px, py, pz)), g.fromLook.distanceTo(_v3b.set(lx, ly, lz))), PEAK.easeInOut, CAMERA_MAX_SPEED))
         }
         g.t = Math.min(g.t + adt / g.dur, 1)
         const e = demo.easeInOut(g.t)
