@@ -1071,7 +1071,9 @@ export function undockWhenStill() {
     var innerMat=new THREE.MeshStandardMaterial({ color:0x8a95a1, roughness:0.55, metalness:0.1 }); // matte interior back wall
     var inWall=new THREE.Mesh(new THREE.PlaneGeometry(3.1,2.2), innerMat); inWall.position.set(0,1.2,-1.39); grp.add(inWall);
     for(var s=0;s<2;s++){ var shelf=new THREE.Mesh(new THREE.BoxGeometry(2.8,0.03,1.7), matBrushed(0x8a94a0)); shelf.position.set(0,0.62+s*0.95,-0.15); grp.add(shelf); }
-    var doorPivot=new THREE.Group(); doorPivot.position.set(-1.6,1.2,0.95); grp.add(doorPivot);
+    // flush against the cabinet's front (bug fix: at z 0.95 the closed frame sat half inside the floor
+    // panel's front edge)
+    var doorPivot=new THREE.Group(); doorPivot.position.set(-1.6,1.2,1.0); grp.add(doorPivot);
     // The door is a FRAME of four rails around the glass — the old 3.2×2.3 solid slab sat
     // behind the glass and made the "glass" door opaque, hiding the flask. Door-local x
     // runs 0..3.2 from the hinge; the glass fills 0.25..2.95 × −0.95..0.75; the deeper top
@@ -1094,10 +1096,15 @@ export function undockWhenStill() {
     var ist={ door:0, tDoor:0 };
     grp.userData.label=label;
     grp.userData.setDoor=function(open){ ist.tDoor=open?1:0; };
-    var doorAt=function(x){ doorPivot.rotation.y=easeInOut(x)*1.3; };
+    // OUTWARD (bug fix: +y swung its free edge INTO the cabinet — through a dish on the shelf, its
+    // bottom rail through the floor panel)
+    // … and fully open (100°): at 75° it leaned across the front a vessel comes in through
+    var doorAt=function(x){ doorPivot.rotation.y=-easeInOut(x)*1.75; };
     var doorK=measureParam(grp,[doorPivot],doorAt,ist.door);         // its speed cap (rule 3)
     grp.userData.update=function(dt){ ist.door=capChase(grp,ist.door,ist.tDoor,dt,0.02,doorK); doorAt(ist.door); };
     grp.userData.doorState=function(){ return ist.door; };
+    // where the door goes as it opens (world boxes): a vessel carried past passes over it
+    grp.userData.doorSweep=function(){ var out=[], keep=ist.door; for(var k=0;k<=4;k++){ doorAt(k/4); grp.updateMatrixWorld(true); out.push(new THREE.Box3().setFromObject(doorPivot)); } doorAt(keep); grp.updateMatrixWorld(true); return out; };
     return grp;
   }
 
