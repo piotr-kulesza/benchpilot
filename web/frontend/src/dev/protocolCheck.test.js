@@ -23,6 +23,11 @@ describe('check-protocol — the pure rules, proven red', () => {
     expect(transitionVerdict({ vesselDone: 220, cameraDone: 240, outFrames: 0 })[0]).toMatch(/camera arrives 20 frames after/)
     expect(transitionVerdict({ vesselDone: 220, cameraDone: 200, outFrames: 31, firstOut: 12 })[0]).toMatch(/out of the frame in 31 frames/)
   })
+  it('RED: a station-change trip faster than its TRANSITION_DURATION time, or one that starts at speed, is red', () => {
+    expect(transitionVerdict({ vesselDone: 300, cameraDone: 290, outFrames: 0, tripFrames: 216, minFrames: 216, firstSpeed: 0.001, avgSpeed: 2 })).toEqual([])
+    expect(transitionVerdict({ vesselDone: 300, cameraDone: 290, outFrames: 0, tripFrames: 140, minFrames: 216, firstSpeed: 0, avgSpeed: 2 })[0]).toMatch(/2\.33 s — faster than its 3\.60 s/)
+    expect(transitionVerdict({ vesselDone: 300, cameraDone: 290, outFrames: 0, tripFrames: 216, minFrames: 216, firstSpeed: 20, avgSpeed: 2 })[0]).toMatch(/starts at speed/)
+  })
   it('per-phase peak speeds of a pipette track (u/s): the descent and the moves, each its own', () => {
     const fr = (phase, y, x = 0) => ({ phase, x, y, z: 0, dt: 0.1 })
     const sp = phaseSpeeds([fr('to source', 2, 0), fr('to source', 2, 0.5), fr('to source', 2, 1.5), fr('descent', 1.5, 1.5), fr('descent', 1.2, 1.5)])

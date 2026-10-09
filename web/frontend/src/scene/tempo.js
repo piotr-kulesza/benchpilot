@@ -21,3 +21,11 @@ export function animationTempo() {
 // relative to each other is e972bcf's. Its clock is the wall clock divided by it (not ANIMATION_TEMPO).
 export const TRANSITION_SLOWDOWN = 1.6
 
+
+// THE STATION-CHANGE TRIP's duration, in seconds ON SCREEN (the wall clock): a vessel carried to the next
+// station takes TRANSITION_DURATION, + TRANSITION_PER_UNIT for every unit of its way above
+// TRANSITION_FREE_UNITS, never more than TRANSITION_MAX (scene/tripEase.js). Change the pace here.
+export const TRANSITION_DURATION = 3.0
+export const TRANSITION_PER_UNIT = 0.3
+export const TRANSITION_FREE_UNITS = 4
+export const TRANSITION_MAX = 4.5

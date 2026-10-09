@@ -17,6 +17,7 @@
 import { Vector3, Box3 } from 'three'
 import { MAX_SPEED, CAMERA_MAX_SPEED } from '../scene/motionPlan.js'
 import { animationTempo } from '../scene/tempo.js'
+import { transitionSeconds } from '../scene/tripEase.js'
 import { sampleLiquids, checkFrames, checkBoundary } from './liquidFrames.js'
 import { simulateStationAsync } from './collisionDriver.js'
 
@@ -212,8 +213,10 @@ export function createPassTracker(line) {
 // THE STATION CHANGE (camera + the vessel's glide): the vessel in the view every frame, the camera's
 // dolly done no later than the vessel sets down
 export function ndcInFrame(pts, edge = 1) { return pts.every(([x, y]) => Math.abs(x) <= edge && Math.abs(y) <= edge) }
-export function transitionVerdict({ vesselDone, cameraDone, outFrames, firstOut }) {
+export function transitionVerdict({ vesselDone, cameraDone, outFrames, firstOut, tripFrames, minFrames, firstSpeed, avgSpeed, fps = 60 }) {
   const bad = []
+  if (tripFrames != null && minFrames != null && tripFrames < minFrames - 1) bad.push(`the trip takes ${(tripFrames / fps).toFixed(2)} s — faster than its ${(minFrames / fps).toFixed(2)} s (TRANSITION_DURATION)`)
+  if (firstSpeed != null && avgSpeed > 0 && firstSpeed > 0.05 * avgSpeed) bad.push(`the trip starts at speed (${firstSpeed.toFixed(2)} u/s in its first frame, ${avgSpeed.toFixed(2)} on average)`)
   if (outFrames) bad.push(`the vessel is out of the frame in ${outFrames} frames of the station change (from frame ${firstOut})`)
   if (vesselDone != null && cameraDone != null && cameraDone > vesselDone) bad.push(`the camera arrives ${cameraDone - vesselDone} frames after the vessel set down`)
   return bad
@@ -222,6 +225,7 @@ export function transitionVerdict({ vesselDone, cameraDone, outFrames, firstOut 
 export function createTransitionTracker(line) {
   const box = new Box3(), c = new Vector3()
   let any = false, outFrames = 0, firstOut = null, vesselDone = null, cameraDone = null, where = null, lead = null, worst = 0
+  let tripStart = null, minFrames = null, avgSpeed = null, firstSpeed = null
   const others = new Set()
   return {
     frame(k) {
@@ -229,7 +233,12 @@ export function createTransitionTracker(line) {
       // THE vessel of the trip: the one the camera follows (it leaves the last station); others travelling
       // (one first shown from where it was left hidden) are counted apart
       const all = [...(S ? S.vessels : []), ...line.preps()].filter((v) => v.visible && v.userData.trip && v.userData.trip.transit)
-      if (g && g.lead && !lead) lead = g.lead
+      if (g && g.lead && !lead) {
+        lead = g.lead
+        // its trip from here: the frames it takes, against the time its way calls for, and its first frame's speed
+        const tr = lead.userData.trip
+        if (tr && tr.path) { tripStart = k; minFrames = Math.round(transitionSeconds(tr.len) * 60); avgSpeed = tr.len / tr.dur; firstSpeed = lead.position.distanceTo(tr.path[0]) * 60 }
+      }
       for (const v of all) if (v !== lead) others.add(v.name || 'vessel')
       const movers = lead ? all.filter((v) => v === lead) : []
       if (movers.length) { any = true; vesselDone = null }
@@ -246,7 +255,12 @@ export function createTransitionTracker(line) {
         if (!ndcInFrame(pts)) { outFrames++; if (firstOut == null) { firstOut = k; const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]); where = `${v.name || 'vessel'} x ${Math.min(...xs).toFixed(2)}…${Math.max(...xs).toFixed(2)}, y ${Math.min(...ys).toFixed(2)}…${Math.max(...ys).toFixed(2)} at (${v.position.toArray().map((q) => q.toFixed(2)).join(', ')})` } break }
       }
     },
-    result() { return any ? { vesselDone, cameraDone, outFrames, firstOut, where, worstNdc: +worst.toFixed(3), others: [...others], red: transitionVerdict({ vesselDone, cameraDone, outFrames, firstOut }) } : null },
+    result() {
+      if (!any) return null
+      const tripFrames = tripStart != null && vesselDone != null ? vesselDone - tripStart + 1 : null
+      const r = { vesselDone, cameraDone, outFrames, firstOut, tripFrames, minFrames, firstSpeed, avgSpeed }
+      return { ...r, tripSeconds: tripFrames != null ? +(tripFrames / 60).toFixed(3) : null, where, worstNdc: +worst.toFixed(3), others: [...others], red: transitionVerdict(r) }
+    },
   }
 }
 export function createPhaseTracker(line, { fps = 60 } = {}) {

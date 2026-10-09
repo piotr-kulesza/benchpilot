@@ -15,6 +15,7 @@ import { PerspectiveCamera } from '@react-three/drei'
 import { FogExp2, Color, Vector3, Quaternion, Box3, Group, Mesh, RingGeometry, SphereGeometry, CylinderGeometry, PlaneGeometry, CanvasTexture, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
 import { animationTempo, TRANSITION_SLOWDOWN } from '../scene/tempo.js'
+import { transitionSeconds, tripEase, pathLength, pointAlong } from '../scene/tripEase.js'
 import { MAX_SPEED, CAMERA_MAX_SPEED, PEAK, MIN_DUR, durationFor } from '../scene/motionPlan.js'
 import { buildLedger, mixColor } from './liquidLedger.js'
 import { tubeShape, volumeAt } from '../scene/liquidShape.js'
@@ -2106,22 +2107,31 @@ function vesselsArriving() {
 }
 // how much of its way a vessel in transit has left: out of its dock to its exitLift, then to its seat
 function tripLeft(v) {
-  const u = v.userData
+  const u = v.userData, tr = u.trip
+  if (tr && tr.path) return Math.max(0, pathLength([...tr.path, u.tPos]) - tr.s)
   return u.exitLift ? v.position.distanceTo(u.exitLift) + u.exitLift.distanceTo(u.tPos) : v.position.distanceTo(u.tPos)
 }
 const CAM_DONE = 0.01   // the camera's dolly is done when the lead vessel is this close to its seat (world units)
 const smootherstep = (t) => { t = Math.min(1, Math.max(0, t)); return t * t * t * (t * (t * 6 - 15) + 10) }
-function travelTrip(v, dt, tdt = dt) {
+function travelTrip(v, dt) {
   const u = v.userData
   const tr = u.trip
   if (!tr || !tr.transit) return false
-  // A TRANSIT to the next station (e972bcf's glide, as it was, on the transition's clock tdt): out of a
-  // dock straight up to its exitLift, then eased toward its seat; arrived within 1e-3
-  const goal = u.exitLift || u.tPos
-  v.position.lerp(goal, 1 - Math.pow(0.02, tdt))
-  if (u.exitLift && v.position.distanceTo(u.exitLift) < 0.06) u.exitLift = null // cleared the instrument — glide on to the seat
-  if (!u.exitLift && v.position.distanceTo(u.tPos) < 1e-3) {
-    v.position.copy(u.tPos); u.trip = null
+  // A TRANSIT to the next station — e972bcf's path (out of a dock straight up to its exitLift, then straight
+  // to its seat), on its own clock: TRANSITION_DURATION and more for a longer way (scene/tempo.js), in
+  // seconds on screen (the wall dt), along it by tripEase — a soft start, an even middle, a soft stop.
+  // (It was an exponential chase, 1 − 0.02^dt of the way a frame: at full speed from the first frame.)
+  if (!tr.path) {
+    tr.path = u.exitLift ? [v.position.clone(), u.exitLift.clone()] : [v.position.clone()]
+    tr.len = pathLength([...tr.path, u.tPos]); tr.dur = transitionSeconds(tr.len); tr.t = 0; tr.s = 0
+  }
+  tr.t += dt
+  const pts = [...tr.path, u.tPos]   // the seat is read live (one on a moving part)
+  tr.s = tripEase(tr.t / tr.dur) * pathLength(pts)
+  pointAlong(pts, tr.s, v.position)
+  if (u.exitLift && tr.s >= pathLength(tr.path)) u.exitLift = null // cleared the instrument — on to the seat
+  if (tr.t >= tr.dur) {
+    v.position.copy(u.tPos); u.trip = null; u.exitLift = null
     if (u._goal) { u._goal.copy(u.tPos); u._vel.set(0, 0, 0); u._spring = false }
   }
   return true
@@ -2632,7 +2642,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       // a vessel that RIDES a moving part (a plate on a reader's drawer) reads its seat now, after the
       // instruments moved this frame — set in the timeline, it trailed the drawer by a frame, into its lip
       if (v.visible && v.userData.rides) v.userData.tPos.copy(v.userData.rides())
-      if (!v.userData.docked && !travelTrip(v, adt, tdt)) {
+      if (!v.userData.docked && !travelTrip(v, dt)) {
         const goal = v.userData.exitLift || v.userData.tPos
         travel(v, goal, adt)
         if (v.userData.exitLift && v.position.distanceTo(v.userData.exitLift) < 0.06) {
@@ -2644,7 +2654,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     // 5b · prep vessels ride the SAME rails: each prepared mixture is CARRIED to the
     // station that draws from it, gliding exactly like the sample — never teleporting.
     for (const pv of demo.getPreps()) {
-      if (pv.visible && !travelTrip(pv, adt, tdt)) travel(pv, pv.userData.tPos, adt)
+      if (pv.visible && !travelTrip(pv, dt)) travel(pv, pv.userData.tPos, adt)
       pv.userData.update?.(adt)
     }
 
