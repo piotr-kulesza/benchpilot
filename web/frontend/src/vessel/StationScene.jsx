@@ -14,7 +14,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera } from '@react-three/drei'
 import { FogExp2, Color, Vector3, Quaternion, Box3, Group, Mesh, RingGeometry, SphereGeometry, CylinderGeometry, PlaneGeometry, CanvasTexture, MeshStandardMaterial, MeshBasicMaterial, PointLight } from 'three'
 import { reagentColor } from './theme.js'
-import { animationTempo, TRANSITION_SLOWDOWN } from '../scene/tempo.js'
+import { animationTempo, TRANSITION_SLOWDOWN, TRANSITION_DURATION } from '../scene/tempo.js'
 import { transitionSeconds, tripEase, pathLength, pointAlong } from '../scene/tripEase.js'
 import { MAX_SPEED, CAMERA_MAX_SPEED, PEAK, MIN_DUR, durationFor } from '../scene/motionPlan.js'
 import { buildLedger, mixColor } from './liquidLedger.js'
@@ -32,7 +32,6 @@ const RAIL_Y = 3.35
 const RAIL_Z = 9.6
 const LOOK_Y = 1.05
 const STEP_DUR = 6.5 // the demo's per-step animation window (seconds)
-const GLIDE_DUR = 1.65 // camera rail-dolly duration on a step change (the demo)
 const SPACING = 8.4 // distance between stations along +X (the demo's buildLine)
 // Camera framing is MEASURED from each station's content bounding box, never assumed
 // to sit at the origin (a centrifuge is parked off to one side, a CO₂ incubator is
@@ -2095,7 +2094,7 @@ function travel(v, goal, dt) {
     if (dt > 0) u._vel.copy(v.position).sub(before).divideScalar(dt)   // carried into a spring if the target jumps
   }
 }
-const _travelPrev = new Vector3()
+const _travelPrev = new Vector3(), _camT = new Vector3()
 const _v3 = new Vector3(), _v3b = new Vector3()
 // is any shown vessel (the sample, a prep) still on its trip here?
 function vesselsArriving() {
@@ -2193,6 +2192,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
   const guardRef = useRef({ station: -1, prev: new Map(), said: new Set() })   // the dev rule guard
   const restartRef = useRef(true)
   const perspRef = useRef()
+  const swayTimeRef = useRef(0), lookRef = useRef(new Vector3(0, LOOK_Y, 0))
   const keyRef = useRef()
   const rimRef = useRef()
   // prep-vessel lifetimes: id -> { prepareIndex, consumerIndex, home:{x,y,z}, draw:{x,y,z} }.
@@ -2437,7 +2437,11 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     if (prevActiveRef.current === active) return // already framed (e.g. just built)
     const sequential = prevActiveRef.current >= 0 && Math.abs(active - prevActiveRef.current) === 1
     // rail-dolly the camera to the active station (damped, no cut / pop-in)
-    glideRef.current = { active: true, t: 0, from: railXRef.current, to: stations[active].x }
+    // the camera leaves from WHERE IT IS (its pose this moment — a pushed-in view, the last station's framing,
+    // a glide cut short): the frame loop eases the difference to the new framing away, never a cut
+    const camNow = perspRef.current
+    glideRef.current = { active: true, t: 0, from: railXRef.current, to: stations[active].x,
+      p0: camNow ? camNow.position.clone() : null, l0: camNow ? lookRef.current.clone() : null, dp: null, dl: null }
     targetXRef.current = stations[active].x
     // the single sample glides (sequential) or snaps (jump) to the new station. If we
     // left a spin mid-way, free the sample from the rotor — and on a sequential Next lift
@@ -2499,7 +2503,10 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
 
     // 1 · ease railX toward the active station's X
     // (e972bcf's camera, as it was — on the TRANSITION's clock: the wall clock ÷ TRANSITION_SLOWDOWN)
-    const tdt = dt / TRANSITION_SLOWDOWN, time = state.clock.elapsedTime / TRANSITION_SLOWDOWN
+    // the sway's clock is the frames' own (dt, capped as above) — on the wall clock it jumped whenever frames
+    // stopped (a hidden tab, a long frame; the checker's skip through a countdown)
+    swayTimeRef.current += dt / TRANSITION_SLOWDOWN
+    const tdt = dt / TRANSITION_SLOWDOWN, time = swayTimeRef.current
     const g = glideRef.current
     if (g.active && g.lead) {
       // paced by the lead vessel's own progress along its way (out of a dock, then to its seat): the dolly
@@ -2512,8 +2519,10 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       railXRef.current = demo.lerp(g.from, g.to, smootherstep(g.t))
       if (g.t >= 1) { g.active = false; g.lead = null; railXRef.current = g.to }
     } else if (g.active) {
-      g.t = Math.min(g.t + tdt / GLIDE_DUR, 1)
-      railXRef.current = demo.lerp(g.from, g.to, demo.easeInOut(g.t))
+      // nothing travels (or a vessel was placed in one frame): the camera's own smooth move, TRANSITION_DURATION
+      // on screen, a smootherstep (soft start and stop, no jerk)
+      g.t = Math.min(g.t + dt / TRANSITION_DURATION, 1)
+      railXRef.current = demo.lerp(g.from, g.to, smootherstep(g.t))
       if (g.t >= 1) { g.active = false; railXRef.current = g.to }
     }
     const railX = railXRef.current
@@ -2538,8 +2547,19 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
         px = demo.lerp(px, railX + t.pos[0], push); py = demo.lerp(py, t.pos[1], push); pz = demo.lerp(pz, t.pos[2], push)
         lx = demo.lerp(lx, railX + t.look[0], push); ly = demo.lerp(ly, t.look[1], push); lz = demo.lerp(lz, t.look[2], push)
       }
+      // a station change: from the pose the camera had (g.p0, aimed at g.l0) to this framing — their difference
+      // eased away on the rail's own curve, so it is all there at the first frame (no cut) and gone at the end
+      // (the end framing exactly this station's)
+      if (g.p0) {
+        if (!g.dp) { g.dp = g.p0.clone().sub(_camT.set(px, py, pz)); g.dl = g.l0.clone().sub(_camT.set(lx, ly, lz)) }
+        const w = g.active ? 1 - smootherstep(g.t) : 0
+        px += g.dp.x * w; py += g.dp.y * w; pz += g.dp.z * w
+        lx += g.dl.x * w; ly += g.dl.y * w; lz += g.dl.z * w
+        if (!g.active) g.p0 = null
+      }
       cam.position.set(px, py, pz)
       cam.lookAt(lx, ly, lz)
+      lookRef.current.set(lx, ly, lz)
       // keep the active station's title label INSIDE the frame, below the top HUD band:
       // if its top edge would project above LABEL_TOP_NDC, lower it (never below the
       // subject's top) — a pushed-in or widened frame used to clip it at the top edge

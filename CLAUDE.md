@@ -215,7 +215,9 @@ Enforced BY CONSTRUCTION (shared code, any protocol):
 - **The station change** (a vessel carried to the next station on Next): e972bcf's path (out of a dock straight
   up, then straight to its seat), timed by `tempo.js` → `TRANSITION_DURATION` (3.0 s on screen, + 0.3 s per unit
   of way above 4, at most 4.5 s), eased by `tripEase` (soft start, even middle, soft stop); the camera's dolly
-  follows that vessel's progress (`scene/tripEase.js`; checked by check-protocol: never faster, no start at speed).
+  follows that vessel's progress (nothing travels: its own smootherstep over TRANSITION_DURATION), and it
+  never cuts: it leaves from its pose of the moment and eases the difference to the new framing away on the same
+  curve (its sway on the frames' own clock); check-protocol holds its step per frame to `CAM_JUMP` (`scene/tripEase.js`; checked by check-protocol: never faster, no start at speed).
 - **Trips** between stations: timed from their path length (plus the swing of a vessel's corners as it
   rights itself and changes size), one smootherstep; leaving through an opening (a rotor slot, a
   freezer's door) is two eased legs — out, then on — and waits for a door to open; a vessel leaves a
