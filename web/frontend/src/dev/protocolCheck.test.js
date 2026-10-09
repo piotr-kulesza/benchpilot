@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { passesFor, comparePasses, isolatedJump, createFinish, phaseSpeeds, ndcInFrame, transitionVerdict } from './protocolCheck.js'
+import { passesFor, comparePasses, isolatedJump, createFinish, phaseSpeeds, ndcInFrame, transitionVerdict, cameraStep, cameraJumps, CAM_JUMP } from './protocolCheck.js'
 import { generateProtocol, EDGE_VOLUMES } from './genProtocol.js'
 
 describe('check-protocol — the pure rules, proven red', () => {
@@ -27,6 +27,21 @@ describe('check-protocol — the pure rules, proven red', () => {
     expect(transitionVerdict({ vesselDone: 300, cameraDone: 290, outFrames: 0, tripFrames: 216, minFrames: 216, firstSpeed: 0.001, avgSpeed: 2 })).toEqual([])
     expect(transitionVerdict({ vesselDone: 300, cameraDone: 290, outFrames: 0, tripFrames: 140, minFrames: 216, firstSpeed: 0, avgSpeed: 2 })[0]).toMatch(/2\.33 s — faster than its 3\.60 s/)
     expect(transitionVerdict({ vesselDone: 300, cameraDone: 290, outFrames: 0, tripFrames: 216, minFrames: 216, firstSpeed: 20, avgSpeed: 2 })[0]).toMatch(/starts at speed/)
+  })
+  it('RED: the camera never cuts or jumps — its step between frames in position and in rotation is held to CAM_JUMP', () => {
+    const pose = (x, y, z, q = [0, 0, 0, 1]) => ({ p: [x, y, z], q })
+    expect(cameraStep(pose(0, 0, 0), pose(0.05, 0, 0)).dPos).toBeCloseTo(0.05, 9)
+    const half = Math.SQRT1_2
+    expect(cameraStep(pose(0, 0, 0), pose(0, 0, 0, [0, Math.sin(Math.PI / 360), 0, Math.cos(Math.PI / 360)])).dRot).toBeCloseTo(1, 6)   // 1°
+    expect(cameraStep(pose(0, 0, 0, [0, 0, 0, 1]), pose(0, 0, 0, [0, 0, 0, -1])).dRot).toBeCloseTo(0, 6)                                 // q ≡ −q
+    // a smooth glide: no jump; a framing switch (0.632 down in one frame) and a sway snap: jumps
+    const glide = Array.from({ length: 60 }, (_, k) => pose(k * 0.08, 3, 9))
+    expect(cameraJumps(glide)).toEqual([])
+    const cut = [...glide.slice(0, 30), ...glide.slice(30).map((c) => pose(c.p[0], 3 - 0.632, 9))]
+    const j = cameraJumps(cut)
+    expect(j.length).toBe(1); expect(j[0].frame).toBe(30); expect(j[0].dPos).toBeGreaterThan(CAM_JUMP.pos)
+    const turn = [pose(0, 3, 9), pose(0, 3, 9, [0, half, 0, half])]
+    expect(cameraJumps(turn)[0].dRot).toBeCloseTo(90, 4)
   })
   it('per-phase peak speeds of a pipette track (u/s): the descent and the moves, each its own', () => {
     const fr = (phase, y, x = 0) => ({ phase, x, y, z: 0, dt: 0.1 })

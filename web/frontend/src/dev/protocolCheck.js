@@ -263,6 +263,46 @@ export function createTransitionTracker(line) {
     },
   }
 }
+// THE CAMERA NEVER CUTS OR JUMPS: its step from one frame to the next, in position (world units) and in
+// rotation (degrees), every frame of a station and of the change into it — a step over CAM_JUMP is a jump.
+// (Its SPEED is held to its cap by the motion tracker; this is the cut that no speed limit reads as motion:
+// e.g. a framing switched in one frame. 0.2 u a frame is 12 u/s on screen, over twice the camera's cap.)
+export const CAM_JUMP = { pos: 0.2, rot: 1 }
+export function cameraStep(a, b) {
+  const dPos = Math.hypot(b.p[0] - a.p[0], b.p[1] - a.p[1], b.p[2] - a.p[2])
+  const dot = Math.min(1, Math.abs(a.q[0] * b.q[0] + a.q[1] * b.q[1] + a.q[2] * b.q[2] + a.q[3] * b.q[3]))
+  return { dPos, dRot: (2 * Math.acos(dot) * 180) / Math.PI }
+}
+export function cameraJumps(poses, lim = CAM_JUMP) {
+  const out = []
+  for (let k = 1; k < poses.length; k++) {
+    const { dPos, dRot } = cameraStep(poses[k - 1], poses[k])
+    if (dPos > lim.pos || dRot > lim.rot) out.push({ frame: poses[k].frame != null ? poses[k].frame : k, dPos: +dPos.toFixed(3), dRot: +dRot.toFixed(2), during: poses[k].during })
+  }
+  return out
+}
+// per frame: the camera's pose (no reset at a countdown's cut — the camera must not jump there either), and
+// its END FRAMING: the pose the frame its station change is done, the sway taken out (benchLine.sway)
+export function createCameraTracker(line, seed = null) {
+  let last = seed, any = false, end = null, wasActive = false
+  const jumps = []
+  return {
+    frame(k) {
+      const c = line.camera && line.camera(), g = line.glide && line.glide()
+      if (!c) return
+      const active = !!(g && g.active)
+      const cur = { frame: k, p: c.position.toArray(), q: c.quaternion.toArray(), during: active ? 'station change' : 'station' }
+      if (last) for (const j of cameraJumps([last, cur])) jumps.push(j)
+      last = cur
+      if (active) { any = true; wasActive = true }
+      if (wasActive && !active && !end) {
+        const sw = line.sway ? line.sway() : 0
+        end = { frame: k, pos: [cur.p[0] - sw, cur.p[1], cur.p[2]].map((x) => +x.toFixed(5)), quat: cur.q.map((x) => +x.toFixed(5)) }
+      }
+    },
+    result() { return { jumps, end: any ? end : null } },
+  }
+}
 export function createPhaseTracker(line, { fps = 60 } = {}) {
   const track = [], w = new Vector3()
   return {
@@ -279,9 +319,9 @@ export function createPhaseTracker(line, { fps = 60 } = {}) {
 // Run the ACTIVE station on the runner's own clock and check everything. `timed`: the step's
 // countdown in seconds (Start is pressed once its vessels have arrived; a countdown over `fullTo`
 // seconds runs its first and last 10 s and skips the middle — protocol time, not animation).
-export async function checkStation(line, { timed = 0, fullTo = 20, tailSec = 2, maxSec = 240, every = 8, clockAdd, startTimer } = {}) {
+export async function checkStation(line, { timed = 0, fullTo = 20, tailSec = 2, maxSec = 240, every = 8, clockAdd, startTimer, camSeed = null } = {}) {
   const fps = 60, tempo = animationTempo()
-  const motion = createMotionTracker(line, { fps }), passes = createPassTracker(line), phases = createPhaseTracker(line, { fps }), trans = createTransitionTracker(line)
+  const motion = createMotionTracker(line, { fps }), passes = createPassTracker(line), phases = createPhaseTracker(line, { fps }), trans = createTransitionTracker(line), camT = createCameraTracker(line, camSeed)
   const liquid = []
   let prevL = null
   const arriving = () => { const S = line.sample(); return !!((S && S.vessels.some((v) => v.visible && v.userData.trip)) || line.preps().some((v) => v.visible && v.userData.trip)) }
@@ -310,7 +350,7 @@ export async function checkStation(line, { timed = 0, fullTo = 20, tailSec = 2, 
     },
     onFrame(k) {
       if (window.__traceSpin && line.stations()[line.active()].cen) { const c = line.stations()[line.active()].cen, S = line.sample(); (window.__spinTrace || (window.__spinTrace = [])).push([k, +c.userData.st.spin.toFixed(3), S.column && S.column.userData.drawnUl ? +S.column.userData.drawnUl().toFixed(1) : null, +((window.__benchperf && window.__benchperf.p) || 0).toFixed(3), !!(S.column && S.column.userData.docked)]) }
-      motion.frame(k); passes.frame(k); phases.frame(k); trans.frame(k)
+      motion.frame(k); passes.frame(k); phases.frame(k); trans.frame(k); camT.frame(k)
       const cur = { k, p: pNow(), ...sampleLiquids(line) }
       if (prevL) for (const b of checkFrames([prevL, cur])) if (liquid.length < 40) liquid.push(b)
       prevL = cur
@@ -324,7 +364,7 @@ export async function checkStation(line, { timed = 0, fullTo = 20, tailSec = 2, 
   const collisions = found.filter((d) => !MOTION.includes(d.check))
   const motionAudit = found.filter((d) => MOTION.includes(d.check))
   const pEnd = pNow()
-  return { liquid, ...motion.result(), collisions, motionAudit, ...{ pipette: passes.result() }, phaseSpeeds: phases.result(), transition: trans.result(), unfinished: pEnd < 0.9999 || !finish.ran ? +pEnd.toFixed(3) : null }
+  return { liquid, ...motion.result(), collisions, motionAudit, ...{ pipette: passes.result() }, phaseSpeeds: phases.result(), transition: trans.result(), cameraPose: camT.result(), unfinished: pEnd < 0.9999 || !finish.ran ? +pEnd.toFixed(3) : null }
 }
 
 export { sampleLiquids, checkBoundary }

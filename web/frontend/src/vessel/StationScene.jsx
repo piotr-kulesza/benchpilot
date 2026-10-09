@@ -2482,6 +2482,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
   // (benchLine.pForce) — window.__benchLine exists only in a dev build
   const benchLine = useRef({ hold: false, pForce: null }).current
   const lastStateRef = useRef(null)
+  const swayRef = useRef(0)   // the camera's sway this frame (x, world units) — read by the dev checker
   const frame = (state, dt) => {
     dt = Math.min(dt, 0.05)
     // MOTION time: every moving thing below (p, the centrifuge's choreography, builders' update,
@@ -2524,7 +2525,8 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     const fit = demo.clamp(f.radius / R_REF, 1, 1.7) // back off only for oversized rigs
     const cam = perspRef.current
     if (cam) {
-      const cx = railX + f.center.x + Math.sin(time * 0.15) * 0.12
+      swayRef.current = Math.sin(time * 0.15) * 0.12
+      const cx = railX + f.center.x + swayRef.current
       // demo angle/height, scaled to fit, aimed at the content centre (x/y/z)
       let px = cx, py = f.center.y + (RAIL_Y - LOOK_Y) * fit, pz = f.center.z + RAIL_Z * fit
       let lx = cx, ly = f.center.y, lz = f.center.z
@@ -2734,6 +2736,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       render: () => { const s = lastStateRef.current; s.gl.render(s.scene, s.camera) },
       camera: () => lastStateRef.current && lastStateRef.current.camera,
       glide: () => glideRef.current,
+      sway: () => swayRef.current,
     })
     window.__benchLine = benchLine
   }
