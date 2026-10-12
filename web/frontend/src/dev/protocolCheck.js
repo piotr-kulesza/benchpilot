@@ -225,7 +225,7 @@ export function transitionVerdict({ vesselDone, cameraDone, outFrames, firstOut,
 export function createTransitionTracker(line) {
   const box = new Box3(), c = new Vector3()
   let any = false, outFrames = 0, firstOut = null, vesselDone = null, cameraDone = null, where = null, lead = null, worst = 0
-  let tripStart = null, minFrames = null, avgSpeed = null, firstSpeed = null
+  let tripStart = null, minFrames = null, avgSpeed = null, firstSpeed = null, plan = null, track = []
   const others = new Set()
   return {
     frame(k) {
@@ -237,7 +237,7 @@ export function createTransitionTracker(line) {
         lead = g.lead
         // its trip from here: the frames it takes, against the time its way calls for, and its first frame's speed
         const tr = lead.userData.trip
-        if (tr && tr.dense) { tripStart = k; minFrames = Math.round(transitionSeconds(tr.len) * 60); avgSpeed = tr.len / tr.dur; firstSpeed = lead.position.distanceTo(tr.dense[0]) * 60 }
+        if (tr && tr.dense) { plan = { pts: tr.plan.pts.map((q) => [q.x, q.y, q.z].map((x) => +x.toFixed(3))), lift: tr.plan.lift, entry: tr.plan.entry, carry: tr.plan.carry, front: tr.plan.front, blocked: tr.plan.blocked || null, tilt: +(2 * Math.acos(Math.min(1, Math.abs(tr.q0.w))) * 57.3).toFixed(1), s0: tr.s0, s1: tr.s1, len: +tr.len.toFixed(3) }; tripStart = k; minFrames = Math.round(transitionSeconds(tr.len) * 60); avgSpeed = tr.len / tr.dur; firstSpeed = lead.position.distanceTo(tr.dense[0]) * 60 }
       }
       for (const v of all) if (v !== lead) others.add(v.name || 'vessel')
       const movers = lead ? all.filter((v) => v === lead) : []
@@ -245,6 +245,7 @@ export function createTransitionTracker(line) {
       else if (any && vesselDone == null) vesselDone = k
       if (any && g && !g.active && cameraDone == null) cameraDone = k
       if (g && g.active) cameraDone = null
+      if (lead && movers.length && track.length < 400 && k % 4 === 0) { const pc = line.stations()[line.active() - 1], rot = pc && pc.cen && pc.cen.userData.rotor; track.push([k, ...lead.position.toArray().map((x) => +x.toFixed(3)), +(2 * Math.acos(Math.min(1, Math.abs(lead.quaternion.w))) * 57.3).toFixed(1), +lead.scale.x.toFixed(3), rot ? +rot.rotation.y.toFixed(4) : null, pc && pc.cen && pc.cen.userData.st ? +(+pc.cen.userData.st.spin || 0).toFixed(4) : null]) }
       if (!cam || !movers.length) return
       cam.updateMatrixWorld()
       for (const v of movers) {
@@ -259,7 +260,7 @@ export function createTransitionTracker(line) {
       if (!any) return null
       const tripFrames = tripStart != null && vesselDone != null ? vesselDone - tripStart + 1 : null
       const r = { vesselDone, cameraDone, outFrames, firstOut, tripFrames, minFrames, firstSpeed, avgSpeed }
-      return { ...r, tripSeconds: tripFrames != null ? +(tripFrames / 60).toFixed(3) : null, where, worstNdc: +worst.toFixed(3), others: [...others], red: transitionVerdict(r) }
+      return { ...r, plan, track, tripSeconds: tripFrames != null ? +(tripFrames / 60).toFixed(3) : null, where, worstNdc: +worst.toFixed(3), others: [...others], red: transitionVerdict(r) }
     },
   }
 }

@@ -88,20 +88,26 @@ export function prepAt(id, x, y, z) {
 // loop honours before the normal glide) so it never drags diagonally through the rotor
 // or the lid. On a jump (`lift` false) we just free it — a jump is allowed to snap.
 // (e972bcf's, as it was — the station-change transition is e972bcf's: StationScene, TRANSITION_SLOWDOWN)
+export const ROTOR_STILL = 1e-4
+// a vessel that rode a turning rotor: out of it, into the scene (its pose in the world kept)
+export function leaveRotor(v) { if (scene && v.parent && v.parent !== scene) scene.attach(v); v.userData.waitRotor = null }
 export function undockSample(lift = false) {
   if (!SAMPLE || !scene) return
   for (const v of SAMPLE.vessels) {
     v.userData.trip = null; v.userData.leaveWhenStill = false; v.userData.exitOut = null   // (no later trip state survives)
     const wasDocked = v.userData.docked
-    if (v.parent && v.parent !== scene) scene.attach(v)
+    // in a rotor that is still turning (it slows to a stop after the run): it stays in its slot, riding it,
+    // until the rotor is still — taken out of a turning rotor, the slot swept into it (StationScene: travelTrip)
+    let cen = null
+    if (lift && wasDocked) for (let o = v.parent; o; o = o.parent) if (o.userData && o.userData.rotor && o.userData.st) { cen = o; break }
+    v.userData.waitRotor = cen && Math.abs(+cen.userData.st.spin || 0) > ROTOR_STILL ? cen : null
+    if (v.parent && v.parent !== scene && !v.userData.waitRotor) scene.attach(v)
     if (wasDocked) {
-      v.userData.docked = false; v.rotation.set(0, 0, 0); v.scale.setScalar(1)
-      if (lift) {
-        const lp = exitLiftPoint(v.position, EXIT_CLEAR_Y)
-        v.userData.exitLift = (v.userData.exitLift || new THREE.Vector3()).set(lp.x, lp.y, lp.z)
-      } else {
-        v.userData.exitLift = null
-      }
+      // on a sequential Next it leaves AS IT IS (its tilt and size in the slot): its trip takes it out along
+      // its axis, up out of the instrument only as high as its rim, and rights it (StationScene: planVesselTrip)
+      v.userData.docked = false; v.userData.exitLift = null
+      if (!lift) { v.rotation.set(0, 0, 0); v.scale.setScalar(1) }
+      else { v.userData.tScale = 1; v.userData.fromSlot = true; v.userData.fromSlotSize = true }   // (full size again on its way, unless its next seat says otherwise)
     } else {
       v.userData.exitLift = null
     }
@@ -306,7 +312,7 @@ export function undockSample(lift = false) {
     draw(text, sub);                       // size + paint the canvas once
     tex=new THREE.CanvasTexture(c); tex.anisotropy=MAX_ANISO;
     sp=new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, transparent:true, depthTest:false, depthWrite:false }));
-    sp.renderOrder=999;
+    sp.renderOrder=999; sp.name="label "+(text||sub||"");
     if(c.width>4){ sp.scale.set(c.width*PIX, c.height*PIX, 1); sp.userData.worldH=c.height*PIX; }
     else { sp.scale.set(0.0001,0.0001,1); sp.userData.worldH=0; }
     sp.userData.update=function(t2,s2){ draw(t2,s2); };
@@ -2759,7 +2765,8 @@ export {
     };
     // set a vessel's travel target; snap instantly on non-sequential jumps, glide otherwise
     S.at=function(vessel,x,y,z){ vessel.userData.tPos.set(x,y,z); if(SNAP_SAMPLE) vessel.position.set(x,y,z); };
-    S.snapTo=function(vessel,x,y,z){ vessel.userData.tPos.set(x,y,z); vessel.position.set(x,y,z); };
+    // (a vessel on its trip to this station is not placed: its seat is set, and the trip takes it there)
+    S.snapTo=function(vessel,x,y,z){ vessel.userData.tPos.set(x,y,z); if(!(vessel.userData.trip && vessel.userData.trip.transit)) vessel.position.set(x,y,z); };
     return S;
   }
 

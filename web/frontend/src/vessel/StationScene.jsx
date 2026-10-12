@@ -16,6 +16,8 @@ import { FogExp2, Color, Vector3, Quaternion, Box3, Group, Mesh, RingGeometry, S
 import { reagentColor } from './theme.js'
 import { animationTempo, TRANSITION_SLOWDOWN, TRANSITION_DURATION } from '../scene/tempo.js'
 import { transitionSeconds, tripEase, pathLength, pointAlong } from '../scene/tripEase.js'
+import { planTrip, roundedPath } from '../scene/tripPath.js'
+import { OBB } from 'three/examples/jsm/math/OBB.js'
 import { MAX_SPEED, CAMERA_MAX_SPEED, PEAK, MIN_DUR, durationFor } from '../scene/motionPlan.js'
 import { buildLedger, mixColor } from './liquidLedger.js'
 import { tubeShape, volumeAt } from '../scene/liquidShape.js'
@@ -154,6 +156,63 @@ function clampLabel(st, cam) {
     y -= 0.05
   }
   lab.position.y = Math.max(y, Math.min(floorY, st.labelBaseY))
+}
+
+// a station's title, placed ONCE: as high as its base allows while it stays below the HUD band in the
+// station's own framing (the camera at rest there, and pushed in, if it pushes)
+const _labCam = { cam: null }
+function placeLabel(st, cam) {
+  const c = _labCam.cam || (_labCam.cam = cam.clone())
+  c.fov = cam.fov; c.aspect = cam.aspect; c.near = cam.near; c.far = cam.far; c.updateProjectionMatrix()
+  const f = st.frame || DEFAULT_FRAME, fit = demo.clamp(f.radius / R_REF, 1, 1.7)
+  const poses = [[st.x + f.center.x, f.center.y + (RAIL_Y - LOOK_Y) * fit, f.center.z + RAIL_Z * fit, st.x + f.center.x, f.center.y, f.center.z]]
+  if (st.pushCam && st.pushTarget) { const t = st.pushTarget; poses.push([st.x + t.pos[0], t.pos[1], t.pos[2], st.x + t.look[0], t.look[1], t.look[2]]) }
+  let y = st.labelBaseY
+  for (const q of poses) {
+    c.position.set(q[0], q[1], q[2]); c.lookAt(q[3], q[4], q[5]); c.updateMatrixWorld()
+    st.label.position.y = st.labelBaseY
+    clampLabel(st, c)
+    y = Math.min(y, st.label.position.y)
+  }
+  st.label.position.y = y
+}
+
+// A SEAT IN VIEW: the least shift of a seat (local x, z) toward the station's centre that keeps the vessel's
+// box inside the station's own framing (its sway at the worse side), edge 0.98. The camera's framing is the
+// station's, unchanged — only the seat moves, and only as far as it must.
+const liveCam = { cam: null }
+const _sv = new Vector3(), _sbx = new Box3()
+function seatInView(st, v, x, y, z) {
+  const cam = liveCam.cam
+  if (!cam || !st.frame) return { x, z }
+  const c = _labCam.cam || (_labCam.cam = cam.clone())
+  c.fov = cam.fov; c.aspect = cam.aspect; c.near = cam.near; c.far = cam.far; c.updateProjectionMatrix()
+  const f = st.frame, fit = demo.clamp(f.radius / R_REF, 1, 1.7)
+  const q0 = v.quaternion.clone(), s0 = v.scale.x, p0 = v.position.clone()
+  v.quaternion.identity(); v.scale.setScalar(v.userData.tScale != null ? v.userData.tScale : 1); v.position.set(0, 0, 0)
+  vesselBox(v, _sbx)
+  v.quaternion.copy(q0); v.scale.setScalar(s0); v.position.copy(p0)
+  const len = Math.hypot(x, z) || 1, ux = -x / len, uz = -z / len
+  const worst = (dx, dz) => {
+    let w = 0
+    for (const sway of [-0.12, 0.12]) {
+      c.position.set(st.x + f.center.x + sway, f.center.y + (RAIL_Y - LOOK_Y) * fit, f.center.z + RAIL_Z * fit)
+      c.lookAt(st.x + f.center.x + sway, f.center.y, f.center.z); c.updateMatrixWorld()
+      for (const bx of [_sbx.min.x, _sbx.max.x]) for (const by of [_sbx.min.y, _sbx.max.y]) for (const bz of [_sbx.min.z, _sbx.max.z]) {
+        _sv.set(st.x + x + dx + bx, y + by, z + dz + bz).project(c); w = Math.max(w, Math.abs(_sv.x), Math.abs(_sv.y))
+      }
+    }
+    return w
+  }
+  // never into what stands at the station: the shift stops TRIP_CLEAR short of its solids
+  const solids = boxesOf([st.group]), C = 0.05
+  const free = (dx, dz) => {
+    const v = { min: { x: st.x + x + dx + _sbx.min.x - C, y: y + _sbx.min.y + 0.01, z: z + dz + _sbx.min.z - C }, max: { x: st.x + x + dx + _sbx.max.x + C, y: y + 50, z: z + dz + _sbx.max.z + C } }   // (and nothing over it: set down from above)
+    return !solids.some((b) => b.min.x <= v.max.x && b.max.x >= v.min.x && b.min.y <= v.max.y && b.max.y >= v.min.y && b.min.z <= v.max.z && b.max.z >= v.min.z && b.hit(v))
+  }
+  let d = 0
+  while (d < len && worst(ux * d, uz * d) > 0.98 && free(ux * (d + 0.01), uz * (d + 0.01))) d += 0.01
+  return { x: x + ux * d, z: z + uz * d }
 }
 
 function computeStationFrame(st) {
@@ -1195,11 +1254,13 @@ export function configureStation(st, o) {
     st.dev = rig
     rig.userData.showGel(false)
     const BENCH = { x: -3.1, z: 0.3 }                 // clear of the tank's footprint (the gel's tray sits 0.8 off its origin: at −2.9 it stood 0.16 under the tank's edge)
+    const BENCH0 = { ...BENCH }
     // seated ON the tank's floor (its tray hung 0.25 above it in the buffer, its top through the tank's rim)
     const DOCK = { x: 0, y: rig.userData.floorY, z: 0 }   // resting ON the tank's floor (it sat 0.09 into the base frame)
     const CLEAR = rig.userData.rimY + 0.4             // gel base clears the rim on the way in/out
     const put = (x, y, z) => S.at(S[vessel], st.x + x, y, z)
-    st.enter = () => { seat(BENCH.x, SEAT_Y, BENCH.z); rig.userData.setLidLift(0); rig.userData.setVolts(false) }
+    // (moved toward the centre only as far as keeps it in the station's view — at −3.1 it stood off its left edge)
+    st.enter = () => { Object.assign(BENCH, seatInView(st, S[vessel], BENCH0.x, SEAT_Y, BENCH0.z)); seat(BENCH.x, SEAT_Y, BENCH.z); rig.userData.setLidLift(0); rig.userData.setVolts(false) }
     st.timeline = (p) => {
       const seg = (a, b) => demo.easeInOut(demo.clamp((p - a) / (b - a), 0, 1))
       if (p < 0.08) {                                  // 1 · lid (with leads) lifts straight up
@@ -2104,33 +2165,122 @@ function vesselsArriving() {
   if (S && S.vessels.some((v) => v.visible && v.userData.trip)) return true
   return demo.getPreps().some((v) => v.visible && v.userData.trip)
 }
-// how much of its way a vessel in transit has left: out of its dock to its exitLift, then to its seat
+// how much of its way a vessel in transit has left
 function tripLeft(v) {
   const u = v.userData, tr = u.trip
-  if (tr && tr.path) return Math.max(0, pathLength([...tr.path, u.tPos]) - tr.s)
-  return u.exitLift ? v.position.distanceTo(u.exitLift) + u.exitLift.distanceTo(u.tPos) : v.position.distanceTo(u.tPos)
+  if (tr && tr.dense) return Math.max(0, tr.len - tr.s)
+  return v.position.distanceTo(u.tPos)
 }
-const CAM_DONE = 0.01   // the camera's dolly is done when the lead vessel is this close to its seat (world units)
 const smootherstep = (t) => { t = Math.min(1, Math.max(0, t)); return t * t * t * (t * (t * 6 - 15) + 10) }
+
+// THE TRIP'S WORLD: the solids of the station it leaves and the one it goes to (set at the step change), as
+// world boxes, read once at the trip's first frame (the new station posed at its start)
+const tripWorld = { groups: [], boxes: null, doors: [] }
+const _sb = new Box3(), _mb = new Box3(), _hb = new Box3(), _hv1 = new Vector3(), _hv2 = new Vector3()
+function isSolidMesh(m) {
+  if (!m.isMesh || m.isSprite || !m.geometry) return false
+  const mat = [].concat(m.material)[0]
+  return !((m.userData && m.userData.auditKind) || (mat && mat.userData && mat.userData.auditKind))
+}
+function tripBoxes() {
+  if (tripWorld.boxes) return tripWorld.boxes
+  return (tripWorld.boxes = boxesOf(tripWorld.groups))
+}
+function boxesOf(groups) {
+  const out = []
+  for (const g of groups) {
+    g.updateMatrixWorld(true)
+    g.traverse((m) => {
+      if (!isSolidMesh(m)) return
+      for (let n = m; n && n !== g; n = n.parent) if (!n.visible) return   // (the station may still be faded out)
+      const b = new Box3().setFromObject(m)
+      if (b.isEmpty()) return
+      // its own oriented box (its geometry's box in its world matrix) refines the world AABB's test
+      if (!m.geometry.boundingBox) m.geometry.computeBoundingBox()
+      const obb = new OBB().fromBox3(m.geometry.boundingBox).applyMatrix4(m.matrixWorld)
+      out.push({ min: { x: b.min.x, y: b.min.y, z: b.min.z }, max: { x: b.max.x, y: b.max.y, z: b.max.z },
+        hit: (v) => obb.intersectsBox3(_hb.set(_hv1.set(v.min.x, v.min.y, v.min.z), _hv2.set(v.max.x, v.max.y, v.max.z))) })
+    })
+  }
+  return out
+}
+// a vessel's solid extent in the world (its visible meshes — not its label)
+function vesselBox(v, out) {
+  out.makeEmpty(); v.updateMatrixWorld(true)
+  v.traverse((m) => { if (!isSolidMesh(m)) return; for (let n = m; n && n !== v; n = n.parent) if (!n.visible) return; _mb.setFromObject(m); out.union(_mb) })
+  return out
+}
+const plain = (b) => ({ min: { x: b.min.x, y: b.min.y, z: b.min.z }, max: { x: b.max.x, y: b.max.y, z: b.max.z } })
+const _qI = new Quaternion(), _ax = new Vector3()
+
+// plan the trip (once, at its first frame): from where the vessel is, as it is (its tilt and size in a rotor
+// slot kept), to its seat — out along its own axis first from a tilted seat, straight up out of what holds it,
+// straight where the way is free, over what is in it (scene/tripPath.js); it rights itself once out of its
+// slot and takes its seat's size on the way. Its time: tripEase over transitionSeconds(length).
+function planVesselTrip(v) {
+  const u = v.userData, tr = u.trip
+  const P0 = v.position.clone(), q0 = v.quaternion.clone(), q1 = tr.q1 ? tr.q1.clone() : new Quaternion(), s0 = v.scale.x, s1 = u.tScale != null ? u.tScale : s0
+  vesselBox(v, _sb)
+  const startBox = plain(_sb)
+  // its extent about its origin, upright at its seat's size (and as it is now — the larger of the two)
+  const own = new Box3(); v.quaternion.identity(); v.scale.setScalar(1); vesselBox(v, own); v.quaternion.copy(q0); v.scale.setScalar(s0)
+  const k = Math.max(s0, s1)
+  const ext = { below: Math.max(P0.y - _sb.min.y, (P0.y - own.min.y) * k), above: Math.max(_sb.max.y - P0.y, (own.max.y - P0.y) * k),
+    rx: Math.max(_sb.max.x - P0.x, P0.x - _sb.min.x, (own.max.x - own.min.x) / 2 * k), rz: Math.max(_sb.max.z - P0.z, P0.z - _sb.min.z, (own.max.z - own.min.z) / 2 * k) }
+  const seat = u.tPos.clone()
+  const seatBox = { min: { x: seat.x - (own.max.x - own.min.x) / 2 * s1, y: seat.y - (P0.y - own.min.y) * s1, z: seat.z - (own.max.z - own.min.z) / 2 * s1 },
+    max: { x: seat.x + (own.max.x - own.min.x) / 2 * s1, y: seat.y + (own.max.y - P0.y) * s1, z: seat.z + (own.max.z - own.min.z) / 2 * s1 } }
+  // tilted in its seat: out along its own axis by its length first
+  _ax.set(0, 1, 0).applyQuaternion(q0)
+  const tilted = !!u.fromSlot && _ax.y < 0.999
+  u.fromSlot = false
+  const O = tilted ? P0.clone().addScaledVector(_ax, (own.max.y - own.min.y) * s0) : P0
+  const plan = planTrip({ start: O, seat, ext, boxes: tripBoxes(), startBox, seatBox })
+  const verts = tilted ? [P0, ...plan.pts] : plan.pts
+  const dense = roundedPath(verts).map((p) => new Vector3(p.x, p.y, p.z))
+  const len = pathLength(dense)
+  // it rights itself from the moment it is out of its slot until it is up out of what held it
+  const outLen = tilted ? P0.distanceTo(O) : 0
+  const upLen = plan.lift != null && plan.pts.length > 1 ? plan.pts[0].y < plan.pts[1].y ? Math.abs(plan.pts[1].y - plan.pts[0].y) : 0 : 0
+  // (out of a slot it keeps its size until it is up out of the instrument — grown in the slot, it met its walls)
+  const rot = tilted || u.fromSlotSize ? [outLen, outLen + Math.max(upLen, 0.3)] : [0, len]
+  Object.assign(tr, { dense, len, seat0: seat.clone(), dur: transitionSeconds(len), t: 0, s: 0, q0, q1, s0, s1, rot, grow: tilted || Math.abs(s1 - s0) > 1e-6 && u.fromSlotSize ? [rot[1], len] : [0, len], plan })
+  u.fromSlotSize = false
+}
 function travelTrip(v, dt) {
   const u = v.userData
   const tr = u.trip
   if (!tr || !tr.transit) return false
-  // A TRANSIT to the next station — e972bcf's path (out of a dock straight up to its exitLift, then straight
-  // to its seat), on its own clock: TRANSITION_DURATION and more for a longer way (scene/tempo.js), in
-  // seconds on screen (the wall dt), along it by tripEase — a soft start, an even middle, a soft stop.
-  // (It was an exponential chase, 1 − 0.02^dt of the way a frame: at full speed from the first frame.)
-  if (!tr.path) {
-    tr.path = u.exitLift ? [v.position.clone(), u.exitLift.clone()] : [v.position.clone()]
-    tr.len = pathLength([...tr.path, u.tPos]); tr.dur = transitionSeconds(tr.len); tr.t = 0; tr.s = 0
+  // A TRANSIT to the next station: its way planned at its first frame (planVesselTrip), on its own clock —
+  // TRANSITION_DURATION and more for a longer way (scene/tempo.js), in seconds on screen (the wall dt), along
+  // it by tripEase (a soft start, an even middle, a soft stop)
+  if (!tr.dense) {
+    // inside an instrument whose door is shut (a freezer): it opens first, and the trip waits for it
+    if (!tr.doorChecked) {
+      tr.doorChecked = true
+      for (const d of tripWorld.doors) { _sb.setFromObject(d); if (_sb.containsPoint(v.position)) { tr.door = d; d.userData.setDoor(true) } }
+    }
+    if (tr.door && tr.door.userData.doorState() < 0.99) return true
+    // in a rotor still turning: it rides its slot until the rotor is still
+    if (u.waitRotor) { if (Math.abs(+u.waitRotor.userData.st.spin || 0) > demo.ROTOR_STILL) return true; demo.leaveRotor(v) }
+    planVesselTrip(v)
+    u.exitLift = null
+    if (tr.len < 1e-3 && tr.q0.angleTo(tr.q1) < 1e-4 && Math.abs(tr.s1 - tr.s0) < 1e-6) { v.position.copy(u.tPos); v.quaternion.copy(tr.q1); u.trip = null; return true }   // (already at its seat)
   }
+  // the seat read live (one on a moving part): the way's end follows it
+  const dx = u.tPos.x - tr.seat0.x, dy = u.tPos.y - tr.seat0.y, dz = u.tPos.z - tr.seat0.z
   tr.t += dt
-  const pts = [...tr.path, u.tPos]   // the seat is read live (one on a moving part)
-  tr.s = tripEase(tr.t / tr.dur) * pathLength(pts)
-  pointAlong(pts, tr.s, v.position)
-  if (u.exitLift && tr.s >= pathLength(tr.path)) u.exitLift = null // cleared the instrument — on to the seat
+  tr.s = tripEase(tr.t / tr.dur) * tr.len
+  pointAlong(tr.dense, tr.s, v.position)
+  const w = tr.len > 0 ? tr.s / tr.len : 1
+  v.position.x += dx * w; v.position.y += dy * w; v.position.z += dz * w
+  const win = (a) => (a[1] > a[0] ? Math.min(1, Math.max(0, (tr.s - a[0]) / (a[1] - a[0]))) : 1)
+  if (tr.q0.angleTo(tr.q1) > 1e-6) v.quaternion.copy(tr.q0).slerp(tr.q1, smootherstep(win(tr.rot)))
+  if (tr.s1 !== tr.s0) v.scale.setScalar(tr.s0 + (tr.s1 - tr.s0) * smootherstep(win(tr.grow)))
   if (tr.t >= tr.dur) {
     v.position.copy(u.tPos); u.trip = null; u.exitLift = null
+    v.quaternion.copy(tr.q1)
+    v.scale.setScalar(tr.s1)
     if (u._goal) { u._goal.copy(u.tPos); u._vel.set(0, 0, 0); u._spring = false }
   }
   return true
@@ -2192,6 +2342,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
   const guardRef = useRef({ station: -1, prev: new Map(), said: new Set() })   // the dev rule guard
   const restartRef = useRef(true)
   const perspRef = useRef()
+  const labelAspectRef = useRef(null)
   const swayTimeRef = useRef(0), lookRef = useRef(new Vector3(0, LOOK_Y, 0))
   const keyRef = useRef()
   const rimRef = useRef()
@@ -2446,15 +2597,31 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     // the single sample glides (sequential) or snaps (jump) to the new station. If we
     // left a spin mid-way, free the sample from the rotor — and on a sequential Next lift
     // it STRAIGHT UP out of the instrument before gliding (never a teleport through the lid).
+    // A vessel SHOWN at Next makes a TRIP to wherever the new station seats it (a transit — travelTrip): marked
+    // before the station's entry, so an entry that places it (snapTo) sets its seat and the trip takes it there
+    // (it used to be placed there in one frame). One only now shown appears at its seat.
+    const allVessels = () => [...(demo.getSample()?.vessels || []), ...demo.getPreps()]
+    const shownBefore = new Set(sequential ? allVessels().filter((v) => v.visible) : [])
     demo.undockSample(sequential)
-    demo.getSample()?.vessels.forEach((v) => v.rotation.set(0, 0, 0))
+    if (!sequential) demo.getSample()?.vessels.forEach((v) => v.rotation.set(0, 0, 0))
+    // (each is set upright for the station's entry, as the step change always did — the pose the entry then
+    // gives it is where its trip turns it to; it leaves as it was)
+    for (const v of shownBefore) { v.userData.trip = { transit: true, q0: v.quaternion.clone() }; v.rotation.set(0, 0, 0) }
+    tripWorld.groups = sequential && stations[prevActiveRef.current] ? [stations[prevActiveRef.current].group, stations[active].group] : []
+    tripWorld.boxes = null
     demo.setSnap(!sequential)
     stations[active].enter?.()
     placePreps(active) // carry each prep to its seat — glides on a sequential Next, snaps on a jump
     demo.setSnap(false)
-    // (e972bcf's step change, as it was. A glide to the next station is a TRANSIT — travelTrip — on the
-    // transition's clock; the step's clock waits for it, as it waited for a trip)
-    if (sequential) for (const v of [...(demo.getSample()?.vessels || []), ...demo.getPreps()]) if (v.visible) v.userData.trip = { transit: true }
+    for (const v of allVessels()) {
+      if (!shownBefore.has(v)) { if (v.visible && !v.userData.docked && v.userData.tPos) v.position.copy(v.userData.tPos) }
+      else if (!v.visible) v.userData.trip = null
+      // the pose the station's entry gave it is where its trip turns it to; it leaves as it was
+      else if (v.userData.trip) { v.userData.trip.q1 = v.quaternion.clone(); v.quaternion.copy(v.userData.trip.q0) }
+    }
+    // the doors of the station it leaves (a freezer's): a vessel inside waits for its door to open
+    tripWorld.doors = []
+    if (sequential && stations[prevActiveRef.current]) stations[prevActiveRef.current].group.traverse((o) => { if (o.userData && o.userData.setDoor && o.userData.doorState) tripWorld.doors.push(o) })
     // THE CAMERA KEEPS UP WITH THE VESSEL (its timing only — path, target and end framing are e972bcf's):
     // its dolly is paced by the trip of the vessel that travels furthest, from the same moment, and is
     // done just before that vessel sets down (see the frame loop)
@@ -2466,8 +2633,9 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
         if (!v.visible || !v.userData.trip || !v.userData.trip.transit) continue
         // the vessel that makes the TRIP: it leaves the last station (one already here, or one first shown
         // from wherever it was left hidden, is not this trip)
-        if (fromX != null && Math.abs(v.position.x - fromX) > SPACING / 2) continue
-        const total = tripLeft(v)
+        const wp = v.getWorldPosition(new Vector3())   // (one still riding a rotor is in its slot's frame)
+        if (fromX != null && Math.abs(wp.x - fromX) > SPACING / 2) continue
+        const total = wp.distanceTo(v.userData.tPos)
         if (total > 1e-3 && (!best || total > best.total)) best = { v, total }
       }
       if (best) Object.assign(glideRef.current, { lead: best.v, total: best.total, prog: 0 })
@@ -2506,18 +2674,26 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     // the sway's clock is the frames' own (dt, capped as above) — on the wall clock it jumped whenever frames
     // stopped (a hidden tab, a long frame; the checker's skip through a countdown)
     swayTimeRef.current += dt / TRANSITION_SLOWDOWN
+    liveCam.cam = perspRef.current || null
     const tdt = dt / TRANSITION_SLOWDOWN, time = swayTimeRef.current
     const g = glideRef.current
     if (g.active && g.lead) {
-      // paced by the lead vessel's own progress along its way (out of a dock, then to its seat): the dolly
-      // is a smootherstep of it — a soft start and a soft stop, no jerk — done when the vessel is within
-      // CAM_DONE of its seat, a moment before it sets down. (e972bcf's own timing, a cubic ease over
-      // GLIDE_DUR, let the vessel's exponential glide run 6 units ahead and out of the frame.)
-      const left = g.lead.userData.trip && g.lead.userData.trip.transit ? tripLeft(g.lead) : 0
-      g.prog = Math.max(g.prog, 1 - left / g.total)
-      g.t = Math.min(1, g.prog / Math.max(1e-6, 1 - CAM_DONE / g.total))
-      railXRef.current = demo.lerp(g.from, g.to, smootherstep(g.t))
-      if (g.t >= 1) { g.active = false; g.lead = null; railXRef.current = g.to }
+      // paced by the lead vessel's own way ACROSS (its x, from where it set off to its seat): the dolly keeps
+      // level with it, so the vessel stays where it was in the view, and is done when it is over its seat,
+      // before it sets down. (By its way's length, the dolly lagged while the vessel rose and was carried
+      // over: a column carried over a pipette rig left the view on the right.)
+      const tr = g.lead.userData.trip
+      let f = 1
+      if (tr && tr.transit && tr.dense) {
+        const x0 = tr.dense[0].x, x1 = g.lead.userData.tPos.x
+        f = Math.abs(x1 - x0) > 1e-3 ? (g.lead.position.x - x0) / (x1 - x0) : tr.s / Math.max(tr.len, 1e-6)
+      } else if (tr && tr.transit) f = 0
+      g.prog = Math.max(g.prog, Math.min(1, Math.max(0, f)))
+      g.t = g.prog
+      railXRef.current = demo.lerp(g.from, g.to, g.t)
+      // (done as it comes over its seat: this step runs before the vessels move in the frame — waiting for the
+      // last 0.1 % of its way left the dolly a frame behind the set-down)
+      if (g.t >= 0.999) { g.t = 1; g.active = false; g.lead = null; railXRef.current = g.to }
     } else if (g.active) {
       // nothing travels (or a vessel was placed in one frame): the camera's own smooth move, TRANSITION_DURATION
       // on screen, a smootherstep (soft start and stop, no jerk)
@@ -2563,7 +2739,9 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       // keep the active station's title label INSIDE the frame, below the top HUD band:
       // if its top edge would project above LABEL_TOP_NDC, lower it (never below the
       // subject's top) — a pushed-in or widened frame used to clip it at the top edge
-      if (actCam && actCam.label) clampLabel(actCam, cam)
+      // (once per station and screen shape, against the station's own framing — at rest and pushed in — never
+      // the moving camera: fitted to the live camera every frame, a title stepped up and down with each move)
+      if (cam.aspect !== labelAspectRef.current) { labelAspectRef.current = cam.aspect; for (const s2 of stations) if (s2.label) placeLabel(s2, cam) }
     }
 
     // 3 · the key + rim lights follow the framed station. The key grazes lower and more
@@ -2678,6 +2856,13 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     for (const pv of demo.getPreps()) {
       if (pv.visible && !travelTrip(pv, dt)) travel(pv, pv.userData.tPos, adt)
       pv.userData.update?.(adt)
+      // its label stands still: shown only while the prep stands at its seat (it rode along on every move)
+      const lab = pv.userData.label
+      if (lab) {
+        if (pv.userData._labOn == null) pv.userData._labOn = lab.visible
+        const still = !pv.userData.trip && pv.position.distanceTo(pv.userData.tPos) < 1e-6
+        lab.visible = pv.userData._labOn && still
+      }
     }
 
     // 6 · fade equipment by distance from the rail — active full, neighbours
