@@ -1079,6 +1079,7 @@ export function undockSample(lift = false) {
     grp.userData.update=function(dt){ ist.door=capChase(grp,ist.door,ist.tDoor,dt,0.02,doorK); doorAt(ist.door); };
     grp.userData.doorState=function(){ return ist.door; };
     // where the door goes as it opens (world boxes): a vessel carried past passes over it
+    grp.userData.withDoorOpen=function(fn){ var keep=ist.door; doorAt(1); grp.updateMatrixWorld(true); try{ fn(); } finally { doorAt(keep); grp.updateMatrixWorld(true); } };
     grp.userData.doorSweep=function(){ var out=[], keep=ist.door; for(var k=0;k<=4;k++){ doorAt(k/4); grp.updateMatrixWorld(true); out.push(new THREE.Box3().setFromObject(doorPivot)); } doorAt(keep); grp.updateMatrixWorld(true); return out; };
     return grp;
   }
@@ -2682,6 +2683,8 @@ export {
     // the door swings OUT, toward the front (bug fix: +1.2 swung it into the cabinet)
     var fDoorAt=function(x){ doorPivot.rotation.y=-easeInOut(x)*1.2; };
     grp.userData.doorState=function(){ return st.door; };
+    // the cabinet as a vessel finds it: its door open (it opens before one leaves, while one arrives)
+    grp.userData.withDoorOpen=function(fn){ var keep=st.door; fDoorAt(1); grp.updateMatrixWorld(true); try{ fn(); } finally { fDoorAt(keep); grp.updateMatrixWorld(true); } };
     var fDoorK=measureParam(grp,[doorPivot],fDoorAt,st.door);        // its speed cap (rule 3)
     grp.userData.update=function(dt){ st.door=capChase(grp,st.door,st.tDoor,dt,0.02,fDoorK); fDoorAt(st.door); };
     return grp;

@@ -2177,10 +2177,12 @@ const smootherstep = (t) => { t = Math.min(1, Math.max(0, t)); return t * t * t 
 // world boxes, read once at the trip's first frame (the new station posed at its start)
 const tripWorld = { groups: [], boxes: null, doors: [] }
 const _sb = new Box3(), _mb = new Box3(), _hb = new Box3(), _hv1 = new Vector3(), _hv2 = new Vector3()
+// a SOLID (the collision audit's rule): not a sprite, no auditKind on it, an ancestor or its material (a fluid,
+// ice, an effect), not a glow (additive), not an instanced fill
 function isSolidMesh(m) {
-  if (!m.isMesh || m.isSprite || !m.geometry) return false
-  const mat = [].concat(m.material)[0]
-  return !((m.userData && m.userData.auditKind) || (mat && mat.userData && mat.userData.auditKind))
+  if (!m.isMesh || m.isSprite || m.isInstancedMesh || !m.geometry || !m.geometry.attributes.position || !m.geometry.attributes.position.count) return false
+  for (let n = m; n; n = n.parent) if (n.userData && n.userData.auditKind) return false
+  return ![].concat(m.material || []).some((x) => x && ((x.userData && x.userData.auditKind) || x.blending === 2))
 }
 function tripBoxes() {
   if (tripWorld.boxes) return tripWorld.boxes
@@ -2188,7 +2190,12 @@ function tripBoxes() {
 }
 function boxesOf(groups) {
   const out = []
-  for (const g of groups) {
+  // measured with every door OPEN (a freezer's, an incubator's): a vessel leaves once its door has opened and
+  // arrives while it opens — measured shut, the door stood in the way in
+  const doors = []
+  for (const g of groups) g.traverse((o) => { if (o.userData && o.userData.withDoorOpen) doors.push(o) })
+  const run = (k) => (k < doors.length ? doors[k].userData.withDoorOpen(() => run(k + 1)) : measure())
+  const measure = () => { for (const g of groups) {
     g.updateMatrixWorld(true)
     g.traverse((m) => {
       if (!isSolidMesh(m)) return
@@ -2198,10 +2205,12 @@ function boxesOf(groups) {
       // its own oriented box (its geometry's box in its world matrix) refines the world AABB's test
       if (!m.geometry.boundingBox) m.geometry.computeBoundingBox()
       const obb = new OBB().fromBox3(m.geometry.boundingBox).applyMatrix4(m.matrixWorld)
-      out.push({ min: { x: b.min.x, y: b.min.y, z: b.min.z }, max: { x: b.max.x, y: b.max.y, z: b.max.z },
+      const who = []; for (let n = m; n && n !== g && who.length < 3; n = n.parent) if (n.name) who.push(n.name)
+      out.push({ obb, min: { x: b.min.x, y: b.min.y, z: b.min.z }, max: { x: b.max.x, y: b.max.y, z: b.max.z }, name: `${who.join('<') || m.geometry.type} #${[].concat(m.material)[0]?.color?.getHexString?.() || ''}`,
         hit: (v) => obb.intersectsBox3(_hb.set(_hv1.set(v.min.x, v.min.y, v.min.z), _hv2.set(v.max.x, v.max.y, v.max.z))) })
     })
-  }
+  } }
+  run(0)
   return out
 }
 // a vessel's solid extent in the world (its visible meshes — not its label)
@@ -2224,27 +2233,42 @@ function planVesselTrip(v) {
   const startBox = plain(_sb)
   // its extent about its origin, upright at its seat's size (and as it is now — the larger of the two)
   const own = new Box3(); v.quaternion.identity(); v.scale.setScalar(1); vesselBox(v, own); v.quaternion.copy(q0); v.scale.setScalar(s0)
-  const k = Math.max(s0, s1)
-  const ext = { below: Math.max(P0.y - _sb.min.y, (P0.y - own.min.y) * k), above: Math.max(_sb.max.y - P0.y, (own.max.y - P0.y) * k),
-    rx: Math.max(_sb.max.x - P0.x, P0.x - _sb.min.x, (own.max.x - own.min.x) / 2 * k), rz: Math.max(_sb.max.z - P0.z, P0.z - _sb.min.z, (own.max.z - own.min.z) / 2 * k) }
+  // its extent about its origin: as it is now (on its way out), upright at its seat's size (on its way in), and the
+  // larger of the two in between (where its size changes)
+  const dn = P0.y - own.min.y, up = own.max.y - P0.y, onx = P0.x - own.min.x, opx = own.max.x - P0.x, onz = P0.z - own.min.z, opz = own.max.z - P0.z
+  const sides = (e) => ({ ...e, rx: Math.max(e.nx, e.px), rz: Math.max(e.nz, e.pz) })
+  const extStart = sides({ below: P0.y - _sb.min.y, above: _sb.max.y - P0.y, nx: P0.x - _sb.min.x, px: _sb.max.x - P0.x, nz: P0.z - _sb.min.z, pz: _sb.max.z - P0.z })
+  const extSeat = sides({ below: dn * s1, above: up * s1, nx: onx * s1, px: opx * s1, nz: onz * s1, pz: opz * s1 })
+  const k0 = (key, own0) => Math.max(extStart[key], extSeat[key], own0 * s0)
+  const ext = sides({ below: k0('below', dn), above: k0('above', up), nx: k0('nx', onx), px: k0('px', opx), nz: k0('nz', onz), pz: k0('pz', opz) })
   const seat = u.tPos.clone()
-  const seatBox = { min: { x: seat.x - (own.max.x - own.min.x) / 2 * s1, y: seat.y - (P0.y - own.min.y) * s1, z: seat.z - (own.max.z - own.min.z) / 2 * s1 },
-    max: { x: seat.x + (own.max.x - own.min.x) / 2 * s1, y: seat.y + (own.max.y - P0.y) * s1, z: seat.z + (own.max.z - own.min.z) / 2 * s1 } }
+  const seatBox = { min: { x: seat.x - extSeat.nx, y: seat.y - extSeat.below, z: seat.z - extSeat.nz }, max: { x: seat.x + extSeat.px, y: seat.y + extSeat.above, z: seat.z + extSeat.pz } }
   // tilted in its seat: out along its own axis by its length first
   _ax.set(0, 1, 0).applyQuaternion(q0)
   const tilted = !!u.fromSlot && _ax.y < 0.999
   u.fromSlot = false
   const O = tilted ? P0.clone().addScaledVector(_ax, (own.max.y - own.min.y) * s0) : P0
-  const plan = planTrip({ start: O, seat, ext, boxes: tripBoxes(), startBox, seatBox })
+  const plan = planTrip({ start: O, seat, ext, extStart, extSeat, boxes: tripBoxes(), startBox, seatBox })
+  if (typeof window !== 'undefined' && Array.isArray(window.__tripDump)) {   // DEV: the planner's inputs, replayed offline
+    const bx = tripBoxes()
+    window.__tripDump.push({ station: tripWorld.active, start: O.toArray(), seat: seat.toArray(), ext, extStart, extSeat, startBox, seatBox, tilted,
+      boxes: bx.map((b) => ({ min: b.min, max: b.max, name: b.name, obb: b.obb ? { c: b.obb.center.toArray(), h: b.obb.halfSize.toArray(), r: b.obb.rotation.elements.slice() } : null })) })
+  }
+  plan.dbg = { P0: P0.toArray().map((x) => +x.toFixed(3)), seat: seat.toArray().map((x) => +x.toFixed(3)), ext, extStart, extSeat, s0, s1, name: v.name || (v.userData.prepId ? 'prep' : '') }
   const verts = tilted ? [P0, ...plan.pts] : plan.pts
   const dense = roundedPath(verts).map((p) => new Vector3(p.x, p.y, p.z))
   const len = pathLength(dense)
-  // it rights itself from the moment it is out of its slot until it is up out of what held it
-  const outLen = tilted ? P0.distanceTo(O) : 0
-  const upLen = plan.lift != null && plan.pts.length > 1 ? plan.pts[0].y < plan.pts[1].y ? Math.abs(plan.pts[1].y - plan.pts[0].y) : 0 : 0
-  // (out of a slot it keeps its size until it is up out of the instrument — grown in the slot, it met its walls)
-  const rot = tilted || u.fromSlotSize ? [outLen, outLen + Math.max(upLen, 0.3)] : [0, len]
-  Object.assign(tr, { dense, len, seat0: seat.clone(), dur: transitionSeconds(len), t: 0, s: 0, q0, q1, s0, s1, rot, grow: tilted || Math.abs(s1 - s0) > 1e-6 && u.fromSlotSize ? [rot[1], len] : [0, len], plan })
+  // its way OUT (along its axis, out of the front, straight up) and its way IN (in from the front, straight down):
+  // it turns upright and changes its size only between them — in a slot or a well at its old size, it met its walls
+  const vs = plan.pts, n = vs.length
+  const sameXZ = (a, c) => Math.abs(a.x - c.x) < 1e-6 && Math.abs(a.z - c.z) < 1e-6, sameXY = (a, c) => Math.abs(a.x - c.x) < 1e-6 && Math.abs(a.y - c.y) < 1e-6
+  const dist = (a, c) => Math.hypot(a.x - c.x, a.y - c.y, a.z - c.z)
+  let outLen = tilted ? P0.distanceTo(O) : 0
+  for (let i = 1; i < n - 1 && (sameXZ(vs[i], vs[i - 1]) || sameXY(vs[i], vs[i - 1])); i++) outLen += dist(vs[i], vs[i - 1])
+  let inLen = 0
+  for (let i = n - 1; i > 1 && (sameXZ(vs[i], vs[i - 1]) || sameXY(vs[i], vs[i - 1])); i--) inLen += dist(vs[i], vs[i - 1])
+  const mid = [Math.min(outLen, len), Math.max(Math.min(outLen, len), len - inLen)]
+  Object.assign(tr, { boxes: tripBoxes(), dense, len, seat0: seat.clone(), dur: transitionSeconds(len), t: 0, s: 0, q0, q1, s0, s1, rot: tilted ? mid : [0, len], grow: mid, plan })
   u.fromSlotSize = false
 }
 function travelTrip(v, dt) {
@@ -2510,6 +2534,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
       dial.position.set(st.frame.footprint.cx, DIAL_Y, st.frame.footprint.cz)
       st.group.add(dial)
       st.dial = dial
+      dial.traverse((o) => { o.userData.auditKind = 'effect' })   // (a decal on the bench: no solid — trips set down over it)
       stations.push(st)
     })
     stationsRef.current = stations
@@ -2608,7 +2633,7 @@ export default function StationScene({ protocol, activeIndex = 0, lang = 'en', a
     // gives it is where its trip turns it to; it leaves as it was)
     for (const v of shownBefore) { v.userData.trip = { transit: true, q0: v.quaternion.clone() }; v.rotation.set(0, 0, 0) }
     tripWorld.groups = sequential && stations[prevActiveRef.current] ? [stations[prevActiveRef.current].group, stations[active].group] : []
-    tripWorld.boxes = null
+    tripWorld.boxes = null; tripWorld.active = active
     demo.setSnap(!sequential)
     stations[active].enter?.()
     placePreps(active) // carry each prep to its seat — glides on a sequential Next, snaps on a jump

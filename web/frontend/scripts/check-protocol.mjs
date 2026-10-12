@@ -37,7 +37,7 @@ const STREAM = !has('quiet')   // each station as it is checked (a stall shows w
 const jobs = []
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i]
-  if (a.startsWith('--')) { if (['out', 'stations', 'base', 'generated', 'seed'].includes(a.slice(2))) i++; continue }
+  if (a.startsWith('--')) { if (['out', 'stations', 'base', 'generated', 'seed', 'dump-trips'].includes(a.slice(2))) i++; continue }
   jobs.push({ name: path.basename(a, '.json'), data: JSON.parse(fs.readFileSync(a, 'utf8')) })
 }
 if (has('examples')) {
@@ -106,6 +106,7 @@ async function runJob(job) {
     const t0 = Date.now(); Date.now = () => t0 + now
     window.__clockAdd = (ms) => { now += ms }
   }, job.data, has('trace-spin'))
+  if (flag('dump-trips', '')) await page.evaluateOnNewDocument(() => { window.__tripDump = [] })
   let ok = false
   for (let tries = 0; tries < 3 && !ok; tries++) {
     await page.goto(`${BASE}/?run=1&step=1`, { waitUntil: 'networkidle0' }).catch(() => {})
@@ -165,6 +166,7 @@ async function runJob(job) {
     if (STREAM) console.log(`    · ${job.name} ${String(s).padStart(2)} ${String(stations[s - 1].action).padEnd(14)} ${red.length ? '✗ ' + red.join(' | ').slice(0, 200) : '✓'}`)
     rows.push({ station: s, action: stations[s - 1].action, container: stations[s - 1].container, red, detail: VERBOSE ? r : { speedPeak: r.peak, camera: r.camera, passes: r.pipette && r.pipette.passes, expected: exp }, phaseSpeeds: r.phaseSpeeds, peaks: r.peaks, transition: r.transition, cameraPose: r.cameraPose, labels: r.labels, tripCollisions: r.tripCollisions, placedAtNext: r.placedAtNext, collisionsAll: r.collisions && r.collisions.map((c) => ({ check: c.check, a: c.a, b: c.b, depth: +(+c.depth).toFixed(3), frame: c.frame, frames: c.frames, at: c.at })), spinTrace: r.spinTrace })
   }
+  if (flag('dump-trips', '')) { const d = await page.evaluate(() => window.__tripDump || []); fs.writeFileSync(flag('dump-trips') + '.' + job.name + '.json', JSON.stringify(d)) }
   await page.close()
   return { rows, errors }
 }

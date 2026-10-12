@@ -43,7 +43,42 @@ describe('a trip between stations — straight where free, over what is in the w
     const door = { ...box(3.5, 0, -0.65, 4.6, 3.5, 1.3), hit: () => false }
     const t = planTrip({ start: P(0, 0, 0), seat: P(8.4, 0, 0), ext, boxes: [door] })
     expect(t.pts).toEqual([P(0, 0, 0), P(8.4, 0, 0)])
-    expect(planTrip({ start: P(0, 0, 0), seat: P(8.4, 0, 0), ext, boxes: [{ ...door, hit: () => true }] }).carry).toBeGreaterThan(3.5)
+    const solid = { ...door, hit: () => true }, u = planTrip({ start: P(0, 0, 0), seat: P(8.4, 0, 0), ext, boxes: [solid] })
+    expect(u.pts.length).toBeGreaterThan(2)                                         // (a door that IS in the way is gone round or over)
+    expect(pathHits(roundedPath(u.pts), ext, [solid], TRIP_CLEAR - 1e-6)).toEqual([])
+  })
+  it('RED: a pipette waiting over its seat is not passed over (carried ever higher): it goes in from the front, under it', () => {
+    const pip = box(8.2, 1.2, -0.2, 8.6, 3.0, 0.2)   // over the seat's footprint, its foot 0.2 over the vessel's top
+    const seatBox = box(8.2, 0, -0.2, 8.6, 1.0, 0.2)
+    const bottle = box(4, 0, -0.3, 4.6, 1.3, 0.3)   // (in the middle: the way is carried over it)
+    const t = planTrip({ start: P(0, 0, 0), seat: P(8.4, 0, 0), ext, boxes: [pip, bottle], seatBox })
+    expect(t.blocked).toBeFalsy()
+    expect(pathHits(roundedPath(t.pts), ext, [pip], TRIP_CLEAR - 1e-6)).toEqual([])
+    expect(Math.max(...roundedPath(t.pts).map((p) => p.y))).toBeLessThan(1.3 + TRIP_CLEAR + 0.2)
+  })
+  it('RED: into a small seat (a thermocycler well) it is tested at its SEAT size there, not at its size on the way', () => {
+    const walls = [box(7.9, 0.75, -0.5, 8.23, 0.87, 0.5), box(8.57, 0.75, -0.5, 8.9, 0.87, 0.5), box(8.23, 0.75, -0.5, 8.57, 0.87, -0.17), box(8.23, 0.75, 0.17, 8.57, 0.87, 0.5)]
+    const big = { below: 0, above: 1.72, rx: 0.35, rz: 0.35 }, small = { below: 0, above: 0.76, rx: 0.15, rz: 0.15 }
+    const seat = P(8.4, 0.08, 0), seatBox = box(8.25, 0.08, -0.15, 8.55, 0.84, 0.15)
+    const t = planTrip({ start: P(0, 0, 0), seat, ext: big, extStart: big, extSeat: small, boxes: walls, seatBox })
+    expect(t.blocked).toBeFalsy()
+    expect(t.entry).toBeCloseTo(0.87 + TRIP_CLEAR, 9)                          // straight down into it from over its rim
+    expect(Math.max(...roundedPath(t.pts).map((p) => p.y))).toBeLessThan(0.87 + TRIP_CLEAR + 0.2)
+  })
+  it('RED: under what hangs high (a pipette at its home over the way) it passes beneath, at the lowest clear height', () => {
+    const rack = box(3, 0, -0.3, 3.6, 1.0, 0.3), pip = box(5.5, 3.4, -0.2, 5.7, 4.5, 0.2)
+    const t = planTrip({ start: P(0, 0, 0), seat: P(8.4, 0, 0), ext, boxes: [rack, pip] })
+    expect(t.blocked).toBeFalsy()
+    expect(Math.max(...roundedPath(t.pts).map((p) => p.y))).toBeLessThan(1.0 + TRIP_CLEAR + 0.2)
+  })
+  it('RED: a tall pole its edge grazes is passed by a slight swing aside, not carried over (3 units high)', () => {
+    const pole = box(5.5, 0.1, 0.23, 5.7, 3.1, 0.45)
+    const t = planTrip({ start: P(0, 0, 0), seat: P(8.4, 0, 0), ext, boxes: [pole] })
+    const d = roundedPath(t.pts)
+    expect(t.blocked).toBeFalsy()
+    expect(Math.max(...d.map((p) => p.y))).toBeLessThan(0.01)
+    expect(Math.min(...d.map((p) => p.z))).toBeGreaterThan(-0.2)
+    expect(pathHits(d, ext, [pole], TRIP_CLEAR - 1e-6)).toEqual([])
   })
   it('the rounded path is smooth: no corner (the direction turns gradually)', () => {
     const t = planTrip({ start: P(0, 0, 0), seat: P(8.4, 0, 0), ext, boxes: [box(4, 0, -0.3, 4.6, 1.3, 0.3)] })
