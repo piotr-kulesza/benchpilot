@@ -237,7 +237,7 @@ export function createTransitionTracker(line) {
         lead = g.lead
         // its trip from here: the frames it takes, against the time its way calls for, and its first frame's speed
         const tr = lead.userData.trip
-        if (tr && tr.path) { tripStart = k; minFrames = Math.round(transitionSeconds(tr.len) * 60); avgSpeed = tr.len / tr.dur; firstSpeed = lead.position.distanceTo(tr.path[0]) * 60 }
+        if (tr && tr.dense) { tripStart = k; minFrames = Math.round(transitionSeconds(tr.len) * 60); avgSpeed = tr.len / tr.dur; firstSpeed = lead.position.distanceTo(tr.dense[0]) * 60 }
       }
       for (const v of all) if (v !== lead) others.add(v.name || 'vessel')
       const movers = lead ? all.filter((v) => v === lead) : []
@@ -303,6 +303,70 @@ export function createCameraTracker(line, seed = null) {
     result() { return { jumps, end: any ? end : null } },
   }
 }
+// LABELS STAND STILL: every label shown (a sprite drawn over everything — makeLabel's), its place in the
+// world, frame by frame through a station; any change between two frames is a move
+export function labelMoves(prev, cur, tol = 1e-6) {
+  const out = []
+  for (const [label, p] of cur) {
+    const q = prev.get(label)
+    if (!q) continue
+    const d = Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2])
+    if (d > tol) out.push({ label, d })
+  }
+  return out
+}
+function shownInWorld(o) { for (let x = o; x; x = x.parent) if (!x.visible) return false; return true }
+export function labelPlaces(root) {
+  const m = new Map(), w = new Vector3()
+  root.traverse((o) => {
+    if (!o.isSprite || o.renderOrder !== 999 || !(o.userData.worldH > 0) || !shownInWorld(o)) return   // (an empty label is not drawn)
+    o.getWorldPosition(w)
+    m.set(`${o.name || 'label'} #${o.uuid.slice(0, 4)}`, [w.x, w.y, w.z])
+  })
+  return m
+}
+export function createLabelTracker(line) {
+  let prev = null, worst = 0
+  const moved = new Map()
+  return {
+    frame(k) {
+      const sts = line.stations(), root = sts[line.active()] && sts[line.active()].group.parent
+      if (!root) return
+      const cur = labelPlaces(root)
+      if (prev) for (const m of labelMoves(prev, cur)) {
+        worst = Math.max(worst, m.d)
+        const e = moved.get(m.label) || { label: m.label, frames: 0, first: k, max: 0 }
+        e.frames++; e.max = Math.max(e.max, +m.d.toFixed(4)); moved.set(m.label, e)
+      }
+      prev = cur
+    },
+    result() { return { moved: [...moved.values()], worst: +worst.toFixed(4) } },
+  }
+}
+// THE TRIP'S COLLISIONS: those that begin while a vessel is on its way to the station (its last frame in transit)
+export function transitionCollisions(collisions, transitLast) {
+  return collisions.filter((c) => c.frame != null && c.frame <= transitLast)
+}
+// A VESSEL PLACED IN ONE FRAME AT NEXT: shown before Next and after it, and moved further in the first frames
+// than a trip moves (a trip starts at rest)
+export function placedAtNext(before, after, tol = 0.2) {
+  const out = []
+  for (const a of after) {
+    const b = before.find((x) => x.key === a.key)
+    if (!b || !b.shown || !a.shown) continue
+    const dist = Math.hypot(a.p[0] - b.p[0], a.p[1] - b.p[1], a.p[2] - b.p[2])
+    if (dist > tol) out.push({ key: a.key, dist: +dist.toFixed(3), from: b.p.map((x) => +x.toFixed(2)), to: a.p.map((x) => +x.toFixed(2)) })
+  }
+  return out
+}
+// every vessel of the line (the sample's, the preps) in the world: [{ key, shown, p }]
+export function vesselPoses(line) {
+  const out = [], w = new Vector3(), S = line.sample()
+  const put = (key, o) => { o.getWorldPosition(w); out.push({ key, shown: shownInWorld(o), p: [w.x, w.y, w.z] }) }
+  if (S) for (const [k, o] of Object.entries(S)) if (o && o.isObject3D && k !== 'active') put(k, o)
+  for (const o of line.preps()) put('prep:' + o.userData.prepId, o)
+  return out
+}
 export function createPhaseTracker(line, { fps = 60 } = {}) {
   const track = [], w = new Vector3()
   return {
@@ -319,9 +383,10 @@ export function createPhaseTracker(line, { fps = 60 } = {}) {
 // Run the ACTIVE station on the runner's own clock and check everything. `timed`: the step's
 // countdown in seconds (Start is pressed once its vessels have arrived; a countdown over `fullTo`
 // seconds runs its first and last 10 s and skips the middle — protocol time, not animation).
-export async function checkStation(line, { timed = 0, fullTo = 20, tailSec = 2, maxSec = 240, every = 8, clockAdd, startTimer, camSeed = null } = {}) {
+export async function checkStation(line, { timed = 0, fullTo = 20, tailSec = 2, maxSec = 240, every = 8, clockAdd, startTimer, camSeed = null, vesselSeed = null } = {}) {
   const fps = 60, tempo = animationTempo()
-  const motion = createMotionTracker(line, { fps }), passes = createPassTracker(line), phases = createPhaseTracker(line, { fps }), trans = createTransitionTracker(line), camT = createCameraTracker(line, camSeed)
+  const motion = createMotionTracker(line, { fps }), passes = createPassTracker(line), phases = createPhaseTracker(line, { fps }), trans = createTransitionTracker(line), camT = createCameraTracker(line, camSeed), labels = createLabelTracker(line)
+  let transitLast = -1, placed = null
   const liquid = []
   let prevL = null
   const arriving = () => { const S = line.sample(); return !!((S && S.vessels.some((v) => v.visible && v.userData.trip)) || line.preps().some((v) => v.visible && v.userData.trip)) }
@@ -350,7 +415,9 @@ export async function checkStation(line, { timed = 0, fullTo = 20, tailSec = 2, 
     },
     onFrame(k) {
       if (window.__traceSpin && line.stations()[line.active()].cen) { const c = line.stations()[line.active()].cen, S = line.sample(); (window.__spinTrace || (window.__spinTrace = [])).push([k, +c.userData.st.spin.toFixed(3), S.column && S.column.userData.drawnUl ? +S.column.userData.drawnUl().toFixed(1) : null, +((window.__benchperf && window.__benchperf.p) || 0).toFixed(3), !!(S.column && S.column.userData.docked)]) }
-      motion.frame(k); passes.frame(k); phases.frame(k); trans.frame(k); camT.frame(k)
+      motion.frame(k); passes.frame(k); phases.frame(k); trans.frame(k); camT.frame(k); labels.frame(k)
+      if (arriving()) transitLast = k
+      if (placed == null && vesselSeed) placed = placedAtNext(vesselSeed, vesselPoses(line))
       const cur = { k, p: pNow(), ...sampleLiquids(line) }
       if (prevL) for (const b of checkFrames([prevL, cur])) if (liquid.length < 40) liquid.push(b)
       prevL = cur
@@ -364,7 +431,7 @@ export async function checkStation(line, { timed = 0, fullTo = 20, tailSec = 2, 
   const collisions = found.filter((d) => !MOTION.includes(d.check))
   const motionAudit = found.filter((d) => MOTION.includes(d.check))
   const pEnd = pNow()
-  return { liquid, ...motion.result(), collisions, motionAudit, ...{ pipette: passes.result() }, phaseSpeeds: phases.result(), transition: trans.result(), cameraPose: camT.result(), unfinished: pEnd < 0.9999 || !finish.ran ? +pEnd.toFixed(3) : null }
+  return { liquid, ...motion.result(), collisions, motionAudit, ...{ pipette: passes.result() }, phaseSpeeds: phases.result(), transition: trans.result(), cameraPose: camT.result(), labels: labels.result(), tripCollisions: transitionCollisions(collisions, transitLast).map((c) => ({ check: c.check, a: c.a, b: c.b, depth: +(+c.depth).toFixed(3), frame: c.frame })), transitLast, placedAtNext: placed || [], unfinished: pEnd < 0.9999 || !finish.ran ? +pEnd.toFixed(3) : null }
 }
 
 export { sampleLiquids, checkBoundary }

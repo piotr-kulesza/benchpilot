@@ -114,11 +114,12 @@ async function runJob(job) {
   const rows = []
   if (!ok) rows.push({ station: 0, red: ['the runner never came up'] })
   for (let s = 1; ok && s <= stations.length; s++) {
-    let boundary = [], camBefore = null
+    let boundary = [], camBefore = null, vesselsBefore = null
     if (s > 1) {
       const end = await page.evaluate(async () => (await import('/src/dev/protocolCheck.js')).sampleLiquids(window.__benchLine))
       // the camera's pose the frame before Next: the station change's first frame is checked against it
       camBefore = await page.evaluate(() => { const c = window.__benchLine.camera(); return { frame: 'before Next', p: c.position.toArray(), q: c.quaternion.toArray() } })
+      vesselsBefore = await page.evaluate(async () => (await import('/src/dev/protocolCheck.js')).vesselPoses(window.__benchLine))
       const clicked = await page.evaluate(() => { const b = [...document.querySelectorAll('button')].find((x) => /^Next/.test(x.textContent.trim())); if (b) b.click(); return !!b })
       if (!clicked) { rows.push({ station: s, red: ['no Next button'] }); break }
       await page.waitForFunction((i) => window.__benchLine.active() === i, { timeout: 10000, polling: 20 }, s - 1).catch(() => {})
@@ -135,13 +136,13 @@ async function runJob(job) {
     const T = timerSeconds(stations[s - 1])
     let r
     try {
-      r = await page.evaluate(async (T, camBefore) => {
+      r = await page.evaluate(async (T, camBefore, vesselsBefore) => {
         const P = await import('/src/dev/protocolCheck.js')
         const startTimer = () => { const b = [...document.querySelectorAll('button')].find((x) => /Start/.test(x.textContent)); if (b) b.click() }
-        const r = await P.checkStation(window.__benchLine, { timed: T, clockAdd: (ms) => window.__clockAdd(ms), startTimer, camSeed: camBefore })
+        const r = await P.checkStation(window.__benchLine, { timed: T, clockAdd: (ms) => window.__clockAdd(ms), startTimer, camSeed: camBefore, vesselSeed: vesselsBefore })
         if (window.__spinTrace) { r.spinTrace = window.__spinTrace.filter((x, i) => i % 15 === 0); window.__spinTrace = [] }
         return r
-      }, T, camBefore)
+      }, T, camBefore, vesselsBefore)
     } catch (e) { r = { error: String(e.message || e).slice(0, 200) } }
     const exp = expect[s - 1] || []
     const passBad = r.pipette ? comparePasses(exp, r.pipette.passes) : []
@@ -150,6 +151,9 @@ async function runJob(job) {
     if (r.unfinished != null) red.push(`did not finish (p ${r.unfinished})`)
     if (r.transition && r.transition.red.length) red.push(`station change: ${r.transition.red.join('; ')}`)
     if (r.cameraPose && r.cameraPose.jumps.length) { const j = r.cameraPose.jumps; red.push(`camera jump ×${j.length}: ${j.slice(0, 3).map((x) => `frame ${x.frame} (${x.during}) ${x.dPos} u, ${x.dRot}°`).join('; ')}`) }
+    if (r.tripCollisions && r.tripCollisions.length) red.push(`trip collision ×${r.tripCollisions.length}: ${r.tripCollisions.slice(0, 2).map((c) => `${c.check}:${c.a}×${c.b}=${c.depth} (frame ${c.frame})`).join('  ')}`)
+    if (r.placedAtNext && r.placedAtNext.length) red.push(`placed in one frame at Next: ${r.placedAtNext.map((t) => `${t.key} ${t.dist} u`).join(', ')}`)
+    if (r.labels && r.labels.moved.length) red.push(`label moves: ${r.labels.moved.slice(0, 3).map((m) => `${m.label} ${m.max} u (${m.frames} frames from ${m.first})`).join('; ')}`)
     if (boundary.length) red.push(`liquid (d) ×${boundary.length}: ${boundary[0].vessel} ${boundary[0].detail}`)
     if (r.liquid && r.liquid.length) red.push(`liquid (${[...new Set(r.liquid.map((b) => b.check))].join(',')}) ×${r.liquid.length}: ${r.liquid[0].vessel} ${r.liquid[0].detail}`)
     if (r.speed && r.speed.length) { const w = r.speed.sort((a, b) => b.ratio - a.ratio)[0]; red.push(`speed ×${r.speed.length} objects: ${w.label} ${w.peak} u/s = ×${w.ratio} of the cap (frame ${w.peakFrame}, p ${w.peakP})`) }
@@ -159,7 +163,7 @@ async function runJob(job) {
     if (r.motionAudit && r.motionAudit.length) red.push(`motion ×${r.motionAudit.length}: ${r.motionAudit.map((c) => `${c.check}:${c.a}`).slice(0, 2).join('  ')}`)
     if (passBad.length) red.push(`pipette: ${passBad.slice(0, 2).join('; ')}${passBad.length > 2 ? ` (+${passBad.length - 2})` : ''}`)
     if (STREAM) console.log(`    · ${job.name} ${String(s).padStart(2)} ${String(stations[s - 1].action).padEnd(14)} ${red.length ? '✗ ' + red.join(' | ').slice(0, 200) : '✓'}`)
-    rows.push({ station: s, action: stations[s - 1].action, container: stations[s - 1].container, red, detail: VERBOSE ? r : { speedPeak: r.peak, camera: r.camera, passes: r.pipette && r.pipette.passes, expected: exp }, phaseSpeeds: r.phaseSpeeds, peaks: r.peaks, transition: r.transition, cameraPose: r.cameraPose, spinTrace: r.spinTrace })
+    rows.push({ station: s, action: stations[s - 1].action, container: stations[s - 1].container, red, detail: VERBOSE ? r : { speedPeak: r.peak, camera: r.camera, passes: r.pipette && r.pipette.passes, expected: exp }, phaseSpeeds: r.phaseSpeeds, peaks: r.peaks, transition: r.transition, cameraPose: r.cameraPose, labels: r.labels, tripCollisions: r.tripCollisions, placedAtNext: r.placedAtNext, collisionsAll: r.collisions && r.collisions.map((c) => ({ check: c.check, a: c.a, b: c.b, depth: +(+c.depth).toFixed(3), frame: c.frame, frames: c.frames, at: c.at })), spinTrace: r.spinTrace })
   }
   await page.close()
   return { rows, errors }

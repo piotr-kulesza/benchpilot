@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { passesFor, comparePasses, isolatedJump, createFinish, phaseSpeeds, ndcInFrame, transitionVerdict, cameraStep, cameraJumps, CAM_JUMP } from './protocolCheck.js'
+import { passesFor, comparePasses, isolatedJump, createFinish, phaseSpeeds, ndcInFrame, transitionVerdict, cameraStep, cameraJumps, CAM_JUMP, labelMoves, transitionCollisions, placedAtNext } from './protocolCheck.js'
 import { generateProtocol, EDGE_VOLUMES } from './genProtocol.js'
 
 describe('check-protocol — the pure rules, proven red', () => {
@@ -42,6 +42,24 @@ describe('check-protocol — the pure rules, proven red', () => {
     expect(j.length).toBe(1); expect(j[0].frame).toBe(30); expect(j[0].dPos).toBeGreaterThan(CAM_JUMP.pos)
     const turn = [pose(0, 3, 9), pose(0, 3, 9, [0, half, 0, half])]
     expect(cameraJumps(turn)[0].dRot).toBeCloseTo(90, 4)
+  })
+  it('RED: a label moves — any change of its place between two frames of a station', () => {
+    const a = new Map([['Centrifuge', [18.2, 3.1, 0]], ['tube', [5, 1, 0]]])
+    expect(labelMoves(a, new Map(a))).toEqual([])
+    const b = new Map([['Centrifuge', [18.2, 3.16, 0]], ['tube', [5, 1, 0]], ['new', [0, 0, 0]]])
+    const m = labelMoves(a, b)
+    expect(m.length).toBe(1); expect(m[0].label).toBe('Centrifuge'); expect(m[0].d).toBeCloseTo(0.06, 9)
+  })
+  it('RED: a collision that begins while a vessel is on its way to the station is the TRIP\'s', () => {
+    const c = [{ check: 'sweep', a: 'sample Tube', b: 'prev · IceBucket', frame: 12 }, { check: 'intersect', a: 'pipette', b: 'Bottle', frame: 400 }]
+    expect(transitionCollisions(c, 250).map((x) => x.b)).toEqual(['prev · IceBucket'])
+    expect(transitionCollisions(c, -1)).toEqual([])
+  })
+  it('RED: a vessel placed in one frame at Next (shown before and after, moved in the first frames) is a teleport', () => {
+    const before = [{ key: 'column', shown: true, p: [67.2, 0, 0] }, { key: 'tube', shown: false, p: [0, 0, 0] }, { key: 'prep:1', shown: true, p: [60, 0, 0] }]
+    const after = [{ key: 'column', shown: true, p: [74.1, 0, 0.5] }, { key: 'tube', shown: true, p: [75, 0, 0] }, { key: 'prep:1', shown: true, p: [60.01, 0.002, 0] }]
+    const t = placedAtNext(before, after)
+    expect(t.length).toBe(1); expect(t[0].key).toBe('column'); expect(t[0].dist).toBeGreaterThan(6)
   })
   it('per-phase peak speeds of a pipette track (u/s): the descent and the moves, each its own', () => {
     const fr = (phase, y, x = 0) => ({ phase, x, y, z: 0, dt: 0.1 })
